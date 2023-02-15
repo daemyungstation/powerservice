@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMallLinkedMap">
+
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 기본정보 조회
+     * ================================================================
+     * -->
+    <select id="DlwMallLinkedMap.getMemberBasicList" parameterType="map" resultType="resultMap">
+     	SELECT 
+		    DISTINCT
+		    MEM_NO,  
+		    ACCNT_NO,
+		    STATE,
+		    CREATE_DATE,
+		    READY_CASH AS AMT,
+		    (USE_AMT - CNC_AMT) AS TOTAL_USE_AMT,
+		    READY_CASH - (USE_AMT - CNC_AMT) AS TOTAL_AMT
+		FROM
+		(
+		    SELECT
+		        A.MEMBER_ID AS MEM_NO, 
+		        A.GOODS_ID AS ACCNT_NO,
+		        A.STATE,
+		        NVL(A.ACU_AMT,0) AS READY_CASH,
+		        NVL((SELECT SUM(AMT) FROM CASH_HISTORY WHERE GOODS_ID = AA.GOODS_ID AND TYPE = 'U'),0) AS USE_AMT,
+		        NVL((SELECT SUM(AMT) FROM CASH_HISTORY WHERE GOODS_ID = AA.GOODS_ID AND TYPE = 'C'),0) AS CNC_AMT,
+		        AA.CREATE_DATE 
+		    FROM  MEMBER A INNER JOIN 
+		        CASH_HISTORY AA ON A.MEMBER_ID = AA.MEMBER_ID AND A.GOODS_ID = AA.GOODS_ID
+		    WHERE 1=1  
+		        AND A.MALL_USE_YN  = 'Y'
+		        AND AA.GOODS_ID = #{accnt_no}
+		        AND AA.TYPE = 'A'
+		        AND AA.CREATE_DATE =
+		        (
+		            SELECT MAX(CREATE_DATE) FROM CASH_HISTORY
+		            WHERE GOODS_ID = #{accnt_no}
+		            AND TYPE = 'A'
+		        )
+		)    
+    
+    
+    	<!-- 
+			SELECT
+			    MEM_NO,  
+			    ACCNT_NO,
+			    STATE,
+			    CREATE_DATE,
+			    AMT,
+			    (U_AMT - C_AMT) AS TOTAL_USE_AMT,
+			    AMT - (U_AMT - C_AMT) AS TOTAL_AMT
+			FROM
+			(
+			    SELECT 
+			        A.MEMBER_ID AS MEM_NO,                /* 고유번호 */
+			        A.GOODS_ID AS ACCNT_NO,               /* 상품번호 */ 
+			        A.STATE , 
+			        MAX(CASE WHEN B.TYPE = 'A' THEN B.CREATE_DATE ELSE SYSDATE END) AS CREATE_DATE,  /* 최종적립일 */
+			        NVL(MAX(CASE WHEN B.TYPE = 'A' THEN AMT ELSE 0 END),0) AS AMT,  /* 전체적립 */
+			        NVL(SUM(CASE WHEN B.TYPE = 'U' THEN AMT ELSE 0 END),0) AS U_AMT, /* 사용금액*/
+			        NVL(SUM(CASE WHEN B.TYPE = 'C' THEN AMT ELSE 0 END),0) AS C_AMT  /* 취소금액*/
+			    FROM MEMBER A  INNER JOIN 
+			        (
+			            SELECT 
+			                MEMBER_ID, 
+			                GOODS_ID, 
+			                AMT,  
+			                TYPE, 
+			                MAX(CREATE_DATE) AS CREATE_DATE 
+			            FROM DLWMALL.CASH_HISTORY D 
+			            GROUP BY MEMBER_ID, GOODS_ID, AMT, TYPE
+			         ) B ON A.MEMBER_ID = B.MEMBER_ID AND A.GOODS_ID = B.GOODS_ID
+			    WHERE 1=1
+			    AND A.MALL_USE_YN  = 'Y'
+			    AND A.MEMBER_ID = #{mem_no}
+			     AND A.GOODS_ID = #{accnt_no}
+			    GROUP BY A.MEMBER_ID, A.GOODS_ID,A.STATE
+			)   
+			 -->       
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 기본정보 사용/취소금액 조회
+     * ================================================================
+     * -->
+    <select id="DlwMallLinkedMap.getMemberBasicListUseAmt" parameterType="map" resultType="resultMap">
+        SELECT  MEMBER_ID AS ID
+                ,GOODS_ID AS MEMBER_ID
+                ,DECODE(TYPE, 'U', '사용', 'C', '취소') AS TYPE
+                ,AMT AS AMT
+                ,MEMO AS MEMO
+                ,CREATE_DATE AS CREATE_DATE
+                ,SUBSTR(MEMO, 0, 1) AS GUBUN
+            FROM DLWMALL.CASH_HISTORY A
+          WHERE 1=1
+              AND A.TYPE IN ('U', 'C')
+             <if test="mem_no != null and mem_no != ''">
+               AND A.MEMBER_ID = #{mem_no}
+          </if>
+          <if test="accnt_no != null and accnt_no != ''">
+               AND A.GOODS_ID = #{accnt_no}
+          </if>
+          ORDER BY CREATE_DATE DESC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 상태값 변경
+     * ================================================================
+     * -->
+    <parameterMap id="getListByProcParamMap2" type="map">
+        <parameter property="P_MEM_NO" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_ACCNT_NO" mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_STATE" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_CREATE_ID" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+    </parameterMap>
+
+    <update id="DlwMallLinkedMap.updateResnMemberState" statementType="CALLABLE" parameterMap="getListByProcParamMap2">
+        {call SP_WEB_MEMBER_STATE(?, ?, ?, ?)}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 적립금 전송
+     * ================================================================
+     * -->
+    <insert id="DlwMallLinkedMap.insertMemberBasicAmt" parameterType="map">
+        INSERT INTO DLWMALL.CASH_HISTORY(MEMBER_ID,GOODS_ID,TYPE,AMT,MEMO,CREATE_DATE)
+             VALUES (#{sMem_no}, #{sAccnt_no}, 'A', #{nSend_amt}, '', SYSDATE)
+    </insert>
+    
+    
+    <!-- 회원몰 사용금액 (의전, 해약 공용) -->
+    <select id="DlwMallLinkedMap.getMallUseAmt" parameterType="String" resultType="int">
+		SELECT /*DlwMallLinkedMap.getMallUseAmt*/
+			NVL(SUM(NVL(SUB_USE_AMT,0)) - SUM(NVL(SUB_CAN_AMT,0)) ,0) USE_AMT
+		FROM ( 
+		             SELECT 
+		             	CASE WHEN TYPE = 'U' THEN SUM(AMT) ELSE 0 END AS SUB_USE_AMT,
+		             	CASE WHEN TYPE = 'C' THEN SUM(AMT) ELSE 0 END AS SUB_CAN_AMT 
+		             FROM CASH_HISTORY 
+		             WHERE 1=1
+		             	AND GOODS_ID =  #{accnt_no}
+		             GROUP BY TYPE
+				 ) 
+    </select> 
+    
+    <!-- 회원몰 상태값 변경 -->
+    
+     <parameterMap id="ProcParamMap" type="map">
+        <parameter property="P_MEM_NO" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_ACCNT_NO" mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_STATE" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_CREATE_ID" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+    </parameterMap>
+    
+    <update id="DlwMallLinkedMap.updateResnMallState" statementType="CALLABLE" parameterMap="ProcParamMap">
+        {call SP_WEB_MEMBER_STATE(?, ?, ?, ?)}  
+    </update>
+    
+    
+    <select id="DlwMallLinkedMap.getMallMemberCnt" parameterType="map" resultType="int">
+		SELECT COUNT(*) CNT
+          FROM MEMBER
+         WHERE MEMBER_ID = #{P_MEM_NO}
+           AND GOODS_ID = #{P_ACCNT_NO}
+    </select> 
+    
+    <select id="DlwMallLinkedMap.selectMaxMemberid" parameterType="String" resultType="int">
+		SELECT NVL(MAX(ID),0)+1 ID FROM MEMBER
+    </select> 
+    
+    <insert id="DlwMallLinkedMap.insertMember" parameterType="map" >
+        INSERT INTO MEMBER(ID, MEMBER_ID, GOODS_ID, CI, GOODS_NAME, RESORT_NUM, STATE, ACU_AMT, USE_AMT, CMPLT_DATE, CREATE_DATE, SDP_YN, CREATE_ID, MALL_USE_YN)
+        VALUES (#{ID}, #{MEMBER_ID}, #{GOODS_ID}, #{CI}, #{GOODS_NAME}, #{RESORT_NUM}, #{STATE}, #{ACU_AMT}, #{USE_AMT}, #{CMPLT_DATE}, #{CREATE_DATE}, #{SDP_YN}, #{CREATE_ID}, 'Y')
+    </insert>
+    
+    <insert id="DlwMallLinkedMap.insertMemberHistory" parameterType="map" >
+        INSERT INTO MEMBER_HISTORY (MEMBER_ID, GOODS_ID, STATE, MEMO, CREATE_DATE)
+        VALUES (#{MEMBER_ID}, #{GOODS_ID}, #{STATE}, #{MEMO}, #{CREATE_DATE})
+    </insert>
+    
+    <insert id="DlwMallLinkedMap.insertCashHistory" parameterType="map" >
+        INSERT INTO CASH_HISTORY (MEMBER_ID, GOODS_ID, TYPE, AMT, MEMO, CREATE_DATE, CREATE_ID)
+        VALUES (#{MEMBER_ID}, #{GOODS_ID}, #{TYPE}, #{AMT}, #{MEMO}, #{CREATE_DATE}, #{CREATE_ID})
+    </insert>
+    
+    <select id="DlwMallLinkedMap.getNewExistAllFlagCnt" parameterType="map" resultType="int">
+		SELECT COUNT(*) CNT
+          FROM MEMBER_ALL
+         WHERE MEMBER_ID = #{P_MEM_NO}
+    </select>
+    
+    <insert id="DlwMallLinkedMap.insertMemberAll" parameterType="map" >
+        INSERT INTO MEMBER_ALL (MEMBER_ID, BIRTH_DATE, CREATE_DATE, DELFLAG_YN)
+        VALUES (#{MEMBER_ID}, #{BIRTH_DATE}, #{CREATE_DATE}, #{DELFLAG_YN})
+    </insert>
+    
+</mapper>

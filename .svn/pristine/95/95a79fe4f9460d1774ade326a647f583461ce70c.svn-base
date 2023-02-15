@@ -1,0 +1,205 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS040301" classname="PS040301" inheritanceid="" position="absolute 0 0 468 103" titletext="담당자 일괄배정" scrollbars="none" onload="PS040301_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 0 468 103"/>
+        <Button id="btn_close" taborder="6" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 442 8 462 27" tabstop="false"/>
+        <Static id="stc_30" text="담당자 일괄배정" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 234 28"/>
+        <Static id="stc_72" text="담당자" class="sta_workLabel1" position="absolute 11 66 101 92" validate=""/>
+        <Static id="stc_14" class="sta_workData" position="absolute 100 66 458 92"/>
+        <Button id="btn_bndeSave" taborder="5" onclick="btn_bndeSave_onclick" class="btn_WF_Common" position="absolute 387 43 459 63" tooltiptext="일괄저장" tabstop="false" text="일괄저장"/>
+        <Combo id="cbo_hgrn_team_cd" taborder="7" innerdataset="ds_hgrnTeamCd" codecolumn="team_cd" datacolumn="team_nm" onitemchanged="cbo_onitemchanged" anchor="default" position="absolute 104 69 224 89" positiontype="position"/>
+        <Combo id="cbo_team_cd" taborder="8" displaynulltext="선택" innerdataset="ds_teamCd" codecolumn="team_cd" datacolumn="team_nm" onitemchanged="cbo_onitemchanged" anchor="default" position="absolute 226 69 366 89" positiontype="position"/>
+        <Combo id="cbo_chpr_id" taborder="9" displaynulltext="선택" innerdataset="ds_chprId" codecolumn="user_id" datacolumn="user_nm" anchor="default" position="absolute 368 69 454 89" positiontype="position"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item0" compid="cbo_chpr_id" propid="value" datasetid="ds_calbBndeAsgn" columnid="chpr_id"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_calbBndeAsgn" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="selectcheck" type="STRING" size="256"/>
+          <Column id="chpr_id" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_allTeamCd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_hgrnTeamCd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="team_cd" type="STRING" size="256"/>
+          <Column id="team_nm" type="STRING" size="256"/>
+          <Column id="hgrn_team_cd" type="STRING" size="256"/>
+          <Column id="team_lvl_cnt" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_teamCd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="team_cd" type="STRING" size="256"/>
+          <Column id="team_nm" type="STRING" size="256"/>
+          <Column id="hgrn_team_cd" type="STRING" size="256"/>
+          <Column id="team_lvl_cnt" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_chprId" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="user_id" type="STRING" size="256"/>
+          <Column id="user_nm" type="STRING" size="256"/>
+          <Column id="team_cd" type="STRING" size="256"/>
+          <Column id="hgrn_team_cd" type="STRING" size="256"/>
+          <Column id="athr_cd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+include "LIB::lib_TeamUser.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS040301_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createTeamUserInqDs(obj); // 팀에 따른 사용자 조회를 위한 데이터셋 설정
+	gfn_getList("teamCd","", null, null, null, "ds_allTeamCd"); // 팀코드 조회
+	var sUserAthrCd =gds_UserInfo.getColumn(gds_UserInfo.rowposition,'athr_cd');
+	if(sUserAthrCd.substr(0,2)=='TM'){ //TM
+		cbo_hgrn_team_cd.value = 'T20000';
+		cbo_hgrn_team_cd.enable = false;
+		gfn_getTeamCodeLoad(cbo_hgrn_team_cd.value, "ALL", ds_teamCd, ds_allTeamCd);
+		cbo_team_cd.value = gds_UserInfo.getColumn(gds_UserInfo.rowposition,'team_cd');
+		cbo_team_cd.enable = false;
+		gfn_teamUserSelect(cbo_hgrn_team_cd, cbo_team_cd, cbo_chpr_id, "2", ds_allTeamCd, ds_teamCd, "SELECT");
+	}else{
+		cbo_hgrn_team_cd.value = 'T10000';
+		cbo_hgrn_team_cd.enable = false;
+		gfn_teamUserSelect(cbo_hgrn_team_cd, cbo_team_cd, cbo_chpr_id, "1", ds_allTeamCd, ds_teamCd, "SELECT");
+		//gfn_getTeamCodeLoad(cbo_hgrn_team_cd.value, "ALL", ds_teamCd, ds_allTeamCd);
+	}		
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg)
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {
+			case "selectTeamCode":
+			gfn_getTeamCodeLoad("", "SELECT", ds_hgrnTeamCd, ds_allTeamCd, "1");
+			fn_init();						
+			break;
+			
+			case "selectUserCode":
+			gfn_getUserCdLoad("", "" ,"SELECT", ds_chprId);
+			
+			cbo_chpr_id.index = 0;
+			if (ds_chprId.rowcount > 1) {
+				cbo_chpr_id.enable = true;
+			} else {
+				cbo_chpr_id.enable = false;
+			}
+			
+			break;
+			
+			case "updateListCalbDtl":
+			opener.fn_commSearch(gfn_getCommTypeInit());
+			close();
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+// 일괄저장 전
+function fn_preBndeSave()
+{
+	 if (gfn_isNull(cbo_hgrn_team_cd.value)) {
+		alert("상담그룹1을 선택하세요.");
+		cbo_hgrn_team_cd.setFocus();
+		return false;
+	} else if (gfn_isNull(cbo_team_cd.value)) {
+		alert("상담그룹2을 선택하세요.");
+		cbo_team_cd.setFocus();
+		return false;
+	} else if (gfn_isNull(cbo_chpr_id.value)) {
+		alert("담당자를 선택하세요.");
+		cbo_chpr_id.setFocus();
+		return false;
+	}
+	
+	return true;
+}
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+// 일괄저장
+function btn_bndeSave_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (!fn_preBndeSave()) return false;
+	
+	if (confirm("일괄배정하시겠습니까?")) {
+		var szSvcid       = "updateListCalbDtl";
+		var szController  = "/cons/calb-dtl/save/update-list";
+		var szInDs        = "ds_input=ds_calbBndeAsgn";
+		var szOutDs       = "";
+		var szParam       = "";
+		var szRetCallback = "fn_callBack";
+
+		// 트랜젝션 공통함수 호출
+		gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+	}
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+// 초기화
+function fn_init()
+{
+	ds_calbBndeAsgn.clearData();
+	ds_calbBndeAsgn.addRow();
+	ds_calbBndeAsgn.setColumn(0, "selectcheck", p_selectcheck);
+	
+	gfn_teamUserInit(cbo_hgrn_team_cd, cbo_team_cd, cbo_chpr_id);
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+// 닫기 버튼 클릭
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+// 콤보 onitemchanged
+function cbo_onitemchanged(obj:Combo, e:ItemChangeEventInfo)
+{
+	if (obj.name == "cbo_hgrn_team_cd") {
+		gfn_teamUserSelect(cbo_hgrn_team_cd, cbo_team_cd, cbo_chpr_id, "1", ds_allTeamCd, ds_teamCd, "SELECT");
+	} else if (obj.name == "cbo_team_cd") {
+		gfn_teamUserSelect(cbo_hgrn_team_cd, cbo_team_cd, cbo_chpr_id, "2", ds_allTeamCd, ds_teamCd, "SELECT");
+	}
+}
+
+]]></Script>
+  </Form>
+</FDL>

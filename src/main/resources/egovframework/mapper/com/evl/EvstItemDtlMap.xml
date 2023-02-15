@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvstItemDtlMap">
+
+    <sql id="EvstItemDtlMap.selectCondition_fragment">
+        <if test="bzpt_div != null and bzpt_div != ''">
+            AND BZPT_DIV = #{bzpt_div}
+        </if>
+        <if test="evlt_item_id != null and evlt_item_id != ''">
+            AND EVLT_ITEM_ID = #{evlt_item_id}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+    </sql>
+
+    <select id="EvstItemDtlMap.getEvstItemDtlCount" parameterType="map" resultType="int">
+        SELECT /* EvstItemDtlMap.getEvstItemDtlCount */
+               COUNT(*)
+          FROM TB_EVST_ITEM_DTL
+         WHERE EVST_ID = #{evst_id}
+        <include refid="EvstItemDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EvstItemDtlMap.getEvstItemDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* EvstItemDtlMap.getEvstItemDtlList */
+               A.*
+        <if test="evst_id != null and evst_id != ''">
+            , (SELECT SUM(MAXSCORE)
+                 FROM (SELECT EVLT_TYP_ID, (CASE WHEN MAX(EVLT_ITEM_SCR) <![CDATA[<]]> 0 THEN 0 ELSE MAX(EVLT_ITEM_SCR) END) AS MAXSCORE
+                         FROM TB_EVST_ITEM_DTL
+                        WHERE EVST_ID = #{evst_id}
+                     GROUP BY EVLT_TYP_ID
+                       )
+               ) AS EVLT_TOTL_SCR
+            , (SELECT COUNT(*)
+                 FROM (SELECT EVLT_TYP_ID, MAX(EVLT_ITEM_SCR) AS MAXSCORE
+                         FROM TB_EVST_ITEM_DTL
+                        WHERE EVST_ID = #{evst_id}
+                     GROUP BY EVLT_TYP_ID
+                       )
+               ) AS EVLT_QSIT_CNT
+        </if>
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY MAJ_EXPE_SQNC, MID_EXPE_SQNC, MIN_EXPE_SQNC, EXPE_SQNC ASC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                             , B.EVLT_TYP_NM AS MAJ_EVLT_TYP_NM, B.EXPE_SQNC AS MAJ_EXPE_SQNC
+                             , C.EVLT_TYP_NM AS MID_EVLT_TYP_NM, C.EXPE_SQNC AS MID_EXPE_SQNC
+                             , D.EVLT_TYP_NM AS MIN_EVLT_TYP_NM, D.EXPE_SQNC AS MIN_EXPE_SQNC
+                          FROM (SELECT A.*
+                                     , (SELECT EVLT_TYP_ID
+                                          FROM TB_EVLT_TYP
+                                         WHERE EVLT_TYP_LVL_CNT = 1
+                                         START WITH EVLT_TYP_ID = A.EVLT_TYP_ID AND EVST_ID = A.EVST_ID
+                                       CONNECT BY EVLT_TYP_ID = PRIOR HGRN_EVLT_TYP_ID AND EVST_ID = PRIOR EVST_ID) AS MAJ_EVLT_TYP_ID
+                                     , (SELECT EVLT_TYP_ID
+                                          FROM TB_EVLT_TYP
+                                         WHERE EVLT_TYP_LVL_CNT = 2
+                                         START WITH EVLT_TYP_ID = A.EVLT_TYP_ID AND EVST_ID = A.EVST_ID
+                                       CONNECT BY EVLT_TYP_ID = PRIOR HGRN_EVLT_TYP_ID AND EVST_ID = PRIOR EVST_ID) AS MID_EVLT_TYP_ID
+                                     , A.EVLT_TYP_ID AS MIN_EVLT_TYP_ID
+                                     , (SELECT USER_NM
+                                          FROM TB_USER
+                                         WHERE USER_ID = A.RGSR_ID
+                                           AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                                     , (SELECT USER_NM
+                                          FROM TB_USER
+                                         WHERE USER_ID = A.AMND_ID
+                                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                                  FROM (SELECT A.*
+                                          FROM TB_EVST_ITEM_DTL A
+                                         WHERE EVST_ID = #{evst_id}
+                                      <include refid="EvstItemDtlMap.selectCondition_fragment"/>
+                                         ) A
+                                 ) A
+                            LEFT JOIN TB_EVLT_TYP B
+                              ON B.EVLT_TYP_ID = A.MAJ_EVLT_TYP_ID
+                             AND B.EVST_ID = A.EVST_ID
+                             AND B.CNTR_CD = A.CNTR_CD
+                            LEFT JOIN TB_EVLT_TYP C
+                              ON C.EVLT_TYP_ID = A.MID_EVLT_TYP_ID
+                             AND C.EVST_ID = A.EVST_ID
+                             AND C.CNTR_CD = A.CNTR_CD
+                            LEFT JOIN TB_EVLT_TYP D
+                              ON D.EVLT_TYP_ID = A.MIN_EVLT_TYP_ID
+                             AND D.EVST_ID = A.EVST_ID
+                             AND D.CNTR_CD = A.CNTR_CD
+                        ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EvstItemDtlMap.insertEvstItemDtl" parameterType="map">
+        INSERT  /* EvstItemDtlMap.insertEvstItemDtl */
+          INTO TB_EVST_ITEM_DTL
+              (EVST_ID, EVLT_ITEM_ID, EVLT_ITEM_NM, EVLT_TYP_ID, EVLT_ITEM_SCR
+             , EVLT_ITEM_EXPI, EXPE_SQNC, CNTR_CD
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, BZPT_DIV)
+       (SELECT #{evst_id}, EVLT_ITEM_ID, EVLT_ITEM_NM, EVLT_TYP_ID, EVLT_ITEM_SCR
+             , EVLT_ITEM_EXPI, EXPE_SQNC + ROWNUM, CNTR_CD, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{bzpt_div}
+          FROM (SELECT A.EVLT_ITEM_ID, A.EVLT_ITEM_NM, A.EVLT_TYP_ID, A.EVLT_ITEM_SCR, A.EVLT_ITEM_EXPI
+                     , B.EXPE_SQNC, A.CNTR_CD
+                     , (SELECT EXPE_SQNC
+                          FROM (SELECT * FROM TB_EVLT_TYP WHERE EVST_ID = #{evst_id})
+                         WHERE EVLT_TYP_LVL_CNT = 1
+                    START WITH EVLT_TYP_ID = A.EVLT_TYP_ID CONNECT BY EVLT_TYP_ID = PRIOR HGRN_EVLT_TYP_ID) AS MAJ_EXPE_SQNC
+                     , (SELECT EXPE_SQNC
+                          FROM (SELECT * FROM TB_EVLT_TYP WHERE EVST_ID = #{evst_id})
+                         WHERE EVLT_TYP_LVL_CNT = 2
+                    START WITH EVLT_TYP_ID = A.EVLT_TYP_ID CONNECT BY EVLT_TYP_ID = PRIOR HGRN_EVLT_TYP_ID) AS MID_EXPE_SQNC
+                     , (SELECT EXPE_SQNC
+                          FROM TB_EVLT_TYP
+                         WHERE EVLT_TYP_ID = A.EVLT_TYP_ID
+                           AND EVST_ID = #{evst_id}) AS MIN_EXPE_SQNC
+                 FROM TB_EVLT_ITEM_BANK A
+                    , (SELECT DECODE(MAX(EXPE_SQNC), '', 0, MAX(EXPE_SQNC)) AS EXPE_SQNC
+                         FROM TB_EVST_ITEM_DTL
+                        WHERE EVST_ID = #{evst_id}) B
+                <if test="selectcheck != null and selectcheck != ''">
+                WHERE EVLT_ITEM_ID
+                    <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                          #{item}
+                    </foreach>
+                </if>
+             ORDER BY MAJ_EXPE_SQNC, MID_EXPE_SQNC, MIN_EXPE_SQNC ASC
+              )
+       )
+    </insert>
+
+    <insert id="EvstItemDtlMap.insertEvltTyp" parameterType="map">
+        MERGE INTO /* EvstItemDtlMap.insertEvltTyp */
+                   TB_EVLT_TYP A
+             USING (SELECT #{evst_id} EVST_ID, EVLT_TYP_ID, EVLT_TYP_NM, EVLT_BAS_CNTN, HGRN_EVLT_TYP_ID
+                         , EVLT_TYP_LVL_CNT, EXPE_SQNC, BZPT_DIV, CNTR_CD
+                         FROM TB_EVLT_TYP_BANK
+                        WHERE EVLT_TYP_ID IN (SELECT EVLT_TYP_ID
+                                                 FROM TB_EVLT_TYP_BANK
+                                         START WITH EVLT_TYP_ID IN (SELECT EVLT_TYP_ID
+                                                                     FROM TB_EVLT_ITEM_BANK
+                                                                   WHERE EVLT_ITEM_ID
+                                                           <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                                                              #{item}
+                                                           </foreach>) CONNECT BY PRIOR HGRN_EVLT_TYP_ID = EVLT_TYP_ID
+                                                                   GROUP BY EVLT_TYP_ID)
+
+                        <if test="bzpt_div != null and bzpt_div != ''">
+                          AND BZPT_DIV = #{bzpt_div}
+                        </if>
+                   ) B
+                ON (A.EVST_ID 	   	= B.EVST_ID
+               AND A.EVLT_TYP_ID	= B.EVLT_TYP_ID)
+        WHEN MATCHED THEN
+                   UPDATE SET A.AMND_ID   = #{amnd_id}
+                         , A.AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHEN NOT MATCHED THEN
+                INSERT (EVLT_TYP_ID, EVST_ID, EVLT_TYP_NM, EVLT_BAS_CNTN, HGRN_EVLT_TYP_ID
+                      , EVLT_TYP_LVL_CNT, EXPE_SQNC, BZPT_DIV
+                      , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+                VALUES (B.EVLT_TYP_ID, #{evst_id}, B.EVLT_TYP_NM, B.EVLT_BAS_CNTN, B.HGRN_EVLT_TYP_ID
+                      , B.EVLT_TYP_LVL_CNT, B.EXPE_SQNC, #{bzpt_div}
+                      , B.CNTR_CD, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <delete id="EvstItemDtlMap.deleteEvstItemDtl" parameterType="map">
+        DELETE /* EvstItemDtlMap.deleteEvstItemDtl */
+          FROM TB_EVST_ITEM_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EVST_ID = #{evst_id}
+        <if test="deletefg == nul or deletefg == ''">
+            AND EVLT_ITEM_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                    #{item}
+                </foreach>
+        </if>
+    </delete>
+
+    <delete id="EvstItemDtlMap.deleteEvltTyp" parameterType="map">
+        DELETE /* EvstItemDtlMap.deleteEvltTyp */
+          FROM TB_EVLT_TYP
+         WHERE EVST_ID = #{evst_id}
+    </delete>
+
+    <insert id="EvstItemDtlMap.insertCopyEvstItemDtl" parameterType="map">
+        INSERT /* EvstItemDtlMap.insertCopyEvstItemDtl */
+          INTO TB_EVST_ITEM_DTL
+               (EVST_ID, EVLT_ITEM_ID, EVLT_ITEM_NM, EVLT_TYP_ID, EVLT_ITEM_SCR
+              , EVLT_ITEM_EXPI, EXPE_SQNC, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT #{new_evst_id}, EVLT_ITEM_ID, EVLT_ITEM_NM, EVLT_TYP_ID, EVLT_ITEM_SCR
+             , EVLT_ITEM_EXPI, EXPE_SQNC, BZPT_DIV
+             , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EVST_ITEM_DTL
+         WHERE EVST_ID = #{evst_id}
+    </insert>
+
+    <insert id="EvstItemDtlMap.insertCopyEvltTyp" parameterType="map">
+        INSERT /* EvstItemDtlMap.insertCopyEvltTyp */
+          INTO TB_EVLT_TYP A
+             ( EVLT_TYP_ID, EVST_ID, EVLT_TYP_NM, EVLT_BAS_CNTN, HGRN_EVLT_TYP_ID
+             , EVLT_TYP_LVL_CNT, EXPE_SQNC, BZPT_DIV
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT EVLT_TYP_ID, #{new_evst_id}, EVLT_TYP_NM, EVLT_BAS_CNTN, HGRN_EVLT_TYP_ID
+             , EVLT_TYP_LVL_CNT, EXPE_SQNC, BZPT_DIV
+             , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EVLT_TYP
+         WHERE EVST_ID = #{evst_id}
+    </insert>
+
+    <select id="EvstItemDtlMap.getEvstItemDtl" parameterType="map" resultType="resultMap">
+        SELECT /* EvstItemDtlMap.getEvstItemDtl */
+               A.*
+          FROM (SELECT ROW_NUMBER() OVER (ORDER BY MAJ_EXPE_SQNC, MID_EXPE_SQNC, MIN_EXPE_SQNC, EXPE_SQNC) AS PAGE_INDX
+                     , A.*
+                  FROM (SELECT A.*
+                             , B.EVLT_TYP_NM AS MIN_EVLT_TYP_NM, B.EXPE_SQNC AS MIN_EXPE_SQNC
+                             , C.EVLT_TYP_NM AS MID_EVLT_TYP_NM, C.EXPE_SQNC AS MID_EXPE_SQNC
+                             , D.EVLT_TYP_NM AS MAJ_EVLT_TYP_NM, D.EXPE_SQNC AS MAJ_EXPE_SQNC
+                             , E.EVLT_TOTL_SCR, F.EVLT_QSIT_CNT
+                     <choose>
+                         <when test="evlt_resl_id != null and evlt_resl_id != ''">
+                             , (CASE
+                                WHEN EXISTS (SELECT 'Y'
+                                               FROM TB_EVLT_RESL_ITEM_DTL
+                                              WHERE EVST_ID = A.EVST_ID
+                                                AND EVLT_ITEM_ID = A.EVLT_ITEM_ID
+                                                AND CNTR_CD = A.CNTR_CD
+                                                AND EVLT_RESL_ID = #{evlt_resl_id})
+                                THEN 'Y'
+                                ELSE 'N'
+                                END) AS CHECKITMFG
+                         </when>
+                         <otherwise>
+                             , 'N' AS CHECKITMFG
+                         </otherwise>
+                     </choose>
+                          FROM (SELECT A.CNTR_CD, A.EVST_ID, A.EVLT_ITEM_ID, A.EVLT_ITEM_NM, A.EVLT_ITEM_SCR
+                                     , A.EVLT_ITEM_EXPI, A.EXPE_SQNC
+                                     , A.EVLT_TYP_ID AS MIN_EVLT_TYP_ID
+                                     , (SELECT EVLT_TYP_ID
+                                          FROM TB_EVLT_TYP
+                                         WHERE EVLT_TYP_LVL_CNT = '2'
+                                         START WITH EVLT_TYP_ID = A.EVLT_TYP_ID AND EVST_ID = A.EVST_ID
+                                       CONNECT BY EVLT_TYP_ID = PRIOR HGRN_EVLT_TYP_ID AND EVST_ID = PRIOR EVST_ID) AS MID_EVLT_TYP_ID
+                                     , (SELECT EVLT_TYP_ID
+                                          FROM TB_EVLT_TYP
+                                         WHERE EVLT_TYP_LVL_CNT = '1'
+                                         START WITH EVLT_TYP_ID = A.EVLT_TYP_ID AND EVST_ID = A.EVST_ID
+                                       CONNECT BY EVLT_TYP_ID = PRIOR HGRN_EVLT_TYP_ID AND EVST_ID = PRIOR EVST_ID) AS MAJ_EVLT_TYP_ID
+                                  FROM (SELECT A.*
+                                          FROM TB_EVST_ITEM_DTL A
+                                         WHERE EVST_ID = #{evst_id}
+                                           AND CNTR_CD = #{cntr_cd}
+                                       ) A
+                               ) A
+                          LEFT JOIN
+                               (SELECT A.*
+                                  FROM TB_EVLT_TYP A
+                               ) B
+                            ON B.EVST_ID = A.EVST_ID
+                           AND B.EVLT_TYP_ID = A.MIN_EVLT_TYP_ID
+                           AND B.CNTR_CD = A.CNTR_CD
+                          LEFT JOIN
+                               (SELECT A.*
+                                  FROM TB_EVLT_TYP A
+                               ) C
+                            ON C.EVST_ID = A.EVST_ID
+                           AND C.EVLT_TYP_ID = A.MID_EVLT_TYP_ID
+                           AND C.CNTR_CD = A.CNTR_CD
+                          LEFT JOIN
+                               (SELECT A.*
+                                  FROM TB_EVLT_TYP A
+                               ) D
+                            ON D.EVST_ID = A.EVST_ID
+                           AND D.EVLT_TYP_ID = A.MAJ_EVLT_TYP_ID
+                           AND D.CNTR_CD = A.CNTR_CD
+                          LEFT JOIN
+                               (SELECT CNTR_CD, EVST_ID, SUM(MAXSCORE) AS EVLT_TOTL_SCR
+                                  FROM (SELECT CNTR_CD, EVST_ID, EVLT_TYP_ID, MAX(EVLT_ITEM_SCR) AS MAXSCORE
+                                          FROM TB_EVST_ITEM_DTL A
+                                        GROUP BY CNTR_CD, EVST_ID, EVLT_TYP_ID
+                                       ) A
+                                 GROUP BY CNTR_CD, EVST_ID
+                               ) E
+                            ON E.EVST_ID = A.EVST_ID
+                           AND E.CNTR_CD = A.CNTR_CD
+                          LEFT JOIN TB_EVST_DTL F
+                            ON F.EVST_ID = A.EVST_ID
+                           AND F.CNTR_CD = F.CNTR_CD
+                       ) A
+               ) A
+    </select>
+
+
+    <update id="EvstItemDtlMap.updateEvstItemDtl" parameterType="map">
+        UPDATE /* EvstItemDtlMap.updateEvstItemDtl */
+               TB_EVST_ITEM_DTL
+           SET CNTR_CD = #{cntr_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        <if test="expe_sqnc != null and expe_sqnc != ''">
+            , EXPE_SQNC = #{expe_sqnc}
+        </if>
+         WHERE EVLT_ITEM_ID = #{evlt_item_id}
+           AND EVST_ID = #{evst_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+</mapper>

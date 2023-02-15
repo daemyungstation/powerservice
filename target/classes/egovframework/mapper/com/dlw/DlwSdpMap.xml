@@ -1,0 +1,1024 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwSdpMap">
+    <!-- 삼디프 시책금 db 조회 건수를 조회한다. -->
+    <select id="DlwSdpMap.getSdpCount" parameterType="map" resultType="int">
+    
+        SELECT
+        	/* DlwSdpMap.getSdpCount */
+		    COUNT(*)
+		FROM
+		(
+		    SELECT 
+		        ROW_NUMBER() OVER(ORDER BY MPA.ACCNT_NO ASC) PAGE_INDX,
+		        MPA.ACCNT_NO,
+		        MPA.MEM_NO,
+		        MB.MEM_NM,
+		        PD.PROD_NM,
+		        MB.CELL,
+		        NVL(RS.RESN_CL,'00') AS ACC_STAT,
+		        --,TBL.PAY_STATE
+		        MPA.JOIN_DT,
+		        TO_CHAR(MPA.REG_DM,'YYYY-MM-DD') AS REG_DM,
+		        --TBL.EVENT_DAY,  
+		        RST.AUTH_CD AS AUTH_CD,
+		        RST.AUTH_DT AS AUTH_DT
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' INNER JOIN
+		        TB_MEMBER_WDRW_REQ REQ ON MPA.ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_PAY_NO = 1 AND REQ.DEL_FG = 'C' LEFT OUTER JOIN
+		        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND REQ.RESULT_KEY = RST.RESULT_KEY
+		    WHERE MPA.DEL_FG = 'N'  
+		    AND MPA.JOIN_DT BETWEEN #{stt_joindt} AND #{end_joindt}
+			AND MPA.REG_DM BETWEEN #{stt_regdt} || '0100:00:00' AND LAST_DAY(#{stt_regdt} || '01')||'23:59:59'
+		    AND PD.SECTION_THR = '0010'
+		    
+		    <if test='tempYn != "Y"'>
+			 	AND NVL(RS.RESN_CL,'00') != '02'
+			</if>
+		    		  
+		)
+    
+		<!-- 
+        SELECT /* DlwSdpMap.getSdpCount */
+        COUNT(*)
+        FROM
+        (
+        SELECT MPA.ACCNT_NO
+        , MPA.MEM_NO
+        , MB.MEM_NM
+        , FN_PROD_NM(MPA.PROD_CD) AS PROD_NM
+        , MB.CELL
+        , NVL(RESN_CL,'00') AS ACC_STAT
+        , FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STATE
+        , MPA.JOIN_DT
+        , MPA.REG_DM
+        , FN_EVENT_DAY(MPA.ACCNT_NO) AS EVENT_DAY
+        , (SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+        , PD.SECTION_THR
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+        ) TBL
+        WHERE TBL.SECTION_THR = '0010'
+        AND TO_CHAR(TBL.REG_DM,'YYYYMMDD') BETWEEN #{stt_regdt} AND #{end_regdt}
+        AND TBL.JOIN_DT BETWEEN #{stt_joindt} AND #{end_joindt}
+        AND TRUE_COUNT > 0
+
+
+
+        <if test='tempYn != "Y"'>
+            AND  <![CDATA[ACC_STAT <> 02]]>
+        </if>
+        
+         -->
+    </select>
+
+    <!-- 삼디프 다구좌 db 조회 건수를 조회한다. -->
+    <select id="DlwSdpMap.getSdpManyCount" parameterType="map" resultType="int">
+        SELECT COUNT(ACCNT_NO) FROM
+        (
+        SELECT MPA.MEM_NO,
+        MPA.ACCNT_NO,
+        MB.MEM_NM,
+        MB.CELL,
+        MPA.PROD_CD,
+        MPA.REG_DM,
+        MPA.B2B_EMPLE_NO,
+        MPA.ID_NO,
+        MPA.SM_SHOP_INFO,
+        (MB.HOME_ZIP || ') ' || MB.HOME_ADDR ||' '|| MB.HOME_ADDR2) AS HOME_ADDR,
+        NVL((SELECT MAX(NO) FROM PAY_MNG A WHERE A.ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+
+        WHERE MPA.MEM_NO IN (
+        SELECT MEM_NO
+        FROM
+        (
+        SELECT MPA.MEM_NO, MPA.ACCNT_NO, RS.RESN_CL
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO
+        WHERE PD.SECTION_THR = '0010'
+        AND TO_CHAR(MPA.REG_DM,'YYYYMMDD') BETWEEN #{stt_regdt} AND #{end_regdt}
+        AND RS.RESN_CL IS NULL
+        )
+        GROUP BY MEM_NO
+        HAVING COUNT(ACCNT_NO) > 1
+        )
+        AND PD.SECTION_THR = '0010'
+        ) TBL
+        WHERE 1=1
+
+        <if test='tempYn != "Y"'>
+            <![CDATA[AND TRUE_COUNT > 0]]>
+        </if>
+    </select>
+
+    <!-- 삼디프 프로모션 db 조회 건수를 조회한다. -->
+    <select id="DlwSdpMap.getSdpPromoCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwSdpMap.getSdpPromoCount */ COUNT(*)
+        FROM
+        (
+        SELECT MPA.MEM_NO,
+        MPA.ACCNT_NO,
+        MB.MEM_NM,
+        MB.CELL,
+        MPA.PROD_CD,
+        MPA.REG_DM,
+        MPA.JOIN_DT,
+        DECODE(LENGTH(FN_EVENT(MPA.ACCNT_NO)),1,'미만기',FN_EVENT(MPA.ACCNT_NO)) AS ACC_STAT,
+        MPA.MARKT_AGR_YN,
+        (TRUNC(MONTHS_BETWEEN(SYSDATE,BRTH_MON_DAY)/12)+1) AS AGE,
+        (MB.HOME_ZIP || ') ' || MB.HOME_ADDR ||' '|| MB.HOME_ADDR2) AS HOME_ADDR
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        WHERE 1=1 AND PD.SECTION_THR = '0010'
+        AND NVL(MPA.MARKT_AGR_YN,'Y') = 'Y'
+        AND MPA.REG_DM BETWEEN #{stt_regdt} AND #{end_regdt}
+        ) TBL
+        WHERE 1=1
+
+        <if test='tempYn == "Y"'>
+            AND ACC_STAT IN ('미만기','행사')
+        </if>
+        <if test='tempYn == "N"'>
+            AND ACC_STAT = '미만기'
+        </if>
+
+    </select>
+
+
+    <!-- 삼디프 시책금 db 대상목록 조회 -->
+
+    <select id="DlwSdpMap.getSdpList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBTransHistList -->
+        
+        SELECT
+        	/* DlwSdpMap.getSdpList */
+		    *
+		FROM
+		(
+		    SELECT 
+		        ROW_NUMBER() OVER(ORDER BY MPA.ACCNT_NO ASC) PAGE_INDX,
+		        MPA.ACCNT_NO,
+		        MPA.MEM_NO,
+		        MB.MEM_NM,
+		        PD.PROD_NM,
+		        MB.CELL,
+		        NVL(RS.RESN_CL,'00') AS ACC_STAT,
+		        --,TBL.PAY_STATE
+		        MPA.JOIN_DT,
+		        TO_CHAR(MPA.REG_DM,'YYYY-MM-DD') AS REG_DM,
+		        --TBL.EVENT_DAY,
+		        RST.AUTH_CD AS AUTH_CD,
+		        (CASE WHEN PAY_KIND = '02' THEN '20'|| RST.AUTH_DT  ELSE  RST.AUTH_DT END) AS AUTH_DT,
+		        CASE WHEN MPA.MAIN_CONTRACT = '01' THEN '상조'
+                     WHEN MPA.MAIN_CONTRACT = '02' THEN '해외여행'
+                     WHEN MPA.MAIN_CONTRACT = '03' THEN '크루즈'
+                     WHEN MPA.MAIN_CONTRACT = '04' THEN '골프'
+                     WHEN MPA.MAIN_CONTRACT = '05' THEN '어학연수'
+                     ELSE '무입력'
+                END AS MAIN_CONTRACT,
+                MPA.ID_NO,
+                MPA.B2B_EMPLE_CI,
+                MPA.B2B_EMPLE_NO
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.SECTION_THR = '0010' LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' INNER JOIN
+		        TB_MEMBER_WDRW_REQ REQ ON MPA.ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_PAY_NO = 1 AND REQ.DEL_FG = 'C' LEFT OUTER JOIN
+		        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND REQ.RESULT_KEY = RST.RESULT_KEY
+		    WHERE  1=1
+		    AND MPA.JOIN_DT BETWEEN #{stt_joindt} AND #{end_joindt}		     
+		    AND MPA.REG_DM BETWEEN #{stt_regdt} || '0100:00:00' AND LAST_DAY(#{stt_regdt} || '01')||'23:59:59'
+		    AND MPA.DEL_FG = 'N'
+		    		    
+		    <if test='tempYn != "Y"'>
+			 	AND NVL(RS.RESN_CL,'00') != '02'
+			</if>
+		    		  
+		)
+		WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+        
+
+		<!-- 
+        SELECT /* DlwSdpMap.getSdpList */
+        	*
+        FROM
+        (
+        	SELECT
+	        <if test="orderBy != null and orderBy != ''">
+	            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	        </if>
+
+	        X.*
+	        FROM
+	        (
+		        SELECT TBL.ACCNT_NO
+			        ,TBL.MEM_NO
+			        ,TBL.MEM_NM
+			        ,TBL.PROD_NM
+			        ,TBL.CELL
+			        ,TBL.ACC_STAT
+			        ,TBL.PAY_STATE
+			        ,TBL.JOIN_DT
+			        ,TO_CHAR(TBL.REG_DM,'YYYY-MM-DD') AS REG_DM
+			        ,TBL.EVENT_DAY
+			        ,TBL2.AUTH_CODE AS AUTH_CD
+			        ,TBL2.PAY_DT AS AUTH_DT
+		        FROM
+		        (
+			        SELECT MPA.ACCNT_NO
+			        , MPA.MEM_NO
+			        , MB.MEM_NM
+			        , FN_PROD_NM(MPA.PROD_CD) AS PROD_NM
+			        , MB.CELL
+			        , NVL(RESN_CL,'00') AS ACC_STAT
+			        , FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STATE
+			        , MPA.JOIN_DT
+			        , MPA.REG_DM
+			        , FN_EVENT_DAY(MPA.ACCNT_NO) AS EVENT_DAY
+			        , (SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+			        , PD.SECTION_THR
+			        FROM MEM_PROD_ACCNT MPA INNER JOIN
+			        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+			        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+		        ) TBL LEFT OUTER JOIN
+		        (
+		        	SELECT A.ACCNT_NO
+			        	,PAY_DT
+			        	,AUTH_CODE
+		        	FROM RT_CARD_PAY_LOG A INNER JOIN
+		        		MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+		        	WHERE 1=1
+		        	AND TO_CHAR(B.REG_DM,'YYYYMMDD') BETWEEN #{stt_regdt} AND #{end_regdt}
+		        	AND RESULT_CODE = '00'
+		        	AND PAY_NO = 1
+
+		        	UNION ALL
+
+		             SELECT
+		                RST.ACCNT_NO,
+		                (CASE WHEN PAY_KIND != '01' THEN '20' || SUBSTR(AUTH_DT,0,6) ELSE TO_CHAR(TO_DATE(AUTH_DT),'YYYYMMDD') END) AS AUTH_DT,
+		                AUTH_CD
+		             FROM TB_MEMBER_WDRW_RESULT RST INNER JOIN
+		                LF_DMUSER.TB_MEMBER_WDRW_REQ REQ ON RST.ACCNT_NO = REQ.ACCNT_NO AND RST.REQ_DAY = REQ.REQ_DAY AND REQ.RESULT_KEY = RST.RESULT_KEY
+
+		             WHERE 1=1
+		             AND REQ.PAY_MTHD = '06'
+		             AND RST.RESULT_CD = '3001'
+		             AND PAY_KIND != '03'
+		             AND REQ.REQ_PAY_NO = 1
+		             AND SUBSTR(RST.REQ_DAY,0,6) BETWEEN #{stt_regdt} AND #{end_regdt}
+
+		       	) TBL2 ON TBL.ACCNT_NO = TBL2.ACCNT_NO
+		        WHERE TBL.SECTION_THR = '0010'
+		        	AND TO_CHAR(TBL.REG_DM,'YYYYMMDD') BETWEEN #{stt_regdt} AND #{end_regdt}
+		        	AND TBL.JOIN_DT BETWEEN #{stt_joindt} AND #{end_joindt}
+		        	AND  <![CDATA[TRUE_COUNT > 0]]>
+			        <if test='tempYn != "Y"'>
+			            AND  <![CDATA[ACC_STAT <> 02]]>
+			        </if>
+	        ) X
+        ) Z
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+        
+         -->
+    </select>
+
+
+    <!-- 삼디프 다구좌 db 대상목록 조회 -->
+
+    <select id="DlwSdpMap.getSdpManyList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBTransHistList -->
+
+
+        SELECT /* DlwSdpMap.getSdpManyList */
+        *
+        FROM (SELECT
+        <if test="orderBy != null and orderBy != ''">
+            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+        </if>
+        X.*
+        FROM (
+        SELECT MEM_NO,
+        ACCNT_NO,
+        MEM_NM,
+        CELL,
+        FN_PROD_NM(PROD_CD) AS PROD_NM,
+        TO_CHAR(REG_DM,'YYYY-MM-DD') AS REG_DM,
+        B2B_EMPLE_NO AS B2BUSER,
+        ID_NO AS IDNO,
+        SM_SHOP_INFO AS PLAZAINFO,
+        HOME_ADDR,
+        HOME_ADDR2
+        FROM
+        (
+        SELECT MPA.MEM_NO,
+        MPA.ACCNT_NO,
+        MB.MEM_NM,
+        MB.CELL,
+        MPA.PROD_CD,
+        MPA.REG_DM,
+        MPA.B2B_EMPLE_NO,
+        MPA.ID_NO,
+        MPA.SM_SHOP_INFO,
+        <!-- 2018.03.20 정승철 : 상세주소 마스킹을 위해 분리작업 -->
+        <!-- (MB.HOME_ZIP || ') ' || MB.HOME_ADDR ||' '|| MB.HOME_ADDR2) AS HOME_ADDR, -->
+        (MB.HOME_ZIP || ') ' || MB.HOME_ADDR ||' ') AS HOME_ADDR,
+        MB.HOME_ADDR2 AS HOME_ADDR2,
+        NVL((SELECT MAX(NO) FROM PAY_MNG A WHERE A.ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+
+        WHERE MPA.MEM_NO IN (
+        SELECT MEM_NO
+        FROM
+        (
+        SELECT MPA.MEM_NO, MPA.ACCNT_NO, RS.RESN_CL
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO
+        WHERE PD.SECTION_THR = '0010'
+        AND TO_CHAR(MPA.REG_DM,'YYYYMMDD') BETWEEN #{stt_regdt} AND #{end_regdt}
+        AND RS.RESN_CL IS NULL
+        )
+        GROUP BY MEM_NO
+        HAVING COUNT(ACCNT_NO) > 1
+        )
+        AND PD.SECTION_THR = '0010'
+        ) TBL
+        WHERE 1=1
+        <if test='tempYn != "Y"'>
+                              <![CDATA[AND TRUE_COUNT > 0]]>
+        </if>
+        ) X
+        ) Z
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+        ORDER BY MEM_NO
+    </select>
+
+
+    <!-- 삼디프 프로모션 db 대상목록 조회 -->
+
+    <select id="DlwSdpMap.getSdpPromoList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBTransHistList -->
+
+
+        SELECT /* DlwSdpMap.getSdpPromoList */
+        *
+        FROM (SELECT
+        ROWNUM AS PAGE_INDX,
+        X.*
+        FROM (
+        SELECT MEM_NO ,
+        ACCNT_NO,
+        MEM_NM,
+        CELL,
+        FN_PROD_NM(PROD_CD) AS PROD_NM,
+        TO_CHAR(REG_DM,'YYYY-MM-DD') AS REG_DM,
+        JOIN_DT,
+        ACC_STAT,
+        DECODE(MARKT_AGR_YN,'','Y') MARKT_AGR_YN ,
+        AGE,
+        HOME_ADDR,
+        HOME_ADDR2
+        FROM
+        (
+        SELECT MPA.MEM_NO,
+        MPA.ACCNT_NO,
+        MB.MEM_NM,
+        MB.CELL,
+        MPA.PROD_CD,
+        MPA.REG_DM,
+        MPA.JOIN_DT,
+        DECODE(LENGTH(FN_EVENT(MPA.ACCNT_NO)),1,'미만기',FN_EVENT(MPA.ACCNT_NO)) AS ACC_STAT,
+        MPA.MARKT_AGR_YN,
+        (TRUNC(MONTHS_BETWEEN(SYSDATE,BRTH_MON_DAY)/12)+1) AS AGE,
+        <!-- 2018.03.20 정승철 : 상세주소 마스킹을 위해 분리작업 -->
+        <!-- (MB.HOME_ZIP || ') ' || MB.HOME_ADDR ||' '|| MB.HOME_ADDR2) AS HOME_ADDR -->
+        (MB.HOME_ZIP || ') ' || MB.HOME_ADDR ||' ') AS HOME_ADDR,
+        MB.HOME_ADDR2 AS HOME_ADDR2
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        WHERE 1=1 AND PD.SECTION_THR = '0010'
+        AND NVL(MPA.MARKT_AGR_YN,'Y') = 'Y'
+        AND MPA.REG_DM BETWEEN #{stt_regdt} AND #{end_regdt}
+        ) TBL
+        WHERE 1=1
+        <if test='tempYn == "Y"'>
+            AND ACC_STAT IN ('미만기','행사')
+        </if>
+        <if test='tempYn == "N"'>
+            AND ACC_STAT = '미만기'
+        </if>
+        ) X
+        ) Z
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                  <![CDATA[ AND PAGE_INDX >= #{startLine} AND PAGE_INDX < #{endLine} ]]>
+        </if>
+    </select>
+
+    <!-- 삼디프 충전금 db 대상 건수 count -->
+
+    <select id="DlwSdpMap.getSdpChargeCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*)
+        FROM SDP_CHARGE_LIST DJ INNER JOIN
+        MEM_PROD_ACCNT MPA ON DJ.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        WHERE DJ.DEL_FG = 'N'
+        AND CHARGE_DAY = #{stt_regdt}
+
+    </select>
+
+    <!-- 삼디프 충전금 db 대상 목록 조회 -->
+
+    <select id="DlwSdpMap.getSdpChargeList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBTransHistList -->
+        SELECT /* DlwSdpMap.getSdpChargeList */
+        *
+        FROM
+        (
+        SELECT '' AS CHK 
+        , DJ.SEQ
+        , DJ.CHARGE_DAY
+        , DJ.ACCNT_NO
+        , MB.MEM_NM
+        , DJ.CELL
+        , MPA.PROD_CD
+        , PD.PROD_NM
+        , MPA.JOIN_DT
+        , DJ.PAY_COUNT
+        , DJ.PAY_AMT
+        , DJ.EVENT_DAY
+        , CM.CARD_NO
+        <!-- 2017.09.25 김준호 SDP FTP 건으로 추가 -->
+        , (SELECT RSLT_CD FROM DEV_IMSI_SDP_FILE_DTL WHERE CHARGE_DT = SUBSTR(TO_CHAR(ADD_MONTHS(#{stt_regdt}, 1), 'YYYYMMDD'),0,6) AND ACCNT_NO = DJ.ACCNT_NO) AS RSLT_CD
+        FROM SDP_CHARGE_LIST DJ
+        INNER JOIN MEM_PROD_ACCNT MPA ON DJ.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N'
+        INNER JOIN MEMBER MB ON MPA.MEM_NO = MB.MEM_NO
+        INNER JOIN PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        LEFT OUTER JOIN CARD_MEM CM ON DJ.ACCNT_NO = CM.ACCNT_NO
+        <!-- 2017.09.25 김준호 SDP FTP 건으로 추가 -->
+         <!-- LEFT OUTER JOIN DEV_IMSI_SDP_FILE_DTL SFD ON CM.CARD_NO = SFD.CARD_NO  AND CHARGE_DT LIKE SUBSTR(#{stt_regdt},0,6)||'%' AND RSLT_CD NOT IN ('R')  -->
+        <!-- 2017.12.28 정승철 로그상세테이블(DTL) 에는 CHARGE_DT 컬럼이 충전월이 아닌 송신월이여서 +1달 -->
+        <!-- 20199520 수정 -->
+        <!--
+        LEFT OUTER JOIN ( SELECT CARD_NO, RSLT_CD
+                            FROM DEV_IMSI_SDP_FILE_DTL
+                           WHERE 1=1
+                             AND (CARD_NO, FILE_NO) IN ( SELECT CARD_NO, MAX(FILE_NO)
+                                                           FROM DEV_IMSI_SDP_FILE_DTL
+                                                          WHERE CHARGE_DT LIKE SUBSTR(TO_CHAR(ADD_MONTHS(#{stt_regdt}, 1), 'YYYYMMDD'),0,6)||'%'
+                                                          GROUP BY CARD_NO )
+                         ) SFD
+         ON CM.CARD_NO = SFD.CARD_NO
+         -->
+        WHERE DJ.DEL_FG = 'N'
+        AND CHARGE_DAY = #{stt_regdt}
+        )
+    </select>
+
+    <parameterMap id="selectSdpChargeListMap" type="resultMap"><!-- /*java.util.HashMap*/ -->
+        <parameter property="stt_dt" mode="IN" jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="reg_man" mode="IN" jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="result" mode="INOUT" jdbcType="INTEGER" javaType="java.lang.Integer" />
+    </parameterMap>
+
+    <select id="DlwSdpMap.saveChargeList" statementType="CALLABLE" parameterMap="selectSdpChargeListMap">
+        {call SP_SDP_CHARGE_CALCULATION(?, ?, ?)}
+    </select>
+
+
+    <!-- 삼디프 FTP 결과 입력 테이블 (테스트) -->
+    <insert id="DlwSdpMap.resultDtlInsert" parameterType="map">
+        INSERT /*DlwSdpMap.resultDtlInsert*/
+            INTO
+                DEV_IMSI_SDP_FILE_DTL	(
+                      SEQ
+                    , FILE_NO
+                    , CHARGE_DT
+                    , CARD_NO
+                    , CBACK_AMT
+                    , RSLT_CD
+                    , ACCNT_NO
+                    , REG_DM
+                    , REG_MAN
+                ) VALUES (
+                       DEV_IMSI_SDP_FILE_DTL_SEQ.NEXTVAL
+                    , TRIM(#{file_no})
+                    , TRIM(#{charge_dt})
+                    , TRIM(#{card_no})
+                    , TRIM(#{cback_amt})
+                    , TRIM(#{rslt_cd})
+                    , TRIM(#{accnt_no})
+                    , SYSDATE
+                    , TRIM(#{reg_man})
+                )
+    </insert>
+
+     <!-- 삼디프 FTP 전송후 전송파일 입력 (테스트) -->
+    <insert id="DlwSdpMap.insertSDPSendLog" parameterType="map">
+        INSERT INTO /* DlwSdpMap.insertSDPSendLog */
+            DEV_IMSI_SDP_FILE_MST (
+                SEQ, CHARGE_DT, FILE_NO, FILE_NAME, TYPE, SEND_COUNT, RETURNVAL, REG_DM, REG_MAN
+            ) VALUES (
+                DEV_IMSI_SDP_FILE_MST_SEQ.NEXTVAL, #{charge_dt},#{file_no}, #{file_name}, #{type}, #{send_count},#{return}, sysdate, #{reg_man}
+            )
+     </insert>
+
+     <!-- 삼디프 FTP 파일이름 seq를 위한 검색달 보낸 파일 갯수 확인 (테스트) -->
+      <select id="DlwSdpMap.selectSDPFileCount" parameterType="map" resultType="int">
+        SELECT /* DlwSdpMap.selectSDPFileCount */
+            NVL(MAX(FILE_NO),0)+1
+           FROM DEV_IMSI_SDP_FILE_MST
+           WHERE 	CHARGE_DT = #{charge_dt}
+                AND TYPE = '1'
+    </select>
+
+    <!-- 삼디프 FTP 전송월 결과 파일 없는 파일 리스트 -->
+    <select id="DlwSdpMap.getSendFileList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSdpMap.getSendFileList */
+            *
+        FROM DEV_IMSI_SDP_FILE_MST
+        WHERE 	 CHARGE_DT = #{charge_dt}
+                AND TYPE ='1'
+                AND RETURNVAL = 'N'
+    </select>
+
+    <!-- 삼디프 FTP 전송월 모든 파일 리스트 -->
+      <select id="DlwSdpMap.getAllChargeDtList" parameterType="String" resultType="resultMap">
+        SELECT /* DlwSdpMap.getAllChargeDtList */
+            *
+        FROM DEV_IMSI_SDP_FILE_MST
+        WHERE CHARGE_DT = #{stt_dt}
+        ORDER BY SEQ  <!-- 2017.12.07 정승철 : 시퀀스별 정렬 추가  -->
+    </select>
+
+    <!-- 삼디프 FTP 결과파일 받고나서 업데이트 -->
+    <update id="DlwSdpMap.sendFileUpdate" parameterType="map">
+    UPDATE DEV_IMSI_SDP_FILE_MST
+          SET RETURNVAL ='Y'
+        , UPD_DM = SYSDATE
+        , UPD_MAN = 'SYSTEM'
+    WHERE CHARGE_DT = #{charge_dt} AND TYPE ='1' AND FILE_NO = #{file_no}
+    </update>
+
+     <!-- 삼디프 FTP 전송월 재송신 파일 변경 -->
+    <update id="DlwSdpMap.dtlFailFileSet" parameterType="map">
+    UPDATE DEV_IMSI_SDP_FILE_DTL /* DlwSdpMap.dtlFailFileSet */
+        SET RSLT_CD = 'R'
+        , UPD_DM = SYSDATE
+        , UPD_MAN = #{reg_nm}
+    WHERE CHARGE_DT = #{charge_dt}
+        AND FILE_NO = #{file_no}
+        AND CARD_NO = #{card_no}
+        AND RSLT_CD IN ('N', 'E')
+    </update>
+
+    <!-- 삼디프 FTP 결과파일 DTL 업데이트 -->
+    <update id="DlwSdpMap.resultDtlUpdate" parameterType="map">
+    UPDATE DEV_IMSI_SDP_FILE_DTL /* DlwSdpMap.resultDtlUpdate */
+        SET RSLT_CD = #{rslt_cd}
+        , UPD_MAN = #{reg_nm}
+        , UPD_DM = SYSDATE
+    WHERE
+        CHARGE_DT = #{charge_dt}
+        AND CARD_NO = #{card_no}
+        AND FILE_NO = #{file_no} -- 해당 파일번호(해당 날짜것)만 UPDATE - 2017.12.22 정승철
+        AND RSLT_CD IN ('N', 'R')
+    </update>
+
+     <!-- 삼디프 FTP 결과파일 MST 업데이트 -->
+    <update id="DlwSdpMap.resultMstUpdate" parameterType="map">
+    UPDATE DEV_IMSI_SDP_FILE_MST /* DlwSdpMap.resultMstUpdate */
+        SET RETURNVAL = #{return}
+      , UPD_DM = SYSDATE
+      , UPD_MAN = #{reg_nm}
+    WHERE
+        CHARGE_DT = #{charge_dt}
+        AND FILE_NO = #{file_no}
+        AND TYPE='2'
+    </update>
+
+    <!-- 삼디프 FTP 전송월 아직 결과 반영되지 않은 수 파악 -->
+    <select id="DlwSdpMap.sendresult" parameterType="map" resultType="int">
+     SELECT /* DlwSdpMap.sendresult */
+         COUNT(*)
+     FROM  DEV_IMSI_SDP_FILE_MST
+     WHERE 		CHARGE_DT = #{charge_dt}
+             AND TYPE ='1'
+             AND RETURNVAL ='N'
+    </select>
+
+       <!-- 삼디프 FTP 결과파일 DTL 결과가 없는 파일 업데이트 -->
+    <update id="DlwSdpMap.dtlNoResultFileChange" parameterType="map">
+     UPDATE DEV_IMSI_SDP_FILE_DTL /* DlwSdpMap.dtlNoResultFileChange */
+        SET RSLT_CD = 'R'
+      , UPD_DM = SYSDATE
+      , UPD_MAN = #{reg_nm}
+    WHERE CHARGE_DT = #{charge_dt}
+        AND FILE_NO = #{file_no}
+        AND RSLT_CD IN ('N')
+    </update>
+
+    <update id="DlwSdpMap.updateInitSdpMesData" parameterType="map">
+        UPDATE LF_DMUSER.TB_SAMSUNG_MES_LIST
+           SET DEL_FG = 'Y'
+         WHERE 1=1
+           AND CALC_DAY = #{stt_reg_dt}
+    </update>
+
+    <insert id="DlwSdpMap.insertSdpMesData" parameterType="map">
+         INSERT INTO LF_DMUSER.TB_SAMSUNG_MES_LIST(CALC_DAY, CALC_SEQ, FILE_NO, MEM_NO, ACCNT_NO, PROD_CD, CELL, ACC_STAT, PAY_STATE,
+                                                   JOIN_DT, REG_DM, EVENT_DAY, AUTH_CD, AUTH_DT, B2B_EMPLE_NO, B2B_EMPLE_CI, CBCK_AMT,
+                                                   MRC_NO, TID, RSLT_CD, REG_MAN, REG_DTTM, UPD_MAN, UPD_DM, DEL_FG)
+         SELECT #{stt_reg_dt}
+               ,(SELECT NVL(MAX(CALC_SEQ) , 0) + 1 FROM LF_DMUSER.TB_SAMSUNG_MES_LIST WHERE 1=1 AND CALC_DAY = #{stt_reg_dt})
+               ,'' AS FILE_NO
+               ,TBL.MEM_NO
+               ,TBL.ACCNT_NO
+               ,TBL.PROD_CD
+               ,TBL.CELL
+               ,TBL.ACC_STAT
+               ,TBL.PAY_STATE
+               ,TBL.JOIN_DT
+               ,TO_CHAR(TBL.REG_DM,'YYYY-MM-DD') AS REG_DM
+               ,TBL.EVENT_DAY
+               ,TBL2.AUTH_CODE AS AUTH_CD
+               ,TBL2.PAY_DT AS AUTH_DT
+               ,TBL.B2B_EMPLE_NO
+               ,TBL.B2B_EMPLE_CI
+               ,CASE WHEN TBL.PROD_CD = 'CM' THEN '30000'
+                     WHEN TBL.PROD_CD = 'CN' THEN '30000'
+                     WHEN TBL.PROD_CD = 'EC' THEN '70000'
+                     WHEN TBL.PROD_CD = 'ED' THEN '70000'
+                     WHEN TBL.PROD_CD = 'EE' THEN '50000'
+                     WHEN TBL.PROD_CD = 'EF' THEN '50000'
+                     WHEN TBL.PROD_CD = 'EG' THEN '30000'
+                     WHEN TBL.PROD_CD = 'EH' THEN '30000'
+                     WHEN TBL.PROD_CD = 'FV' THEN '80000'
+                     WHEN TBL.PROD_CD = 'FW' THEN '80000'
+                     WHEN TBL.PROD_CD = 'FX' THEN '50000'
+                     WHEN TBL.PROD_CD = 'FY' THEN '50000'
+                     WHEN TBL.PROD_CD = 'HA' THEN '80000'
+                     WHEN TBL.PROD_CD = 'HB' THEN '80000'
+                     WHEN TBL.PROD_CD = 'HC' THEN '50000'
+                     WHEN TBL.PROD_CD = 'HD' THEN '50000'
+                     WHEN TBL.PROD_CD = 'S7' THEN '50000'
+                     WHEN TBL.PROD_CD = 'S8' THEN '30000'
+                     WHEN TBL.PROD_CD = 'S9' THEN '50000'
+                     WHEN TBL.PROD_CD = 'T0' THEN '30000'
+                     WHEN TBL.PROD_CD = 'X5' THEN '80000'
+                     WHEN TBL.PROD_CD = 'X6' THEN '80000'
+                     WHEN TBL.PROD_CD = 'NA' THEN '80000'
+                     WHEN TBL.PROD_CD = 'NB' THEN '80000'
+                     WHEN TBL.PROD_CD = 'NC' THEN '50000'
+                     WHEN TBL.PROD_CD = 'ND' THEN '50000'
+                     ELSE '0'
+                END AS CBCK_AMT
+               ,TBL.MRC_NO
+               ,TBL2.TID
+               ,'N'
+               ,#{rgsr_id}
+               ,SYSDATE
+               ,''
+               ,''
+               ,'N'
+           FROM ( SELECT MPA.ACCNT_NO
+                        ,MPA.MEM_NO
+                        ,MB.MEM_NM
+                        ,MPA.PROD_CD
+                        ,FN_PROD_NM(MPA.PROD_CD) AS PROD_NM
+                        ,MB.CELL
+                        ,NVL(RESN_CL,'00') AS ACC_STAT
+                        ,FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STATE
+                        ,MPA.JOIN_DT
+                        ,MPA.REG_DM
+                        ,FN_EVENT_DAY(MPA.ACCNT_NO) AS EVENT_DAY
+                        ,(SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+                        ,PD.SECTION_THR
+                        ,MPA.B2B_EMPLE_NO
+                        ,MPA.B2B_EMPLE_CI
+                        ,'' AS MRC_NO
+                    FROM MEM_PROD_ACCNT MPA
+                    INNER JOIN MEMBER MB
+                            ON MPA.MEM_NO = MB.MEM_NO
+                           AND MPA.DEL_FG = 'N'
+                    INNER JOIN PRODUCT PD
+                            ON MPA.PROD_CD = PD.PROD_CD
+                    LEFT OUTER JOIN RESCISSION RS
+                            ON MPA.ACCNT_NO = RS.ACCNT_NO
+                           AND RS.DEL_FG = 'N'
+                ) TBL
+           LEFT OUTER JOIN ( SELECT A.ACCNT_NO
+                                   ,PAY_DT
+                                   ,AUTH_CODE
+                                   ,TID
+                               FROM RT_CARD_PAY_LOG A
+                               INNER JOIN MEM_PROD_ACCNT B
+                                       ON A.ACCNT_NO = B.ACCNT_NO
+                              WHERE 1=1
+                                AND TO_CHAR(B.REG_DM,'YYYYMMDD') BETWEEN #{stt_reg_dm} AND #{end_reg_dm}
+                                AND RESULT_CODE = '00'
+                                AND PAY_NO = 1
+
+                             UNION ALL
+
+                             SELECT RST.ACCNT_NO
+		                           ,(CASE WHEN PAY_KIND != '01' THEN '20' || SUBSTR(AUTH_DT,0,6) ELSE TO_CHAR(TO_DATE(AUTH_DT),'YYYYMMDD') END) AS AUTH_DT
+		                           ,AUTH_CD
+		                           ,TID
+		                       FROM TB_MEMBER_WDRW_RESULT RST
+		                       INNER JOIN LF_DMUSER.TB_MEMBER_WDRW_REQ REQ
+		                               ON RST.ACCNT_NO = REQ.ACCNT_NO
+		                              AND RST.REQ_DAY = REQ.REQ_DAY
+		                              AND REQ.RESULT_KEY = RST.RESULT_KEY
+		                      WHERE 1=1
+		                        AND REQ.PAY_MTHD = '06'
+		                        AND RST.RESULT_CD = '3001'
+		                        AND PAY_KIND != '03'
+		                        AND REQ.REQ_PAY_NO = 1
+		                        AND SUBSTR(RST.REQ_DAY,0,6) BETWEEN #{stt_reg_dm} AND #{end_reg_dm}
+                           ) TBL2
+                   ON TBL.ACCNT_NO = TBL2.ACCNT_NO
+          WHERE TBL.SECTION_THR = '0010'
+            AND TO_CHAR(TBL.REG_DM,'YYYYMMDD') BETWEEN #{stt_reg_dm} AND #{end_reg_dm}
+            AND TBL.JOIN_DT BETWEEN #{stt_join_dt} AND #{end_join_dt}
+            AND TRUE_COUNT > 0
+            <if test='eve_pay_chk != "Y"'>
+                AND ACC_STAT <![CDATA[<>]]> 02
+            </if>
+            <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                AND LENGTH(TBL.B2B_EMPLE_CI) = 88
+            </if>
+            <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                AND (LENGTH(TBL.B2B_EMPLE_CI) <![CDATA[<>]]> 88 OR TBL.B2B_EMPLE_CI IS NULL)
+            </if>
+    </insert>
+
+    <select id="DlwSdpMap.getSdpMesDataListCount" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+          FROM ( SELECT A.CALC_DAY                                   /* 산출일자                  */
+                       ,A.CALC_SEQ                                   /* 산출순번                  */
+                       ,A.FILE_NO                                    /* 파일번호                  */
+                       ,A.MEM_NO                                     /* 고유번호                  */
+                       ,LF_DMUSER.FN_MEM_NM(A.MEM_NO) AS MEM_NM      /* 회원명                    */
+                       ,A.ACCNT_NO                                   /* 회원번호                  */
+                       ,A.PROD_CD                                    /* 상품코드                  */
+                       ,LF_DMUSER.FN_PROD_NM(A.PROD_CD) AS PROD_NM   /* 상품명                    */
+                       ,A.CELL                                       /* 전화번호                  */
+                       ,A.ACC_STAT                                   /* 해약구분                  */
+                       ,A.PAY_STATE                                  /* 연체횟수                  */
+                       ,A.JOIN_DT                                    /* 가입일자                  */
+                       ,A.REG_DM                                     /* 등록일자                  */
+                       ,A.EVENT_DAY                                  /* 행사일자                  */
+                       ,A.AUTH_CD                                    /* 승인번호                  */
+                       ,A.AUTH_DT                                    /* 승인일자                  */
+                       ,A.B2B_EMPLE_NO                               /* 삼성디지털플라자B2B직원명 */
+                       ,A.B2B_EMPLE_CI                               /* 삼성디지털플라자B2B직원CI */
+                       ,A.CBCK_AMT                                   /* 시책금                    */
+                       ,A.MRC_NO                                     /* 가맹점번호                */
+                       ,A.TID                                        /* TID                       */
+                       ,A.RSLT_CD                                    /* 전송결과코드              */
+                       ,A.REG_MAN                                    /* 등록자                    */
+                       ,A.REG_DTTM                                   /* 등록일자                  */
+                       ,A.UPD_MAN                                    /* 수정자                    */
+                       ,A.UPD_DM                                     /* 수정일자                  */
+                       ,A.DEL_FG                                     /* 삭제여부                  */
+                       ,(SELECT CI_VAL FROM MEMBER WHERE A.MEM_NO = MEM_NO) AS CI_VAL
+                   FROM LF_DMUSER.TB_SAMSUNG_MES_LIST A
+                  WHERE 1=1
+                    AND A.DEL_FG = 'N'
+                    AND A.CALC_DAY = #{stt_reg_dt}
+                  <if test='eve_pay_chk != "Y"'>
+                      AND A.ACC_STAT <![CDATA[<>]]> 02
+                  </if>
+                  <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                      AND LENGTH(A.B2B_EMPLE_CI) = 88
+                  </if>
+                  <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                      AND (LENGTH(A.B2B_EMPLE_CI) <![CDATA[<>]]> 88 OR A.B2B_EMPLE_CI IS NULL)
+                  </if>
+               )
+         WHERE 1=1
+         <if test="mem_nm != null and mem_nm != ''">
+             AND MEM_NM = #{mem_nm}
+         </if>
+         
+    </select>
+
+    <select id="DlwSdpMap.getSdpMesDataList" parameterType="map" resultType="resultMap">
+        SELECT
+            MAIN_TBL.*
+        FROM 
+        (
+	        SELECT 
+	               ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	               SUB_TBL.*
+	          FROM ( SELECT A.CALC_DAY                                   /* 산출일자                  */
+	                       ,A.CALC_SEQ                                   /* 산출순번                  */
+	                       ,A.FILE_NO                                    /* 파일번호                  */
+	                       ,A.MEM_NO                                     /* 고유번호                  */
+	                       ,LF_DMUSER.FN_MEM_NM(A.MEM_NO) AS MEM_NM      /* 회원명                    */
+	                       ,A.ACCNT_NO                                   /* 회원번호                  */
+	                       ,A.PROD_CD                                    /* 상품코드                  */
+	                       ,LF_DMUSER.FN_PROD_NM(A.PROD_CD) AS PROD_NM   /* 상품명                    */
+	                       ,A.CELL                                       /* 전화번호                  */
+	                       ,A.ACC_STAT                                   /* 해약구분                  */
+	                       ,A.PAY_STATE                                  /* 연체횟수                  */
+	                       ,A.JOIN_DT                                    /* 가입일자                  */
+	                       ,A.REG_DM                                     /* 등록일자                  */
+	                       ,A.EVENT_DAY                                  /* 행사일자                  */
+	                       ,A.AUTH_CD                                    /* 승인번호                  */
+	                       ,A.AUTH_DT                                    /* 승인일자                  */
+	                       ,A.B2B_EMPLE_NO                               /* 삼성디지털플라자B2B직원명 */
+	                       ,A.B2B_EMPLE_CI                               /* 삼성디지털플라자B2B직원CI */
+	                       ,A.CBCK_AMT                                   /* 시책금                    */
+	                       ,A.MRC_NO                                     /* 가맹점번호                */
+	                       ,A.TID                                        /* TID                       */
+	                       ,A.RSLT_CD                                    /* 전송결과코드              */
+	                       ,A.REG_MAN                                    /* 등록자                    */
+	                       ,A.REG_DTTM                                   /* 등록일자                  */
+	                       ,A.UPD_MAN                                    /* 수정자                    */
+	                       ,A.UPD_DM                                     /* 수정일자                  */
+	                       ,A.DEL_FG                                     /* 삭제여부                  */
+	                       ,(SELECT CI_VAL FROM MEMBER WHERE A.MEM_NO = MEM_NO) AS CI_VAL
+	                   FROM LF_DMUSER.TB_SAMSUNG_MES_LIST A
+	                  WHERE 1=1
+	                    AND A.DEL_FG = 'N'
+	                    AND A.CALC_DAY = #{stt_reg_dt}
+	                  <if test='eve_pay_chk != "Y"'>
+	                      AND A.ACC_STAT <![CDATA[<>]]> 02
+	                  </if>
+	                  <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+	                      AND LENGTH(A.B2B_EMPLE_CI) = 88
+	                  </if>
+	                  <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+	                      AND (LENGTH(A.B2B_EMPLE_CI) <![CDATA[<>]]> 88 OR A.B2B_EMPLE_CI IS NULL)
+	                  </if>
+	               ) SUB_TBL
+	         WHERE 1=1
+	         <if test="mem_nm != null and mem_nm != ''">
+                 AND SUB_TBL.MEM_NM = #{mem_nm}
+             </if>
+         ) MAIN_TBL
+         WHERE 1=1 
+         <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+             AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+             AND PAGE_INDX <![CDATA[<]]> #{endLine}
+         </if>
+    </select>
+    
+    <select id="DlwSdpMap.getSdpMesDataSummary" parameterType="map" resultType="resultMap">
+        SELECT 
+            COUNT(*) AS SUCCESS_ICNT,
+            SUM(NVL(SML.CBCK_AMT, 0)) AS SUM_CBCK_AMT
+        FROM LF_DMUSER.TB_SAMSUNG_MES_LIST SML
+             LEFT OUTER JOIN MEMBER MB ON SML.MEM_NO = MB.MEM_NO
+        WHERE 1=1
+        AND SML.DEL_FG = 'N'
+        AND SML.RSLT_CD = 'F'
+        AND SML.CALC_DAY = #{stt_reg_dt}
+        <if test='eve_pay_chk != "Y"'>
+            AND SML.ACC_STAT <![CDATA[<>]]> 02
+        </if>
+        <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+            AND LENGTH(SML.B2B_EMPLE_CI) = 88
+        </if>
+        <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+            AND (LENGTH(SML.B2B_EMPLE_CI) <![CDATA[<>]]> 88 OR SML.B2B_EMPLE_CI IS NULL)
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+            AND MB.MEM_NM = #{mem_nm}
+        </if>
+    </select>
+
+    <update id="DlwSdpMap.updateSdpMesDataList" parameterType="map">
+        UPDATE LF_DMUSER.TB_SAMSUNG_MES_LIST
+           SET FILE_NO = #{file_no}
+              ,RSLT_CD = 'S'
+         WHERE 1=1
+           AND DEL_FG = 'N'
+           AND CALC_DAY = #{calc_day}
+           AND FILE_NO IS NULL
+           AND RSLT_CD = 'N'
+    </update>
+
+    <insert id="DlwSdpMap.insertSdpMesDataMst" parameterType="map">
+         INSERT INTO LF_DMUSER.TB_SAMSUNG_MES_MST(SEQ, CALC_DAY, FILE_NO, FILE_NAME, TYPE, COUNT, RETURNVAL, REG_DM, REG_MAN, UPD_DM, UPD_MAN)
+              VALUES ((SELECT NVL(MAX(SEQ) , 0) + 1 FROM LF_DMUSER.TB_SAMSUNG_MES_MST WHERE 1=1),
+                      #{calc_day}, #{file_no}, #{file_name}, #{type}, #{count}, #{returnval}, SYSDATE, #{reg_man}, '', '')
+    </insert>
+
+    <insert id="DlwSdpMap.insertSdpMesDataDtl" parameterType="map">
+         INSERT INTO LF_DMUSER.TB_SAMSUNG_MES_DTL(SEQ, CALC_DAY, FILE_NO, MEM_NO, ACCNT_NO, PROD_CD, B2B_EMPLE_CI,
+                                                  MRC_NO, CBCK_AMT, TID, RSLT_CD, REG_DM, REG_MAN, UPD_DM, UPD_MAN)
+              VALUES ((SELECT NVL(MAX(SEQ) , 0) + 1 FROM LF_DMUSER.TB_SAMSUNG_MES_DTL WHERE 1=1),
+                      #{calc_day}, #{file_no}, #{mem_no}, #{accnt_no}, #{prod_cd}, #{b2b_emple_ci},
+                      #{mrc_no}, #{cbck_amt}, #{tid}, 'S', SYSDATE, #{reg_man}, '', '')
+    </insert>
+
+    <select id="DlwSdpMap.getSendFileMesMstList" parameterType="map" resultType="resultMap">
+        SELECT *
+          FROM TB_SAMSUNG_MES_MST
+         WHERE CALC_DAY = #{stt_reg_dt}
+                AND TYPE ='1'
+                AND RETURNVAL = 'N'
+    </select>
+
+    <insert id="DlwSdpMap.insertSdpMesRecvLog" parameterType="map">
+        INSERT INTO LF_DMUSER.TB_SAMSUNG_MES_MST(SEQ, CALC_DAY, FILE_NO, FILE_NAME, TYPE, COUNT, RETURNVAL, REG_DM, REG_MAN, UPD_DM, UPD_MAN)
+             VALUES ((SELECT NVL(MAX(SEQ) , 0) + 1 FROM LF_DMUSER.TB_SAMSUNG_MES_MST WHERE 1=1),
+                      #{calc_day}, #{file_no}, #{file_name}, #{type}, #{count}, #{returnval}, SYSDATE, #{reg_man}, '', '')
+    </insert>
+
+    <update id="DlwSdpMap.sendSdpMesFileUpdate" parameterType="map">
+        UPDATE LF_DMUSER.TB_SAMSUNG_MES_MST
+           SET RETURNVAL ='Y'
+              ,UPD_DM = SYSDATE
+              ,UPD_MAN = 'SYSTEM'
+         WHERE CALC_DAY = #{calc_day} AND TYPE ='1' AND FILE_NO = #{file_no}
+    </update>
+
+    <select id="DlwSdpMap.getAllSdpMesList" parameterType="map" resultType="resultMap">
+        SELECT *
+          FROM LF_DMUSER.TB_SAMSUNG_MES_MST
+         WHERE CALC_DAY = #{stt_reg_dt}
+        ORDER BY SEQ
+    </select>
+
+    <update id="DlwSdpMap.resultSdpMesDtlUpdate" parameterType="map">
+        UPDATE LF_DMUSER.TB_SAMSUNG_MES_LIST
+           SET RSLT_CD = #{rslt_cd}
+           	  ,AUTH_DT = #{auth_dt}
+              ,UPD_MAN = #{reg_man}
+              ,UPD_DM = SYSDATE
+         WHERE FILE_NO = #{file_no}
+           AND ACCNT_NO = #{accnt_no}
+           AND RSLT_CD IN ('S', 'R')
+    </update>
+
+    <update id="DlwSdpMap.resultSdpMesMstUpdate" parameterType="map">
+        UPDATE LF_DMUSER.TB_SAMSUNG_MES_MST
+           SET RETURNVAL = #{returnval}
+              ,UPD_DM = SYSDATE
+              ,UPD_MAN = #{reg_man}
+         WHERE FILE_NO = #{file_no}
+           AND TYPE = '2'
+    </update>
+
+    <update id="DlwSdpMap.noResultSdpMesFileChange" parameterType="map">
+        UPDATE LF_DMUSER.TB_SAMSUNG_MES_LIST
+           SET RSLT_CD = 'R'
+              ,UPD_DM = SYSDATE
+              ,UPD_MAN = #{reg_man}
+         WHERE FILE_NO = #{file_no}
+           AND RSLT_CD IN ('N', 'S')
+    </update>
+
+    <delete id="DlwSdpMap.deleteSdpList" parameterType="map">
+        UPDATE LF_DMUSER.SDP_CHARGE_LIST
+           SET DEL_FG = 'Y'
+         WHERE 1=1
+           AND SEQ = #{seq}
+           AND CHARGE_DAY = #{charge_day}
+           AND ACCNT_NO = #{accnt_no}
+           AND DEL_FG = 'N'
+    </delete>
+</mapper>

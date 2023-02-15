@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CmpgMap">
+
+    <sql id="CmpgMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="cmpg_prfm_team_cd != null and cmpg_prfm_team_cd != ''">
+                AND CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+            </if>
+            <if test="cmpg_nm != null and cmpg_nm != ''">
+                AND CMPG_NM LIKE  #{cmpg_nm} || '%'
+            </if>
+            <if test="cmpg_typ_cd != null and cmpg_typ_cd != ''">
+                AND CMPG_TYP_CD = #{cmpg_typ_cd}
+            </if>
+            <if test="cmpg_div_cd != null and cmpg_div_cd != ''">
+                AND CMPG_DIV_CD = #{cmpg_div_cd}
+            </if>
+            <if test="cmpg_typ_cd2 != null and cmpg_typ_cd2 != ''">
+                AND CMPG_TYP_CD2 = #{cmpg_typ_cd2}
+            </if>
+            <if test="cmpg_prgr_stat_cd != null and cmpg_prgr_stat_cd != ''">
+                AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+            </if>
+            <if test="cmpg_prgr_stat_cds != null and cmpg_prgr_stat_cds != ''">
+                AND CMPG_PRGR_STAT_CD
+                <foreach collection="cmpg_prgr_stat_cds" item="item" separator="," open="IN (" close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="cmpg_pran_chnl_cd != null and cmpg_pran_chnl_cd != ''">
+                AND CMPG_PRAN_CHNL_CD = #{cmpg_pran_chnl_cd}
+            </if>
+            <if test="cmpg_invt_mthd_cd != null and cmpg_invt_mthd_cd != ''">
+                AND CMPG_INVT_MTHD_CD = #{cmpg_invt_mthd_cd}
+            </if>
+            <if test="cmpg_stt_dt != null and cmpg_stt_dt != ''">
+            <![CDATA[
+                AND CMPG_STT_DT >= RPAD(REPLACE(#{cmpg_stt_dt}, '-', ''), 8, '0')
+            ]]>
+            </if>
+            <if test="cmpg_end_dt != null and cmpg_end_dt != ''">
+            <![CDATA[
+                AND CMPG_STT_DT <= RPAD(REPLACE(#{cmpg_end_dt}, '-', ''), 8, '9')
+            ]]>
+            </if>
+            <if test="campaignstatecds != null and campaignstatecds.size > 0">
+                <foreach collection="campaignstatecds" item="item" separator="," close=")" open="AND CMPG_PRGR_STAT_CD IN (">
+                     #{item}
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <!-- 사용 -->
+    <select id="CmpgMap.getCmpgCount" parameterType="map" resultType="int">
+        SELECT /* CmpgMap.getCmpgCount */
+               COUNT(*)
+          FROM TB_CMPG_BASI
+        <include refid="CmpgMap.selectCondition_fragment"/>
+    </select>
+
+    <!-- 사용 -->
+    <select id="CmpgMap.getCmpgList" parameterType="map" resultType="resultMap">
+        SELECT /* CmpgMap.getCmpgList */
+               E.*
+             , FN_GETHRCHCDNM('CAM990', E.HGRN_HRCH_CD, E.CNTR_CD) AS HGRN_HRCH_NM
+               <!-- 2018.03.07 쿼리 조회 시 오래 걸린 부분 수정
+             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = E.CMPG_PRFM_TEAM_CD) AS CMPG_PRFM_TEAM_NM
+             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = E.HGRN_TEAM_CD) AS HGRN_TEAM_NM-->
+             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE CNTR_CD = E.CNTR_CD AND TEAM_CD = E.CMPG_PRFM_TEAM_CD) AS CMPG_PRFM_TEAM_NM
+             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE CNTR_CD = E.CNTR_CD AND TEAM_CD = E.HGRN_TEAM_CD) AS HGRN_TEAM_NM
+               <![CDATA[
+             , (CASE WHEN (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT WHERE CNTR_CD = E.CNTR_CD AND CMPG_ID = E.CMPG_ID) > 0
+                    THEN 'Y'
+                    ELSE 'N' END) AS ALCT_FG
+               ]]>
+          FROM (SELECT C.*
+                     , D.TRGT_LIST_NM
+                     , D.CUST_DATA_EXTC_CNT
+                     , FN_GETHRCHCDNM('CAM990', D.CMPG_TYP_CD, D.CNTR_CD) AS CMPG_TYP_NM
+                     , (SELECT HGRN_HRCH_CD FROM TB_HRCH_CD HC WHERE D.CMPG_TYP_CD = HC.HRCH_CD) HGRN_HRCH_CD
+                  FROM (SELECT B.*
+                             , FN_GETHRCHCDNM('CAM990', B.CMPG_DIV_CD, B.CNTR_CD)  AS CMPG_DIV_NM
+                             , (CASE WHEN CMPG_PRAN_CHNL_CD='40' THEN '외부'
+                                ELSE GETCODENM('CAM060', B.CMPG_INVT_MTHD_CD, B.CNTR_CD)
+                                END) AS CMPG_INVT_MTHD_NM
+                             , GETCODENM('CAM050', B.CMPG_PRGR_STAT_CD, B.CNTR_CD) AS CMPG_PRGR_STAT_NM
+                             , GETCODENM('CAM120', B.CMPG_PRAN_CHNL_CD, B.CNTR_CD) AS CMPG_PRAN_CHNL_NM
+                             <!-- 2018.03.07 쿼리 조회 시 오래 걸린 부분 수정
+                              , NVL((SELECT MAX('N') FROM TB_TRGT_CUST_ALCT WHERE CMPG_ID=B.CMPG_ID AND DPMS_STAT_CD!='10'), 'Y') AS MODIFYFG-->
+                             <!-- 2022.12.21 캠페인관리 조회 SQL 수정
+                             , NVL((SELECT /*+INDEX(TB_TRGT_CUST_ALCT PK_TB_TRGT_CUST_ALCT)*/ MAX('N') FROM TB_TRGT_CUST_ALCT WHERE CNTR_CD = B.CNTR_CD AND CMPG_ID=B.CMPG_ID AND DPMS_STAT_CD != '10'), 'Y') AS MODIFYFG -->
+                             , (SELECT HGRN_TEAM_CD FROM TB_CONS_TEAM WHERE TEAM_CD = B.CMPG_PRFM_TEAM_CD) AS HGRN_TEAM_CD
+                             , CMPG_PRGR_STAT_CD AS OLD_CAMPAIGNSTATECD
+                          FROM (SELECT <choose>
+                                           <when test="orderBy != null and orderBy != ''">
+                                               ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                                           </when>
+                                           <otherwise>
+                                               ROW_NUMBER() OVER(ORDER BY
+                                                AMNT_DTTM DESC) PAGE_INDX
+                                           </otherwise>
+                                       </choose>
+                                     , A.*
+                                     , (SELECT USER_NM
+                                          FROM TB_USER
+                                         WHERE USER_ID = A.RGSR_ID
+                                           AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                                     , (SELECT USER_NM
+                                          FROM TB_USER
+                                         WHERE USER_ID = A.AMND_ID
+                                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                                  FROM (SELECT *
+                                          FROM (SELECT A.CNTR_CD, A.CMPG_ID, A.CMPG_DIV_CD, A.CMPG_INVT_MTHD_CD, A.CMPG_PRAN_CHNL_CD
+                                                     , A.CMPG_TYP_CD, CMPG_NM, CMPG_EXPI, A.CMPG_STT_DT, A.CMPG_END_DT, A.CMPG_PRGR_STAT_CD
+                                                     , A.TRGT_LIST_ID, A.CMPG_PRFM_TEAM_CD
+                                                     , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                                                     , CASE WHEN NVL(MAX(B.CMPG_ID), 'N') = 'N' THEN 'N' ELSE 'Y' END AS MODIFYFG
+                                                  FROM TB_CMPG_BASI A
+                                                  LEFT OUTER JOIN TB_TRGT_CUST_ALCT B
+                                                       ON A.CNTR_CD = B.CNTR_CD AND A.CMPG_ID = B.CMPG_ID AND B.DPMS_STAT_CD IN ('20', '30', '40', '50', '60', '70')
+                                                 GROUP BY A.CNTR_CD, A.CMPG_ID, A.CMPG_DIV_CD, A.CMPG_INVT_MTHD_CD, A.CMPG_PRAN_CHNL_CD
+                                                     , A.CMPG_TYP_CD, CMPG_NM, CMPG_EXPI, A.CMPG_STT_DT, A.CMPG_END_DT, A.CMPG_PRGR_STAT_CD
+                                                     , A.TRGT_LIST_ID, A.CMPG_PRFM_TEAM_CD
+                                                     , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                                               )
+                                      <include refid="CmpgMap.selectCondition_fragment"/>
+                                       ) A
+                                )B
+                               <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                            <![CDATA[
+                             WHERE PAGE_INDX >= #{startLine}
+                               AND PAGE_INDX < #{endLine}
+                            ]]>
+                            </if>
+                       ) C
+                  LEFT JOIN TB_TRGT_LIST_DTL D ON C.TRGT_LIST_ID = D.TRGT_LIST_ID
+               ) E
+        <if test="orderBy != null and orderBy != ''">
+         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <insert id="CmpgMap.insertCmpg" parameterType="map">
+        <selectKey keyProperty="cmpg_id" resultType="String" order="BEFORE">
+            SELECT 'CMP' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* CmpgMap.insertCmpg */
+          INTO TB_CMPG_BASI
+               (CNTR_CD ,CMPG_ID ,CMPG_DIV_CD ,CMPG_INVT_MTHD_CD ,CMPG_PRAN_CHNL_CD ,CMPG_TYP_CD
+              , CMPG_NM ,CMPG_EXPI ,CMPG_STT_DT ,CMPG_END_DT ,CMPG_PRGR_STAT_CD ,TRGT_LIST_ID, CMPG_PRFM_TEAM_CD
+              , RGSR_ID ,RGSN_DTTM ,AMND_ID ,AMNT_DTTM)
+         VALUES (#{cntr_cd}, #{cmpg_id}, #{cmpg_div_cd}, #{cmpg_invt_mthd_cd}, #{cmpg_pran_chnl_cd}, #{cmpg_typ_cd}
+              , #{cmpg_nm}, #{cmpg_expi}, #{cmpg_stt_dt}, #{cmpg_end_dt}, #{cmpg_prgr_stat_cd}, #{trgt_list_id} , #{cmpg_prfm_team_cd}
+              , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="CmpgMap.updateCmpg" parameterType="map">
+        UPDATE /* CmpgMap.updateCmpg */
+               TB_CMPG_BASI
+           SET CNTR_CD             = #{cntr_cd}
+             , CMPG_DIV_CD         = #{cmpg_div_cd}
+             , CMPG_INVT_MTHD_CD   = #{cmpg_invt_mthd_cd}
+             , CMPG_PRAN_CHNL_CD   = #{cmpg_pran_chnl_cd}
+             , CMPG_TYP_CD         = #{cmpg_typ_cd}
+             , CMPG_NM             = #{cmpg_nm}
+             , CMPG_EXPI           = #{cmpg_expi}
+             , CMPG_STT_DT         = #{cmpg_stt_dt}
+             , CMPG_END_DT         = #{cmpg_end_dt}
+             , CMPG_PRGR_STAT_CD   = #{cmpg_prgr_stat_cd}
+             , TRGT_LIST_ID        = #{trgt_list_id}
+             , CMPG_PRFM_TEAM_CD   = #{cmpg_prfm_team_cd}
+             , AMND_ID             = #{amnd_id}
+             , AMNT_DTTM           = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE CMPG_ID = #{cmpg_id}
+    </update>
+
+    <select id="CmpgMap.getCmpgListByUserId" parameterType="map" resultType="resultMap">
+        SELECT /* CmpgMap.getCmpgListByUserId */
+               CMPG_ID, CMPG_NM, CMPG_EXPI
+             , CMPG_TYP_CD, CMPG_PRAN_CHNL_CD, CMPG_INVT_MTHD_CD, CMPG_PRGR_STAT_CD
+             , TRGT_LIST_ID, INVT_CNTS_ID, CMPG_STT_DT, CMPG_END_DT
+          FROM TB_CMPG_BASI A
+         WHERE EXISTS (SELECT 'Y'
+                         FROM TB_TRGT_CUST_ALCT
+                        WHERE CNTR_CD = #{cntr_cd}
+                          AND USER_ID = #{user_id}
+                          AND CMPG_ID = A.CMPG_ID
+                          AND (DPMS_RESL_CD IS NULL OR DPMS_RESL_CD = '20'))
+           AND DPMS_STAT_CD = '20'
+    </select>
+
+    <delete id="CmpgMap.deleteCmpg" parameterType="map">
+        DELETE /* CmpgMap.deleteCmpg */
+          FROM TB_CMPG_BASI
+         WHERE CNTR_CD = #{cntr_cd}
+           AND CMPG_ID = #{cmpg_id}
+           AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+    </delete>
+
+
+    <select id="CmpgMap.searchCmpgList" parameterType="map" resultType="resultMap">
+        SELECT *
+          FROM TB_CMPG_BASI
+        <if test="cmpg_stt_dt != null and cmpg_stt_dt != '' and cmpg_end_dt != null and cmpg_end_dt != ''">
+          WHERE CMPG_STT_DT BETWEEN REPLACE(#{cmpg_stt_dt}, '-', '') AND REPLACE(#{cmpg_end_dt}, '-', '')
+        </if>
+    </select>
+</mapper>

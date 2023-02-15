@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_FileDownload_Popup" classname="Comm_FileUploadExcel_Popup" inheritanceid="" position="absolute 0 0 500 245" titletext="파일다운로드팝업" onload="Comm_FileUploadExcel_Popup_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_25" class="sta_popupBg1" enable="false" position="absolute 0 0 490 235"/>
+        <Static id="stc_26" text="파일 다운로드" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 461 8 481 27"/>
+        <Div id="div_FileAttach" taborder="1" url="COMM::Comm_FileUpDownload.xfdl" text="Div00" position="absolute 12 42 479 224"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_AttachFileList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_input" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="fileIdList" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+/*
+	파일 업로드/다운로드 가이드
+	
+	gfn_initAttachFileInfo		: [필수]파일 업로드 초기화 공통함수(Form Onload시에 호출 처리)
+	gfn_setAttachFileUpload		: 파일 업로드 공통함수(저장시에 선처리로 파일 Upload 처리하는 경우 호출 처리)
+	gfn_setAttachFileList		: 파일리스트 설정함수(첨부파일정보 조회 후 CallBack에서 호출처리)
+	gfn_setAttachFileInit		: 파일 업로드 후 파일정보 초기화 처리
+*/
+
+// pv_FileList	구분자로 분리된 파일 리스트
+//var pv_FileList = "'FILE-20130111131528587000000206','FILE-20130111131618424000000207','FILE-20130111131943376000000209'";
+
+// gfn_getInSqlStrByFileList		// 구분자로 분리된 파일리스트를 IN절에서 사용가능한 문자열로 변환해서 반환
+// gfn_getInSqlStrByDataset			// 데이타셋를 전달받아 IN절에서 사용하기 위한 문자열로 변환해서 반환
+
+function Comm_FileUploadExcel_Popup_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_commInit(obj, true);
+
+	gfn_initAttachFileInfo(gfn_getAttachDiv_Download(), div_FileAttach, ds_AttachFileList);	
+	
+	fn_init();
+}
+
+function fn_init()
+{
+	// TO-DO : 부모창에서 다운로드 파일정보 전달 받아서 ds_AttachFileList에 설정하는 로직 구현
+	
+	fn_search();
+}
+
+function fn_search()
+{
+	//trace("pv_FileList::"+pv_FileList);
+
+	// 첨부파일 IN절 문자열 생성
+	//var sFileIdList = fn_getInSqlStrByFileList(pv_FileList, ",");
+	this.ds_input.setColumn(0, "fileIdList", pv_FileList);
+	
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.generaladmnistrationdc.DCComnCdBasiInfoSqlMap");
+	gfn_setKwData_trscCode("SYS00002R16");
+	gfn_setKwData_sqlId("getListAttachFileList");
+
+	gfn_tranDIS(gfn_getCommTypeAppend()
+				, "ds_input=ds_input"
+				, "ds_AttachFileList=datas"
+				, "fn_search_callBack");	
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_search_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_search_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	
+	gfn_setAttachFileList(div_FileAttach);	// 파일리스트 설정함수(첨부파일정보 조회 후 CallBack에서 호출처리)
+	
+	//trace(ds_AttachFileList.saveXML());
+}	
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

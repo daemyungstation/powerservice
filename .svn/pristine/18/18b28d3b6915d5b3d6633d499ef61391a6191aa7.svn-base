@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvstDtlMap">
+
+    <sql id="EvstDtlMap.selectCondition_fragment">
+        <where>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+            <if test="evst_id != null and evst_id != ''">
+                AND EVST_ID = #{evst_id}
+            </if>
+            <if test="evst_nm != null and evst_nm != ''">
+                AND EVST_NM LIKE '%' || #{evst_nm} || '%'
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="evlt_plan_use_yn != null and evlt_plan_use_yn != ''">
+                AND EVST_ID NOT IN (SELECT EVST_ID
+                                          FROM TB_EVLT_PLAN
+                                         WHERE CNTR_CD = #{cntr_cd})
+                AND EVLT_QSIT_CNT <![CDATA[<>]]> '0'
+            </if>
+        </where>
+    </sql>
+
+    <select id="EvstDtlMap.getEvstDtlCount" parameterType="map" resultType="int">
+        SELECT /* EvstDtlMap.getEvstDtlCount */
+               COUNT(*)
+          FROM TB_EVST_DTL
+         <include refid="EvstDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EvstDtlMap.getEvstDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* EvstDtlMap.getEvstDtlList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                       , A.*
+                  FROM (SELECT EVST_ID, EVST_NM, EVLT_QSIT_CNT, EVLT_TOTL_SCR, EVST_EXPI
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , CASE WHEN EXISTS (SELECT *
+                                                   FROM TB_EVLT_PLAN
+                                                  WHERE EVST_ID = A.EVST_ID
+                                                    AND CNTR_CD = A.CNTR_CD) THEN 'Y'
+                                     ELSE 'N'
+                                END AS EVLT_PLAN_USE_YN
+                          FROM (SELECT A.*
+                                    FROM TB_EVST_DTL A
+                                <include refid="EvstDtlMap.selectCondition_fragment"/>
+                                 ) A
+                       ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EvstDtlMap.insertEvstDtl" parameterType="map">
+        <selectKey keyProperty="evst_id" resultType="String" order="BEFORE">
+            SELECT 'EVD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* EvstDtlMap.insertEvstDtl */
+          INTO TB_EVST_DTL
+               (EVST_ID, EVST_NM, EVLT_QSIT_CNT, EVLT_TOTL_SCR, EVST_EXPI
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, BZPT_DIV)
+        VALUES (#{evst_id}, #{evst_nm}, #{evlt_qsit_cnt}, #{evlt_totl_scr}, #{evst_expi}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{bzpt_div})
+    </insert>
+
+    <update id="EvstDtlMap.updateEvstDtl" parameterType="map">
+        UPDATE /* EvstDtlMap.updateEvstDtl */
+               TB_EVST_DTL A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM    = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            <if test="evst_nm != null and evst_nm != ''">
+             , A.EVST_NM    = #{evst_nm}
+            </if>
+            <if test="evlt_qsit_cnt != null and evlt_qsit_cnt != ''">
+             , A.EVLT_QSIT_CNT         = #{evlt_qsit_cnt}
+            </if>
+            <if test="evlt_totl_scr != null and evlt_totl_scr != ''">
+             , A.EVLT_TOTL_SCR     = #{evlt_totl_scr}
+            </if>
+            <if test="descfg == null or descfg == ''">
+             , A.EVST_EXPI= #{evst_expi}
+            </if>
+         WHERE A.EVST_ID    = #{evst_id}
+    </update>
+
+    <delete id="EvstDtlMap.deleteEvstDtl" parameterType="map">
+        DELETE /* EvstDtlMap.deleteEvstDtl */
+          FROM TB_EVST_DTL
+         WHERE EVST_ID = #{evst_id}
+           AND CNTR_CD = #{cntr_cd}
+    </delete>
+
+    <insert id="EvstDtlMap.insertCopyEvstDtl" parameterType="map">
+        <selectKey keyProperty="new_evst_id" resultType="String" order="BEFORE">
+            SELECT 'EVD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* EvstDtlMap.insertCopyEvstDtl */
+          INTO TB_EVST_DTL
+               (EVST_ID, EVST_NM, EVLT_QSIT_CNT, EVLT_TOTL_SCR, EVST_EXPI, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT #{new_evst_id}, SUBSTRB(EVST_NM, 1, 93) || '_복사', EVLT_QSIT_CNT, EVLT_TOTL_SCR, EVST_EXPI, BZPT_DIV
+             , CNTR_CD, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EVST_DTL
+         WHERE EVST_ID = #{evst_id}
+    </insert>
+</mapper>

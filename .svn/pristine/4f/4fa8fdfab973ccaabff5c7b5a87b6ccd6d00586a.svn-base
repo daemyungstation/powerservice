@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DpmsReslMap">
+    <sql id="DpmsReslMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="DpmsReslMap.getDpmsReslByUserCount" parameterType="map" resultType="int">
+        SELECT /* DpmsReslMap.getDpmsReslByUserCount */
+                COUNT(*)
+          FROM TB_CMPG_ALCT_DTL
+         WHERE CMPG_ID =#{cmpg_id}
+    </select>
+
+    <select id="DpmsReslMap.getDpmsReslByUserList" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslMap.getDpmsReslByUserList */
+                *
+          FROM (SELECT <choose>
+                           <when test="orderBy != null and orderBy != ''">
+                               ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                               ROW_NUMBER() OVER(ORDER BY USER_NM ASC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                     , CMPG_ID, CNSR_ID, CNTR_CD
+                     , CMPG_NM, CMPG_STT_DT, USER_NM, TEAM_NM
+                     , TOTALCNT, TOTALASSIGNCNT, ASSIGNCNT
+                     , RESULT10, RESULT20, RESULT21, RESULT22
+                     , RESULT30, RESULT31, RESULT32, RESULT33
+                     , RESULT41, RESULT42, RESULT43, RESULT44
+                     , RESULT45, RESULT40
+                  FROM (SELECT A.CMPG_ID, A.CNSR_ID, A.CNTR_CD
+                             , NVL(B.ASSIGNCNT, 0) AS ASSIGNCNT
+                             , NVL(B.RESULT10, 0) AS RESULT10
+                             , NVL(B.RESULT20, 0) AS RESULT20
+                             , NVL(B.RESULT21, 0) AS RESULT21
+                             , NVL(B.RESULT22, 0) AS RESULT22
+                             , NVL(B.RESULT30, 0) AS RESULT30
+                             , NVL(B.RESULT31, 0) AS RESULT31
+                             , NVL(B.RESULT32, 0) AS RESULT32
+                             , NVL(B.RESULT33, 0) AS RESULT33
+                             , NVL(B.RESULT40, 0) AS RESULT40
+                             , NVL(B.RESULT41, 0) AS RESULT41
+                             , NVL(B.RESULT42, 0) AS RESULT42
+                             , NVL(B.RESULT43, 0) AS RESULT43
+                             , NVL(B.RESULT44, 0) AS RESULT44
+                             , NVL(B.RESULT45, 0) AS RESULT45
+                             , CB.CMPG_NM, CB.CMPG_STT_DT
+                             , (SELECT USER_NM FROM TB_USER WHERE USER_ID=A.CNSR_ID AND CNTR_CD=A.CNTR_CD) AS USER_NM
+                             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = TU.TEAM_CD AND CNTR_CD = TU.CNTR_CD) AS TEAM_NM
+                             , (SELECT COUNT(*)
+                                  FROM TB_TRGT_CUST_DTPT
+                                 WHERE TRGT_LIST_ID = (SELECT TRGT_LIST_ID
+                                                         FROM TB_CMPG_BASI
+                                                        WHERE CMPG_ID = A.CMPG_ID
+                                                          AND CNTR_CD=A.CNTR_CD)
+                               ) AS TOTALCNT
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT WHERE CMPG_ID = A.CMPG_ID AND CNTR_CD=A.CNTR_CD) AS TOTALASSIGNCNT
+                          FROM (SELECT *
+                                  FROM TB_CMPG_ALCT_DTL
+                                 WHERE CMPG_ID =#{cmpg_id}
+                               ) A
+                          LEFT JOIN
+                               (SELECT CMPG_ID, CNTR_CD, CNSR_ID
+                                     , SUM(CNT) AS ASSIGNCNT
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='10'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT10
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='20'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT20
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='20' AND DPMS_RESL_CD='20'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT21
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='20' AND DPMS_RESL_CD='21'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT22
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='30'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT30
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='30' AND DPMS_RESL_CD='10'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT31
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='30' AND DPMS_RESL_CD='11'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT32
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='30' AND DPMS_RESL_CD='12'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT33
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='40'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT40
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='40' AND DPMS_RESL_CD='30'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT41
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='40' AND DPMS_RESL_CD='31'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT42
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='40' AND DPMS_RESL_CD='32'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT43
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='40' AND DPMS_RESL_CD='33'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT44
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='40' AND DPMS_RESL_CD='34'
+                                           THEN CNT
+                                           ELSE 0
+                                           END)AS RESULT45
+                                  FROM (SELECT CMPG_ID, CNTR_CD, CNSR_ID, DPMS_STAT_CD, DPMS_RESL_CD, COUNT(*) AS CNT
+                                          FROM (SELECT *
+                                                  FROM TB_TRGT_CUST_ALCT
+                                                 WHERE CMPG_ID =#{cmpg_id}
+                                               ) A
+                                         GROUP BY CMPG_ID, CNTR_CD, CNSR_ID, DPMS_STAT_CD, DPMS_RESL_CD
+                                       ) A
+                                 GROUP BY CMPG_ID, CNTR_CD, CNSR_ID
+                               ) B
+                            ON A.CMPG_ID = B.CMPG_ID
+                           AND A.CNSR_ID = B.CNSR_ID
+                           AND A.CNTR_CD = B.CNTR_CD
+                          LEFT JOIN TB_CMPG_BASI CB
+                            ON A.CMPG_ID = CB.CMPG_ID
+                           AND A.CNTR_CD = CB.CNTR_CD
+                          LEFT JOIN TB_USER TU
+                            ON A.CNSR_ID = TU.USER_ID
+                           ANd A.CNTR_CD = TU.CNTR_CD
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+         ORDER BY PAGE_INDX ASC
+    </select>
+
+
+    <select id="DpmsReslMap.getDpmsReslByCustomerCount" parameterType="map" resultType="int">
+        SELECT /* DpmsReslMap.getDpmsReslByCustomerCount */
+                COUNT(*)
+          FROM TB_TRGT_CUST_ALCT
+         WHERE CMPG_ID =#{cmpg_id}
+    </select>
+
+    <select id="DpmsReslMap.getDpmsReslByCustomerList" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslMap.getDpmsReslByCustomerList */
+                *
+          FROM (SELECT ROWNUM AS PAGE_INDX, A.*
+                  FROM (SELECT A.TRGT_LIST_ID, A.TRGT_CUST_ID, A.CMPG_ID, A.CNSR_ID
+                             , A.DPMS_STAT_CD, A.DPMS_RESL_CD, A.DPMS_TMCNT, TO_CHAR(A.DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM
+                             , GETCODENM('CAM090', A.DPMS_RESL_CD, A.CNTR_CD) AS DPMS_RESL_NM
+                             , GETCODENM('CAM100', A.DPMS_STAT_CD, A.CNTR_CD) AS DPMS_STAT_NM
+                             , B.MEM_NM, B.MEM_NO, B.HOME_TEL, B.CELL, B.EMAIL, B.CUST_TYP_CD
+                             , C.TEAM_CD, C.USER_NM
+                             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = C.TEAM_CD AND CNTR_CD = C.CNTR_CD) AS TEAM_NM
+                             , (CASE
+                                WHEN B.CUST_TYP_CD='10' THEN B.MEM_NO /*COLLATE DATABASE_DEFAULT*/
+                                ELSE ''
+                                END) AS CUSTOMERNO
+                             , GETCODENM('CUS030', B.CUST_TYP_CD, B.CNTR_CD) AS CUST_TYP_NM
+                          FROM (SELECT *
+                                  FROM TB_TRGT_CUST_ALCT
+                                  <if test="cmpg_id != null and cmpg_id != ''">
+                                 WHERE CMPG_ID = #{cmpg_id}
+                                  </if>
+                               ) A
+                          LEFT JOIN TB_TRGT_CUST_DTPT B
+                            ON A.TRGT_LIST_ID=B.TRGT_LIST_ID
+                           AND A.TRGT_CUST_ID=B.TRGT_CUST_ID
+                           AND A.CNTR_CD=B.CNTR_CD
+                          LEFT JOIN TB_USER C
+                            ON A.CNSR_ID = C.USER_ID
+                           ANd A.CNTR_CD = C.CNTR_CD
+                       ) A
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                    ORDER BY ${orderBy} ${orderDirection}
+                    </when>
+                    <otherwise>
+                    ORDER BY MEM_NM ASC
+                    </otherwise>
+                </choose>
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+         ORDER BY PAGE_INDX ASC
+    </select>
+
+    <select id="DpmsReslMap.getDpmsReslTop10" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslMap.getDpmsReslTop10*/
+                D.*
+          FROM (SELECT ROWNUM AS RANKING, C.*
+                  FROM (SELECT CMPG_ID,  CNTR_CD,  CNSR_ID, CMPL_CSCNT, TOTAL_TRGT_CSCNT
+                             , ROUND(CMPL_CSCNT/DECODE(TOTAL_TRGT_CSCNT,0,1,TOTAL_TRGT_CSCNT)*100,1) AS CMPL_RT
+                             , (SELECT USER_NM FROM TB_USER WHERE USER_ID = B.CNSR_ID AND CNTR_CD = B.CNTR_CD) AS USER_NM
+                             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = B.TEAM_CD AND CNTR_CD = B.CNTR_CD) AS TEAM_NM
+                          FROM (SELECT CMPG_ID,  CNTR_CD,  CNSR_ID
+                                     , (SELECT TEAM_CD FROM TB_USER WHERE USER_ID = A.CNSR_ID AND CNTR_CD = A.CNTR_CD) AS TEAM_CD
+                                     , SUM(CASE
+                                           WHEN DPMS_STAT_CD='30' OR DPMS_STAT_CD='40'
+                                           THEN CNT
+                                           ELSE 0 END) AS CMPL_CSCNT
+                                     , SUM(CNT) AS TOTAL_TRGT_CSCNT
+                                  FROM (SELECT CMPG_ID, CNTR_CD, CNSR_ID, DPMS_STAT_CD, COUNT(*) AS CNT
+                                          FROM TB_TRGT_CUST_ALCT
+                                         WHERE CNTR_CD = #{cntr_cd}
+                                           AND CMPG_ID = #{cmpg_id}
+                                         GROUP BY CMPG_ID, CNTR_CD, CNSR_ID, DPMS_STAT_CD
+                                       ) A
+                                 GROUP BY CMPG_ID,  CNTR_CD,  CNSR_ID
+                              ) B
+                         ORDER BY CMPL_CSCNT DESC, CMPL_RT DESC
+                       ) C
+               ) D
+         WHERE RANKING <![CDATA[<=]]> 10
+           AND CMPL_CSCNT <![CDATA[>]]> 0
+    </select>
+
+    <select id="DpmsReslMap.getDpmsReslDsps" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslMap.getDpmsReslDsps */
+               NVL(B.TOTAL_TRGT_CSCNT, 0) AS TOTAL_TRGT_CSCNT
+             , NVL(B.PRGR_CSCNT, 0) AS PRGR_CSCNT
+             , NVL(B.CMPL_CSCNT, 0) AS CMPL_CSCNT
+             , NVL(ROUND(CMPL_CSCNT/DECODE(TOTAL_TRGT_CSCNT,0,1,TOTAL_TRGT_CSCNT)*100,1), 0) AS CMPL_RT
+             , NVL(ROUND(PRGR_CSCNT/DECODE(TOTAL_TRGT_CSCNT,0,1,TOTAL_TRGT_CSCNT)*100,1), 0) AS PRGR_RT
+          FROM (SELECT SUM(CASE
+                           WHEN DPMS_STAT_CD='10' OR DPMS_STAT_CD='20'
+                           THEN CNT
+                           ELSE 0 END) AS PRGR_CSCNT
+                     , SUM(CASE
+                           WHEN DPMS_STAT_CD='30' OR DPMS_STAT_CD='40'
+                           THEN CNT
+                           ELSE 0 END) AS CMPL_CSCNT
+                     , SUM(CNT) AS TOTAL_TRGT_CSCNT
+                  FROM (SELECT DPMS_STAT_CD, COUNT(*) AS CNT
+                          FROM TB_TRGT_CUST_ALCT
+                         WHERE CNTR_CD = #{cntr_cd}
+                           AND CMPG_ID = #{cmpg_id}
+                        <if test="pageType == 'tdy'">
+                           AND TO_CHAR(DPMS_DTTM,'yyyymmdd') = TO_CHAR(SYSDATE, 'yyyymmdd')
+                        </if>
+                         GROUP BY DPMS_STAT_CD
+                       ) A
+                ) B
+    </select>
+
+    <select id="DpmsReslMap.getTdyDpmsCnsrCount" parameterType="map" resultType="int">
+        SELECT /* DpmsReslMap.getTdyDpmsCnsrCount */
+               COUNT(*)
+          FROM (SELECT CNSR_ID
+                  FROM TB_TRGT_CUST_ALCT
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND CMPG_ID = #{cmpg_id}
+                   AND TO_CHAR(DPMS_DTTM,'YYYYMMDD') = TO_CHAR(SYSDATE, 'YYYYMMDD')
+              GROUP BY CNSR_ID
+              )
+    </select>
+
+    <select id="DpmsReslMap.getDpmsReslDclDsps" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslMap.getDpmsReslDclDsps */
+               TO_CHAR(TO_DATE(B.DPMS_DTTM, 'YYYYMMDD'), 'DD') || '(' || DECODE(TO_CHAR(TO_DATE(B.DPMS_DTTM, 'YYYYMMDD'), 'D'), 1, '일', 2, '월', 3, '화', 4, '수', 5, '목', 6, '금', 7, '토') || ')' AS X
+             , NVL(A.CMPL_CSCNT, 0) AS CMPL_CSCNT
+          FROM (SELECT TO_CHAR(DPMS_DTTM,'YYYYMMDD') AS DPMS_DTTM
+                     , COUNT(*) AS CMPL_CSCNT
+                  FROM TB_TRGT_CUST_ALCT A
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND A.CMPG_ID = #{cmpg_id}
+                   AND (DPMS_STAT_CD = '30' OR DPMS_STAT_CD  = '40')
+                   AND TO_CHAR(DPMS_DTTM,'YYYYMMDD') BETWEEN (SELECT CMPG_STT_DT FROM TB_CMPG_BASI WHERE CMPG_ID = #{cmpg_id} AND CNTR_CD = #{cntr_cd})
+                                                         AND (SELECT CMPG_END_DT FROM TB_CMPG_BASI WHERE CMPG_ID = #{cmpg_id} AND CNTR_CD = #{cntr_cd})
+              GROUP BY TO_CHAR(DPMS_DTTM,'YYYYMMDD')
+               ) A
+         RIGHT OUTER JOIN
+               (SELECT TO_CHAR(TO_DATE((SELECT CMPG_STT_DT FROM TB_CMPG_BASI WHERE CMPG_ID = #{cmpg_id} AND CNTR_CD = #{cntr_cd}), 'YYYYMMDD') + LEVEL-1, 'YYYYMMDD') AS DPMS_DTTM
+                     , '' AS CMPL_CSCNT
+                  FROM DUAL
+               CONNECT BY LEVEL <![CDATA[<=]]> (TO_DATE((SELECT CMPG_END_DT FROM TB_CMPG_BASI WHERE CMPG_ID = #{cmpg_id} AND CNTR_CD = #{cntr_cd}), 'YYYYMMDD') - TO_DATE((SELECT CMPG_STT_DT FROM TB_CMPG_BASI WHERE CMPG_ID = #{cmpg_id} AND CNTR_CD = #{cntr_cd}), 'YYYYMMDD') +1 )
+              ) B
+         ON A.DPMS_DTTM = B.DPMS_DTTM
+         ORDER BY B.DPMS_DTTM ASC
+    </select>
+</mapper>

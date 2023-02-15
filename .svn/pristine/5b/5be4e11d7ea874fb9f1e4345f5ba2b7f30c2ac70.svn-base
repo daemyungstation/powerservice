@@ -1,0 +1,2340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="AddRevenueMap">
+    <!--
+    ASIS : selectEventBalanceCondList
+    -->
+    <select id="AddRevenueMap.selectEventBalanceCondList" parameterType="map" resultType="resultMap">
+        SELECT TBL.seq
+             , TBL.event_Comp_Day
+             , TBL.mem_nm
+             , TBL.accnt_No
+             , CASE WHEN FN_YEN_CHE(TBL.accnt_No) = '만기'
+                     THEN '만기'
+                     ELSE ''
+                END yen_Che
+             , TBL.prod_Nm
+             , nvl(TBL.new_Chan_Amt, 0) new_Chan_Amt
+             , nvl(TBL.prod_Amt, '') prod_Amt
+             , nvl(TBL.deduct_Amt, '') deduct_Amt
+             , nvl(nvl(TBL.prod_Amt, 0) - nvl(TBL.new_Chan_Amt, 0) - nvl(TBL.deduct_Amt, 0), '') prod_Sales_Amt
+             , nvl(TBL.add_Amt, '') add_Amt
+             , nvl(TBL.prod_Amt, 0) - nvl(TBL.new_Chan_Amt, 0) - nvl(TBL.deduct_Amt, 0) + nvl(TBL.add_Amt, 0) tot_Amt
+             , TBL.cms_Amt
+             , TBL.card_Amt
+             , TBL.hand_Amt
+             , TBL.cms_Amt + TBL.card_Amt + TBL.hand_Amt tot_Pay_Amt
+             , '' tmp_Col
+             , nvl(TBL.evt_Bank_Amt, '') evt_Bank_Amt
+             , nvl(TBL.evt_Bank_Dt, '') evt_Bank_Dt
+             , nvl(TBL.evt_Card_Amt, '') evt_Card_Amt
+             , nvl(TBL.evt_Card_App_Dt, '') evt_Card_App_Dt
+             , nvl(TBL.evt_Card_Pay_Dt, '') evt_Card_Pay_Dt
+             , nvl(TBL.cms_Amt + TBL.card_Amt + TBL.hand_Amt + nvl(TBL.evt_Bank_Amt, 0) + nvl(TBL.evt_Card_Amt, 0), '') pay_Tot_Amt
+             , nvl(TBL.sales_Margin_Amt, '') sales_Margin_Amt
+             , nvl(FLOOR(TBL.sales_Margin_Amt / 1.1), '') sales_Amt
+             , nvl(TBL.sales_Margin_Amt - FLOOR(TBL.sales_Margin_Amt / 1.1), '') sales_Vat
+             , nvl(TBL.sales_Buying_Com, '') sales_Buying_Com
+             <!-- 차액에 공제금액도 빼도록 수정 by lbk_2014_02_05 -->
+             , nvl((TBL.prod_Amt + nvl(TBL.add_Amt, 0)) - (TBL.cms_Amt + TBL.card_Amt + TBL.hand_Amt + nvl(TBL.evt_Bank_Amt, 0) + nvl(TBL.evt_Card_Amt, 0)) - nvl(TBL.new_Chan_Amt, 0) - nvl(TBL.deduct_Amt, 0), '') dif_Amt
+             , nvl(REPLACE(REPLACE(REPLACE(TBL.note, CHAR(13), ' '), CHAR(10), ' '), CHAR(9), ' '), '') note
+          FROM (
+                SELECT EVT.SEQ seq
+                     , EVT.EVENT_COMP_DAY
+                     , MEM.MEM_NM mem_nm
+                     , EVT.ACCNT_NO accnt_No
+                     , FN_PROD_NM(ACCNT.PROD_CD) prod_Nm
+                     , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                     , CASE WHEN nvl(PAY_TYPE, '0000') = '002'
+                            THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = PROD.PROD_CD)
+                            ELSE PROD.PROD_AMT
+                       END prod_Amt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(SALES_AMT) FROM FUNRL_RPT_GOODS WHERE GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0)
+                                 +
+                                 nvl((SELECT SUM(MARGIN) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO), 0)
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                 +
+                                 nvl((SELECT SUM(SALES_AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0)
+                            ELSE NULL
+                       END add_Amt
+                     , nvl((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE DEL_FG = 'N' AND ACCNT_NO = ACCNT.ACCNT_NO AND PAY_MTHD = '04' AND CASE WHEN FR.RPT_NO IS NOT NULL THEN nvl(FR.PAY_CNT, 0) WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL THEN nvl(FOM.PAY_CNT, 0) ELSE NO END >= NO), 0)
+                       +
+                       nvl((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE DEL_FG = 'N' AND ACCNT_NO = ACCNT.ACCNT_NO AND PAY_MTHD = '04' AND CASE WHEN FR.RPT_NO IS NOT NULL THEN nvl(FR.PAYDTL_CNT, 0) WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL THEN nvl(FOM.PAY_DTL_CNT, 0) ELSE NO END >= NO), 0) cms_Amt
+                     , nvl((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE DEL_FG = 'N' AND ACCNT_NO = ACCNT.ACCNT_NO AND PAY_MTHD = '06' AND CASE WHEN FR.RPT_NO IS NOT NULL THEN nvl(FR.PAY_CNT, 0) WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL THEN nvl(FOM.PAY_CNT, 0) ELSE NO END >= NO), 0)
+                       +
+                       nvl((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE DEL_FG = 'N' AND ACCNT_NO = ACCNT.ACCNT_NO AND PAY_MTHD = '06' AND CASE WHEN FR.RPT_NO IS NOT NULL THEN nvl(FR.PAYDTL_CNT, 0) WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL THEN nvl(FOM.PAY_DTL_CNT, 0) ELSE NO END >= NO), 0) card_Amt
+                     , nvl((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE DEL_FG = 'N' AND ACCNT_NO = ACCNT.ACCNT_NO AND PAY_MTHD = '01' AND CASE WHEN FR.RPT_NO IS NOT NULL THEN nvl(FR.PAY_CNT, 0) WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL THEN nvl(FOM.PAY_CNT, 0) ELSE NO END >= NO), 0)
+                       +
+                       nvl((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE DEL_FG = 'N' AND ACCNT_NO = ACCNT.ACCNT_NO AND PAY_MTHD = '01' AND CASE WHEN FR.RPT_NO IS NOT NULL THEN nvl(FR.PAYDTL_CNT, 0) WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL THEN nvl(FOM.PAY_DTL_CNT, 0) ELSE NO END >= NO), 0) hand_Amt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(AMT) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0003'), 0)
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0003'), 0)
+                            ELSE NULL
+                       END evt_Bank_Amt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || PAY_DT FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0003' FOR XML PATH('')), 1, 1, '')
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || PAY_DT FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0003' FOR XML PATH('')), 1, 1, '')
+                            ELSE NULL
+                       END evt_Bank_Dt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(AMT) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002'), 0)
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002'), 0)
+                            ELSE NULL
+                       END evt_Card_Amt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || CARD_APP_DT FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002' FOR XML PATH('')), 1, 1, '')
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || CARD_APP_DT FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002' FOR XML PATH('')), 1, 1, '')
+                            ELSE NULL
+                       END evt_Card_App_Dt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || PAY_DT FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002' FOR XML PATH('')), 1, 1, '')
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || PAY_DT FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002' FOR XML PATH('')), 1, 1, '')
+                            ELSE NULL
+                       END evt_Card_Pay_Dt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN nvl((SELECT SUM(MARGIN) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO AND ITEM_CD = '0002'), 0)
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN NULL
+                            ELSE NULL
+                       END sales_Margin_Amt
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN STUFF((SELECT ',' || (SELECT CUSTMR_NM FROM CUSTMR_MNG WHERE CUSTMR_CD = SALES_CD) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO FOR XML PATH('')), 1, 1, '')
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN NULL
+                            ELSE NULL
+                       END sales_Buying_Com
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN FR.EVENT_NOTE
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN FOM.EVENT_NOTE
+                            ELSE ''
+                       END note
+                     , CASE WHEN FR.RPT_NO IS NOT NULL
+                            THEN FR.DEDUCT_AMT
+                            WHEN FOM.FUNRL_OUTSRC_NO IS NOT NULL
+                            THEN FOM.DEDUCT_AMT
+                            ELSE NULL
+                       END deduct_Amt
+                  FROM EVENT EVT
+                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                       INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+                       INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                       LEFT OUTER JOIN FUNRL_RPT FR ON FR.SEQ = EVT.SEQ AND FR.DEL_FG = 'N'
+                       LEFT OUTER JOIN FUNRL_OUTSRC_MST FOM ON FOM.SEQ = EVT.SEQ AND FOM.DEL_FG = 'N'
+                 WHERE EVT.DEL_FG = 'N'
+                 AND EVT.SORT = '01'
+                   AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+                   <if test="mem_nm != null and mem_nm != ''">
+                   AND MEM.MEM_NM LIKE '%' || #{mem_nm} || '%'
+                   </if>
+                ) TBL
+        ORDER BY TBL.accnt_No
+    </select>
+
+
+    <!--
+    ASIS : selectAddSalesCondQry
+    2개의 쿼리로 분리하고 2개의 쿼리를 분리한다음 DAO에서 1번에 실행하는 것처럼 데이터를 만들어 주어야 한다.
+    -->
+    <select id="AddRevenueMap.selectAddSalesCondQry" parameterType="map" resultType="resultMap">
+        DECLARE @SEQ INT
+              , @PIVOT_QRY1 VARCHAR(MAX)
+              , @PIVOT_QRY2 VARCHAR(MAX)
+              , @TOT_SUM_QRY VARCHAR(MAX)
+              , @ADD1_1_SUM_QRY VARCHAR(MAX)
+              , @ADD2_1_SUM_QRY VARCHAR(MAX)
+              , @ADD1_2_SUM_QRY VARCHAR(MAX)
+              , @ADD2_2_SUM_QRY VARCHAR(MAX)
+              , @DF_QRY1 VARCHAR(MAX)
+              , @DF_QRY2 VARCHAR(MAX)
+              , @HT_QRY1 VARCHAR(MAX)
+              , @HT_QRY2 VARCHAR(MAX)
+              , @DF_BASE_QRY VARCHAR(MAX)
+              , @HT_BASE_QRY VARCHAR(MAX)
+
+        SET @SEQ = 1
+        SET @PIVOT_QRY1 = ''
+        SET @PIVOT_QRY2 = ''
+        SET @TOT_SUM_QRY = ''
+        SET @ADD1_1_SUM_QRY = ''
+        SET @ADD2_1_SUM_QRY = ''
+        SET @ADD1_2_SUM_QRY = ''
+        SET @ADD2_2_SUM_QRY = ''
+        SET @DF_BASE_QRY = 'EVT_MNGR_NM,branch_Nm,MEM_NM,ACCNT_NO,PROD_AMT,DEDUCT_AMT,NEW_CHAN_AMT,ADD_SALES_AMT,AMT,BASIC_COST,PROFIT,MARGIN_RT'
+        SET @DF_QRY1 = ''
+        SET @DF_QRY2 = ''
+        SET @HT_BASE_QRY = '담당CP,지부,회원명,회원번호,매출금,공제금액,할인금액,추가매출,금액,기본원가,순이익,마진율(%)'
+        SET @HT_QRY1 = ''
+        SET @HT_QRY2 = ''
+
+        /* 추가매출 1 */
+        BEGIN
+            DECLARE GEN_PIVOT_DATA CURSOR FOR
+                SELECT COM_CD
+                     , CD_NM
+                  FROM COM_CD
+                 WHERE GRP_CD = '0154'
+                   AND USE_YN = 'Y'
+                ORDER BY ORDR_TURN
+            DECLARE @COM_CD VARCHAR(20), @CD_NM VARCHAR(50)
+            OPEN GEN_PIVOT_DATA
+            FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD, @CD_NM
+            WHILE (@@FETCH_STATUS = 0)
+                  BEGIN
+                        IF @SEQ = 1
+                            BEGIN
+                                SET @PIVOT_QRY1 = @PIVOT_QRY1 || '[' || @COM_CD || ']'
+                                SET @DF_QRY1 = @DF_QRY1 || 'A' || @COM_CD
+                                SET @HT_QRY1 = @HT_QRY1 || '' || @CD_NM
+                            END
+                        ELSE
+                            BEGIN
+                                SET @PIVOT_QRY1 = @PIVOT_QRY1 || ',[' || @COM_CD || ']'
+                                SET @DF_QRY1 = @DF_QRY1 || ',A' || @COM_CD
+                                SET @HT_QRY1 = @HT_QRY1 || ',' || @CD_NM
+                            END
+
+                        SET @TOT_SUM_QRY = @TOT_SUM_QRY || ',SUM(A' || @COM_CD || ') A' || @COM_CD
+                        SET @ADD1_1_SUM_QRY = @ADD1_1_SUM_QRY || ',SUM(nvl([' || @COM_CD || '], 0)) A' || @COM_CD
+                        SET @ADD2_1_SUM_QRY = @ADD2_1_SUM_QRY || ',0 A' || @COM_CD
+
+                        SET @SEQ = @SEQ + 1
+
+                        FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD, @CD_NM
+                  END
+            CLOSE GEN_PIVOT_DATA
+            DEALLOCATE GEN_PIVOT_DATA
+        END
+
+        /* 추가매출 2 */
+        SET @SEQ = 1
+        BEGIN
+            DECLARE GEN_PIVOT_DATA CURSOR FOR
+                SELECT COM_CD
+                     , CD_NM
+                  FROM COM_CD
+                 WHERE GRP_CD = '0148'
+                   AND USE_YN = 'Y'
+                ORDER BY ORDR_TURN
+            DECLARE @COM_CD2 VARCHAR(20), @CD_NM2 VARCHAR(50)
+            OPEN GEN_PIVOT_DATA
+            FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD2, @CD_NM2
+            WHILE (@@FETCH_STATUS = 0)
+                  BEGIN
+                        IF @SEQ = 1
+                            BEGIN
+                                SET @PIVOT_QRY2 = @PIVOT_QRY2 || '[' || @COM_CD2 || ']'
+                                SET @DF_QRY2 = @DF_QRY2 || 'B' || @COM_CD2
+                                SET @HT_QRY2 = @HT_QRY2 || '' || @CD_NM2
+                            END
+                        ELSE
+                            BEGIN
+                                SET @PIVOT_QRY2 = @PIVOT_QRY2 || ',[' || @COM_CD2 || ']'
+                                SET @DF_QRY2 = @DF_QRY2 || ',B' || @COM_CD2
+                                SET @HT_QRY2 = @HT_QRY2 || ',' || @CD_NM2
+                            END
+
+                        IF @COM_CD2 = '0002'
+                            BEGIN
+                                SET @DF_QRY2 = @DF_QRY2 || ',BXXXX,BYYYY'
+                                SET @HT_QRY2 = @HT_QRY2 || ',2차장지 공급가액,2차장지 부가세'
+                            END
+
+                        SET @ADD1_2_SUM_QRY = @ADD1_2_SUM_QRY || ',0 B' || @COM_CD2
+                        SET @ADD2_2_SUM_QRY = @ADD2_2_SUM_QRY || ',SUM(nvl([' || @COM_CD2 || '], 0)) B' || @COM_CD2
+                        SET @TOT_SUM_QRY = @TOT_SUM_QRY || ',SUM(B' || @COM_CD2 || ') B' || @COM_CD2
+                        IF @COM_CD2 = '0002'
+                            BEGIN
+                                SET @ADD1_2_SUM_QRY = @ADD1_2_SUM_QRY || ',0 BXXXX,0 BYYYY'
+                                SET @ADD2_2_SUM_QRY = @ADD2_2_SUM_QRY || ',SUM(nvl(FLOOR(CONVERT(NUMERIC, [0002]) / 1.1), 0)) BXXXX,SUM(CONVERT(NUMERIC, [0002]) - nvl(FLOOR(CONVERT(NUMERIC, [0002]) / 1.1), 0)) BYYYY'
+                                SET @TOT_SUM_QRY = @TOT_SUM_QRY || ',SUM(BXXXX) BXXXX,SUM(BYYYY) BYYYY'
+                            END
+
+                        SET @SEQ = @SEQ + 1
+
+                        FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD2, @CD_NM2
+                  END
+            CLOSE GEN_PIVOT_DATA
+            DEALLOCATE GEN_PIVOT_DATA
+        END
+        SELECT @PIVOT_QRY1 PIVOT_QRY1
+             , @ADD1_1_SUM_QRY ADD1_1_SUM_QRY
+             , @ADD2_1_SUM_QRY ADD2_1_SUM_QRY
+             , @DF_QRY1 DF_QRY1
+             , @HT_QRY1 HT_QRY1
+
+             , @PIVOT_QRY2 PIVOT_QRY2
+             , @ADD1_2_SUM_QRY ADD1_2_SUM_QRY
+             , @ADD2_2_SUM_QRY ADD2_2_SUM_QRY
+             , @DF_QRY2 DF_QRY2
+             , @HT_QRY2 HT_QRY2
+
+             , @TOT_SUM_QRY TOT_SUM_QRY
+             , @DF_BASE_QRY DF_BASE_QRY /* 그냥 내부 문자열 설정값 읽어옴 - 고정 데이터 */
+             , @HT_BASE_QRY HT_BASE_QRY /* 그냥 내부 문자열 설정값 읽어옴 - 고정 데이터 */
+    </select>
+
+    <!--
+    ASIS : selectAddSalesCondQry
+    2개의 쿼리로 분리하고 2개의 쿼리를 분리한다음 DAO에서 1번에 실행하는 것처럼 데이터를 만들어 주어야 한다.
+    -->
+    <select id="AddRevenueMap.selectAddSalesCondQry1" parameterType="map" resultType="resultMap">
+        SELECT COM_CD
+             , CD_NM
+          FROM COM_CD
+         WHERE GRP_CD = '0154'
+           AND USE_YN = 'Y'
+        ORDER BY ORDR_TURN
+    </select>
+
+    <!--
+    ASIS : selectAddSalesCondQry
+    2개의 쿼리로 분리하고 2개의 쿼리를 분리한다음 DAO에서 1번에 실행하는 것처럼 데이터를 만들어 주어야 한다.
+    -->
+    <select id="AddRevenueMap.selectAddSalesCondQry2" parameterType="map" resultType="resultMap">
+        SELECT COM_CD
+             , CD_NM
+          FROM COM_CD
+         WHERE GRP_CD = '0148'
+           AND USE_YN = 'Y'
+         ORDER BY ORDR_TURN
+    </select>
+
+<!--
+    ASIS : selectAddSalesOutCondQry
+           - DAO에서 최종 데이터 만들어야 한다. ASIS 에서는 쿼리에서 모두 만들었으나 TOBE에서는 일부 로직을 DAO에서 처리함
+
+    <select id="AddRevenueMap.selectAddSalesOutCondQry" parameterType="map" resultType="resultMap">
+        DECLARE @SEQ INT
+              , @PIVOT_QRY1 VARCHAR(MAX)
+              , @TOT_SUM_QRY VARCHAR(MAX)
+              , @ADD1_1_SUM_QRY VARCHAR(MAX)
+              , @ADD2_1_SUM_QRY VARCHAR(MAX)
+              , @DF_QRY1 VARCHAR(MAX)
+              , @HT_QRY1 VARCHAR(MAX)
+              , @DF_BASE_QRY VARCHAR(MAX)
+              , @HT_BASE_QRY VARCHAR(MAX)
+
+        SET @SEQ = 1
+        SET @PIVOT_QRY1 = ''
+        SET @TOT_SUM_QRY = ''
+        SET @ADD1_1_SUM_QRY = ''
+        SET @ADD2_1_SUM_QRY = ''
+        SET @DF_BASE_QRY = 'EVT_MNGR_NM,branch_Nm,MEM_NM,ACCNT_NO,PROD_AMT,SALES_AMT,AMT,MARGIN'
+        SET @DF_QRY1 = ''
+        SET @HT_BASE_QRY = '담당CP,지부,회원명,회원번호,가입상품금액,추가매출,원가,마진'
+        SET @HT_QRY1 = ''
+
+        /* 추가매출 */
+        BEGIN
+            DECLARE GEN_PIVOT_DATA CURSOR FOR
+                SELECT GDS_CD
+                     , (SELECT B.GDS_NM FROM EVENT_GOODS_MNG_MST B WHERE B.GDS_CD = A.GDS_CD) GDS_NM
+                  FROM FUNRL_OUTSRC_GOODS A
+                 WHERE (A.FOG_CL = '0001' OR A.ADD_SALES_YN = 'Y')
+                   AND GDS_CD IS NOT NULL
+                   AND GDS_CD != ''
+                GROUP BY GDS_CD
+            DECLARE @COM_CD VARCHAR(20), @CD_NM VARCHAR(50)
+            OPEN GEN_PIVOT_DATA
+            FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD, @CD_NM
+            WHILE (@@FETCH_STATUS = 0)
+                  BEGIN
+                        IF @SEQ = 1
+                            BEGIN
+                                SET @PIVOT_QRY1 = @PIVOT_QRY1 || '[' || @COM_CD || ']'
+                                SET @DF_QRY1 = @DF_QRY1 || 'A' || @COM_CD
+                                SET @HT_QRY1 = @HT_QRY1 || '' || @CD_NM
+                            END
+                        ELSE
+                            BEGIN
+                                SET @PIVOT_QRY1 = @PIVOT_QRY1 || ',[' || @COM_CD || ']'
+                                SET @DF_QRY1 = @DF_QRY1 || ',A' || @COM_CD
+                                SET @HT_QRY1 = @HT_QRY1 || ',' || @CD_NM
+                            END
+
+                        SET @TOT_SUM_QRY = @TOT_SUM_QRY || ',SUM(A' || @COM_CD || ') A' || @COM_CD
+                        SET @ADD1_1_SUM_QRY = @ADD1_1_SUM_QRY || ',SUM(nvl([' || @COM_CD || '], 0)) A' || @COM_CD
+                        SET @ADD2_1_SUM_QRY = @ADD2_1_SUM_QRY || ',0 A' || @COM_CD
+
+                        SET @SEQ = @SEQ + 1
+
+                        FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD, @CD_NM
+                  END
+            CLOSE GEN_PIVOT_DATA
+            DEALLOCATE GEN_PIVOT_DATA
+        END
+
+        SELECT @PIVOT_QRY1 PIVOT_QRY1, @TOT_SUM_QRY TOT_SUM_QRY
+             , @ADD1_1_SUM_QRY ADD1_1_SUM_QRY, @ADD2_1_SUM_QRY ADD2_1_SUM_QRY
+             , @DF_QRY1 DF_QRY1, @HT_QRY1 HT_QRY1
+             , @DF_BASE_QRY DF_BASE_QRY
+             , @HT_BASE_QRY HT_BASE_QRY
+    </select>
+     -->
+
+    <!--
+    ASIS : selectAddSalesOutCondQry
+           - DAO에서 최종 데이터 만들어야 한다. ASIS 에서는 쿼리에서 모두 만들었으나 TOBE에서는 일부 로직을 DAO에서 처리함
+    -->
+    <select id="AddRevenueMap.selectAddSalesOutCondQry" parameterType="map" resultType="resultMap">
+    SELECT GDS_CD
+         , (SELECT B.GDS_NM FROM EVENT_GOODS_MNG_MST B WHERE B.GDS_CD = A.GDS_CD) GDS_NM
+      FROM FUNRL_OUTSRC_GOODS A
+     WHERE (A.FOG_CL = '0001' OR A.ADD_SALES_YN = 'Y')
+       AND GDS_CD IS NOT NULL
+       AND GDS_CD != ''
+     GROUP BY GDS_CD
+    </select>
+
+
+    <!--
+    ASIS : selectAddSalesOutCondList
+    -->
+    <select id="AddRevenueMap.selectAddSalesOutCondList" parameterType="map" resultType="resultMap">
+        SELECT /* AddRevenueMap.selectAddSalesOutCondList */
+              (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO)) GRP_CNT
+             , ORDER_NO
+             , nvl(EVT_MNGR_NM, '합계') EVT_MNGR_NM
+             , EVT_MNGR_CD
+             , branch_Cd
+             , branch_Nm
+             , MEM_NM
+             , MEM_NO
+             , ACCNT_NO
+             , SUM(PROD_AMT) PROD_AMT
+             , SUM(SALES_AMT) SALES_AMT
+             , SUM(AMT) AMT
+             , SUM(MARGIN) MARGIN
+             ${tot_sum_qry}
+          FROM (SELECT 0 ORDER_NO
+                     , TBL3.EVT_MNGR_NM
+                     , EVT_MNGR_CD
+                     , branch_Cd
+                     , (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = tbl3.branch_Cd) branch_Nm
+                     , FN_MEM_NM(MEM_NO) MEM_NM
+                     , MEM_NO
+                     , ACCNT_NO
+                     , PROD_AMT
+                     , SUM(SALES_AMT) SALES_AMT										  /* 추가매출 = 원가 + 마진 */
+                     , SUM(AMT) AMT													  /* 원가 */
+                     , SUM(MARGIN) MARGIN			                                  /* 마진 */
+                     ${tot_sum_qry}
+                  FROM (
+                        SELECT EVT_MNGR_NM
+                             , EVT_MNGR_CD
+                             , branch_Cd
+                             , MEM_NO
+                             , ACCNT_NO
+                             , PROD_AMT
+                             , SUM(SALES_AMT) SALES_AMT
+                             , SUM(AMT) AMT
+                             , SUM(MARGIN) MARGIN
+                             ${add1_1_sum_qry}
+                          FROM (SELECT (SELECT EVT_MNGR_NM
+                                          FROM EVENT_MANAGER_MNG
+                                         WHERE EVT_MNGR_CD = (SELECT EVT_MNGR_CD
+                                                                FROM EVENT_MNGR_REG
+                                                               WHERE EVT_SEQ = EVT.SEQ
+                                                                 AND DEL_FG = 'N'
+                                                                 AND EVT_MNGR_GUBUN ='0001')) EVT_MNGR_NM
+                                     , (SELECT EVT_MNGR_CD
+                                          FROM EVENT_MNGR_REG
+                                         WHERE EVT_SEQ = EVT.SEQ
+                                           AND DEL_FG = 'N'
+                                           AND EVT_MNGR_GUBUN ='0001') EVT_MNGR_CD
+                                     , nvl((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG Y
+                                         WHERE Y.EVT_MNGR_CD = (SELECT EVT_MNGR_CD
+                                          FROM EVENT_MNGR_REG
+                                         WHERE EVT_SEQ = EVT.SEQ
+                                           AND DEL_FG = 'N'
+                                           AND EVT_MNGR_GUBUN ='0001'))), '') branch_Cd
+                                     , ACCNT.MEM_NO
+                                     , ACCNT.ACCNT_NO
+                                     , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                            THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                            ELSE PROD.PROD_AMT
+                                       END PROD_AMT
+                                     , (SELECT GDS_NM FROM EVENT_GOODS_MNG_MST WHERE GDS_CD = FRG.GDS_CD AND DEL_FG = 'N') GDS_NM
+                                     , FRG.GDS_GRP_CD
+                                     , FR.FUNRL_OUTSRC_NO
+                                     , GDS_GRP.CD_NM
+                                     , GDS_GRP.COM_CD
+                                     , nvl(FRG.SALES_AMT, 0) SALES_AMT
+                                     , nvl(FRG.SALES_AMT, 0) SALES_AMT2
+                                     , nvl(FRG.AMT, 0) AMT
+                                     , nvl(FRG.MARGIN, 0) MARGIN
+                                  FROM EVENT EVT
+                                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                                                          <if test="prod_cd != null and prod_cd != ''">
+                                                                          AND ACCNT.PROD_CD = #{prod_cd}
+                                                                          </if>
+                                       INNER JOIN PRODUCT PROD ON PROD.PROD_CD = ACCNT.PROD_CD
+                                       INNER JOIN FUNRL_OUTSRC_MST FR ON FR.SEQ = EVT.SEQ AND FR.DEL_FG = 'N'
+                                       CROSS JOIN (
+                                         SELECT GDS_CD COM_CD
+                                              , (SELECT B.GDS_NM FROM EVENT_GOODS_MNG_MST B WHERE B.GDS_CD = A.GDS_CD) CD_NM
+                                            FROM FUNRL_OUTSRC_GOODS A
+                                          WHERE (A.FOG_CL = '0001' OR A.ADD_SALES_YN = 'Y')
+                                          GROUP BY GDS_CD
+                                       ) GDS_GRP
+                                       LEFT OUTER JOIN (
+                                         SELECT A.FUNRL_OUTSRC_NO
+                                              , SUM(A.SALES_AMT) SALES_AMT
+                                              , SUM(A.AMT) AMT
+                                              , SUM(A.MARGIN) MARGIN
+                                              , A.GDS_CD
+                                              , EGMM.GDS_GRP_CD
+                                           FROM FUNRL_OUTSRC_GOODS A
+                                                INNER JOIN EVENT_GOODS_MNG_MST EGMM ON EGMM.DEL_FG = 'N' AND A.GDS_CD = EGMM.GDS_CD
+                                          WHERE (A.FOG_CL = '0001' OR A.ADD_SALES_YN = 'Y')
+                                         GROUP BY A.FUNRL_OUTSRC_NO, EGMM.GDS_GRP_CD, A.GDS_CD
+                                       ) FRG ON FRG.GDS_CD = GDS_GRP.COM_CD AND FR.FUNRL_OUTSRC_NO = FRG.FUNRL_OUTSRC_NO
+                                 WHERE EVT.DEL_FG = 'N'
+                                   AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt},'19000101') AND nvl(#{end_dt}, '99991231')
+                               ) TBL
+                        PIVOT (
+                          SUM(SALES_AMT2) FOR COM_CD IN (
+                             ${pivot_qry1}
+                            )
+                        ) PV
+                        GROUP BY EVT_MNGR_NM, EVT_MNGR_CD, branch_Cd, MEM_NO, ACCNT_NO, PROD_AMT
+                       ) TBL3
+                 WHERE 1=1
+                 <if test="branch != null and branch != ''">
+                   AND TBL3.branch_Cd = #{branch}
+                 </if>
+                 <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+                   AND EVT_MNGR_CD = #{evt_mngr_cd}
+                 </if>
+                GROUP BY EVT_MNGR_NM
+                       , EVT_MNGR_CD
+                       , branch_Cd
+                       , MEM_NO
+                       , ACCNT_NO
+                       , PROD_AMT
+            ) TBL4
+        GROUP BY ROLLUP (ORDER_NO, EVT_MNGR_NM, EVT_MNGR_CD, branch_Cd, branch_Nm, MEM_NM, MEM_NO, ACCNT_NO)
+        HAVING (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO) = 0)
+               OR
+               (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO) = 3)
+               OR
+               (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO) = 8)
+    </select>
+
+    <!--
+    ASIS : selectEvtMgrList
+    -->
+    <select id="AddRevenueMap.selectEvtMgrList" parameterType="map" resultType="resultMap">
+        SELECT EVT_MNGR_CD
+             , REAL_EVT_MNGR_CD
+             , EVT_MNGR_NM
+             , TEL
+             , CELL
+             , REPLACE(substr(CELL,1,3), '-','') as cell1
+             , CASE WHEN CELL = '' THEN '' ELSE REPLACE(substr(substr(CELL, 1,length(CELL)-5),-4), '-', '') END as cell2
+             , substr(CELL, -4) as cell3
+             , IDN_NO idn_No
+             , substr(nvl(IDN_NO, ''), 1,6) idn_No1
+             , substr(nvl(IDN_NO, ''), -7) idn_No2
+             , FN_COM_NM('0138', JOB_DUTY) jobduty
+             , (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = C.BRANCH) branch
+             , A.JOB_DUTY jobduty_Cd
+             , C.BRANCH branch_Cd
+             , ZIP
+             , substr(ZIP, 1,3) zip1
+             , substr(ZIP, -3) zip2
+             , ADDR1
+             , ADDR2
+             , ADDR1 || ' ' || ADDR2 addr
+             , FN_COM_NM('63', BANK_CD) bank_Nm
+             , FN_COM_NM('0139', C.branch) branch_Nm
+             , BANK_CD
+             , DEPR
+             , BANK_ACCNT_NO bank_Accnt_No
+             , (SELECT TOP 1 WH_NM FROM WAREHOUSE_MNG WHERE  WH_CD = A.WH_CD) wh_Nm
+             , A.WH_CD
+             , CASE WHEN nvl((SELECT (SELECT Z.DIR_OUT_GUBUN FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = A.EVT_MNGR_CD)), '') = '0001' THEN '직영'
+                    WHEN nvl((SELECT (SELECT Z.DIR_OUT_GUBUN FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = A.EVT_MNGR_CD)), '') = '0002' THEN '외주'
+               END emp_Gubun
+             , nvl((SELECT (SELECT Z.DIR_OUT_GUBUN FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = A.EVT_MNGR_CD)), '') emp_Gubun_Cd
+             , (SELECT TOP 1 CM.CUSTMR_NM FROM CUSTMR_MNG CM WHERE CM.DEL_FG = 'N' AND CM.CUSTMR_CD = A.CUSTMR_CD) custmr_Nm
+             , CUSTMR_CD
+             , NOTE
+             , nvl(B.HMH_ADAY, 0) hmh_Aday
+             , nvl(B.HMM_ADAY, 0) hmm_Aday
+             , nvl(B.HMM_ADD_TIME, 0) hmm_Add_Time
+             , a.emple_no
+             , fn_emple_nm(a.emple_no) emple_Nm
+             , CASE WHEN length(IDN_NO) = 10
+                    THEN IDN_NO
+                    ELSE substr(IDN_NO, 1,6)
+               END brth_Mon_Day
+          FROM EVENT_MANAGER_MNG A
+               LEFT OUTER JOIN EVT_MNGR_ALOW_DATA B ON A.JOB_DUTY = B.EVT_MNGR_CL AND B.DEL_FG = 'N'
+                                                       <if test="work_dt != null and work_dt != ''">
+                                                          AND APP_DT = (SELECT MAX(Z.APP_DT) FROM EVT_MNGR_ALOW_DATA Z WHERE APP_DT &lt;= nvl(#{work_dt}, to_char(SYSDATE, 'YYYYMMDD')))
+                                                          </if>
+                                                       <if test="work_dt == null or work_dt == ''">
+                                                          AND B.APP_DT = (SELECT MAX(Z.APP_DT) FROM EVT_MNGR_ALOW_DATA Z WHERE Z.APP_DT &lt;= TO_CHAR(SYSDATE,'YYYYMMDD'))
+                                                          </if>
+               LEFT OUTER JOIN WAREHOUSE_MNG C ON C.DEL_FG='N' AND C.WH_CD=A.WH_CD
+         WHERE 1 = 1
+           AND A.DEL_FG = 'N'
+
+           <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+           AND EVT_MNGR_CD = #{evt_mngr_cd}
+           </if>
+
+           <if test="evt_mngr_nm != null and evt_mngr_nm != ''">
+           AND EVT_MNGR_NM LIKE '%' || #{evt_mngr_nm} || '%'
+           </if>
+
+           <if test="jobduty != null and jobduty != ''">
+           AND JOB_DUTY = #{jobduty}
+           </if>
+
+            <if test="branch != null and branch != ''">
+           AND c.branch = #{branch}
+           </if>
+
+           <if test="evt_mngr_gubun != null and evt_mngr_gubun != ''">
+           AND JOB_DUTY = #{evt_mngr_gubun}
+           </if>
+
+           <if test="evt_gubun != null and evt_gubun != ''">
+           AND EMP_GUBUN = #{evt_gubun}
+           </if>
+    </select>
+
+    <!--
+    ASIS : selectEvtCostBenefitAnalysis1
+    -->
+    <select id="AddRevenueMap.selectEvtCostBenefitAnalysis1" parameterType="map" resultType="resultMap">
+        <if test="evt_cl != 'out'">
+         /* 직영 */
+        SELECT TBL.ACCNT_NO
+             , TBL.MEM_NM
+             , TBL.EVENT_COMP_DAY
+             , TBL.LOC
+             , TBL.PROD_NM
+             , TBL.CP_NM
+             , TBL.BRANCH_NM
+             , TBL.EVENT_PLACE
+             , TBL.PROD_AMT
+             , (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt EVT_SALES_COST
+             , TBL.EVT_ADD_SALES
+             , TBL.EVT_ADD_SALES_COST EVT_ADD_SALES_COST2
+             , TOT_EVT_SALES = (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) + EVT_ADD_SALES
+             , TOT_EVT_SALES_COST=  (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt
+             , PROFIT = PROD_AMT - new_Chan_Amt - ((TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt)-tbl.deduct_Amt
+             , PROFIT2 = ( (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) + EVT_ADD_SALES)	- ( (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt )
+             , TBL.EVT_PAY_AMT
+             , TBL.EVT_PAY_AMT_CARD
+             , TBL.EVT_PAY_AMT_CASH
+             , TBL.CARD_FEE
+             , 0 EVT_COST
+             , TBL.CARD_AMT
+             , TBL.deduct_Amt
+             , TBL.new_Chan_Amt
+             , TBL.SAVE_CL
+             , TBL.AMT1
+             , TBL.AMT2
+             , TBL.AMT3
+             , TBL.AMT4
+          FROM (SELECT EVT.ACCNT_NO
+                     , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                     , EVT.EVENT_COMP_DAY
+                     , nvl(EVT.ETC_LOC_NM, '') LOC
+                     , PROD.PROD_NM
+                     , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                     , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                     , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                         THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                         ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                   END, ''), ') ', '') EVENT_PLACE
+                     , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                            THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                            ELSE PROD.PROD_AMT
+                       END PROD_AMT
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0001' AND RPT_NO = FR.RPT_NO), 0) EVT_SALES_COST
+                     , nvl((SELECT SUM(SALES_AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0)
+                       +
+                       nvl((SELECT SUM(MARGIN) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES
+                     , nvl((SELECT SUM(nvl(SALES_AMT, 0)) - SUM(nvl(MARGIN, 0)) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES_COST
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO), 0) EVT_PAY_AMT
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                     , CASE WHEN FN_MEM_NM(ACCNT.MEM_NO) LIKE '%' || #{search_nm} || '%' THEN 'Y' ELSE 'N' END SEARCH_YN
+                     , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO), 0) CARD_FEE
+                     , FR.TOT_COST_AMT
+                      , FR.TOT_COST_AMT as EVT_COST
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                     , FR.DEDUCT_AMT
+                     , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                     , FN_COM_NM('0149', FR.SAVE_CL) SAVE_CL
+                     , nvl(amt.amt1,0) amt1
+                     , nvl(amt.amt2,0) amt2
+                     , nvl(amt.amt3,0) amt3
+                     , nvl(amt.amt4,0) amt4
+                  FROM EVENT EVT
+                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                       INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                       INNER JOIN(
+                           SELECT EVT_SEQ
+                                , MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                             FROM EVENT_MNGR_REG
+                            WHERE DEL_FG = 'N'
+                              AND EVT_MNGR_GUBUN = '0001'
+                           GROUP BY EVT_SEQ
+                       ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                       INNER JOIN FUNRL_RPT FR ON EVT.SEQ = FR.SEQ AND FR.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FR.SAVE_CL = #{save_cl}
+                                                  </if>
+                       INNER JOIN
+                       (
+                          SELECT
+                              seq
+                               ,sum(amt1) amt1
+                               ,sum(amt2) amt2
+                               ,sum(amt3) amt3
+                               ,sum(amt4) amt4
+                          FROM
+                          (
+                             SELECT
+                                 seq
+                                  , FRG.pay_opt
+                                 , case when FRG.pay_opt='0001' then amt else 0 end amt1
+                                 , case when FRG.pay_opt='0002' then amt else 0 end amt2
+                                 , case when FRG.pay_opt='0003' then amt else 0 end amt3
+                                 , case when FRG.pay_opt='0004' then amt else 0 end amt4
+                             FROM FUNRL_RPT FR
+                             INNER JOIN FUNRL_RPT_GOODS FRG ON FR.RPT_NO = FRG.RPT_NO AND frg.del_fg='N'
+                             WHERE FR.del_fg='N'
+                             and frg.frg_cl is not null
+                             <if test="save_cl != null and save_cl != ''">
+                             AND FR.SAVE_CL = #{save_cl}
+                             </if>
+                             ) tm
+                          GROUP BY seq) amt  ON amt.SEQ=EVT.SEQ
+                 WHERE EVT.DEL_FG = 'N'
+                   AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+
+                   <if test="prod_cd != null and prod_cd != ''">
+                   AND PROD.PROD_CD = #{prod_cd}
+                   </if>
+               ) TBL
+
+
+         <if test="search_nm != null and search_nm != ''">
+          WHERE SEARCH_YN ='Y' OR TBL.CP_NM like '%' || #{search_nm}
+         </if>
+
+        </if>
+
+        <if test="evt_cl == null or evt_cl == ''">
+        UNION ALL
+        </if>
+
+        <if test="evt_cl != 'dir'">
+         /* 외주 */
+        SELECT TBL.ACCNT_NO
+             , TBL.MEM_NM
+             , TBL.EVENT_COMP_DAY
+             , TBL.LOC
+             , TBL.PROD_NM
+             , TBL.CP_NM
+             , TBL.BRANCH_NM
+             , TBL.EVENT_PLACE
+             , TBL.PROD_AMT
+             , TBL.EVT_SALES_COST
+             , TBL.EVT_ADD_SALES
+             , TBL.EVT_ADD_SALES_COST
+             , TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt TOT_EVT_SALES
+             , TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST TOT_EVT_SALES_COST
+             , PROFIT = (TBL.PROD_AMT - TBL.new_Chan_Amt) - (TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST)-tbl.deduct_Amt
+              , PROFIT2 = (TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt) - TBL.EVT_SALES_COST
+             , TBL.EVT_PAY_AMT
+             , TBL.EVT_PAY_AMT_CARD
+             , TBL.EVT_PAY_AMT_CASH
+             , TBL.CARD_FEE
+             , 0 EVT_COST
+             , TBL.CARD_AMT
+             , TBL.deduct_Amt
+             , TBL.new_Chan_Amt
+             , TBL.SAVE_CL
+             , 0 amt1
+            , 0 amt2
+            , 0 amt3
+            , 0 amt4
+          FROM (SELECT EVT.ACCNT_NO
+                     , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                     , EVT.EVENT_COMP_DAY
+                     , nvl(EVT.ETC_LOC_NM, '') LOC
+                     , PROD.PROD_NM
+                     , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                     , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                     , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                             THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                             ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                       END, ''), ') ', '') EVENT_PLACE
+                     , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                             THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                             ELSE PROD.PROD_AMT
+                       END PROD_AMT
+                     , nvl(FOM.OUTSRC_AMT, 0) EVT_COST
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                       +
+                       nvl((SELECT SUM(SALES_AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                       +
+                       nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES_COST
+                      , 0 EVT_PAY_AMT
+                      , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                     , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                      , CASE WHEN FN_MEM_NM(ACCNT.MEM_NO) LIKE '%' || #{search_nm} || '%' THEN 'Y' ELSE 'N' END SEARCH_YN
+                      , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO), 0) CARD_FEE
+                      , FOM.TOT_EVT_COST_OUT EVT_SALES_COST
+                      , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                      , FOM.DEDUCT_AMT deduct_Amt
+                      , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                      , FN_COM_NM('0149', FOM.SAVE_CL) SAVE_CL
+                  FROM [EVENT] EVT
+                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                       INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                       INNER JOIN(
+                           SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                             FROM EVENT_MNGR_REG
+                            WHERE DEL_FG = 'N'
+                              AND EVT_MNGR_GUBUN = '0001'
+                           GROUP BY EVT_SEQ
+                       ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                       INNER JOIN FUNRL_OUTSRC_MST FOM ON EVT.SEQ = FOM.SEQ AND FOM.DEL_FG = 'N'
+
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FOM.SAVE_CL = #{save_cl}
+                                                  </if>
+                 WHERE EVT.DEL_FG = 'N'
+                   AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+                   <if test="prod_cd != null and prod_cd != ''">
+                   AND PROD.PROD_CD = #{prod_cd}
+                   </if>
+               ) TBL
+
+
+
+          <if test="search_nm != null and search_nm != ''">
+         WHERE SEARCH_YN ='Y' OR TBL.CP_NM like '%' || #{search_nm}
+         </if>
+        </if>
+        ORDER BY ACCNT_NO
+    </select>
+
+    <!--
+    ASIS : selectEvtCostBenefitAnalysis2
+    -->
+    <select id="AddRevenueMap.selectEvtCostBenefitAnalysis2" parameterType="map" resultType="resultMap">
+        SELECT DATE_TBL.DT HEAD_TXT
+             , COUNT(TBL1.ACCNT_NO) EVT_CNT
+             , nvl(SUM(TBL1.PROD_AMT), 0) PROD_AMT
+             , nvl(SUM(TBL1.EVT_SALES_COST), 0) EVT_SALES_COST
+             , nvl(SUM(TBL1.EVT_ADD_SALES), 0) EVT_ADD_SALES
+             , nvl(SUM(TBL1.EVT_ADD_SALES_COST), 0) EVT_ADD_SALES_COST
+             , nvl(SUM(TBL1.TOT_EVT_SALES), 0) TOT_EVT_SALES
+             , nvl(SUM(TBL1.TOT_EVT_SALES_COST), 0) TOT_EVT_SALES_COST
+             , nvl(SUM(TBL1.PROFIT), 0) PROFIT
+             , nvl(SUM(TBL1.PROFIT2), 0) PROFIT2
+             , CASE WHEN COUNT(TBL1.ACCNT_NO) = 0
+                    THEN 0
+                    ELSE nvl(SUM(TBL1.PROFIT), 0)/COUNT(TBL1.ACCNT_NO)
+               END PROFIT_PER_GUN
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CARD), 0) EVT_PAY_AMT_CARD
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CASH), 0) EVT_PAY_AMT_CASH
+             , nvl(SUM(TBL1.EVT_PAY_AMT), 0) EVT_PAY_AMT
+             , nvl(SUM(TBL1.CARD_FEE), 0) CARD_FEE
+             , nvl(SUM(TBL1.EVT_COST), 0) EVT_COST
+             , nvl(SUM(TBL1.CARD_AMT), 0) CARD_AMT
+             , nvl(SUM(TBL1.deduct_Amt), 0) deduct_Amt
+             , nvl(SUM(TBL1.new_Chan_Amt), 0) new_Chan_Amt
+             , nvl(SUM(TBL1.AMT1), 0) AMT1
+             , nvl(SUM(TBL1.AMT2), 0) AMT2
+             , nvl(SUM(TBL1.AMT3), 0) AMT3
+             , nvl(SUM(TBL1.AMT4), 0) AMT4
+          FROM (SELECT substr(TO_CHAR(DATEADD(MONTH, NUMBER, nvl(#{start_dt}, '19000101')||'/01'), 'YYYYMM'), 1,6) DT
+                  FROM MASTER..SPT_VALUES WITH (NOLOCK)
+                WHERE TYPE = 'P' AND NUMBER &lt;= DATEDIFF(MONTH, nvl(#{start_dt}, '19000101')||'/01', substr(nvl(#{end_dt}, '99991231'),1,6)||'/01')) DATE_TBL
+               LEFT OUTER JOIN (
+                   <if test="evt_cl != 'out'">
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.BRANCH_NM
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , TOT_EVT_SALES = (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) +EVT_ADD_SALES
+                        , TOT_EVT_SALES_COST=  (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt
+                        , PROFIT = PROD_AMT - new_Chan_Amt - ((TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt) -tbl.deduct_Amt
+                        , PROFIT2 = ( (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) +EVT_ADD_SALES)	- ( (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt )
+                        , nvl(TBL.EVT_PAY_AMT_CARD,0) EVT_PAY_AMT_CARD
+                        , nvl(TBL.EVT_PAY_AMT_CASH,0) EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , TBL.AMT1
+                        , TBL.AMT2
+                        , TBL.AMT3
+                        , TBL.AMT4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0001' AND RPT_NO = FR.RPT_NO), 0) EVT_SALES_COST
+                                , nvl((SELECT SUM(SALES_AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0)
+                                  +
+                                     nvl((SELECT SUM(MARGIN) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES
+                                , nvl((SELECT SUM(nvl(SALES_AMT, 0)) - SUM(nvl(MARGIN, 0)) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO), 0) EVT_PAY_AMT
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                 , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                , FR.TOT_COST_AMT
+                                , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO), 0) CARD_FEE
+                                , FR.TOT_COST_AMT as EVT_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                , FR.DEDUCT_AMT deduct_Amt
+                                , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                                , nvl(amt.amt1,'0') amt1
+                                , nvl(amt.amt2,'0') amt2
+                                , nvl(amt.amt3,'0') amt3
+                                , nvl(amt.amt4,'0') amt4
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_RPT FR ON EVT.SEQ = FR.SEQ AND FR.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FR.SAVE_CL = #{save_cl}
+                                                  </if>
+                                INNER JOIN
+                                   (
+                                      SELECT
+                                          seq
+                                           ,sum(amt1) amt1
+                                           ,sum(amt2) amt2
+                                           ,sum(amt3) amt3
+                                           ,sum(amt4) amt4
+                                      FROM
+                                      (
+                                         SELECT
+                                             seq
+                                              , FRG.pay_opt
+                                             , case when FRG.pay_opt='0001' then amt else 0 end amt1
+                                             , case when FRG.pay_opt='0002' then amt else 0 end amt2
+                                             , case when FRG.pay_opt='0003' then amt else 0 end amt3
+                                             , case when FRG.pay_opt='0004' then amt else 0 end amt4
+                                         FROM FUNRL_RPT FR
+                                         INNER JOIN FUNRL_RPT_GOODS FRG ON FR.RPT_NO = FRG.RPT_NO AND frg.del_fg='N'
+                                         WHERE FR.del_fg='N'
+                                         and frg.frg_cl is not null
+                                        <if test="save_cl != null and save_cl != ''">
+                                         AND FR.SAVE_CL = #{save_cl}
+                                         </if>
+                                         ) tm
+                                      GROUP BY seq) amt  ON amt.SEQ=EVT.SEQ
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+                    </if>
+
+                    <if test="evt_cl == null or evt_cl == ''">
+                    UNION ALL
+                    </if>
+
+
+                    <if test="evt_cl != 'dir'">
+                    /* 외주 */
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.BRANCH_NM
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , TBL.EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , CASE WHEN nvl(TBL.EVT_COST, 0) = 0 THEN TBL.PROD_AMT ELSE TBL.EVT_COST END + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt TOT_EVT_SALES
+                        , TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt TOT_EVT_SALES_COST
+                        , PROFIT = (TBL.PROD_AMT - TBL.new_Chan_Amt) - (TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST)-tbl.deduct_Amt
+                          , PROFIT2 = (TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt) - TBL.EVT_SALES_COST
+                          , TBL.EVT_PAY_AMT_CARD
+                        , TBL.EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , 0 amt1
+                        , 0 amt2
+                        , 0 amt3
+                        , 0 amt4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl(FOM.OUTSRC_AMT, 0) EVT_SALES_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                  +
+                                  nvl((SELECT SUM(SALES_AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                  +
+                                  nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES_COST
+                                 , 0 EVT_PAY_AMT
+                                 , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                 , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                 , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO), 0) CARD_FEE
+                                 , FOM.TOT_EVT_COST_OUT EVT_COST<!-- 수정 : 의전원가에서 최종도급금액으로 수정 -->
+                                 , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                 , FOM.DEDUCT_AMT deduct_Amt
+                                 , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_OUTSRC_MST FOM ON EVT.SEQ = FOM.SEQ AND FOM.DEL_FG = 'N'
+
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FOM.SAVE_CL = #{save_cl}
+                                                  </if>
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+                       </if>
+               ) TBL1 ON DATE_TBL.DT = substr(TBL1.EVENT_COMP_DAY, 1,6)
+        GROUP BY DATE_TBL.DT
+        ORDER BY DATE_TBL.DT
+    </select>
+
+    <!--
+    ASIS : selectEvtCostBenefitAnalysis3
+    -->
+    <select id="AddRevenueMap.selectEvtCostBenefitAnalysis3" parameterType="map" resultType="resultMap">
+        SELECT BRANCH_TBL.CD_NM HEAD_TXT
+             , BRANCH_TBL.COM_CD
+             , COUNT(TBL1.ACCNT_NO) EVT_CNT
+             , nvl(SUM(TBL1.PROD_AMT), 0) PROD_AMT
+             , nvl(SUM(TBL1.EVT_SALES_COST), 0) EVT_SALES_COST
+             , nvl(SUM(TBL1.EVT_ADD_SALES), 0) EVT_ADD_SALES
+             , nvl(SUM(TBL1.EVT_ADD_SALES_COST), 0) EVT_ADD_SALES_COST
+             , nvl(SUM(TBL1.TOT_EVT_SALES), 0) TOT_EVT_SALES
+             , nvl(SUM(TBL1.TOT_EVT_SALES_COST), 0) TOT_EVT_SALES_COST
+             , nvl(SUM(TBL1.PROFIT), 0) PROFIT
+             , nvl(SUM(TBL1.PROFIT2), 0) PROFIT2
+             , CASE WHEN COUNT(TBL1.ACCNT_NO) = 0
+                    THEN 0
+                    ELSE nvl(SUM(TBL1.PROFIT), 0)/COUNT(TBL1.ACCNT_NO)
+               END PROFIT_PER_GUN
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CARD), 0) EVT_PAY_AMT_CARD
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CASH), 0) EVT_PAY_AMT_CASH
+             , nvl(SUM(TBL1.EVT_PAY_AMT), 0) EVT_PAY_AMT
+             , nvl(SUM(TBL1.CARD_FEE), 0) CARD_FEE
+             , nvl(SUM(TBL1.EVT_COST), 0) EVT_COST
+             , nvl(SUM(TBL1.CARD_AMT), 0) CARD_AMT
+             , nvl(SUM(TBL1.deduct_Amt), 0) deduct_Amt
+             , nvl(SUM(TBL1.new_Chan_Amt), 0) new_Chan_Amt
+             , nvl(SUM(TBL1.AMT1), 0) AMT1
+            , nvl(SUM(TBL1.AMT2), 0) AMT2
+            , nvl(SUM(TBL1.AMT3), 0) AMT3
+            , nvl(SUM(TBL1.AMT4), 0) AMT4
+          FROM (SELECT CASE WHEN DIR_OUT_GUBUN = '0001'
+                            THEN BRANCH_NM || ' '
+                            ELSE BRANCH_NM
+                       END CD_NM
+                     , BRANCH_CD COM_CD
+                     , CASE WHEN BRANCH_NM LIKE '%' || #{search_nm} || '%' THEN 'Y' ELSE 'N' END SEARCH_YN
+                  FROM BRANCH_MNG
+                 WHERE 1=1
+                 <if test="evt_cl == 'dir'">
+                   AND DIR_OUT_GUBUN = '0001'
+                 </if>
+                 <if test="evt_cl == 'out'">
+                   AND DIR_OUT_GUBUN = '0002'
+                 </if>
+               ) BRANCH_TBL
+               LEFT OUTER JOIN (
+                   <if test="evt_cl != 'out'">
+                   /* 직영 */
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.BRANCH_NM
+                        , TBL.BRANCH_CD
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , TOT_EVT_SALES = (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) +EVT_ADD_SALES
+                        , TOT_EVT_SALES_COST=  (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt
+                        , PROFIT = PROD_AMT - new_Chan_Amt - ((TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt)
+                        , PROFIT2 = ( (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) +EVT_ADD_SALES)	- ( (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt )
+                        , TBL.EVT_PAY_AMT_CARD
+                        , TBL.EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , TBL.AMT1
+                        , TBL.AMT2
+                        , TBL.AMT3
+                        , TBL.AMT4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0001' AND RPT_NO = FR.RPT_NO), 0) EVT_SALES_COST
+                                , nvl((SELECT SUM(SALES_AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0)
+                                  +
+                                  nvl((SELECT SUM(MARGIN) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES
+                                , nvl((SELECT SUM(nvl(SALES_AMT, 0)) - SUM(nvl(MARGIN, 0)) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                 , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO), 0) EVT_PAY_AMT
+                                , CASE WHEN FN_MEM_NM(ACCNT.MEM_NO) LIKE '%' || #{search_nm} || '%' THEN 'Y' ELSE 'N' END SEARCH_YN
+                                , FR.TOT_COST_AMT
+                                , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO), 0) CARD_FEE
+                                , FR.TOT_COST_AMT as EVT_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                , FR.DEDUCT_AMT deduct_Amt
+                                , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                                , nvl(amt.amt1,'0') amt1
+                                , nvl(amt.amt2,'0') amt2
+                                , nvl(amt.amt3,'0') amt3
+                                , nvl(amt.amt4,'0') amt4
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_RPT FR ON EVT.SEQ = FR.SEQ AND FR.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FR.SAVE_CL = #{save_cl}
+                                                  </if>
+                                    INNER JOIN (
+                                      SELECT
+                                          seq
+                                           ,sum(amt1) amt1
+                                           ,sum(amt2) amt2
+                                           ,sum(amt3) amt3
+                                           ,sum(amt4) amt4
+                                      FROM
+                                      (
+                                         SELECT
+                                             seq
+                                              , FRG.pay_opt
+                                             , case when FRG.pay_opt='0001' then amt else 0 end amt1
+                                             , case when FRG.pay_opt='0002' then amt else 0 end amt2
+                                             , case when FRG.pay_opt='0003' then amt else 0 end amt3
+                                             , case when FRG.pay_opt='0004' then amt else 0 end amt4
+                                         FROM FUNRL_RPT FR
+                                         INNER JOIN FUNRL_RPT_GOODS FRG ON FR.RPT_NO = FRG.RPT_NO AND frg.del_fg='N'
+                                         WHERE FR.del_fg='N'
+                                         and frg.frg_cl is not null
+                                         <if test="save_cl != null and save_cl != ''">
+                                         AND FR.SAVE_CL = #{save_cl}
+                                         </if>
+                                         ) tm
+                                      GROUP BY seq) amt  ON amt.SEQ=EVT.SEQ
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '190001') AND nvl(#{end_dt}, '999912')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+                    </if>
+
+                    <if test="evt_cl == null or evt_cl == ''">
+                    UNION ALL
+                    </if>
+
+                    <if test="evt_cl != 'dir'">
+                    /* 외주 */
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.BRANCH_NM
+                        , TBL.BRANCH_CD
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , TBL.EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , CASE WHEN nvl(TBL.EVT_COST, 0) = 0 THEN TBL.PROD_AMT ELSE TBL.EVT_COST END + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt TOT_EVT_SALES
+                        , TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt TOT_EVT_SALES_COST
+                        , PROFIT = (TBL.PROD_AMT - TBL.new_Chan_Amt) - (TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST)-tbl.deduct_Amt
+                          , PROFIT2 = (TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt) - TBL.EVT_SALES_COST
+                        , TBL.EVT_PAY_AMT_CARD
+                        , TBL.EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , 0 amt1
+                        , 0 amt2
+                        , 0 amt3
+                        , 0 amt4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl(FOM.OUTSRC_AMT, 0) EVT_SALES_COST
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                    +
+                                    nvl((SELECT SUM(SALES_AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                    +
+                                    nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES_COST
+                                   , 0 EVT_PAY_AMT
+                                   , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                   , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO), 0) CARD_FEE
+                                   , FOM.TOT_EVT_COST_OUT EVT_COST<!-- 수정 : 의전원가에서 최종도급금액으로 수정 -->
+                                   , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                   , FOM.DEDUCT_AMT deduct_Amt
+                                   , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_OUTSRC_MST FOM ON EVT.SEQ = FOM.SEQ AND FOM.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FOM.SAVE_CL = #{save_cl}
+                                                  </if>
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '190001') AND nvl(#{end_dt}, '999912')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+                    </if>
+               ) TBL1 ON BRANCH_TBL.COM_CD = TBL1.BRANCH_CD
+         <if test="search_nm != null and search_nm != ''">
+         WHERE BRANCH_TBL.SEARCH_YN = 'Y'
+         </if>
+        GROUP BY BRANCH_TBL.CD_NM, BRANCH_TBL.COM_CD
+        ORDER BY BRANCH_TBL.CD_NM
+    </select>
+
+
+    <!--
+    ASIS : selectEvtCostBenefitAnalysis4
+    -->
+    <select id="AddRevenueMap.selectEvtCostBenefitAnalysis4" parameterType="map" resultType="resultMap">
+        SELECT CP_TBL.EVT_MNGR_NM HEAD_TXT
+             , CP_TBL.EVT_MNGR_CD
+             , COUNT(TBL1.ACCNT_NO) EVT_CNT
+             , nvl(SUM(TBL1.PROD_AMT), 0) PROD_AMT
+             , nvl(SUM(TBL1.EVT_SALES_COST), 0) EVT_SALES_COST
+             , nvl(SUM(TBL1.EVT_ADD_SALES), 0) EVT_ADD_SALES
+             , nvl(SUM(TBL1.EVT_ADD_SALES_COST), 0) EVT_ADD_SALES_COST
+             , nvl(SUM(TBL1.TOT_EVT_SALES), 0) TOT_EVT_SALES
+             , nvl(SUM(TBL1.TOT_EVT_SALES_COST), 0) TOT_EVT_SALES_COST
+             , nvl(SUM(TBL1.PROFIT), 0) PROFIT
+             , nvl(SUM(TBL1.PROFIT2), 0) PROFIT2
+             , CASE WHEN COUNT(TBL1.ACCNT_NO) = 0
+                    THEN 0
+                    ELSE nvl(SUM(TBL1.PROFIT), 0)/COUNT(TBL1.ACCNT_NO)
+               END PROFIT_PER_GUN
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CARD), 0) EVT_PAY_AMT_CARD
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CASH), 0) EVT_PAY_AMT_CASH
+             , nvl(SUM(TBL1.EVT_PAY_AMT), 0) EVT_PAY_AMT
+             , nvl(SUM(TBL1.CARD_FEE), 0) CARD_FEE
+             , nvl(SUM(TBL1.EVT_COST), 0) EVT_COST
+             , nvl(SUM(TBL1.CARD_AMT), 0) CARD_AMT
+             , nvl(SUM(TBL1.deduct_Amt), 0) deduct_Amt
+             , nvl(SUM(TBL1.new_Chan_Amt), 0) new_Chan_Amt
+            , nvl(SUM(TBL1.AMT1), 0) AMT1
+            , nvl(SUM(TBL1.AMT2), 0) AMT2
+            , nvl(SUM(TBL1.AMT3), 0) AMT3
+            , nvl(SUM(TBL1.AMT4), 0) AMT4
+          FROM (SELECT EVT_MNGR_CD, EVT_MNGR_NM
+                       , CASE WHEN EVT_MNGR_NM LIKE '%' || #{search_nm} || '%' THEN 'Y' ELSE 'N' END SEARCH_YN
+                  FROM EVENT_MANAGER_MNG EMM
+                 WHERE DEL_FG = 'N'
+                   AND JOB_DUTY = '0001'
+                 <if test="evt_cl == 'dir'">
+                   AND nvl((SELECT (SELECT Z.DIR_OUT_GUBUN FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD)), '') = '0001'
+                 </if>
+                 <if test="evt_cl == 'out'">
+                   AND nvl((SELECT (SELECT Z.DIR_OUT_GUBUN FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD)), '') = '0002'
+                 </if>
+               ) CP_TBL
+               LEFT OUTER JOIN (
+                    <if test="evt_cl != 'out'">
+                   /* 직영 */
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.CP_CD
+                        , TBL.BRANCH_NM
+                        , TBL.BRANCH_CD
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , TOT_EVT_SALES = (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) +EVT_ADD_SALES
+                        , TOT_EVT_SALES_COST=  (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt
+                        , PROFIT = PROD_AMT - new_Chan_Amt - ((TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) - TBL.deduct_Amt)
+                        , PROFIT2 = ( (PROD_AMT-TBL.new_Chan_Amt-TBL.deduct_Amt) +EVT_ADD_SALES)	- ( (TBL.TOT_COST_AMT - TBL.EVT_ADD_SALES_COST) + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt )
+                        , TBL.EVT_PAY_AMT_CARD
+                        , TBL.EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , TBL.AMT1
+                        , TBL.AMT2
+                        , TBL.AMT3
+                        , TBL.AMT4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , EMR.EVT_MNGR_CD CP_CD
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0001' AND RPT_NO = FR.RPT_NO), 0) EVT_SALES_COST
+                                , nvl((SELECT SUM(SALES_AMT) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0)
+                                  +
+                                  nvl((SELECT SUM(MARGIN) FROM FUNRL_RPT_SALES2 WHERE RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES
+                                , nvl((SELECT SUM(nvl(SALES_AMT, 0)) - SUM(nvl(MARGIN, 0)) FROM FUNRL_RPT_GOODS WHERE DEL_FG = 'N' AND GDS_CL = '0002' AND RPT_NO = FR.RPT_NO), 0) EVT_ADD_SALES_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                 , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_PRT_COST WHERE DEL_FG = 'N' AND RPT_NO = FR.RPT_NO), 0) EVT_PAY_AMT
+                                , CASE WHEN FN_MEM_NM(ACCNT.MEM_NO) LIKE '%' || #{search_nm} || '%' THEN 'Y' ELSE 'N' END SEARCH_YN
+                                , FR.TOT_COST_AMT
+                                , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO), 0) CARD_FEE
+                                , FR.TOT_COST_AMT as EVT_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_RPT_PAYMENT WHERE RPT_NO = FR.RPT_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                , FR.DEDUCT_AMT deduct_Amt
+                                , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                                , nvl(amt.amt1,'0') amt1
+                                , nvl(amt.amt2,'0') amt2
+                                , nvl(amt.amt3,'0') amt3
+                                , nvl(amt.amt4,'0') amt4
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_RPT FR ON EVT.SEQ = FR.SEQ AND FR.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FR.SAVE_CL = #{save_cl}
+                                                  </if>
+                                  INNER JOIN
+                                   (
+                                      SELECT
+                                          seq
+                                           ,sum(amt1) amt1
+                                           ,sum(amt2) amt2
+                                           ,sum(amt3) amt3
+                                           ,sum(amt4) amt4
+                                      FROM
+                                      (
+                                         SELECT
+                                             seq
+                                              , FRG.pay_opt
+                                             , case when FRG.pay_opt='0001' then amt else 0 end amt1
+                                             , case when FRG.pay_opt='0002' then amt else 0 end amt2
+                                             , case when FRG.pay_opt='0003' then amt else 0 end amt3
+                                             , case when FRG.pay_opt='0004' then amt else 0 end amt4
+                                         FROM FUNRL_RPT FR
+                                         INNER JOIN FUNRL_RPT_GOODS FRG ON FR.RPT_NO = FRG.RPT_NO AND frg.del_fg='N'
+                                         WHERE FR.del_fg='N'
+                                         and frg.frg_cl is not null
+                                         <if test="save_cl != null and save_cl != ''">
+                                         AND FR.SAVE_CL = #{save_cl}
+                                         </if>
+                                         ) tm
+                                      GROUP BY seq) amt  ON amt.SEQ=EVT.SEQ
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '190001') AND nvl(#{end_dt}, '999912')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+                    </if>
+
+                    <if test="evt_cl == null or evt_cl == ''">
+                    UNION ALL
+                    </if>
+
+                    <if test="evt_cl != 'dir'">
+                    /* 외주 */
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.CP_CD
+                        , TBL.BRANCH_NM
+                        , TBL.BRANCH_CD
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , TBL.EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , CASE WHEN nvl(TBL.EVT_COST, 0) = 0 THEN TBL.PROD_AMT ELSE TBL.EVT_COST END + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt TOT_EVT_SALES
+                        , TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST - TBL.deduct_Amt TOT_EVT_SALES_COST
+                        , PROFIT = (TBL.PROD_AMT - TBL.new_Chan_Amt) - (TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST)-tbl.deduct_Amt
+                          , PROFIT2 = (TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt) - TBL.EVT_SALES_COST
+                        , TBL.EVT_PAY_AMT_CARD
+                        , TBL.EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , 0 amt1
+                        , 0 amt2
+                        , 0 amt3
+                        , 0 amt4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , EMR.EVT_MNGR_CD CP_CD
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl(FOM.OUTSRC_AMT, 0) EVT_SALES_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                    +
+                                    nvl((SELECT SUM(SALES_AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                    +
+                                    nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES_COST
+                                   , 0 EVT_PAY_AMT
+                                   , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                   , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO), 0) CARD_FEE
+                                   , FOM.TOT_EVT_COST_OUT EVT_COST<!-- 수정 : 의전원가에서 최종도급금액으로 수정 -->
+                                   , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                   , FOM.DEDUCT_AMT deduct_Amt
+                                   , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_OUTSRC_MST FOM ON EVT.SEQ = FOM.SEQ AND FOM.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FOM.SAVE_CL = #{save_cl}
+                                                  </if>
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '190001') AND nvl(#{end_dt}, '999912')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+                      </if>
+               ) TBL1 ON CP_TBL.EVT_MNGR_CD = TBL1.CP_CD
+         <if test="search_nm != null and search_nm != ''">
+         WHERE CP_TBL.SEARCH_YN = 'Y'
+         </if>
+        GROUP BY CP_TBL.EVT_MNGR_NM, CP_TBL.EVT_MNGR_CD
+        ORDER BY CP_TBL.EVT_MNGR_NM
+    </select>
+
+    <!--
+    ASIS : selectEvtCostBenefitAnalysis5
+    -->
+    <select id="AddRevenueMap.selectEvtCostBenefitAnalysis5" parameterType="map" resultType="resultMap">
+        SELECT CUSTMR_TBL.CUSTMR_NM HEAD_TXT
+             , CUSTMR_TBL.CUSTMR_CD
+             , COUNT(TBL1.ACCNT_NO) EVT_CNT
+             , nvl(SUM(TBL1.PROD_AMT), 0) PROD_AMT
+             , nvl(SUM(TBL1.EVT_SALES_COST), 0) EVT_SALES_COST
+             , nvl(SUM(TBL1.EVT_ADD_SALES), 0) EVT_ADD_SALES
+             , nvl(SUM(TBL1.EVT_ADD_SALES_COST), 0) EVT_ADD_SALES_COST
+             , nvl(SUM(TBL1.TOT_EVT_SALES), 0) TOT_EVT_SALES
+             , nvl(SUM(TBL1.TOT_EVT_SALES_COST), 0) TOT_EVT_SALES_COST
+             , nvl(SUM(TBL1.PROFIT), 0) PROFIT
+             , nvl(SUM(TBL1.PROFIT2), 0) PROFIT2
+             , CASE WHEN COUNT(TBL1.ACCNT_NO) = 0
+                    THEN 0
+                    ELSE nvl(SUM(TBL1.PROFIT), 0)/COUNT(TBL1.ACCNT_NO)
+               END PROFIT_PER_GUN
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CARD), 0) EVT_PAY_AMT_CARD
+             , nvl(SUM(TBL1.EVT_PAY_AMT_CASH), 0) EVT_PAY_AMT_CASH
+             , nvl(SUM(TBL1.EVT_PAY_AMT), 0) EVT_PAY_AMT
+             , nvl(SUM(TBL1.CARD_FEE), 0) CARD_FEE
+             , nvl(SUM(TBL1.EVT_COST), 0) EVT_COST
+             , nvl(SUM(TBL1.CARD_AMT), 0) CARD_AMT
+             , nvl(SUM(TBL1.deduct_Amt), 0) deduct_Amt
+             , nvl(SUM(TBL1.new_Chan_Amt), 0) new_Chan_Amt
+             , nvl(SUM(TBL1.AMT1), 0) AMT1
+            , nvl(SUM(TBL1.AMT2), 0) AMT2
+            , nvl(SUM(TBL1.AMT3), 0) AMT3
+            , nvl(SUM(TBL1.AMT4), 0) AMT4
+          FROM (SELECT CUSTMR_CD, CUSTMR_NM
+                  FROM CUSTMR_MNG
+                WHERE DEL_FG = 'N'
+                  AND CUSTMR_FG = '0002'
+               ) CUSTMR_TBL
+               LEFT OUTER JOIN (
+                    /* 외주 */
+                   SELECT TBL.ACCNT_NO
+                        , TBL.MEM_NM
+                        , TBL.EVENT_COMP_DAY
+                        , TBL.LOC
+                        , TBL.CP_NM
+                        , TBL.OUTSRC_CUSTMR_CD
+                        , TBL.BRANCH_NM
+                        , TBL.BRANCH_CD
+                        , TBL.EVENT_PLACE
+                        , TBL.PROD_AMT
+                        , TBL.EVT_SALES_COST
+                        , TBL.EVT_ADD_SALES
+                        , TBL.EVT_ADD_SALES_COST
+                        , TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt TOT_EVT_SALES
+                         , TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST TOT_EVT_SALES_COST
+                        , PROFIT = (TBL.PROD_AMT - TBL.new_Chan_Amt) - (TBL.EVT_SALES_COST + TBL.EVT_ADD_SALES_COST)-tbl.deduct_Amt
+                          , PROFIT2 = (TBL.PROD_AMT + TBL.EVT_ADD_SALES - TBL.new_Chan_Amt - TBL.deduct_Amt) - TBL.EVT_SALES_COST
+                          , TBL.EVT_PAY_AMT_CARD
+                        , TBL.EVT_PAY_AMT_CASH
+                        , TBL.EVT_PAY_AMT
+                        , TBL.CARD_FEE
+                        , TBL.EVT_COST
+                        , TBL.CARD_AMT
+                        , TBL.deduct_Amt
+                        , TBL.new_Chan_Amt
+                        , 0 amt1
+                        , 0 amt2
+                        , 0 amt3
+                        , 0 amt4
+                      FROM (SELECT EVT.ACCNT_NO
+                                , FN_MEM_NM(ACCNT.MEM_NO) MEM_NM
+                                , EVT.EVENT_COMP_DAY
+                                , nvl(EVT.ETC_LOC_NM, '') LOC
+                                , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) CP_NM
+                                , FOM.OUTSRC_CUSTMR_CD
+                                , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                , REPLACE(nvl(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                        THEN (SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                        ELSE nvl(EVT.ETC_ZIP, '') || ')' || nvl(EVT.ETC_ADDR1, '') || ' ' || nvl(EVT.ETC_ADDR2, '')
+                                  END, ''), ') ', '') EVENT_PLACE
+                                , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                        THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                        ELSE PROD.PROD_AMT
+                                  END PROD_AMT
+                                , nvl(FOM.OUTSRC_AMT, 0) EVT_SALES_COST
+                                , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                    +
+                                    nvl((SELECT SUM(SALES_AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_SERVICE_DTL WHERE FUNRL_OUTSRC_NO = FOM.FUNRL_OUTSRC_NO AND (AMT IS NOT NULL AND AMT > 0)), 0)
+                                    +
+                                    nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO), 0) EVT_ADD_SALES_COST
+                                   , 0 EVT_PAY_AMT
+                                   , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0002'), 0) EVT_PAY_AMT_CARD
+                                  , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_GOODS WHERE ADD_SALES_YN = 'Y' AND FOM.FUNRL_OUTSRC_NO = FUNRL_OUTSRC_NO AND pay_opt='0003'), 0) EVT_PAY_AMT_CASH
+                                   , nvl((SELECT SUM(CARD_FEE) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO), 0) CARD_FEE
+                                   , PROD.EVT_COST_OUT AS EVT_COST
+                                   , nvl((SELECT SUM(AMT) FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = FOM.FUNRL_OUTSRC_NO AND PAY_OPT = '0002'), 0) CARD_AMT
+                                   , FOM.DEDUCT_AMT deduct_Amt
+                                   , ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT new_Chan_Amt
+                              FROM EVENT EVT
+                                  INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                  INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                                  INNER JOIN(
+                                      SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                        FROM EVENT_MNGR_REG
+                                        WHERE DEL_FG = 'N'
+                                          AND EVT_MNGR_GUBUN = '0001'
+                                      GROUP BY EVT_SEQ
+                                  ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                  INNER JOIN FUNRL_OUTSRC_MST FOM ON EVT.SEQ = FOM.SEQ AND FOM.DEL_FG = 'N'
+                                                  <if test="save_cl != null and save_cl != ''">
+                                                  AND FOM.SAVE_CL = #{save_cl}
+                                                  </if>
+                            WHERE EVT.DEL_FG = 'N'
+                              AND substr(EVT.EVENT_COMP_DAY, 1,6) BETWEEN nvl(#{start_dt}, '190001') AND nvl(#{end_dt}, '99991231')
+                              <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                              </if>
+                          ) TBL
+               ) TBL1 ON CUSTMR_TBL.CUSTMR_CD = TBL1.OUTSRC_CUSTMR_CD
+        GROUP BY CUSTMR_TBL.CUSTMR_NM, CUSTMR_TBL.CUSTMR_CD
+        ORDER BY CUSTMR_TBL.CUSTMR_NM
+    </select>
+
+
+
+    <!--
+    ASIS : selectOrderCondList
+    sql-task.xml [발주현황 리스트] ID : task.selectOrderCondList 작성자 : 임병근 2013_11_22
+    -->
+    <select id="AddRevenueMap.selectOrderCondList" parameterType="map" resultType="resultMap">
+        SELECT FN_COM_NM('0144',OM.PROC_STAT) AS proc_Stat_Nm
+             , OM.ORD_NO
+             , FN_COM_NM('0143',OM.ORD_CL) AS ord_Cl_Nm
+             , OM.ORD_DT
+             , OM.CUSTMR_CD
+             , (SELECT CUSTMR_NM FROM CUSTMR_MNG WHERE DEL_FG='N' AND CUSTMR_CD = OM.CUSTMR_CD) AS custmr_Nm
+             , OD.WH_CD
+             , (SELECT WH_NM FROM WAREHOUSE_MNG WHERE WH_CD = OD.WH_CD) wh_Nm
+             , OD.GDS_CD
+             , (SELECT GDS_NM FROM EVENT_GOODS_MNG_MST WHERE GDS_CD = OD.GDS_CD) gds_Nm
+             , (SELECT STANDARD FROM EVENT_GOODS_MNG_MST WHERE GDS_CD = OD.GDS_CD) gds_Stnd
+             , OD.QTY AS qty
+             , OD.UNIT_COST
+             , OD.AMT
+             , OD.VAT
+             , OD.TOT_AMT
+             , OM.ORD_CL
+             , OD.NOTE
+             , OM.PROC_STAT
+          FROM ORD_MST OM
+               INNER JOIN ORD_DTL OD ON OD.ORD_NO = OM.ORD_NO
+         WHERE 1=1
+           AND DEL_FG='N'
+           AND ORD_DT BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+           <if test="save_cl != null and save_cl != ''">
+           AND OM.CUSTMR_CD = #{custmr_cd}
+           </if>
+
+           <if test="wh_cd != null and wh_cd != ''">
+           AND OD.WH_CD = #{wh_cd}
+           </if>
+           <if test="gds_cd_arr != null and gds_cd_arr != ''">
+           AND OD.GDS_CD IN ( ${gds_cd_arr} )
+           </if>
+           <if test="ord_cl != null and ord_cl != ''">
+           AND OM.ORD_CL = #{ord_cl}
+           </if>
+        ORDER BY OM.ORD_NO DESC
+    </select>
+
+
+    <!--
+    ASIS - selectEvtCpPayCondQry
+    공통코드 조회 후 dao 에서 데이터를 만들어야 함
+    -->
+    <select id="AddRevenueMap.selectEvtCpPayCondQry" parameterType="map" resultType="resultMap">
+
+        DECLARE @SEQ INT
+              , @PIVOT_QRY VARCHAR(MAX)
+              , @DG_LB_QRY VARCHAR(MAX)
+              , @DATASUM_QRY VARCHAR(MAX)
+              , @ROLLUP_QRY VARCHAR(MAX)
+              , @PCT_ROW_QRY VARCHAR(MAX)
+              , @ROLLUP_CONV_QRY VARCHAR(MAX)
+              , @ROLLUP_CONV_QRY1 VARCHAR(MAX)
+              , @GROUP_COL VARCHAR(MAX)
+
+        SET @SEQ = 1
+        SET @PIVOT_QRY = ''
+        SET @DG_LB_QRY = ''
+        SET @ROLLUP_QRY = ''
+        SET @PCT_ROW_QRY = ''
+        SET @ROLLUP_CONV_QRY = ''
+        SET @ROLLUP_CONV_QRY1 = ''
+        SET @GROUP_COL = STUFF((SELECT '|' || CD_NM FROM COM_CD WHERE GRP_CD = '0146' FOR XML PATH('')), 1, 1, '')
+
+        BEGIN
+            DECLARE GEN_PIVOT_DATA CURSOR FOR
+
+                SELECT COM_CD
+                     , CD_NM
+                     , COM_CD1
+                     , CD_NM1
+                  FROM COM_CD
+                   CROSS JOIN (
+                        SELECT COM_CD COM_CD1
+                             , CD_NM CD_NM1
+                          FROM COM_CD
+                        WHERE GRP_CD = '0145'
+                          AND COM_CD IN ('0002', '0003')) PAY_OPT
+                 WHERE GRP_CD = '0146'
+                ORDER BY COM_CD
+
+            DECLARE @COM_CD VARCHAR(20), @CD_NM VARCHAR(50), @COM_CD1 VARCHAR(20), @CD_NM1 VARCHAR(50)
+            OPEN GEN_PIVOT_DATA
+            FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD, @CD_NM, @COM_CD1, @CD_NM1
+            WHILE (@@FETCH_STATUS = 0)
+                  BEGIN
+                        IF @SEQ = 1
+                            BEGIN
+                            IF @COM_CD1 = '0003'
+                                BEGIN
+                                    SET @PIVOT_QRY = @PIVOT_QRY || '[B' || @COM_CD || ']'
+                                    SET @DG_LB_QRY = @DG_LB_QRY || @CD_NM || '|' || @CD_NM1
+                                    SET @ROLLUP_QRY = @ROLLUP_QRY || 'SUM([B' || @COM_CD || ']) B' || @COM_CD
+                                    SET @PCT_ROW_QRY = @PCT_ROW_QRY || 'CASE WHEN @TOT_CNT > 0 THEN REPLACE(CONVERT(VARCHAR, ROUND(CONVERT(NUMERIC, ' || 'B' || @COM_CD || '' || ') / CONVERT(NUMERIC,  @TOT_CNT) * 100, 2)), '||CHAR(39)||'00000000000000'||CHAR(39)||', '||CHAR(39)||CHAR(39)||') +' || CHAR(39) || '%' ||  CHAR(39) || ' ELSE ' ||  CHAR(39) || '0' ||  CHAR(39) || ' END'
+                                    SET @ROLLUP_CONV_QRY = @ROLLUP_CONV_QRY || 'CONVERT(VARCHAR, [B' || @COM_CD || ']) B' || @COM_CD
+                                    SET @ROLLUP_CONV_QRY1 = @ROLLUP_CONV_QRY1 || 'CONVERT(VARCHAR, SUM([B' || @COM_CD || '])) B' || @COM_CD
+                                END
+                            ELSE IF @COM_CD1 = '0002'
+                                BEGIN
+                                    SET @PIVOT_QRY = @PIVOT_QRY || '[A' || @COM_CD || ']'
+                                    SET @DG_LB_QRY = @DG_LB_QRY || @CD_NM || '|' || @CD_NM1
+                                    SET @ROLLUP_QRY = @ROLLUP_QRY || 'SUM([A' || @COM_CD || ']) A' || @COM_CD
+                                    SET @PCT_ROW_QRY = @PCT_ROW_QRY || 'CASE WHEN @TOT_CNT > 0 THEN REPLACE(CONVERT(VARCHAR, ROUND(CONVERT(NUMERIC, ' || 'A' || @COM_CD || '' || ') / CONVERT(NUMERIC,  @TOT_CNT) * 100, 2)), '||CHAR(39)||'00000000000000'||CHAR(39)||', '||CHAR(39)||CHAR(39)||') +' || CHAR(39) || '%' ||  CHAR(39) || ' ELSE ' ||  CHAR(39) || '0' ||  CHAR(39) || ' END'
+                                    SET @ROLLUP_CONV_QRY = @ROLLUP_CONV_QRY || 'CONVERT(VARCHAR, [A' || @COM_CD || ']) A' || @COM_CD
+                                    SET @ROLLUP_CONV_QRY1 = @ROLLUP_CONV_QRY1 || 'CONVERT(VARCHAR, SUM([A' || @COM_CD || '])) A' || @COM_CD
+                                END
+                            END
+                        ELSE
+                            BEGIN
+                            IF @COM_CD1 = '0003'
+                                BEGIN
+                                    SET @PIVOT_QRY = @PIVOT_QRY || ',[B' || @COM_CD || ']'
+                                    SET @DG_LB_QRY = @DG_LB_QRY || ',' || @CD_NM || '|' || @CD_NM1
+                                    SET @ROLLUP_QRY = @ROLLUP_QRY || ', SUM([B' || @COM_CD || ']) B' || @COM_CD
+                                    SET @PCT_ROW_QRY = @PCT_ROW_QRY || ',CASE WHEN @TOT_CNT > 0 THEN REPLACE(CONVERT(VARCHAR, ROUND(CONVERT(NUMERIC, ' || 'B' || @COM_CD || '' || ') / CONVERT(NUMERIC,  @TOT_CNT) * 100, 2)), '||CHAR(39)||'00000000000000'||CHAR(39)||', '||CHAR(39)||CHAR(39)||') +' || CHAR(39) || '%' ||  CHAR(39) || ' ELSE ' ||  CHAR(39) || '0' ||  CHAR(39) || ' END'
+                                    SET @ROLLUP_CONV_QRY = @ROLLUP_CONV_QRY || ', CONVERT(VARCHAR, [B' || @COM_CD || ']) B' || @COM_CD
+                                    SET @ROLLUP_CONV_QRY1 = @ROLLUP_CONV_QRY1 || ', CONVERT(VARCHAR, SUM([B' || @COM_CD || '])) B' || @COM_CD
+                                END
+                            ELSE IF @COM_CD1 = '0002'
+                                BEGIN
+                                    SET @PIVOT_QRY = @PIVOT_QRY || ',[A' || @COM_CD || ']'
+                                    SET @DG_LB_QRY = @DG_LB_QRY || ',' || @CD_NM || '|' || @CD_NM1
+                                    SET @ROLLUP_QRY = @ROLLUP_QRY || ', SUM([A' || @COM_CD || ']) A' || @COM_CD
+                                    SET @PCT_ROW_QRY = @PCT_ROW_QRY || ',CASE WHEN @TOT_CNT > 0 THEN REPLACE(CONVERT(VARCHAR, ROUND(CONVERT(NUMERIC, ' || 'A' || @COM_CD || '' || ') / CONVERT(NUMERIC,  @TOT_CNT) * 100, 2)), '||CHAR(39)||'00000000000000'||CHAR(39)||', '||CHAR(39)||CHAR(39)||') +' || CHAR(39) || '%' ||  CHAR(39) || ' ELSE ' ||  CHAR(39) || '0' ||  CHAR(39) || ' END'
+                                    SET @ROLLUP_CONV_QRY = @ROLLUP_CONV_QRY || ', CONVERT(VARCHAR, [A' || @COM_CD || ']) A' || @COM_CD
+                                    SET @ROLLUP_CONV_QRY1 = @ROLLUP_CONV_QRY1 || ', CONVERT(VARCHAR, SUM([A' || @COM_CD || '])) A' || @COM_CD
+                                END
+                            END
+
+                        SET @SEQ = @SEQ + 1
+
+                        FETCH NEXT FROM GEN_PIVOT_DATA INTO @COM_CD, @CD_NM, @COM_CD1, @CD_NM1
+                  END
+            CLOSE GEN_PIVOT_DATA
+            DEALLOCATE GEN_PIVOT_DATA
+
+            SELECT @PIVOT_QRY PIVOT_QRY
+                 , 'EVT_MNGR_NM,'||REPLACE(REPLACE(@PIVOT_QRY, '[', ''), ']', '')||',TOT_AMT,NOTE' DF_QRY, 'CP명,' || @DG_LB_QRY || ',합계,비고' DG_LB_QRY, REPLACE(@PIVOT_QRY, ',', '+') CUL_SUM
+                 , @ROLLUP_QRY ROLLUP_QRY
+                 , @PCT_ROW_QRY PCT_ROW_QRY
+                 , @ROLLUP_CONV_QRY ROLLUP_CONV_QRY
+                 , @ROLLUP_CONV_QRY1 ROLLUP_CONV_QRY1
+                 , @GROUP_COL GROUP_COL
+        END
+    </select>
+
+    <!--
+    ASIS : selectEvtCpPayCondList
+    -->
+    <select id="AddRevenueMap.selectEvtCpPayCondList" parameterType="map" resultType="resultMap">
+        SELECT EVT_MNGR_NM
+              , EVT_MNGR_CD
+             , ${rollup_conv_qry}
+             , TO_CHAR(TOT_AMT) TOT_AMT
+             , STUFF((SELECT nvl(CASE WHEN A.NOTE = '' THEN '' ELSE '|' || A.NOTE END, '')
+                        FROM FUNRL_PRT_COST A
+                       WHERE A.RPT_NO IN (SELECT B.RPT_NO
+                                            FROM FUNRL_RPT B
+                                           WHERE B.DEL_FG = 'N'
+                                             AND B.SEQ IN (SELECT D.SEQ
+                                                             FROM EVENT D
+                                                            WHERE D.DEL_FG = 'N'
+
+                                                             <if test="inq_cl == '01'">
+                                                              AND D.EVENT_PROC_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99992131')
+                                                             </if>
+
+                                                             <if test="inq_cl == '02'">
+                                                              AND D.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99992131')
+                                                             </if>
+
+                                                             <if test="loc != null and loc != ''">
+                                                              AND substr(nvl(D.ETC_LOC_NM, ''), 1,length(#{loc})) = #{loc}
+                                                             </if>
+                                                              AND D.SEQ IN (SELECT C.EVT_SEQ
+                                                                              FROM EVENT_MNGR_REG C
+                                                                             WHERE C.EVT_MNGR_CD = TBL2.EVT_MNGR_CD))) FOR XML PATH('')), 1, 1, '') NOTE
+             , '0' A
+          FROM (
+                SELECT EVT_MNGR_CD
+                , EVT_MNGR_NM
+                ,${pivot_qry}
+                ,${cul_sum} TOT_AMT
+                  FROM (
+                        SELECT EMM.EVT_MNGR_CD
+                             , EMM.EVT_MNGR_NM
+                             , CASE WHEN COM_CD1 = '0003' THEN ('B' || COST.COM_CD)
+                                WHEN COM_CD1 = '0002' THEN ('A' || COST.COM_CD)
+                           END COM_CD
+                             , SUM(nvl(TBL.AMT, 0)) AMT
+                          FROM (SELECT EVT_MNGR_CD
+                                     , EVT_MNGR_NM
+                                  FROM EVENT_MANAGER_MNG EMM
+                                 WHERE DEL_FG = 'N'
+                                   AND JOB_DUTY = '0001'
+                                   <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+                                   AND EVT_MNGR_CD = #{evt_mngr_cd}
+                                   </if>
+                                   <if test="branch != null and branch != ''">
+                                   AND nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD)), '') = #{branch}
+                                   </if>
+                               ) EMM
+                               CROSS JOIN (
+                                SELECT COM_CD, CD_NM
+                                  FROM COM_CD
+                                 WHERE GRP_CD = '0146') COST
+                           CROSS JOIN (
+                            SELECT COM_CD COM_CD1, CD_NM CD_NM1
+                              FROM COM_CD
+                            WHERE GRP_CD = '0145'
+                              AND COM_CD IN ('0002', '0003')) PAY_OPT
+                               LEFT OUTER JOIN (
+                                SELECT TBL2.EVT_MNGR_CD, TBL2.COST_CD, SUM(nvl(TBL2.AMT, 0)) AMT, TBL2.BRANCH_CD, TBL2.BRANCH_NM, TBL2.LOC, TBL2.PAY_OPT
+                                  FROM (
+                                        SELECT nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                            , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                            , nvl(EVT.ETC_LOC_NM, '') LOC
+                                            , EMR.EVT_MNGR_CD
+                                            , FPC.COST_CD
+                                            , FPC.AMT
+                                        , FPC.PAY_OPT
+                                          FROM EVENT EVT
+                                              INNER JOIN FUNRL_RPT FR ON FR.DEL_FG = 'N' AND EVT.SEQ = FR.SEQ
+                                              LEFT OUTER JOIN FUNRL_PRT_COST FPC ON FR.RPT_NO = FPC.RPT_NO
+                                              LEFT OUTER JOIN(
+                                                SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                                  FROM EVENT_MNGR_REG
+                                                WHERE DEL_FG = 'N'
+                                                  AND EVT_MNGR_GUBUN = '0001'
+
+                                                  <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+                                                  AND EVT_MNGR_CD = #{evt_mngr_cd}
+                                                  </if>
+                                                GROUP BY EVT_SEQ
+                                              ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                        WHERE EVT.DEL_FG = 'N'
+                                          AND FPC.COST_CD IS NOT NULL
+                                          AND FPC.AMT > 0
+                                          <if test="inq_cl == '01'">
+                                           AND EVT.EVENT_PROC_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99992131')
+                                         </if>
+                                         <if test="inq_cl == '02'">
+                                           AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99992131')
+                                         </if>
+                                         ) TBL2
+                                GROUP BY TBL2.BRANCH_CD, TBL2.BRANCH_NM, TBL2.COST_CD, TBL2.EVT_MNGR_CD, TBL2.EVT_MNGR_CD, TBL2.LOC, TBL2.PAY_OPT
+                               ) TBL ON TBL.EVT_MNGR_CD = EMM.EVT_MNGR_CD
+                                        AND TBL.COST_CD = COST.COM_CD
+                                    AND TBL.PAY_OPT = PAY_OPT.COM_CD1
+
+                                    <if test="loc != null and loc != ''">
+                                    AND substr(TBL.LOC, 1,length(#{loc})) = #{loc}
+                                    </if>
+
+                                    <if test="branch != null and branch != ''">
+                                    AND TBL.BRANCH_CD = #{branch}
+                                    </if>
+                        GROUP BY EMM.EVT_MNGR_CD, EMM.EVT_MNGR_NM, COST.COM_CD, COST.CD_NM, PAY_OPT.COM_CD1
+                       ) TBL1
+                PIVOT (
+                SUM(TBL1.AMT) FOR TBL1.COM_CD IN (
+                   ${pivot_qry}
+                  )
+                ) PV
+               ) TBL2
+
+                UNION ALL
+
+                SELECT '일반경비별 금액' EVT_MNGR_NM
+                      , NULL EVT_MNGR_CD
+                     , ${rollup_conv_qry1}
+                     , TO_CHAR(SUM(TOT_AMT)) TOT_AMT
+                     , '' NOTE
+                     , '1' A
+                  FROM (
+                        SELECT EVT_MNGR_CD
+                        , EVT_MNGR_NM
+                        ,${pivot_qry}
+                        ,${cul_sum} TOT_AMT
+                          FROM (
+                                SELECT EMM.EVT_MNGR_CD
+                                     , EMM.EVT_MNGR_NM
+                                     , CASE WHEN COM_CD1 = '0003' THEN ('B' || COST.COM_CD)
+                                        WHEN COM_CD1 = '0002' THEN ('A' || COST.COM_CD)
+                                   END COM_CD
+                                     , SUM(nvl(TBL.AMT, 0)) AMT
+                                  FROM (SELECT EVT_MNGR_CD
+                                             , EVT_MNGR_NM
+                                          FROM EVENT_MANAGER_MNG EMM
+                                         WHERE DEL_FG = 'N'
+                                           AND JOB_DUTY = '0001'
+                                           <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+                                           AND EVT_MNGR_CD = #{evt_mngr_cd}
+                                           </if>
+                                           <if test="branch != null and branch != ''">
+                                           AND nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD)), '') = #{branch}
+                                           </if>
+                                       ) EMM
+                                       CROSS JOIN (
+                                        SELECT COM_CD, CD_NM
+                                          FROM COM_CD
+                                         WHERE GRP_CD = '0146') COST
+                                   CROSS JOIN (
+                                    SELECT COM_CD COM_CD1, CD_NM CD_NM1
+                                      FROM COM_CD
+                                    WHERE GRP_CD = '0145'
+                                      AND COM_CD IN ('0002', '0003')) PAY_OPT
+                                       LEFT OUTER JOIN (
+                                        SELECT TBL2.EVT_MNGR_CD, TBL2.COST_CD, SUM(nvl(TBL2.AMT, 0)) AMT, TBL2.BRANCH_CD, TBL2.BRANCH_NM, TBL2.LOC, TBL2.PAY_OPT
+                                          FROM (
+                                                SELECT nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_NM
+                                                    , nvl((SELECT BRANCH FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH_CD
+                                                    , nvl(EVT.ETC_LOC_NM, '') LOC
+                                                    , EMR.EVT_MNGR_CD
+                                                    , FPC.COST_CD
+                                                    , FPC.AMT
+                                                , FPC.PAY_OPT
+                                                  FROM EVENT EVT
+                                                      INNER JOIN FUNRL_RPT FR ON FR.DEL_FG = 'N' AND EVT.SEQ = FR.SEQ
+                                                      LEFT OUTER JOIN FUNRL_PRT_COST FPC ON FR.RPT_NO = FPC.RPT_NO
+                                                      LEFT OUTER JOIN(
+                                                        SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                                          FROM EVENT_MNGR_REG
+                                                        WHERE DEL_FG = 'N'
+                                                          AND EVT_MNGR_GUBUN = '0001'
+                                                          <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+                                                          AND EVT_MNGR_CD = #{evt_mngr_cd}
+                                                          </if>
+                                                        GROUP BY EVT_SEQ
+                                                      ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                                                WHERE EVT.DEL_FG = 'N'
+                                                  AND FPC.COST_CD IS NOT NULL
+                                                  AND FPC.AMT > 0
+                                                  <if test="inq_cl == '01'">
+                                                  AND EVT.EVENT_PROC_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99992131')
+                                                  </if>
+                                                  <if test="inq_cl == '02'">
+                                                  AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99992131')
+                                                  </if>
+                                       ) TBL2
+                                         WHERE 1=1
+                                        GROUP BY TBL2.BRANCH_CD, TBL2.BRANCH_NM, TBL2.COST_CD, TBL2.EVT_MNGR_CD, TBL2.EVT_MNGR_CD, TBL2.LOC, TBL2.PAY_OPT
+                                       ) TBL ON TBL.EVT_MNGR_CD = EMM.EVT_MNGR_CD
+                                                AND TBL.COST_CD = COST.COM_CD
+                                            AND TBL.PAY_OPT = PAY_OPT.COM_CD1
+                                            <if test="loc != null and loc != ''">
+                                            AND substr(TBL.LOC, 1, length(#{loc})) = #{loc}
+                                            </if>
+                                            <if test="branch != null and branch != ''">
+                                            AND TBL.BRANCH_CD = #{branch}
+                                            </if>
+                                GROUP BY EMM.EVT_MNGR_CD, EMM.EVT_MNGR_NM, COST.COM_CD, COST.CD_NM, PAY_OPT.COM_CD1
+                               ) TBL1
+                        PIVOT (
+                        SUM(TBL1.AMT) FOR TBL1.COM_CD IN (
+                           ${pivot_qry}
+                          )
+                        ) PV
+                       ) TBL2
+                ORDER BY A, EVT_MNGR_NM
+    </select>
+
+    <!--
+    ASIS : selectAddSalesCondList
+    -->
+    <select id="AddRevenueMap.selectAddSalesCondList" parameterType="map" resultType="resultMap">
+        SELECT /* AddRevenueMap.selectAddSalesCondList */
+               (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO)) GRP_CNT
+             , ORDER_NO
+             , nvl(EVT_MNGR_NM, '합계') EVT_MNGR_NM
+             , EVT_MNGR_CD
+             , branch_Cd
+             , branch_Nm
+             , MEM_NM
+             , MEM_NO
+             , ACCNT_NO
+             , SUM(PROD_AMT) PROD_AMT
+             , SUM(DEDUCT_AMT) DEDUCT_AMT
+             , SUM(NEW_CHAN_AMT) NEW_CHAN_AMT
+             , SUM(ADD_SALES_AMT) ADD_SALES_AMT
+             , SUM(COST) COST
+             , SUM(PROFIT) PROFIT
+             , CASE WHEN substr(REPLACE(to_char(ROUND(AVG(MARGIN_RT), 3)), '000', ''), -1) = '.'
+                    THEN REPLACE(REPLACE(to_char(ROUND(AVG(MARGIN_RT), 3)), '000', ''), '.', '')
+                    ELSE REPLACE(to_char(ROUND(AVG(MARGIN_RT), 3)), '000', '')
+               END MARGIN_RT
+             , SUM(SALES_AMT) SALES_AMT
+             , SUM(AMT) AMT
+             , SUM(BASIC_COST) BASIC_COST
+             , SUM(MARGIN) MARGIN
+             ${tot_sum_qry}
+          FROM (SELECT 0 ORDER_NO
+                     , TBL3.EVT_MNGR_NM
+                     , EVT_MNGR_CD
+                     , branch_Cd
+                     , (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = TBL3.branch_Cd) branch_Nm
+                     , FN_MEM_NM(MEM_NO) MEM_NM
+                     , MEM_NO
+                     , ACCNT_NO
+                     , PROD_AMT
+                     , DEDUCT_AMT
+                     , NEW_CHAN_AMT
+                     , SUM(SALES_AMT) + SUM(MARGIN) ADD_SALES_AMT																			/* 추가매출 = 추1행사매출 + 추2마진 */
+                     , SUM(AMT) - SUM(BASIC_COST) COST																						/* 원가 = 비용금액 - 기본원가 */
+                     , (SUM(SALES_AMT) + SUM(MARGIN)) - (SUM(AMT) - SUM(BASIC_COST)) PROFIT													/* 순이익 = 추가매출 - 원가 */
+                     , CASE WHEN SUM(SALES_AMT) + SUM(MARGIN) &lt;= 0
+                            THEN 0
+                            ELSE ((SUM(SALES_AMT) + SUM(MARGIN)) - (SUM(AMT) - SUM(BASIC_COST)))/ (SUM(SALES_AMT) + SUM(MARGIN)) * 100
+                       END MARGIN_RT
+                     , SUM(SALES_AMT) SALES_AMT
+                     , SUM(AMT) AMT
+                     , SUM(BASIC_COST) BASIC_COST
+                     , SUM(MARGIN) MARGIN
+                     ${tot_sum_qry}
+                  FROM (
+                        SELECT EVT_MNGR_NM
+                             , EVT_MNGR_CD
+                             , branch_Cd
+                             , MEM_NO
+                             , ACCNT_NO
+                             , PROD_AMT
+                             , DEDUCT_AMT
+                             , NEW_CHAN_AMT
+                             , SUM(SALES_AMT) SALES_AMT
+                             , SUM(AMT) AMT
+                             , SUM(BASIC_COST) BASIC_COST
+                             , 0 MARGIN
+                             ${add1_1_sum_qry}
+                             ${add1_2_sum_qry}
+                          FROM (SELECT (SELECT EVT_MNGR_NM
+                                          FROM EVENT_MANAGER_MNG
+                                         WHERE EVT_MNGR_CD = (SELECT EVT_MNGR_CD
+                                                                FROM EVENT_MNGR_REG
+                                                               WHERE EVT_SEQ = EVT.SEQ
+                                                                 AND DEL_FG = 'N'
+                                                                 AND EVT_MNGR_GUBUN ='0001')) EVT_MNGR_NM
+                                     , (SELECT EVT_MNGR_CD
+                                          FROM EVENT_MNGR_REG
+                                         WHERE EVT_SEQ = EVT.SEQ
+                                           AND DEL_FG = 'N'
+                                           AND EVT_MNGR_GUBUN ='0001') EVT_MNGR_CD
+                                     , nvl((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG Y
+                                         WHERE Y.EVT_MNGR_CD = (SELECT EVT_MNGR_CD
+                                          FROM EVENT_MNGR_REG
+                                         WHERE EVT_SEQ = EVT.SEQ
+                                           AND DEL_FG = 'N'
+                                           AND EVT_MNGR_GUBUN ='0001'))), '') branch_Cd
+                                     , ACCNT.MEM_NO
+                                     , ACCNT.ACCNT_NO
+                                     , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                            THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                            ELSE PROD.PROD_AMT
+                                       END PROD_AMT
+                                     , (SELECT GDS_NM FROM EVENT_GOODS_MNG_MST WHERE GDS_CD = FRG.GDS_CD AND DEL_FG = 'N') GDS_NM
+                                     , FRG.GDS_GRP_CD
+                                     , FR.RPT_NO
+                                     , GDS_GRP.CD_NM
+                                     , GDS_GRP.COM_CD
+                                     , nvl(FRG.SALES_AMT, 0) SALES_AMT
+                                     , nvl(FRG.SALES_AMT, 0) SALES_AMT2
+                                     , nvl(FRG.AMT, 0) AMT
+                                     , nvl(FRG.BASIC_COST, 0) BASIC_COST
+                                     , nvl(ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT, 0) NEW_CHAN_AMT
+                                     , nvl(FR.DEDUCT_AMT, 0) DEDUCT_AMT
+                                  FROM EVENT EVT
+                                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                       <if test="prod_cd != null and prod_cd != ''">
+                                                                          AND ACCNT.PROD_CD = #{prod_cd}
+                                       </if>
+                                       INNER JOIN PRODUCT PROD ON PROD.PROD_CD = ACCNT.PROD_CD
+                                       INNER JOIN FUNRL_RPT FR ON FR.SEQ = EVT.SEQ AND FR.DEL_FG = 'N'
+                                       CROSS JOIN (
+                                         SELECT COM_CD
+                                              , CD_NM
+                                           FROM COM_CD
+                                          WHERE GRP_CD = '0154'
+                                            AND USE_YN = 'Y'
+                                       ) GDS_GRP
+                                       LEFT OUTER JOIN (
+                                         SELECT A.RPT_NO
+                                              , SUM(A.SALES_AMT) SALES_AMT
+                                              , SUM(A.AMT) AMT
+                                              , SUM(A.BASIC_COST) BASIC_COST
+                                              , A.GDS_CD
+                                              , EGMM.GDS_GRP_CD
+                                           FROM FUNRL_RPT_GOODS A
+                                                INNER JOIN EVENT_GOODS_MNG_MST EGMM ON EGMM.DEL_FG = 'N' AND A.GDS_CD = EGMM.GDS_CD
+                                          WHERE A.GDS_CL = '0002'
+                                            AND A.DEL_FG = 'N'
+                                         GROUP BY A.RPT_NO
+                                                , EGMM.GDS_GRP_CD
+                                                , A.GDS_CD
+                                       ) FRG ON FR.RPT_NO = FRG.RPT_NO AND FRG.GDS_GRP_CD = GDS_GRP.COM_CD
+                                 WHERE EVT.DEL_FG = 'N'
+                                   AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+                               ) TBL
+                        PIVOT (
+                          SUM(SALES_AMT2) FOR COM_CD IN (
+                             ${pivot_qry1}
+                            )
+                        ) PV
+                        GROUP BY EVT_MNGR_NM
+                               , EVT_MNGR_CD
+                               , branch_Cd
+                               , MEM_NO
+                               , ACCNT_NO
+                               , PROD_AMT
+                               , DEDUCT_AMT
+                               , NEW_CHAN_AMT
+
+                        UNION ALL
+
+                        SELECT EVT_MNGR_NM
+                             , EVT_MNGR_CD
+                             , branch_Cd
+                             , MEM_NO
+                             , ACCNT_NO
+                             , PROD_AMT
+                             , DEDUCT_AMT
+                             , NEW_CHAN_AMT
+                             , 0 SALES_AMT
+                             , 0 AMT
+                             , 0 BASIC_COST
+                             , SUM(MARGIN) MARGIN
+                             ${add2_1_sum_qry}
+                             ${add2_2_sum_qry}
+                          FROM (SELECT (SELECT EVT_MNGR_NM
+                                          FROM EVENT_MANAGER_MNG
+                                         WHERE EVT_MNGR_CD = (SELECT EVT_MNGR_CD
+                                                                FROM EVENT_MNGR_REG
+                                                               WHERE EVT_SEQ = EVT.SEQ
+                                                                 AND DEL_FG = 'N'
+                                                                 AND EVT_MNGR_GUBUN ='0001')) EVT_MNGR_NM
+                                     , (SELECT EVT_MNGR_CD
+                                          FROM EVENT_MNGR_REG
+                                         WHERE EVT_SEQ = EVT.SEQ
+                                           AND DEL_FG = 'N'
+                                           AND EVT_MNGR_GUBUN ='0001') EVT_MNGR_CD
+                                     , nvl((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG Y
+                                         WHERE Y.EVT_MNGR_CD = (SELECT EVT_MNGR_CD
+                                          FROM EVENT_MNGR_REG
+                                         WHERE EVT_SEQ = EVT.SEQ
+                                           AND DEL_FG = 'N'
+                                           AND EVT_MNGR_GUBUN ='0001'))), '') branch_Cd
+                                     , ACCNT.MEM_NO
+                                     , ACCNT.ACCNT_NO
+                                     , CASE WHEN nvl(PROD.PAY_TYPE, '0000') = '002'
+                                            THEN (SELECT SUM((END_NO - ST_NO + 1) * (MONTH_PAY_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = ACCNT.PROD_CD)
+                                            ELSE PROD.PROD_AMT
+                                       END PROD_AMT
+                                     , FN_COM_NM('0148', FRS.ITEM_CD) GDS_NM
+                                     , FRS.ITEM_CD GDS_GRP_CD
+                                     , FR.RPT_NO
+                                     , ITEM_TB.CD_NM
+                                     , ITEM_TB.COM_CD
+                                     , nvl(FRS.MARGIN, 0) MARGIN
+                                     , nvl(FRS.MARGIN, 0) MARGIN2
+                                     , nvl(ACCNT.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT, 0) NEW_CHAN_AMT
+                                     , nvl(FR.DEDUCT_AMT, 0) DEDUCT_AMT
+                                  FROM EVENT EVT
+                                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+                                       <if test="prod_cd != null and prod_cd != ''">
+                                                                          AND ACCNT.PROD_CD = #{prod_cd}
+                                       </if>
+                                       INNER JOIN PRODUCT PROD ON PROD.PROD_CD = ACCNT.PROD_CD
+                                       INNER JOIN FUNRL_RPT FR ON FR.SEQ = EVT.SEQ AND FR.DEL_FG = 'N'
+                                       CROSS JOIN (
+                                         SELECT COM_CD
+                                              , CD_NM
+                                           FROM COM_CD
+                                          WHERE GRP_CD = '0148'
+                                            AND USE_YN = 'Y'
+                                       ) ITEM_TB
+                                       LEFT OUTER JOIN (
+                                         SELECT A.RPT_NO
+                                              , SUM(A.MARGIN) MARGIN
+                                              , A.ITEM_CD
+                                           FROM FUNRL_RPT_SALES2 A
+                                         GROUP BY A.RPT_NO, A.ITEM_CD
+                                       ) FRS ON FR.RPT_NO = FRS.RPT_NO AND FRS.ITEM_CD = ITEM_TB.COM_CD
+                                 WHERE EVT.DEL_FG = 'N'
+                                   AND EVT.EVENT_COMP_DAY BETWEEN nvl(#{start_dt}, '19000101') AND nvl(#{end_dt}, '99991231')
+                               ) TBL2
+                        PIVOT (
+                          SUM(MARGIN2) FOR COM_CD IN (
+                             ${pivot_qry2}
+                            )
+                        ) PV
+                        GROUP BY EVT_MNGR_NM
+                               , EVT_MNGR_CD
+                               , branch_Cd
+                               , MEM_NO
+                               , ACCNT_NO
+                               , PROD_AMT
+                               , DEDUCT_AMT
+                               , NEW_CHAN_AMT
+                       ) TBL3
+                 WHERE 1=1
+                 <if test="branch != null and branch != ''">
+                   AND TBL3.branch_Cd = #{branch}
+                 </if>
+                 <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+                   AND EVT_MNGR_CD = #{evt_mngr_cd}
+                 </if>
+                GROUP BY EVT_MNGR_NM
+                       , EVT_MNGR_CD
+                       , branch_Cd
+                       , MEM_NO
+                       , ACCNT_NO
+                       , PROD_AMT
+                       , DEDUCT_AMT
+                       , NEW_CHAN_AMT
+        ) TBL4
+        GROUP BY ROLLUP (ORDER_NO
+               , EVT_MNGR_NM
+               , EVT_MNGR_CD
+               , branch_Cd
+               , branch_Nm
+               , MEM_NM
+               , MEM_NO
+               , ACCNT_NO)
+        HAVING (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO) = 0)
+               OR
+               (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO) = 3)
+               OR
+               (GROUPING(ORDER_NO) + GROUPING(EVT_MNGR_NM) + GROUPING(EVT_MNGR_CD) + GROUPING(branch_Cd) + GROUPING(branch_Nm) + GROUPING(MEM_NM) + GROUPING(MEM_NO) + GROUPING(ACCNT_NO) = 8)
+    </select>
+
+</mapper>

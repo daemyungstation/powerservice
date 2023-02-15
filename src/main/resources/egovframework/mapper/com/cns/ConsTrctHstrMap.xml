@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ConsTrctHstrMap">
+
+    <sql id="ConsTrctHstrMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="consno != null and consno != ''">
+                AND A.CONSNO = #{consno}
+            </if>
+            <if test="trct_sqno != null and trct_sqno != ''">
+                AND A.TRCT_SQNO = #{trct_sqno}
+            </if>
+            <if test="trct_box_id != null and trct_box_id != ''">
+                AND A.TRCT_BOX_ID = #{trct_box_id}
+            </if>
+            <if test="trct_acpg_dept_cd != null and trct_acpg_dept_cd != ''">
+                AND A.TRCT_ACPG_DEPT_CD = #{trct_acpg_dept_cd}
+            </if>
+            <if test="trct_actp_id != null and trct_actp_id != ''">
+                AND A.TRCT_ACTP_ID = #{trct_actp_id}
+            </if>
+            <if test="trct_acpg_dttm != null and trct_acpg_dttm != ''">
+                AND A.TRCT_ACPG_DTTM = #{trct_acpg_dttm}
+            </if>
+            <if test="trnm_dsps_dttm != null and trnm_dsps_dttm != ''">
+                AND A.TRCT_ACPG_DTTM = #{trnm_dsps_dttm}
+            </if>
+            <if test="trct_rsps_dept_cd != null and trct_rsps_dept_cd != ''">
+                AND A.TRCT_RSPS_DEPT_CD = #{trct_rsps_dept_cd}
+            </if>
+            <if test="trct_chpr_id != null and trct_chpr_id != ''">
+                AND A.TRCT_CHPR_ID = #{trct_chpr_id}
+            </if>
+            <if test="trct_cnft_dttm != null and trct_cnft_dttm != ''">
+                AND A.TRCT_CNFT_DTTM = #{trct_cnft_dttm}
+            </if>
+        </where>
+    </sql>
+
+    <select id="ConsTrctHstrMap.getConsTrctHstrCount" parameterType="map" resultType="int">
+        SELECT /* ConsTrctHstrMap.getConsTrctHstrCount */
+               COUNT(*)
+          FROM TB_CONS_TRCT_HSTR A
+        <include refid="ConsTrctHstrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ConsTrctHstrMap.getConsTrctHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTrctHstrMap.getConsTrctHstrList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                     , GETCODENM('CNS080', B.TRCT_CONS_SCTR_CD, B.CNTR_CD) AS TRCT_CONS_SCTR_NM
+                     , GETCODENM('CNS090', B.TRCT_TRGT_DIV_CD, B.CNTR_CD) AS TRCT_TRGT_DIV_NM
+                  FROM (SELECT A.CONSNO, A.TRCT_SQNO, A.TRCT_BOX_ID, A.TRCT_ACPG_DEPT_CD, A.TRCT_ACTP_ID
+                             , A.TRCT_ACPG_DTTM, A.TRCT_RSPS_DEPT_CD, A.TRCT_CHPR_ID, A.TRCT_CNFT_DTTM
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_ACPG_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACPG_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_ACTP_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACTP_NM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_RSPS_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_RSPS_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_CHPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , B.TRCT_CONS_SCTR_CD, B.TRCT_TRGT_DIV_CD, B.TRCT_BOX_NM
+                          FROM TB_CONS_TRCT_HSTR A
+                          JOIN TB_TRCT_BOX_ADMN B
+                            ON A.TRCT_BOX_ID = B.TRCT_BOX_ID
+                <include refid="ConsTrctHstrMap.selectCondition_fragment"/>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <select id="ConsTrctHstrMap.getConsTrctHstrTodoList" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTrctHstrMap.getConsTrctHstrTodoList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT A.CONSNO, A.TRCT_SQNO, A.TRCT_BOX_ID, A.TRCT_ACPG_DEPT_CD, A.TRCT_ACTP_ID
+                             , A.TRCT_ACPG_DTTM,  A.TRCT_RSPS_DEPT_CD, A.TRCT_CHPR_ID, A.TRCT_CNFT_DTTM
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_ACPG_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACPG_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_ACTP_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACTP_NM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_RSPS_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_RSPS_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_CHPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , B.TRCT_CONS_SCTR_CD, B.TRCT_TRGT_DIV_CD, B.TRCT_BOX_NM
+                             , C.CONS_STAT_CD, C.CONS_DSPSMDDL_DTPT_CD, C.CUST_ID, C.CONSNO_GROP_NO, C.CONSNO_SQNO
+                             , GETCODENM('CNS080', B.TRCT_CONS_SCTR_CD, B.CNTR_CD) AS TRCT_CONS_SCTR_NM
+                             , GETCODENM('CNS090', B.TRCT_TRGT_DIV_CD, B.CNTR_CD) AS TRCT_TRGT_DIV_NM
+                             , GETCODENM('CNS120', C.CONS_STAT_CD, C.CNTR_CD) AS CONS_STAT_NM
+                          FROM TB_CONS_TRCT_HSTR A
+                          JOIN TB_TRCT_BOX_ADMN B
+                            ON A.TRCT_BOX_ID = B.TRCT_BOX_ID
+                          JOIN TB_CONS C
+                            ON A.CONSNO = C.CONSNO
+                           AND A.TRCT_SQNO = C.TRCT_SQNO
+                         WHERE A.TRCT_CHPR_ID IS NULL
+                           AND EXISTS (SELECT 'Y'
+                                         FROM TB_TRCT_CHPR_ADMN D
+                                        WHERE D.TRCT_BOX_ID = A.TRCT_BOX_ID
+                                          AND D.USER_ID = #{user_id})
+                        <if test="orderBy != null and orderBy != ''">
+				        	ORDER BY ${orderBy} ${orderDirection}
+				        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+
+    </select>
+
+    <select id="ConsTrctHstrMap.getTodoConsTrctHstrCount" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTrctHstrMap.getTodoConsTrctHstrCount */
+               B.CNTR_CD, B.USER_ID
+             , COUNT(*) AS CNT
+          FROM TB_CONS_TRCT_HSTR A
+          JOIN TB_TRCT_CHPR_ADMN B
+            ON A.TRCT_BOX_ID = B.TRCT_BOX_ID
+          JOIN TB_CONS C
+            ON A.CONSNO = C.CONSNO
+           AND A.TRCT_SQNO = C.TRCT_SQNO
+         WHERE A.TRCT_CHPR_ID IS NULL
+         GROUP BY B.CNTR_CD, B.USER_ID
+    </select>
+
+    <insert id="ConsTrctHstrMap.insertConsTrctHstr" parameterType="map">
+        INSERT INTO /* ConsTrctHstrMap.insertConsTrctHstr */
+                    TB_CONS_TRCT_HSTR
+                    (CONSNO, TRCT_SQNO, TRCT_BOX_ID, TRCT_ACPG_DEPT_CD, TRCT_ACTP_ID
+                   , TRCT_ACPG_DTTM, TRNM_DSPS_DTTM, TRCT_RSPS_DEPT_CD, TRCT_CHPR_ID, TRCT_CNFT_DTTM
+                   , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{consno}, #{trct_sqno}, #{trct_box_id}, #{trct_acpg_dept_cd}, #{trct_actp_id}
+                   , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), NULL, NULL, NULL, NULL
+                   , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="ConsTrctHstrMap.updateConsTrctHstr" parameterType="map">
+        UPDATE /* ConsTrctHstrMap.updateConsTrctHstr */
+               TB_CONS_TRCT_HSTR
+           SET TRCT_RSPS_DEPT_CD = #{trct_rsps_dept_cd}
+             , TRCT_CHPR_ID = #{trct_chpr_id}
+             , TRCT_CNFT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE CONSNO = #{consno}
+          AND TRCT_SQNO = #{trct_sqno}
+    </update>
+
+    <update id="ConsTrctHstrMap.updateConsTrctHstrSendProcDt" parameterType="map">
+        IF #{targettable} = 'TB_CONS_TRCT_HSTR'
+            BEGIN
+                UPDATE /* ConsTrctHstrMap.updateConsTrctHstrSendProcDt */
+                       TB_CONS_TRCT_HSTR
+                   SET TRCT_ACPG_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                 WHERE CONSNO = #{consno}
+                   AND TRCT_SQNO = #{trct_sqno}
+            END
+        ELSE
+            BEGIN
+                UPDATE /* ConsTrctHstrMap.updateJobreqSendProcDt */
+                       TB_JOBREQ
+                   SET TRCT_ACPG_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                 WHERE CONSNO = #{consno}
+                   AND JOBREQID = #{jobreqid}
+            END
+    </update>
+
+    <delete id="ConsTrctHstrMap.deleteConsTrctHstr" parameterType="map">
+        DELETE /* ConsTrctHstrMap.deleteConsTrctHstr */
+          FROM TB_CONS_TRCT_HSTR
+        WHERE CONSNO = #{consno}
+          AND TRCT_SQNO = #{trct_sqno}
+    </delete>
+
+    <select id="ConsTrctHstrMap.getCselTrnsList" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTrctHstrMap.getCselTrnsList */
+               A.*
+          FROM (SELECT A.*, B.USER_NM, B.EMAILADDR, B.HPNO
+                  FROM (SELECT A.*
+                             , (CASE
+                                   WHEN A.EMAILTPID IS NOT NULL AND A.EMAILTPID!='' AND B.EMAILNOTIFG='Y' THEN 'Y'
+                                   ELSE 'N'
+                                   END) AS EMAILFG
+                                , (CASE
+                                   WHEN A.SMSMSGID IS NOT NULL AND A.SMSMSGID!='' AND B.SMSNOTIFG='Y' THEN 'Y'
+                                   ELSE 'N'
+                                   END) AS SMSFG
+                                , B.USER_ID
+                          FROM (SELECT A.TARGETTABLE, A.CONSNO, A.TRCT_SQNO, A.JOBREQID, A.CNTR_CD
+                                     , B.TRCT_BOX_ID, B.EMAILTPID, B.SMSMSGID
+                                     , C.SUBJECT AS EMAILSUBJECT, EDITEREMAILCNTS
+                                     , D.SUBJECT AS SMSSUBJECT, D.SMSMSG, D.SENDTELNO, D.IMAGEURLADDR
+                                  FROM (SELECT TARGETTABLE, CONSNO, TRCT_SQNO, JOBREQID, TRCT_BOX_ID, TRCT_ACPG_DTTM
+                                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD
+                                          FROM (SELECT 'TB_CONS_TRCT_HSTR' AS TARGETTABLE, CONSNO, TRCT_SQNO, '' AS JOBREQID, TRCT_BOX_ID, TRCT_ACPG_DTTM
+                                                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD
+                                                  FROM TB_CONS_TRCT_HSTR A
+                                                 WHERE TRCT_ACPG_DTTM IS NULL OR TRCT_ACPG_DTTM = ''
+                                                 UNION ALL
+                                                SELECT 'TB_JOBREQ' AS TARGETTABLE, CONSNO, '' AS TRCT_SQNO, JOBREQID, TRCT_BOX_ID, TRCT_ACPG_DTTM
+                                                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD
+                                                  FROM TB_JOBREQ
+                                                 WHERE TRCT_ACPG_DTTM IS NULL OR TRCT_ACPG_DTTM = ''
+                                                ) A
+                                       )A LEFT JOIN TB_TRCT_BOX_ADMN B ON A.TRCT_BOX_ID = B.TRCT_BOX_ID AND A.CNTR_CD = B.CNTR_CD
+                                       LEFT JOIN TB_EMAILTEMPLATEMGR C ON B.EMAILTPID = C.EMAILTPID AND B.CNTR_CD = C.CNTR_CD
+                                       LEFT JOIN TB_SMSCNTMGR D ON B.SMSMSGID = D.SMSMSGID AND B.CNTR_CD = D.CNTR_CD
+                               )A, TB_TRCT_CHPR_ADMN B
+                         WHERE A.TRCT_BOX_ID = B.TRCT_BOX_ID
+                           AND A.CNTR_CD = B.CNTR_CD
+                       ) A LEFT JOIN TB_USER B ON A.USER_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD
+               ) A
+         ORDER BY CONSNO ASC
+    </select>
+</mapper>

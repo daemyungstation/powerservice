@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="VocDtlMap">
+
+    <sql id="VocDtlMap.selectCondition_fragment">
+        <where>
+             AND NVL(DEL_FG,'N') ='N'
+            <if test="voc_id != null and voc_id != ''">
+                AND VOC_ID = #{voc_id}
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND VOC_ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+            </if>
+            <choose>
+                <when test="voc_dssr_id != null and voc_dssr_id != ''">
+                AND VOC_DSSR_ID = #{voc_dssr_id}
+                </when>
+                <when test="voc_dssr_team2_cd != null and voc_dssr_team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.VOC_DSSR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{voc_dssr_team2_cd})
+                </when>
+                <when test="voc_dssr_team1_cd != null and voc_dssr_team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.VOC_DSSR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{voc_dssr_team1_cd})
+                </when>
+            </choose>
+            <if test="voc_typ_cd != null and voc_typ_cd != ''">
+                AND VOC_TYP_CD = #{voc_typ_cd}
+            </if>
+            <if test="voc_dsps_stat_cd != null and voc_dsps_stat_cd != ''">
+                AND VOC_DSPS_STAT_CD = #{voc_dsps_stat_cd}
+            </if>
+            <if test="voc_dsps_stat_cd_list != null and voc_dsps_stat_cd_list != ''">
+                AND VOC_DSPS_STAT_CD IN (${voc_dsps_stat_cd_list})
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="path_typ == 'history'">
+                AND MEM_NO = #{mem_no}
+            </if>
+            <if test="hpcl_trgt_yn != null and hpcl_trgt_yn != ''">
+                AND HPCL_TRGT_YN = #{hpcl_trgt_yn}
+            </if>
+            <if test="hpcl_dssr_id != null and hpcl_dssr_id != ''">
+                AND HPCL_DSSR_ID = #{hpcl_dssr_id}
+            </if>
+            <if test="hpcl_dsps_stat_cd_list != null and hpcl_dsps_stat_cd_list != ''">
+                AND HPCL_DSPS_STAT_CD IN (${hpcl_dsps_stat_cd_list})
+            </if>
+        </where>
+    </sql>
+
+    <select id="VocDtlMap.getVocDtlCount" parameterType="map" resultType="int">
+        SELECT /* VocDtlMap.getVocDtlCount */
+               COUNT(*)
+          FROM TB_VOC_DTL A
+        <include refid="VocDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="VocDtlMap.getVocDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* VocDtlMap.getVocDtlList */
+               C.*
+             , GETCODENM('CNS080', VOC_TYP_CD, CNTR_CD) AS VOC_TYP_NM
+             , GETCODENM('CNS090', VOC_IMPC_CD, CNTR_CD) AS VOC_IMPC_NM
+             , GETCODENM('CNS100', VOC_DSPS_STAT_CD, CNTR_CD) AS VOC_DSPS_STAT_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_DSSR_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_DSSR_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_DSSR_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_DSSR_TEAM2_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_ACTP_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_ACTP_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_ACTP_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_ACTP_TEAM2_NM
+             , (SELECT D.USER_NM
+                  FROM TB_USER D
+                 WHERE D.USER_ID = C.RGSR_ID
+                   AND D.CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , (SELECT D.USER_NM
+                  FROM TB_USER D
+                 WHERE D.USER_ID = C.AMND_ID
+                   AND D.CNTR_CD = C.CNTR_CD) AS AMND_NM
+             , (CASE WHEN HPCL_TRGT_YN = 'Y'
+                     THEN (SELECT D.USER_NM
+                             FROM TB_USER D
+                            WHERE D.USER_ID = C.HPCL_DSSR_ID
+                              AND D.CNTR_CD = C.CNTR_CD)
+                     ELSE ''
+                END) AS HPCL_DSSR_NM
+             , (CASE WHEN HPCL_TRGT_YN = 'Y'
+                     THEN GETCODENM('CNS100', C.HPCL_DSPS_STAT_CD, C.CNTR_CD)
+                     ELSE ''
+                END) AS HPCL_DSPS_STAT_NM
+             , (CASE WHEN VOC_DSPS_STAT_CD = '30' OR SYSDATE - TO_DATE(VOC_ACPG_DTTM,'YYYYMMDDHH24MISS') <![CDATA[<]]> 0
+                     THEN NULL
+                     ELSE TRUNC(SYSDATE - TO_DATE(VOC_ACPG_DTTM, 'YYYYMMDDHH24MISS')) || '일 ' ||
+                          TRUNC(MOD((SYSDATE - TO_DATE(VOC_ACPG_DTTM ,'YYYYMMDDHH24MISS')), 1) * 24) || '시간 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(VOC_ACPG_DTTM, 'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                END) AS VOC_DSPS_TERM
+              , C.TCCONSNO
+              ,C.TCACCNT_NO
+              , (select cons_typ_nm  from TB_CONS_TYP_CD   where cons_typ_cd =  C.TCCONS_TYP3_CD)  TCCONS_TYP3_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.VOC_DSSR_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS VOC_DSSR_TEAM1_CD
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.VOC_ACTP_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS VOC_ACTP_TEAM1_CD
+                  FROM (SELECT VOC_ID, VOC_ACPG_CHNL_CD, MEM_NO, VOC_CUST_NM, A.CONSNO
+                             , VOC_TYP_CD, VOC_IMPC_CD, VOC_TITL, VOC_ACPG_CNTN, SMS_RPL_YN
+                             , SMS_RPL_CNPL_TLNO, TLPH_RPL_YN, TLPH_RPL_CNPL_TLNO, EMIL_RPL_YN, EMIL_RPL_ADDR
+                             , VOC_DSPS_STAT_CD, VOC_DSPS_CNTN, VOC_ACTP_ID, VOC_ACPG_DTTM, VOC_DSSR_ID
+                             , VOC_DSPS_DTTM, HPCL_TRGT_YN, HPCL_SIDO_TMCNT, HPCL_DSSR_ID, HPCL_DSPS_DTTM
+                             , HPCL_DSPS_STAT_CD, MEM_NM, VOC_ACTP_ID AS OLD_VOC_ACTP_ID
+                             , A.CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_ACTP_NM
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_ACTP_TEAM2_CD
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_DSSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_DSSR_NM
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_DSSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_DSSR_TEAM2_CD
+                             ,TC.CONSNO TCCONSNO
+                             ,TC.ACCNT_NO TCACCNT_NO
+                             ,TC.CONS_TYP3_CD TCCONS_TYP3_CD
+                          FROM TB_VOC_DTL A
+                              INNER join (SELECT CNTR_CD,CONSNO,ACCNT_NO,CONS_TYP3_CD  FROM TB_CONS )TC ON TC.CNTR_CD = 'CCA' AND A.consno =TC.consno
+
+                    <include refid="VocDtlMap.selectCondition_fragment"/>
+                    <if test="orderBy != null and orderBy != ''">
+                                     ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                       ) B
+               ) C
+    <if test="excel_fg == null or excel_fg == '' or !excel_fg.equalsIgnoreCase('Y')">
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX <  #{endLine}
+            ]]>
+        </if>
+    </if>
+    </select>
+
+    <insert id="VocDtlMap.insertVocDtl" parameterType="map">
+        <selectKey keyProperty="voc_id" resultType="String" order="BEFORE">
+            SELECT 'VOC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* VocDtlMap.insertVocDtl */
+          INTO TB_VOC_DTL
+               (VOC_ID, VOC_ACPG_CHNL_CD, MEM_NO, VOC_CUST_NM, CONSNO
+              , VOC_TYP_CD, VOC_IMPC_CD, VOC_TITL, VOC_ACPG_CNTN, SMS_RPL_YN
+              , SMS_RPL_CNPL_TLNO, TLPH_RPL_YN, TLPH_RPL_CNPL_TLNO, EMIL_RPL_YN, EMIL_RPL_ADDR
+              , VOC_DSPS_STAT_CD, VOC_ACTP_ID, VOC_ACPG_DTTM, HPCL_TRGT_YN, HPCL_SIDO_TMCNT
+              , HPCL_DSSR_ID, HPCL_DSPS_STAT_CD, MEM_NM
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+              , VOC_DSSR_ID)
+        VALUES (#{voc_id}, #{voc_acpg_chnl_cd}, #{mem_no}, #{voc_cust_nm}, #{consno}
+              , #{voc_typ_cd}, #{voc_impc_cd}, #{voc_titl}, #{voc_acpg_cntn}, #{sms_rpl_yn}
+              , REPLACE(#{sms_rpl_cnpl_tlno}, '-', ''), #{tlph_rpl_yn}, REPLACE(#{tlph_rpl_cnpl_tlno}, '-', ''), 'N', #{emil_rpl_addr}
+              , '10', #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{hpcl_trgt_yn}, 0
+              , #{hpcl_dssr_id}, #{hpcl_dsps_stat_cd}, #{mem_nm}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+              , #{voc_dssr_id})
+    </insert>
+
+    <!--
+        VOC처리자 기준값 관리에 따른 수정
+        회수 없음
+        VOC처리자 변경하지 않음
+    -->
+    <update id="VocDtlMap.updateVocDtl" parameterType="map">
+        UPDATE /* VocDtlMap.updateVocDtl */
+               TB_VOC_DTL
+        <set>
+        <!-- <if test="oper_typ == 'withdraw'"> 회수
+              VOC_DSSR_ID = NULL
+            , VOC_DSPS_DTTM = NULL
+            , VOC_DSPS_STAT_CD = '10'
+        </if> -->
+        <if test="oper_typ == 'update'"> <!-- 담당자 처리 -->
+              VOC_TYP_CD = #{voc_typ_cd}
+            , VOC_IMPC_CD = #{voc_impc_cd}
+            , VOC_TITL = #{voc_titl}
+            , VOC_ACPG_CNTN = #{voc_acpg_cntn}
+            , SMS_RPL_YN = #{sms_rpl_yn}
+            , SMS_RPL_CNPL_TLNO = REPLACE(#{sms_rpl_cnpl_tlno}, '-', '')
+            , TLPH_RPL_YN = #{tlph_rpl_yn}
+            , TLPH_RPL_CNPL_TLNO = REPLACE(#{tlph_rpl_cnpl_tlno}, '-', '')
+            , VOC_DSPS_STAT_CD = #{voc_dsps_stat_cd}
+            , VOC_DSPS_CNTN = #{voc_dsps_cntn}
+            <!-- , VOC_DSSR_ID = #{voc_dssr_id} -->
+            , VOC_ACTP_ID = #{voc_actp_id}
+            <if test="voc_dsps_stat_cd == '30'">
+                , VOC_DSPS_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            </if>
+            , AMND_ID = #{amnd_id}
+            , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        </if>
+        <if test="oper_typ == 'happycall'"> <!-- 해피콜 -->
+              HPCL_DSPS_STAT_CD = #{hpcl_dsps_stat_cd}
+            , HPCL_SIDO_TMCNT = HPCL_SIDO_TMCNT + 1
+            , HPCL_DSPS_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+            , MEM_NM = #{mem_nm}
+        </if>
+        </set>
+        WHERE VOC_ID = #{voc_id}
+    </update>
+
+
+    <insert id="VocDtlMap.insertVocDtlHstr" parameterType="map">
+        INSERT /* VocDtlMap.insertVocDtlHstr */
+          INTO TB_VOC_DTL_HSTR
+              (VOC_ID, CHNG_DTTM, VOC_ACPG_CHNL_CD, MEM_NO, VOC_CUST_NM
+             , VOC_TYP_CD, VOC_IMPC_CD, VOC_TITL, VOC_ACPG_CNTN, SMS_RPL_YN
+             , SMS_RPL_CNPL_TLNO, TLPH_RPL_YN, TLPH_RPL_CNPL_TLNO, EMIL_RPL_YN, EMIL_RPL_ADDR
+             , VOC_DSPS_STAT_CD, VOC_DSPS_CNTN, VOC_ACTP_ID, VOC_ACPG_DTTM, VOC_DSSR_ID
+             , VOC_DSPS_DTTM, MEM_NM
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT VOC_ID, SYSTIMESTAMP, VOC_ACPG_CHNL_CD, MEM_NO, VOC_CUST_NM
+             , VOC_TYP_CD, VOC_IMPC_CD, VOC_TITL, VOC_ACPG_CNTN, SMS_RPL_YN
+             , SMS_RPL_CNPL_TLNO, TLPH_RPL_YN, TLPH_RPL_CNPL_TLNO, EMIL_RPL_YN, EMIL_RPL_ADDR
+             , VOC_DSPS_STAT_CD, VOC_DSPS_CNTN, VOC_ACTP_ID, VOC_ACPG_DTTM, VOC_DSSR_ID
+             , VOC_DSPS_DTTM, MEM_NM
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+          FROM TB_VOC_DTL
+         WHERE VOC_ID = #{voc_id}
+    </insert>
+
+
+    <select id="VocDtlMap.getTodoVocHpclDspsCount" parameterType="map" resultType="resultMap">
+        SELECT /* VocDtlMap.getTodoVocHpclDspsCount */
+               CNTR_CD, HPCL_DSSR_ID AS USER_ID, COUNT(*) AS CNT
+          FROM TB_VOC_DTL
+         WHERE VOC_DSPS_STAT_CD = '30'
+           AND HPCL_TRGT_YN = 'Y'
+           AND HPCL_DSPS_STAT_CD IN ('10', '20')
+         GROUP BY CNTR_CD, HPCL_DSSR_ID
+    </select>
+
+
+    <select id="VocDtlMap.getVocHpclDspsHstrCount" parameterType="map" resultType="int">
+        SELECT /* VocDtlMap.getVocHpclDspsHstrCount */
+               COUNT(*)
+          FROM TB_VOC_HPCL_DSPS_HSTR
+         WHERE VOC_ID = #{voc_id}
+    </select>
+
+    <select id="VocDtlMap.getVocHpclDspsHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* VocDtlMap.getVocHpclDspsHstrList */
+               ROWNUM AS PAGE_INDX, A.*
+             , (SELECT B.USER_NM
+                  FROM TB_USER B
+                 WHERE B.USER_ID = A.HPCL_DSSR_ID) AS HPCL_DSSR_NM
+             , GETCODENM('CNS100', HPCL_DSPS_STAT_CD, CNTR_CD) AS HPCL_DSPS_STAT_NM
+          FROM (SELECT VOC_ID, HPCL_DSSR_ID, VOC_HPCL_SIDO_DTTM, HPCL_DSPS_STAT_CD
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                  FROM TB_VOC_HPCL_DSPS_HSTR
+                 WHERE VOC_ID = #{voc_id}
+                 ORDER BY CHNG_DTTM DESC) A
+    </select>
+
+    <insert id="VocDtlMap.insertVocHpclDspsHstr" parameterType="map">
+        INSERT /* VocDtlMap.insertVocHpclDspsHstr */
+          INTO TB_VOC_HPCL_DSPS_HSTR
+              (VOC_ID, CHNG_DTTM, HPCL_DSSR_ID, VOC_HPCL_SIDO_DTTM, HPCL_DSPS_STAT_CD
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT VOC_ID, SYSTIMESTAMP, HPCL_DSSR_ID, HPCL_DSPS_DTTM, HPCL_DSPS_STAT_CD
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+          FROM TB_VOC_DTL
+         WHERE VOC_ID = #{voc_id}
+    </insert>
+
+      <update id="VocDtlMap.deletevoc" parameterType="map">
+        UPDATE /* VocDtlMap.deletevoc */
+               TB_VOC_DTL
+           SET  DEL_FG = 'Y'
+         WHERE VOC_ID	= #{voc_id}
+    </update>
+
+
+
+</mapper>

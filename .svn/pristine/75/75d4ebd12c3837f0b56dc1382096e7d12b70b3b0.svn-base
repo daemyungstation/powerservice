@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="AcsMap">
+
+    <sql id="AcsMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="prms_ip_addr != null and prms_ip_addr != ''">
+                AND A.PRMS_IP_ADDR LIKE '%' || #{prms_ip_addr} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <select id="AcsMap.getAcsCount" parameterType="map" resultType="int">
+        SELECT /* AcsMap.getAcsCount */
+               COUNT(*)
+          FROM TB_PGM_ACS_ADMN A
+        <include refid="AcsMap.selectCondition_fragment" />
+    </select>
+
+    <select id="AcsMap.getAcsDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* AcsMap.getAcsDuplicateCount */
+               COUNT(*)
+          FROM TB_PGM_ACS_ADMN
+         WHERE PRMS_IP_ADDR = #{prms_ip_addr}
+    </select>
+
+    <select id="AcsMap.getAcsIpList" parameterType="map" resultType="resultMap">
+       SELECT /* AcsMap.getAcsIpList */
+               PRMS_IP_ADDR
+          FROM TB_PGM_ACS_ADMN
+         WHERE USE_YN = 'Y'
+           AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN PRMS_STT_DT AND PRMS_END_DT
+    </select>
+
+
+    <select id="AcsMap.getAcs" parameterType="map" resultType="resultMap">
+       SELECT /* AcsMap.getAcs */
+               *
+          FROM TB_PGM_ACS_ADMN
+         WHERE PRMS_IP_ADDR = #{prms_ip_addr}
+    </select>
+
+    <select id="AcsMap.getAcsList" parameterType="map" resultType="resultMap">
+       SELECT /* AcsMap.getAcsList */
+               A.*
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , A.*
+                  FROM (SELECT A.*
+                               , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM (SELECT PRMS_IP_ADDR, PRMS_PERD_CD, PRMS_STT_DT, PRMS_END_DT, PRMS_INFO_EXPI, USE_YN
+                                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                                  FROM TB_PGM_ACS_ADMN A
+                              <include refid="AcsMap.selectCondition_fragment" />
+                               ) A
+                          <if test="orderBy != null and orderBy != ''">
+                                      ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                        <if test="orderBy == null or orderBy == ''">
+                                      ORDER BY AMNT_DTTM DESC
+                        </if>
+                        ) A
+                ) A
+           <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+            </if>
+    </select>
+
+    <insert id="AcsMap.insertAcs" parameterType="map">
+        INSERT /* AcsMap.insertAcs */
+          INTO TB_PGM_ACS_ADMN
+              (PRMS_IP_ADDR, PRMS_PERD_CD, PRMS_STT_DT, PRMS_END_DT, PRMS_INFO_EXPI, USE_YN
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{prms_ip_addr}, #{prms_perd_cd}, #{prms_stt_dt}, #{prms_end_dt}, #{prms_info_expi}, #{use_yn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="AcsMap.updateAcs" parameterType="map">
+        UPDATE /* AcsMap.updateAcs */
+               TB_PGM_ACS_ADMN
+           SET AMNT_DTTM		= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID			= #{amnd_id}
+             , PRMS_PERD_CD     = #{prms_perd_cd}
+             , PRMS_INFO_EXPI	= #{prms_info_expi}
+             , PRMS_IP_ADDR		= #{prms_ip_addr}
+             , USE_YN           = #{use_yn}
+             , PRMS_STT_DT      = #{prms_stt_dt}
+             , PRMS_END_DT      = #{prms_end_dt}
+         WHERE PRMS_IP_ADDR		= #{old_prms_ip_addr}
+    </update>
+
+    <delete id="AcsMap.deleteAcs" parameterType="map">
+        DELETE /* AcsMap.deleteAcs */
+          FROM TB_PGM_ACS_ADMN
+         WHERE PRMS_IP_ADDR
+         <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+    </delete>
+
+</mapper>

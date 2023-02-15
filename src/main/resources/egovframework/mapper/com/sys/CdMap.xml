@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CdMap">
+
+    <sql id="CdMap.selectCondition_fragment">
+        <where>
+            CD_SET_CD = #{cd_set_cd}
+            <if test="cd != null and cd != ''">
+                AND CD = #{cd}
+            </if>
+            <if test="cd_nm != null and cd_nm != ''">
+                AND CD_NM LIKE '%' || #{cd_nm} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 대명 기초 코드  -->
+    <select id="CdMap.getComCdCount" parameterType="map" resultType="int">
+        SELECT /* CdMap.getCdCount */
+               COUNT(*)
+          FROM LF_DMUSER.COM_CD A
+        WHERE GRP_CD = #{cd_set_cd} AND COM_CD = #{cd}
+    </select>
+
+    <!-- 콜센터(인우) 기초 코드  -->
+    <select id="CdMap.getCdCount" parameterType="map" resultType="int">
+        SELECT /* CdMap.getCdCount */
+               COUNT(*)
+          FROM TB_CD A
+        <include refid="CdMap.selectCondition_fragment" />
+    </select>
+
+    <select id="CdMap.getCdList" parameterType="map" resultType="resultMap">
+        SELECT /* CdMap.getCdList */
+               <choose>
+                  <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                  </when>
+                  <otherwise>
+                    ROW_NUMBER() OVER (ORDER BY CD_SET_CD, CD_SQNC) AS PAGE_INDX
+                  </otherwise>
+               </choose>
+             , B.*
+          FROM (SELECT CD_SET_CD, CNTR_CD, CD, CD_NM, CD_SQNC
+                     , USE_YN, CD_EXPI, ADTL_CD, ADTL_CD_NM
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_CD A
+        <include refid="CdMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                 ORDER BY ${orderBy} ${orderDirection}
+        </if>
+               ) B
+    </select>
+
+    <select id="CdMap.getCdMemList" parameterType="map" resultType="resultMap">
+        SELECT /* CdMap.getCdMemList */
+               <choose>
+                  <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                  </when>
+                  <otherwise>
+                    ROW_NUMBER() OVER (ORDER BY CD_SET_CD, CD_SQNC) AS PAGE_INDX
+                  </otherwise>
+               </choose>
+             , B.*
+          FROM (SELECT A.GRP_CD AS CD_SET_CD,
+                    B.COM_CD AS CD, B.CON AS CD_EXPI,
+                    B.CD_NM AS CD_NM, B.ORDR_TURN AS CD_SQNC,
+                    B.USE_YN,
+                    TO_CHAR(B.REG_DM,'YYYYMMDD') AS RGSN_DTTM, B.REG_MAN AS RGSR_ID,
+                    TO_CHAR(B.UPD_DM,'YYYYMMDD') AS AMNT_DTTM, B.UPD_MAN AS AMND_ID
+                FROM LF_DMUSER.COM_CD_GRP A INNER JOIN
+                    LF_DMUSER.COM_CD B ON A.GRP_CD = B.GRP_CD
+
+               ) B
+            <include refid="CdMap.selectCondition_fragment" />
+            <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+            </if>
+    </select>
+
+    <select id="CdMap.getCdListByStringArray" resultType="resultMap">
+        SELECT /* CdMap.getCdListByStringArray */
+               CD_SET_CD, CNTR_CD, CD, CD_NM, CD_SQNC
+             , USE_YN, CD_EXPI, ADTL_CD, ADTL_CD_NM
+          FROM TB_CD
+         WHERE USE_YN = 'Y'
+           AND CD_SET_CD IN
+        <foreach collection="array" item="item" separator="," close=")" open="(">
+               #{item}
+        </foreach>
+         ORDER BY CD_SQNC ASC
+    </select>
+
+    <insert id="CdMap.insertComCd" parameterType="map">
+        INSERT /* CdMap.insertComCd */
+          INTO LF_DMUSER.COM_CD
+               (GRP_CD, COM_CD, CD_NM, ORDR_TURN
+              , USE_YN
+              , CON
+              , REG_MAN, REG_DM, UPD_MAN, UPD_DM)
+        VALUES (#{cd_set_cd}, #{cd}, #{cd_nm}, #{cd_sqnc}
+              , #{use_yn}
+              , #{cd_expi}
+              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <insert id="CdMap.insertCd" parameterType="map">
+        INSERT /* CdMap.insertCd */
+          INTO TB_CD
+               (CD_SET_CD, CNTR_CD, CD, CD_NM, CD_SQNC
+              , USE_YN, CD_EXPI, ADTL_CD, ADTL_CD_NM
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{cd_set_cd}, #{cntr_cd}, #{cd}, #{cd_nm}, #{cd_sqnc}
+              , #{use_yn}, #{cd_expi}, #{adtl_cd}, #{adtl_cd_nm}
+              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="CdMap.updateComCd" parameterType="map">
+        UPDATE /* CdMap.updateComCd */
+               LF_DMUSER.COM_CD
+           SET CD_NM = #{cd_nm}
+             , ORDR_TURN = #{cd_sqnc}
+             , USE_YN = #{use_yn}
+             , CON = #{cd_expi}
+             , UPD_DM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , UPD_MAN = #{amnd_id}
+        WHERE COM_CD = #{cd}
+          AND GRP_CD = #{cd_set_cd}
+
+    </update>
+
+    <update id="CdMap.updateCd" parameterType="map">
+        UPDATE /* CdMap.updateCd */
+               TB_CD
+           SET CD_NM = #{cd_nm}
+             , CD_SQNC = #{cd_sqnc}
+             , USE_YN = #{use_yn}
+             , CD_EXPI = #{cd_expi}
+             , ADTL_CD = #{adtl_cd}
+             , ADTL_CD_NM = #{adtl_cd_nm}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE CD = #{cd}
+          AND CD_SET_CD = #{cd_set_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <select id="CdMap.getCdMaxSequence" parameterType="map" resultType="int">
+        SELECT /* CdMap.getCdMaxSequence */
+               NVL(MAX(CD_SQNC), 0)
+          FROM TB_CD
+         WHERE CD_SET_CD = #{cd_set_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="CdMap.getCdDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* CdMap.getCdDuplicateCount */
+               COUNT(*)
+          FROM TB_CD
+         WHERE CD_SET_CD = #{cd_set_cd}
+           AND CNTR_CD = #{cntr_cd}
+           AND CD_SQNC = #{cd_sqnc}
+           AND CD != #{cd}
+    </select>
+
+        <update id="CdMap.updateComCdSequence" parameterType="map">
+    <![CDATA[
+        UPDATE /* CdMap.updateComCdSequence */
+               LF_DMUSER.COM_CD
+           SET ORDR_TURN = (CASE COM_CD WHEN #{cd} THEN ${cd_sqnc}
+                                  ELSE (CASE SIGN(${cd_sqnc_old} - ${cd_sqnc}) WHEN -1 THEN ORDR_TURN - 1
+                                                                               WHEN  1 THEN ORDR_TURN + 1
+                                        END)
+                          END)
+          WHERE ORDR_TURN <= (CASE SIGN(${cd_sqnc_old} - ${cd_sqnc}) WHEN  1 THEN ${cd_sqnc_old}
+                                                                   WHEN -1 THEN ${cd_sqnc}
+                            END)
+            AND ORDR_TURN >= (CASE SIGN(${cd_sqnc_old} - ${cd_sqnc}) WHEN  1 THEN ${cd_sqnc}
+                                                                   WHEN -1 THEN ${cd_sqnc_old}
+                            END)
+            AND GRP_CD = #{cd_set_cd}
+    ]]>
+    </update>
+
+    <update id="CdMap.updateCdSequence" parameterType="map">
+    <![CDATA[
+        UPDATE /* CdMap.updateCdSequence */
+               TB_CD
+           SET CD_SQNC = (CASE CD WHEN #{cd} THEN ${cd_sqnc}
+                                  ELSE (CASE SIGN(${cd_sqnc_old} - ${cd_sqnc}) WHEN -1 THEN CD_SQNC - 1
+                                                                               WHEN  1 THEN CD_SQNC + 1
+                                        END)
+                          END)
+          WHERE CD_SQNC <= (CASE SIGN(${cd_sqnc_old} - ${cd_sqnc}) WHEN  1 THEN ${cd_sqnc_old}
+                                                                   WHEN -1 THEN ${cd_sqnc}
+                            END)
+            AND CD_SQNC >= (CASE SIGN(${cd_sqnc_old} - ${cd_sqnc}) WHEN  1 THEN ${cd_sqnc}
+                                                                   WHEN -1 THEN ${cd_sqnc_old}
+                            END)
+            AND CD_SET_CD = #{cd_set_cd}
+            AND CNTR_CD = #{cntr_cd}
+    ]]>
+    </update>
+
+</mapper>

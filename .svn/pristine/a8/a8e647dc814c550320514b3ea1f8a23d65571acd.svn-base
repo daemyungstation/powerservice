@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CustUnusMemoMap">
+
+    <sql id="CustUnusMemoMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cust_unus_memo_id != null and cust_unus_memo_id != ''">
+                AND A.CUST_UNUS_MEMO_ID = #{cust_unus_memo_id}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND A.MEM_NO = #{mem_no}
+            </if>
+            <if test="cust_unus_memo_cntn != null and cust_unus_memo_cntn != ''">
+                AND A.CUST_UNUS_MEMO_CNTN LIKE '%' || #{cust_unus_memo_cntn} || '%'
+            </if>
+            <if test="open_yn != null and open_yn != ''">
+                AND A.OPEN_YN = #{open_yn}
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND A.ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+            </if>
+            <if test="cust_typ_cd != null and cust_typ_cd != ''">
+                AND A.CUST_TYP_CD = #{cust_typ_cd}
+            </if>
+            <choose>
+                <when test="bzpt_divs != null and bzpt_divs != ''">
+                    AND BZPT_DIV IN (${bzpt_divs})
+                </when>
+                <when test="actp_id != null and actp_id != ''">
+                    AND A.ACTP_ID = #{actp_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD
+                                   AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+            <if test="user_id != null and user_id != ''">
+                AND (A.OPEN_YN = 'Y'
+                  OR A.ACTP_ID = #{user_id})
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND A.MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="CustUnusMemoMap.getCustUnusMemoCnt" parameterType="map" resultType="int">
+        SELECT /* CustUnusMemoMap.getCustUnusMemoCnt */
+               COUNT(*)
+          FROM TB_CUST_UNUS_MEMO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND MEM_NO = #{mem_no}
+        <if test="user_id != null and user_id != ''">
+            AND (OPEN_YN = 'Y'
+                 OR ACTP_ID = #{user_id})
+        </if>
+        <if test="bzpt_divs != null and bzpt_divs != ''">
+            AND BZPT_DIV IN (${bzpt_divs})
+        </if>
+    </select>
+
+    <select id="CustUnusMemoMap.getCustUnusMemoCount" parameterType="map" resultType="int">
+        SELECT /* CustUnusMemoMap.getCustUnusMemoCount */
+               COUNT(*)
+          FROM TB_CUST_UNUS_MEMO A
+          LEFT OUTER JOIN LF_DMUSER.MEMBER B ON B.MEM_NO = A.MEM_NO
+        <include refid="CustUnusMemoMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="CustUnusMemoMap.getCustUnusMemoList" parameterType="map" resultType="resultMap">
+        SELECT /* CustUnusMemoMap.getCustUnusMemoList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.TEAM_NM
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.TEAM1_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS TEAM1_NM
+                     , (SELECT C.TEAM_NM
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS TEAM2_NM
+                     , GETCODENM('CNS080', CUST_TYP_CD, CNTR_CD) AS CUST_TYP_NM
+                  FROM (SELECT A.*
+                             , (SELECT B.HGRN_TEAM_CD
+                                  FROM TB_CONS_TEAM B
+                                 WHERE B.TEAM_CD = A.TEAM2_CD
+                                   AND B.CNTR_CD = A.CNTR_CD) AS TEAM1_CD
+                          FROM (SELECT A.CUST_UNUS_MEMO_ID, A.MEM_NO, A.CUST_UNUS_MEMO_CNTN, A.OPEN_YN, A.ACTP_ID
+                                     , A.ACPG_DTTM, A.CUST_TYP_CD
+                                     , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                                     , A.MEM_NM
+                                     , B.CELL
+                                     , (SELECT C.USER_NM
+                                          FROM TB_USER C
+                                         WHERE C.USER_ID = A.ACTP_ID
+                                           AND C.CNTR_CD = A.CNTR_CD) AS ACTP_NM
+                                     , (SELECT C.USER_NM
+                                          FROM TB_USER C
+                                         WHERE C.USER_ID = A.RGSR_ID
+                                           AND C.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                                     , (SELECT C.USER_NM
+                                          FROM TB_USER C
+                                         WHERE C.USER_ID = A.AMND_ID
+                                           AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                                     , (SELECT C.TEAM_CD
+                                          FROM TB_USER C
+                                         WHERE C.USER_ID = A.ACTP_ID
+                                           AND C.CNTR_CD = A.CNTR_CD) AS TEAM2_CD
+                                 FROM TB_CUST_UNUS_MEMO A
+                                 LEFT OUTER JOIN LF_DMUSER.MEMBER B ON B.MEM_NO = A.MEM_NO
+                        <include refid="CustUnusMemoMap.selectCondition_fragment"/>
+                                              ) A
+                        <if test="orderBy != null and orderBy != ''">
+                                     ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="CustUnusMemoMap.insertCustUnusMemo" parameterType="map">
+        <selectKey keyProperty="cust_unus_memo_id" resultType="String" order="BEFORE">
+            SELECT 'CUM' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* CustUnusMemoMap.insertCustUnusMemo */
+          INTO TB_CUST_UNUS_MEMO
+               (CUST_UNUS_MEMO_ID, MEM_NO, CUST_UNUS_MEMO_CNTN, OPEN_YN, ACTP_ID
+              , ACPG_DTTM, CUST_TYP_CD, MEM_NM, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{cust_unus_memo_id}, #{mem_no}, #{cust_unus_memo_cntn}, #{open_yn}, #{rgsr_id}
+              , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cust_typ_cd}, #{mem_nm}, #{bzpt_div}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="CustUnusMemoMap.updateCustUnusMemo" parameterType="map">
+        UPDATE /* CustUnusMemoMap.updateCustUnusMemo */
+               TB_CUST_UNUS_MEMO
+           SET CUST_UNUS_MEMO_CNTN = #{cust_unus_memo_cntn}
+             , CUST_TYP_CD         = #{cust_typ_cd}
+             , OPEN_YN             = #{open_yn}
+             , AMND_ID             = #{amnd_id}
+             , AMNT_DTTM           = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            <if test="mem_nm != null and mem_nm != ''">
+                , MEM_NM           = #{mem_nm}
+            </if>
+        WHERE CUST_UNUS_MEMO_ID = #{cust_unus_memo_id}
+    </update>
+
+    <delete id="CustUnusMemoMap.deleteCustUnusMemo" parameterType="map">
+        DELETE /* CustUnusMemoMap.deleteCustUnusMemo */
+          FROM TB_CUST_UNUS_MEMO
+        WHERE CUST_UNUS_MEMO_ID = #{cust_unus_memo_id}
+    </delete>
+
+    <insert id="CustUnusMemoMap.insertSpecialAccntExcel" parameterType="map">
+        <selectKey keyProperty="cust_unus_memo_id" resultType="String" order="BEFORE">
+            SELECT 'CUM' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* CustUnusMemoMap.insertSpecialAccntExcel */
+          INTO TB_CUST_UNUS_MEMO
+               (CUST_UNUS_MEMO_ID, MEM_NO, CUST_UNUS_MEMO_CNTN, OPEN_YN, ACTP_ID
+              , ACPG_DTTM, CUST_TYP_CD, MEM_NM, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{cust_unus_memo_id}, #{mem_no}, #{cust_unus_memo_cntn}, #{open_yn}, #{rgsr_id}
+              , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cust_typ_cd}, #{mem_nm}, '999999'
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+</mapper>

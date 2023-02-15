@@ -1,0 +1,1888 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwProdMap">
+
+    <sql id="DlwProdMap.selectCondition_fragment">
+        <where>
+            <if test="acuon_yn != null and acuon_yn != ''">
+                AND NVL(ACUON_YN,'N') =  #{acuon_yn}
+            </if>
+            <if test="prod_nm != null and prod_nm != ''">
+                AND PROD_NM LIKE '%' || #{prod_nm} || '%'
+            </if>
+            <if test="prod_cd != null and prod_cd != ''">
+                <!-- AND PROD_CD = #{prod_cd} -->
+                AND PROD_CD LIKE #{prod_cd} || '%'
+            </if>
+            <if test="del_fg != null and del_fg != ''">
+                AND A.DEL_FG = #{del_fg}
+            </if>
+            <if test="sale_cl != null and sale_cl != ''">
+                AND NVL(SALE_CL,'N') = #{sale_cl}
+            </if>
+            <if test="pay_type != null and pay_type != ''">
+                AND PAY_TYPE = #{pay_type}
+            </if>
+            <if test="prod_cl != null and prod_cl != ''">
+                AND PROD_CL = #{prod_cl}
+            </if>
+        </where>
+    </sql>
+
+
+
+    <select id="DlwProdMap.getDlwProdCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwProdMap.getDlwProdCount */
+            COUNT(*)
+          FROM PRODUCT A
+          LEFT OUTER JOIN (SELECT ROW_NUMBER()OVER(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) AS RNUM
+                                , SEQ, CARD_CODE, APP_DT, OCB_POINT, OCB_FEE
+                                , OCB_ANNUAL_FEE, REG_DM, REG_MAN, UPD_DM, UPD_MAN, DEL_FG
+                             FROM OCB_CARD_CODE_MNG
+                            WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') > APP_DT
+                              AND DEL_FG = 'N'
+                          ) OCCM
+                       ON OCCM.CARD_CODE = A.MEMBERSHIP
+                      AND OCCM.DEL_FG = 'N'
+                      AND OCCM.RNUM = 1
+         <include refid="DlwProdMap.selectCondition_fragment" />
+    </select>
+
+    <select id="DlwProdMap.getDlwProdList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectProdList -->
+
+
+        SELECT /* DlwProdMap.getDlwProdList */
+               Z.*
+          FROM (SELECT X.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY ORDER_SEQ ASC) PAGE_INDX
+                        </otherwise>
+                    </choose>
+                  FROM(SELECT PROD_CD
+                            , PROD_NM
+                            , MON_PAY_AMT
+                            , EXPR_NO
+                            , (SELECT NVL(MAX(PDD.END_NO), 0) FROM PRODUCT_DTL PDD WHERE 1=1 AND PDD.ALLT_AMT > 0 AND PDD.PROD_CD = A.PROD_CD) AS REL_MAX_NO
+                            , PROD_AMT
+                            , PROD_CL
+                            , FN_COM_NM('85',PROD_CL) AS PROD_CL_NM
+                            , CASE WHEN SALE_CL = 'Y' THEN '판매중'
+                                   ELSE '판매중지'
+                               END AS SALE_GUBN
+                            , SALE_CL
+                            , SALE_CLOSE_DAY
+                            , PROD_SAVE_POINT
+                            , PAY_TYPE
+                            , FN_COM_NM('111', PAY_TYPE) AS PAY_TYPE_NM
+                            , JOIN_TYPE
+                            , FN_COM_NM('0128', JOIN_TYPE) AS JOIN_TYPE_NM
+                            , JOIN_GIFT_CARD_SORT
+                            , FN_COM_NM('0129', JOIN_GIFT_CARD_SORT) AS JOIN_GIFT_CARD_SORT_NM
+                            , JOIN_GIFT_CARD_AMT
+                            , PROD_DC_CNT
+                            , A.MEMBERSHIP
+                            , OCCM.OCB_POINT
+                            , OCCM.OCB_FEE
+                            , CASE WHEN NVL(A.PROD_GUBUN, '') = '0006' THEN 'Y'
+                                   ELSE 'N'
+                               END AS LGBESTCL
+                            , A.ORDER_SEQ
+                            , FN_COM_NM('0187', SECTION_F) AS SECTIONFNM
+                            , FN_COM_NM('0188', SECTION_T) AS SECTIONTNM
+                            , FN_COM_NM('0189', SECTION_THR) AS SECTIONTHRNM
+                            , NVL(A.ACUON_YN,'N') AS ACUON_YN
+                            , TO_CHAR(A.REG_DM,'YYYY-MM-DD') AS REG_DM
+                            , FN_EMPLE_NM(A.REG_MAN) AS REG_MAN
+                            , TO_CHAR(A.UPD_DM,'YYYY-MM-DD') AS UPD_DM
+                            , FN_EMPLE_NM(A.UPD_MAN) AS UPD_MAN  
+                            , PROD_LONGTERM_YN
+                         FROM PRODUCT A
+                         LEFT OUTER JOIN (SELECT ROW_NUMBER()OVER(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) AS RNUM
+                                                 , SEQ, CARD_CODE, APP_DT, OCB_POINT, OCB_FEE
+                                                 , OCB_ANNUAL_FEE, REG_DM, REG_MAN, UPD_DM, UPD_MAN, DEL_FG
+                                            FROM OCB_CARD_CODE_MNG
+                                  <![CDATA[    WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') > APP_DT ]]>
+                                             AND DEL_FG = 'N'
+                                         ) OCCM
+                                      ON OCCM.CARD_CODE = A.MEMBERSHIP
+                                     AND OCCM.DEL_FG = 'N'
+                                     AND OCCM.RNUM = 1
+                        <include refid="DlwProdMap.selectCondition_fragment" />
+                      ) X
+               ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <!-- 상품조회 - 상품상세조회 -->
+    <select id="DlwProdMap.getDlwProdDtpt" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectProduct -->
+
+
+        SELECT /* DlwProdMap.getDlwProdDtpt */
+               PROD_CD, PROD_NM, MON_PAY_AMT, EXPR_NO, PROD_AMT
+             , PROD_CL, SALE_CL, PROD_SAVE_POINT, ORDER_SEQ, MEMBERSHIP
+             , PAY_TYPE, JOIN_TYPE, JOIN_GIFT_CARD_SORT, JOIN_GIFT_CARD_AMT, PROD_GUBUN
+             , NO_SALE_ACCNT_PROD, PROD_DC_CNT, EVT_COST, EVT_COST_OUT
+             , FN_COM_NM('85', PROD_CL) AS PROD_CL_NM
+             , FN_COM_NM('0128', JOIN_TYPE) JOIN_TYPE_NM
+             , FN_COM_NM('0129', JOIN_GIFT_CARD_SORT) JOIN_GIFT_CARD_SORT_NM
+             , TO_CHAR(REG_DM, 'YYYYMMDD') AS REG_DM
+             , SALE_CLOSE_DAY
+             , (SELECT COUNT(*)
+                 FROM MEM_PROD_ACCNT
+                 WHERE PROD_CD = A.PROD_CD
+                ) AS USE_CNT
+             , CASE WHEN SALE_CL = 'Y'THEN '판매중' ELSE '판매중지'
+                END AS SALE_GUBN
+  <![CDATA[    , CASE WHEN NVL(FN_OCB_POINT(A.MEMBERSHIP), 0) > 0  ]]>
+                           THEN '01'
+                      WHEN NVL(FN_OCB_POINT(A.MEMBERSHIP), 0) = 0
+                         THEN '02'
+                    ELSE '03'
+                END CARD_GUBUN
+             , SECTION_F AS SECTIONF
+             , SECTION_T AS SECTIONT
+             , SECTION_THR AS SECTIONTHR 
+             , ACUON_YN
+             , GKBN
+             , TAX_KBN
+             , MAIN_CONT_YN
+             , PROD_CD_DBL  
+             , PROD_DBL_CNT
+             , NVL(PROD_LONGTERM_YN,'N') AS PROD_LONGTERM_YN
+             , MID_INFO_1
+             , MID_INFO_2 
+          FROM PRODUCT A
+          WHERE PROD_CD = #{prod_cd}
+    </select>
+
+    <!-- 상품조회 - 상품상세조회_비정기형 월청구금액 -->
+    <select id="DlwProdMap.getDlwProductDtl" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectProductDtl -->
+
+
+        SELECT /* DlwProdMap.getDlwProductDtl */
+               PROD_CD, SEQ, ST_NO, END_NO, MONTH_PAY_AMT
+             , ALLT_AMT, ADD_AMT
+             , (NVL(MONTH_PAY_AMT,0) + NVL(ALLT_AMT,0) + NVL(ADD_AMT,0)) AS TOTAL_AMT
+             , TO_CHAR(REG_DM,'YYYY-MM-DD') AS REG_DM
+             , FN_EMPLE_NM(REG_MAN) AS REG_MAN
+          FROM PRODUCT_DTL
+         WHERE PROD_CD = #{prod_cd}
+         ORDER BY SEQ
+    </select>
+
+    <!-- 상품조회 - 상품상세조회_멤버쉽카드종류 -->
+    <select id="DlwProdMap.getOCBCardCodeList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectOCBCardCodeList -->
+
+
+        SELECT /* DlwProdMap.getOCBCardCodeList */
+               SEQ, CARD_CODE, SUBSTR(APP_DT,3) APPDT, OCB_POINT, OCB_FEE
+             , OCB_ANNUAL_FEE, REG_DM, REG_MAN, UPD_DM, UPD_MAN
+             , DEL_FG
+        FROM OCB_CARD_CODE_MNG
+        WHERE DEL_FG = 'N'
+        <if test="seq != null and seq != ''">
+            AND SEQ = #{seq}
+        </if>
+        <if test="card_code != null and card_code != ''">
+            AND CARD_CODE LIKE #{card_code} + '%'
+        </if>
+        <if test="app_dt != null and app_dt != ''">
+            AND APP_DT = #{app_dt}
+        </if>
+        ORDER BY CARD_CODE, APP_DT
+    </select>
+
+    <!-- 상품상세분류(모델 Mst) -->
+    <select id="DlwProdMap.getModelMstInfo" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectModelMstInfo -->
+
+
+        SELECT /* DlwProdMap.getModelMstInfo */
+               PROD_KIND AS CD
+             , FN_MODEL_CL_NM(PROD_KIND) AS CD_NM
+        FROM PRODUCT_MODEL_MST
+        WHERE PROD_CD = #{prod_cd}
+        AND DEL_FG = 'N'
+        ORDER BY PROD_CD, ORDR_TURN, PROD_KIND
+    </select>
+
+    <!-- 모델리스트(모델 Dtl) -->
+    <select id="DlwProdMap.getModelDtlInfo" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectModelDtlInfo -->
+
+
+        SELECT /* DlwProdMap.getModelDtlInfo */
+              TO_CHAR(PMD.MODEL_CD) AS CD
+             , PMD.MODEL_NM || CASE WHEN NVL(PMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                   THEN ''
+                                   ELSE '(단종)'
+                               END AS CD_NM
+         FROM PRODUCT_MODEL_DTL PMD
+         INNER JOIN PRODUCT_MODEL_MST PMM
+            ON PMD.SEQ = PMM.SEQ AND PMM.DEL_FG = 'N'
+         WHERE PMM.PROD_CD = #{prod_cd}
+         AND PMM.PROD_KIND = #{prod_kind}
+        <if test='continued == "Y"'>
+            AND NVL(PMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD')
+        </if>
+      ORDER BY PMD.ORDR_TURN, PMD.MODEL_NM
+    </select>
+
+    <!-- 상품종류리스트 -->
+    <select id="DlwProdMap.getProdKindList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectProdKindList -->
+
+
+        SELECT /* DlwProdMap.getProdKindList */
+               SEQ AS CD
+             , PROD_KIND_NM AS CD_NM
+          FROM PRODUCT_KIND
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+        ORDER BY SEQ
+    </select>
+
+
+    <!-- 발송/반송 관리에서 고유번호+회원명+우대번호 조회용으로 사용됨 -->
+    <select id="DlwProdMap.getMemProdAccntWithDlv" parameterType="string" resultType="resultMap">
+        <!-- DM sql-id : selectProdKindList -->
+
+
+        SELECT /* DlwProdMap.getMemProdAccntWithDlv */
+               A.*
+          FROM (SELECT A.*
+                     , B.MEM_NM
+                  FROM (SELECT ACCNT_NO, MEM_NO, RESORT_NO
+                          FROM MEM_PROD_ACCNT A
+                         WHERE ACCNT_NO = #{accnt_no}
+                       ) A
+                  LEFT JOIN MEMBER B
+                    ON B.MEM_NO = A.MEM_NO
+               ) A
+    </select>
+
+     <!-- 신규상품 코드 확인 -->
+    <select id="DlwProdMap.getDlwProdNewCODE" parameterType="map" resultType="int">
+        SELECT /* DlwProdMap.getDlwProdNewCODE */
+            COUNT(*)
+          FROM PRODUCT A
+           WHERE A.PROD_CD =#{prod_cd}
+              </select>
+
+    <!-- 신규상품 등록 -->
+    <insert id="DlwProdMap.insertProdNew" parameterType="map">
+        INSERT /* DlwProdMap.insertProdNew */
+          INTO PRODUCT
+             (PROD_CD, PROD_NM, MON_PAY_AMT, EXPR_NO, PROD_AMT, REG_DM, REG_MAN,
+              DEL_FG, PROD_CL, SALE_CL, SALE_CLOSE_DAY, MEMBERSHIP, ORDER_SEQ, PAY_TYPE,
+              JOIN_TYPE, JOIN_GIFT_CARD_SORT, JOIN_GIFT_CARD_AMT, PROD_GUBUN, NO_SALE_ACCNT_PROD,
+              PROD_DC_CNT, EVT_COST, EVT_COST_OUT, SECTION_F, SECTION_T, SECTION_THR,
+              ACUON_YN,GKBN,TAX_KBN, MAIN_CONT_YN, PROD_CD_DBL, PROD_DBL_CNT, PROD_LONGTERM_YN)
+        VALUES (#{prod_cd}, #{prod_nm}, #{mon_pay_amt}, #{expr_no}, #{prod_amt}, TO_DATE(#{reg_dm}), #{reg_man},
+                'N', #{prod_cl}, #{sale_cl}, #{sale_close_day}, #{membership}, #{order_seq}, #{pay_type},
+                #{join_type}, #{join_gift_card_sort}, #{join_gift_card_amt}, #{prod_gubun}, #{no_sale_accnt_prod},
+                #{prod_dc_cnt}, #{evt_cost}, #{evt_cost_out}, #{sectionf}, #{sectiont}, #{sectionthr} ,
+                #{acuon_yn},#{gkbn},#{tax_kbn}, #{main_cont_yn}, #{prod_cd_dbl}, #{prod_dbl_cnt}, #{prod_longterm_yn})
+    </insert>
+
+
+<!-- 상품상세정보 삭제  -->
+    <delete id="DlwProdMap.deleteProdDtl">
+
+        DELETE /* DlwProdMap.deleteProdDtl  */
+        FROM PRODUCT_DTL
+        WHERE prod_cd = #{prod_cd}
+
+        <if test=" seq != null and seq != ' '">
+        AND SEQ = #{seq}
+        </if>
+
+    </delete>
+
+
+<!-- 상품상세정보 등록  -->
+    <insert id="DlwProdMap.insertProdDtl">
+        INSERT INTO  /*   DlwProdMap.insertProdDtl   */
+                    PRODUCT_DTL(
+                                    PROD_CD
+                                  , SEQ
+                                  , ST_NO
+                                  , END_NO
+                                  , MONTH_PAY_AMT
+                                  , ALLT_AMT
+                                  , ADD_AMT
+                                  , REG_DM
+                                  , REG_MAN
+                                )
+
+                        VALUES (
+                                    #{prod_cd}
+                                  , (SELECT NVL(MAX(SEQ),0)+1 FROM PRODUCT_DTL WHERE prod_cd = #{prod_cd})
+                                  , #{st_no}
+                                  , #{end_no}
+                                  , #{month_pay_amt}
+                                  , NVL(#{allt_amt}, 0)
+                                  , NVL(#{add_amt}, 0)
+                                  , SYSDATE
+                                  , #{reg_man}
+                                )
+    </insert>
+
+    <update id="DlwProdMap.updateProdChng" parameterType="map" >
+        UPDATE /* DlwProdMap.updateProdChng */
+            PRODUCT
+        SET PROD_NM = #{prod_nm},
+            MON_PAY_AMT = #{mon_pay_amt},
+            EXPR_NO = #{expr_no},
+            PROD_AMT = #{prod_amt},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{reg_man},
+            PROD_CL = #{prod_cl},
+            SALE_CL = #{sale_cl},
+            SALE_CLOSE_DAY = #{sale_close_day},
+            MEMBERSHIP = #{membership},
+            ORDER_SEQ = #{order_seq},
+            PAY_TYPE = #{pay_type},
+            JOIN_TYPE = #{join_type},
+            JOIN_GIFT_CARD_SORT = #{join_gift_card_sort},
+            JOIN_GIFT_CARD_AMT = #{join_gift_card_amt},
+            PROD_GUBUN = #{prod_gubun},
+            NO_SALE_ACCNT_PROD = #{no_sale_accnt_prod},
+            PROD_DC_CNT = #{prod_dc_cnt},
+            EVT_COST = #{evt_cost},
+            EVT_COST_OUT = #{evt_cost_out},
+            SECTION_F = #{sectionf},
+            SECTION_T = #{sectiont},
+            SECTION_THR = #{sectionthr},
+            ACUON_YN = #{acuon_yn},
+            GKBN = #{gkbn},
+            TAX_KBN = #{tax_kbn},
+            MAIN_CONT_YN = #{main_cont_yn},
+            PROD_CD_DBL = #{prod_cd_dbl},
+            PROD_DBL_CNT = #{prod_dbl_cnt},
+			PROD_LONGTERM_YN = #{prod_longterm_yn}			
+        WHERE PROD_CD = #{prod_cd}
+    </update>
+
+    <!-- 상품정보 삭제 -->
+    <update id="DlwProdMap.deleteProd" parameterType="map" >
+
+        UPDATE /* DlwProdMap.deleteProd */
+            PRODUCT
+        SET DEL_FG = 'Y'
+          WHERE PROD_CD = #{prod_cd}
+    </update>
+
+    <!-- 상품별 상세분류 목록 -->
+    <select id="DlwProdMap.getProdDtlList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getProdDtlList */
+               MODEL_CL_CD AS CD
+             , MODEL_CL_NM AS CD_NM
+          FROM PRODUCT_MODEL_CL_CD
+          WHERE DEL_FG = 'N'
+        ORDER BY MODEL_CL_CD
+    </select>
+
+    <!-- 상품별 상세분류 리스트 건수-->
+    <select id="DlwProdMap.getClassProdCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwProdMap.getClassProdCount */
+               COUNT(*)
+        FROM PRODUCT A
+            LEFT OUTER JOIN PRODUCT_MODEL_MST B ON A.PROD_CD = B.PROD_CD
+            LEFT OUTER JOIN PRODUCT_MODEL_CL_CD C ON B.PROD_KIND = C.MODEL_CL_CD
+        WHERE A.DEL_FG = 'N'
+          AND B.DEL_FG = 'N'
+          <if test="prod_cd != null and prod_cd != ''">
+              AND A.PROD_CD = #{prod_cd}
+          </if>
+          <if test="prod_dtl != null and prod_dtl != ''">
+              AND C.MODEL_CL_CD = #{prod_dtl}
+          </if>
+        ORDER BY A.PROD_CD, B.ORDR_TURN
+
+    </select>
+
+    <!-- 상품별 상세분류 리스트 조회 -->
+    <select id="DlwProdMap.getClassProdList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getClassProdList */
+               '' AS CHK,
+               ROW_NUMBER () OVER (ORDER BY A.PROD_CD) SEQ,
+               B.SEQ KSEQ,
+               A.PROD_CD,
+               A.PROD_NM,
+               A.PAY_TYPE,
+               C.MODEL_CL_NM,
+               B.ORDR_TURN,
+               FN_EMPLE_NM(B.REG_MAN) AS REG_MAN,
+               FN_EMPLE_NM(B.UPD_MAN) AS UPD_MAN
+        FROM PRODUCT A
+            LEFT OUTER JOIN PRODUCT_MODEL_MST B ON A.PROD_CD = B.PROD_CD
+            LEFT OUTER JOIN PRODUCT_MODEL_CL_CD C ON B.PROD_KIND = C.MODEL_CL_CD
+        WHERE A.DEL_FG = 'N'
+          AND B.DEL_FG = 'N'
+          <if test="prod_cd != null and prod_cd != ''">
+              AND A.PROD_CD = #{prod_cd}
+          </if>
+          <if test="prod_dtl != null and prod_dtl != ''">
+              AND C.MODEL_CL_CD = #{prod_dtl}
+          </if>
+        ORDER BY A.PROD_CD, B.ORDR_TURN
+
+    </select>
+
+    <!-- 상품별 상세분류 선택 행 삭제 -->
+    <update id="DlwProdMap.getRowProdDel" parameterType="map" >
+
+        UPDATE /* DlwProdMap.getRowProdDel */
+            PRODUCT_MODEL_MST
+        SET DEL_FG = 'Y'
+          WHERE SEQ = #{kseq}
+    </update>
+
+    <!-- 상품별 상세분류 등록 -->
+    <insert id="DlwProdMap.insertProdKindNew" parameterType="map">
+        INSERT /* DlwProdMap.insertProdKindNew */
+          INTO PRODUCT_MODEL_MST
+             (PROD_CD, PROD_KIND, ORDR_TURN, REG_MAN, REG_DM, DEL_FG)
+        VALUES (#{prod_cd}, #{prod_kind}, #{ordr_turn}, #{reg_man}, sysdate, 'N')
+    </insert>
+
+    <!-- 상품별 모델 분류 기초 코드 리스트 건수 -->
+    <select id="DlwProdMap.getProdModelCount" parameterType="map" resultType="int">
+        SELECT /* DlwProdMap.getProdModelCount */
+               COUNT(*)
+        FROM PRODUCT_MODEL_CL_CD A
+        WHERE 1=1
+         AND (DEL_FG = 'N' OR DEL_FG IS NULL)
+
+    </select>
+
+    <!-- 상품별 모델 분류 기초 코드 관리 조회 -->
+    <select id="DlwProdMap.getProdModelList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getProdModelList */
+               ROW_NUMBER () OVER (ORDER BY A.MODEL_CL_CD) SEQ,
+               A.MODEL_CL_CD,
+               A.MODEL_CL_NM,
+               A.ORDR_TURN,
+               FN_EMPLE_NM(REG_MAN) AS REG_MAN,
+               TO_CHAR(A.REG_DM, 'YYYY-MM-DD') REG_DM,
+               FN_EMPLE_NM(UPD_MAN) AS UPD_MAN,
+               TO_CHAR(A.UPD_DM, 'YYYY-MM-DD') UPD_DM,
+               A.PROD_PRT_NM,
+               A.PROD_JOIN_PRT_NM
+        FROM PRODUCT_MODEL_CL_CD A
+        WHERE 1=1
+          AND (DEL_FG = 'N' OR DEL_FG IS NULL)
+          <if test="model_cl_cd != null and model_cl_cd != ''">
+              AND A.MODEL_CL_CD = #{model_cl_cd}
+          </if>
+          <if test="model_cl_nm != null and model_cl_nm != ''">
+              AND A.MODEL_CL_NM LIKE '%' || #{model_cl_nm} || '%'
+          </if>
+        ORDER BY A.MODEL_CL_CD
+
+    </select>
+
+    <!-- 기간별 상품 의전원가 조회 건수 -->
+    <select id="DlwProdMap.getPeriodProdCostCount" parameterType="map" resultType="int">
+        SELECT /* DlwProdMap.getPeriodProdCostCount */
+               COUNT(*)
+          FROM PERIOD_PROD_COST A
+         WHERE 1=1
+           AND DEL_FG = 'N'
+           <if test="prod_cd != null and prod_cd != ''">
+              AND A.PROD_CD = #{prod_cd}
+          </if>
+          <if test="gubun != null and gubun != ''">
+              AND A.GUBUN = #{gubun}
+          </if>
+    </select>
+
+
+    <!-- 기간별 상품 의전원가 조회 -->
+    <select id="DlwProdMap.getPeriodProdCost" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getPeriodProdCost */
+               '' AS CHK,
+               <!-- ROW_NUMBER () OVER (ORDER BY A.PROD_CD, A.GUBUN, A.END_APP_DAY) SEQ, -->
+               A.SEQ,
+               A.PROD_CD,
+               B.PROD_NM,
+               A.GUBUN,
+               FN_COM_NM('0192', A.GUBUN) AS GUBUN_NM,
+               A.COST,
+               A.START_APP_DAY,
+               A.END_APP_DAY,
+               FN_EMPLE_NM(A.REG_MAN) AS REG_MAN,
+               TO_CHAR(A.REG_DM, 'YYYY-MM-DD HH24:MI') REG_DM,
+               FN_EMPLE_NM(A.UPD_MAN) AS UPD_MAN,
+               TO_CHAR(A.UPD_DM, 'YYYY-MM-DD HH24:MI') UPD_DM,
+               A.DEL_FG
+        FROM PERIOD_PROD_COST A
+           , PRODUCT B
+        WHERE 1=1
+          AND A.PROD_CD = B.PROD_CD
+          <if test="prod_cd != null and prod_cd != ''">
+              AND A.PROD_CD = #{prod_cd}
+          </if>
+          <if test="gubun != null and gubun != ''">
+              AND A.GUBUN = #{gubun}
+          </if>
+          AND A.DEL_FG = 'N'
+        ORDER BY A.PROD_CD
+               , A.GUBUN
+               , A.END_APP_DAY
+
+    </select>
+
+    <!-- 기간별 상품 의전원가 등록 -->
+    <insert id="DlwProdMap.insertPeriodProdCost" parameterType="map">
+        INSERT /* DlwProdMap.insertPeriodProdCost */
+          INTO PERIOD_PROD_COST
+             (SEQ
+            , PROD_CD, GUBUN, COST, START_APP_DAY, END_APP_DAY, REG_MAN, REG_DM, DEL_FG)
+        VALUES (
+              (SELECT NVL(MAX(SEQ),0) + 1
+                 FROM PERIOD_PROD_COST
+                WHERE PROD_CD = #{prod_cd}
+                  AND GUBUN = #{gubun}),
+              #{prod_cd}, #{gubun}, #{cost}, #{start_app_day}, #{end_app_day}, #{reg_man}, sysdate, 'N')
+    </insert>
+
+    <!-- 기간별 상품 의전원가 입력가능여부 체크1 : 해당되는 기존 데이터가 있는지 체크 -->
+    <select id="DlwProdMap.checkPeriodProdCost1" parameterType="map" resultType="string">
+
+        SELECT /* DlwProdMap.checkPeriodProdCost1 */
+              CASE WHEN COUNT(*) > 0
+                   THEN 'F'
+                   ELSE 'T'
+               END AS CHFG
+          FROM PERIOD_PROD_COST
+         WHERE PROD_CD = #{prod_cd}
+           AND GUBUN = #{gubun}
+           AND DEL_FG = 'N'
+           AND #{start_app_day} BETWEEN
+                              (
+                               SELECT MIN(START_APP_DAY)
+                                 FROM PERIOD_PROD_COST
+                                WHERE PROD_CD = #{prod_cd}
+                                  AND GUBUN = #{gubun}
+                                  AND DEL_FG = 'N'
+                              )
+                              AND
+                              (
+                               SELECT START_APP_DAY
+                                 FROM PERIOD_PROD_COST
+                                WHERE END_APP_DAY = '99991231'
+                                  AND PROD_CD = #{prod_cd}
+                                  AND GUBUN = #{gubun}
+                                  AND DEL_FG = 'N'
+                              )
+
+    </select>
+
+    <!-- 기간별 상품 의전원가 입력가능여부 체크2 : 기존 데이터의 이전 날짜로 입력하는지 체크 -->
+    <select id="DlwProdMap.checkPeriodProdCost2" parameterType="map" resultType="string">
+
+        SELECT /* DlwProdMap.checkPeriodProdCost2 */
+               CASE WHEN COUNT(*) > 0
+                    THEN 'F'
+                    ELSE 'T'
+                END AS CHFG
+          FROM PERIOD_PROD_COST
+         WHERE PROD_CD = #{prod_cd}
+           AND GUBUN = #{gubun}
+           AND DEL_FG = 'N'
+           AND #{start_app_day} <![CDATA[<=]]> ( SELECT MIN(START_APP_DAY)
+                                                   FROM PERIOD_PROD_COST
+                                                  WHERE PROD_CD = #{prod_cd}
+                                                    AND GUBUN = #{gubun}
+                                                    AND DEL_FG = 'N' )
+
+    </select>
+
+    <!-- 기간별 상품 의전원가 입력가능여부 체크3 : 신규 데이터인지 체크 -->
+    <select id="DlwProdMap.checkPeriodProdCost3" parameterType="map" resultType="string">
+
+        SELECT /* DlwProdMap.checkPeriodProdCost3 */
+               CASE WHEN COUNT(*) > 0
+                    THEN 'F'
+                    ELSE 'T'
+                END AS CHFG
+          FROM PERIOD_PROD_COST
+         WHERE PROD_CD = #{prod_cd}
+           AND GUBUN = #{gubun}
+           AND DEL_FG = 'N'
+
+    </select>
+
+    <!-- 기간별 상품 의전원가 삭제 -->
+    <delete id="DlwProdMap.getRowPeriodProdCostDel">
+
+        UPDATE /* DlwProdMap.getRowPeriodProdCostDel  */
+               PERIOD_PROD_COST
+           SET DEL_FG = 'Y'
+             , UPD_MAN = #{upd_man}
+             , UPD_DM  = SYSDATE
+         WHERE SEQ = #{seq}
+           AND PROD_CD = #{prod_cd}
+           AND GUBUN = #{gubun}
+           AND START_APP_DAY = #{start_app_day}
+           AND DEL_FG = 'N'
+
+    </delete>
+
+
+
+    <!-- 기간별 상품 의전원가 수정 (** 등록 또는 삭제 후처리) -->
+    <update id="DlwProdMap.updatePeriodProdCost" parameterType="map">
+        UPDATE /* DlwProdMap.updatePeriodProdCost */
+               PERIOD_PROD_COST
+           SET
+           <if test='flag == "insert"'>
+               END_APP_DAY = TO_CHAR(TO_DATE(#{start_app_day})-1 , 'YYYYMMDD')
+           </if>
+           <if test='flag == "delete"'>
+               END_APP_DAY = '99991231'
+           </if>
+             , UPD_MAN   = #{upd_man}
+             , UPD_DM    = SYSDATE
+         WHERE PROD_CD = #{prod_cd}
+           AND GUBUN = #{gubun}
+           <if test='flag == "insert"'>
+           AND START_APP_DAY <![CDATA[<]]> #{start_app_day}
+           AND END_APP_DAY = '99991231'
+           </if>
+           <if test='flag == "delete"'>
+           AND END_APP_DAY = (SELECT MAX(END_APP_DAY)
+                                FROM PERIOD_PROD_COST
+                               WHERE PROD_CD = #{prod_cd}
+                                 AND GUBUN = #{gubun}
+                                 AND DEL_FG = 'N')
+           </if>
+           AND DEL_FG = 'N'
+    </update>
+
+<!--양도양수 리스트 조회  -->
+    <select id="DlwProdMap.getTransfList" parameterType="map" resultType="resultMap">
+        SELECT  /* DlwProdMap.getTransfList */
+                TB.SEQ
+               ,TB.ACCNT_NO
+               ,TRSFO_MEM_NO
+               ,FN_MEM_NM(TRSFO_MEM_NO) TRSFO_NM
+               ,TRSFE_MEM_NO
+               ,FN_MEM_NM(TRSFE_MEM_NO) TRSFE_NM
+               ,FN_EMPLE_NM(C.EMPLE_NO) EMPLE_NM
+               ,FN_DEPT_NM(C.DEPT_CD) DEPT_NM
+               ,FN_PROD_NM(MPA.PROD_CD)PROD_NM
+               ,HANOV_DT
+        FROM TRANSFER_BRKDN TB
+            ,EMPLOYEE C
+            LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON C.EMPLE_NO = MPA.EMPLE_NO
+        WHERE HANOV_DT BETWEEN #{stt_dt} AND #{end_dt}
+            AND TB.ACCNT_NO = MPA.ACCNT_NO
+        <if test="prod_cd != null and prod_cd != ''">
+            AND MPA.PROD_CD = #{prod_cd}
+        </if>
+
+         <if test="trans_chk ==1 and mem_nm != null and mem_nm != '' ">
+            AND FN_MEM_NM(TB.TRSFO_MEM_NO) LIKE '%' || #{mem_nm} || '%'
+        </if>
+
+           <if test="trans_chk ==2 and mem_nm != null and mem_nm != '' ">
+            AND FN_MEM_NM(TB.TRSFE_MEM_NO) LIKE '%' || #{mem_nm}  || '%'
+        </if>
+
+    </select>
+
+
+    <!-- 상품별 상세분류 등록 -->
+    <insert id="DlwProdMap.insertProdModelClCd" parameterType="map">
+        /* DlwProdMap.insertProdModelClCd */
+        INSERT INTO PRODUCT_MODEL_CL_CD (
+           MODEL_CL_CD
+          ,MODEL_CL_NM
+          ,PROD_PRT_NM
+          ,PROD_JOIN_PRT_NM
+          ,ORDR_TURN
+          ,SALE_VENDER
+          ,REG_MAN
+          ,REG_DM
+          ,UPD_MAN
+          ,UPD_DM
+          ,DEL_FG
+        ) VALUES (
+           #{model_cl_cd}
+          ,#{model_cl_nm}
+          ,#{prod_prt_nm}
+          ,#{prod_join_prt_nm}
+          ,#{ordr_turn}
+          ,#{sale_vender}
+          ,#{rgsr_id}
+          ,SYSDATE
+          ,#{rgsr_id}
+          ,SYSDATE
+          ,'N'
+        )
+    </insert>
+
+   <insert id="DlwProdMap.updateProdModelClCd" parameterType="map">
+        /* DlwProdMap.updateProdModelClCd */
+        UPDATE PRODUCT_MODEL_CL_CD
+        SET
+             MODEL_CL_NM = #{model_cl_nm}
+            , ORDR_TURN = #{ordr_turn}
+            , SALE_VENDER = #{sale_vender}
+            , UPD_MAN = #{rgsr_id}
+            , UPD_DM = SYSDATE
+            , PROD_PRT_NM = #{prod_prt_nm}
+            , PROD_JOIN_PRT_NM = #{prod_join_prt_nm}
+        WHERE MODEL_CL_CD = #{model_cl_cd}
+    </insert>
+
+
+
+    <insert id="DlwProdMap.updateProdtl" parameterType="map">
+        /* DlwProdMap.updateProdtl */
+        UPDATE product_model_mst
+        SET   ordr_turn = #{ordrturn}
+        WHERE seq = #{p_seq}
+    </insert>
+
+
+    <insert id="DlwProdMap.updateProd_dtl" parameterType="map">
+        /* DlwProdMap.updateProd_dtl */
+        UPDATE product_model_dtl
+        SET   model_nm = #{model_nm},
+               discontinued_dt = #{discontinued_dt},
+               ordr_turn = #{ordr_turn}
+        WHERE seq = #{p_seq} and model_cd = #{model_cd}
+    </insert>
+
+    <insert id="DlwProdMap.deleteProdModelClCd" parameterType="map">
+        /* DlwProdMap.deleteProdModelClCd */
+        DELETE FROM PRODUCT_MODEL_CL_CD
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+    </insert>
+
+
+    <select id="DlwProdMap.getModelClCd" resultType="String">
+        SELECT LPAD(NVL(MAX(MODEL_CL_CD),0)+1,4,'0') FROM PRODUCT_MODEL_CL_CD
+    </select>
+
+    <insert id="insertProdKind" parameterType="map">
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(SEQ),0)+1
+              FROM PRODUCT_KIND
+             WHERE MODEL_CL_CD = #{model_cl_cd}
+               AND PROD_CD = ' '
+        </selectKey>
+
+        /* DlwProdMap.insertProdKind */
+        INSERT INTO PRODUCT_KIND(
+              MODEL_CL_CD
+            , SEQ
+            , PROD_KIND_NM
+            , PROD_CD
+            , REG_DM
+            , REG_MAN
+            , UPD_DM
+            , UPD_MAN
+        ) VALUES (
+            #{model_cl_cd}
+          , #{seq}
+          , #{prod_kind_nm}
+          , ' '
+          , SYSDATE
+          , #{rgsr_id}
+          , SYSDATE
+          , #{rgsr_id}
+        )
+    </insert>
+
+    <insert id="deleteProdKind" parameterType="map">
+        /* DlwProdMap.deleteProdKind */
+        DELETE FROM PRODUCT_KIND
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+           AND PROD_CD = ' '
+    </insert>
+
+
+     <insert id="deleteProdtl" parameterType="map">
+        /* DlwProdMap.deleteProdtl */
+        DELETE FROM product_model_dtl
+         WHERE seq = #{p_seq} and model_cd =#{p_model_cd}
+    </insert>
+
+
+       <insert id="insertProdtl" parameterType="map">
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(model_cd),0)+1
+              FROM product_model_dtl
+             WHERE seq = #{p_seq}
+        </selectKey>
+
+        /* DlwProdMap.insertProdtl */
+        INSERT INTO product_model_dtl(
+              SEQ
+            , MODEL_CD
+            , MODEL_NM
+            , DISCONTINUED_DT
+            , ORDR_TURN
+            , REG_DM
+            , REG_MAN
+
+        ) VALUES (
+            #{p_seq}
+          , #{seq}
+          , #{model_nm}
+          , #{discontinued_dt}
+          , #{ordr_turn}
+          ,  SYSDATE
+          , #{rgsr_id}
+        )
+    </insert>
+
+    <!-- 상품모델구분코드 상세조회 -->
+    <select id="DlwProdMap.getProdMolelClCd" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.getProdMolelClCd */
+              MODEL_CL_CD
+            , MODEL_CL_NM
+            , ORDR_TURN
+            , PROD_PRT_NM
+            , PROD_JOIN_PRT_NM
+            , SALE_VENDER
+          FROM PRODUCT_MODEL_CL_CD A
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+    </select>
+
+
+     <!-- 상품별모델정보-->
+    <select id="DlwProdMap.getProddtl" parameterType="map" resultType="resultMap">
+
+            select /* DlwProdMap.getProddtl */
+               prodmm.seq seq
+             , prodmm.prod_cd prodcd
+             , fn_prod_nm(prodmm.prod_cd) prodnm
+             , prodmm.prod_kind prodkind
+             , prodmm.ordr_turn ordrturn
+             , fn_model_cl_nm(prodmm.prod_kind) prodkindnm
+             , fn_emple_nm(prodmm.reg_man) regman
+             , fn_emple_nm(prodmm.upd_man) updman
+          from product_model_mst prodmm
+         where prodmm.del_fg = 'N'  and seq = #{p_seq}
+    </select>
+
+    <!-- 결합상품 종류 검색 -->
+    <select id="DlwProdMap.getProdKind" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.getProdKind */
+                SEQ
+             , PROD_KIND_NM
+             , MODEL_CL_CD
+          FROM PRODUCT_KIND
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+         ORDER BY SEQ
+    </select>
+
+
+        <!-- 상품모델명리스트11 -->
+    <select id="DlwProdMap.getProdmodeldtl" parameterType="map" resultType="resultMap">
+
+        select  /* DlwProdMap.getProdmodeldtl */
+           seq,
+           model_cd,
+           model_nm,
+           discontinued_Dt,
+           ordr_turn
+          from PRODUCT_MODEL_DTL
+           where seq = #{p_seq}
+           order by  model_cd
+    </select>
+
+    <!-- 회원별 녹취 확인 리스트 건수 -->
+    <select id="DlwProdMap.getRecBeforeCount" parameterType="map" resultType="int">
+          SELECT /* DlwProdMap.getRecBeforeCount */
+              COUNT(*)
+          FROM(
+          SELECT
+                   ACCNT.ACCNT_NO
+          FROM (SELECT MPA.ACCNT_NO
+                     , MPA.MEM_NO
+                     , MPA.JOIN_CL
+                     , MPA.PROD_CD
+                     , MPA.JOIN_DT AS JOIN_DT
+                     , MPA.EMPLE_NO EMPLENO
+                     , FN_COM_NM('01', MPA.PAY_MTHD) PAYMTHD
+                     , MPA.B2B_COMP_CD
+                     , HC.STAT
+                     , HC.EMPLE_NO
+                     , MPA.REG_DM AS REG_DT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                       LEFT OUTER JOIN HP_CALL HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                 WHERE 1=1
+                   <if test="dt_typ == '01' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                               AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                   </if>
+                   <if test="join_cl != null and join_cl != '' ">
+                       AND MPA.JOIN_CL = #{join_cl}
+                   </if>
+                   <if test="accnt_no != null and accnt_no != '' ">
+                       AND MPA.ACCNT_NO = #{accnt_no}
+                   </if>
+                   <if test="prod_cd != null and prod_cd != '' ">
+                       AND MPA.PROD_CD = #{prod_cd}
+                   </if>
+                   <if test="b2b_comp != null and b2b_comp != '' ">
+                       AND MPA.B2B_COMP_CD = #{b2b_comp}
+                   </if>
+               ) ACCNT
+               INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+               LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND EVT.DEL_FG = 'N'
+               LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = ACCNT.ACCNT_NO AND RESN.DEL_FG = 'N'
+               LEFT OUTER JOIN HS_FILE_UPLOAD_S HFUS ON ACCNT.ACCNT_NO = HFUS.ACCNT_NO
+                                                        AND HFUS.DEL_FG = 'N'
+                                                       <if test="dt_typ == '02' ">
+                                                           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                                                                   AND HFUS.REG_DM BETWEEN #{stt_dt} AND #{end_dt}
+                                                              </if>
+                                                       </if>
+                 <if test="dt_typ == '02' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             WHERE HFUS.ACCNT_NO IS NOT NULL
+                        </if>
+                 </if>
+        GROUP BY ACCNT.ACCNT_NO, MEM.MEM_NM, ACCNT.JOIN_CL, ACCNT.JOIN_DT, EMPLENO, PAYMTHD, ACCNT.B2B_COMP_CD
+               , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                      THEN EVT.EVENT_COMP_DAY
+                      WHEN RESN.ACCNT_NO IS NOT NULL
+                      THEN RESN.RESN_PROC_DAY
+                      ELSE ''
+                 END
+               , ACCNT.STAT
+               , ACCNT.PROD_CD
+               , ACCNT.EMPLE_NO
+               , ACCNT.REG_DT
+         <if test="rec_yn != null and rec_yn != '' ">
+             <if test="rec_yn == '0001' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) > 0
+             </if>
+             <if test="rec_yn == '0002' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) = 0
+             </if>
+         </if>
+          ) TBL
+    </select>
+
+    <!-- 회원별 녹취 확인 리스트 -->
+    <select id="DlwProdMap.getRecBeforeList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.getRecBeforeList */
+               ACCNT.ACCNT_NO ACCNTNO
+             , MEM.MEM_NM MEMNM
+             , FN_COM_NM('113', ACCNT.JOIN_CL) JOINCL
+             <!-- , FN_EVENT(ACCNT.ACCNT_NO) JOINSTAT -->
+             , FN_COM_NM('S014', ACCNT.KSTBIT) JOINSTAT
+             , ACCNT.JOIN_DT JOINDT
+             , FN_EMPLE_NM(ACCNT.EMPLE_NO) CNSLMAN
+             , FN_EMPLE_NM(ACCNT.EMPLENO) EMPLENM
+             , ACCNT.PAYMTHD
+             , FN_YEN_CHE(ACCNT.ACCNT_NO) PAYSTAT
+             , NVL(( SELECT COM_NM FROM  B2BCOMCD WHERE COM_CD = ACCNT.B2B_COMP_CD ), ' ') AS B2BCOMPNM
+             , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                    THEN EVT.EVENT_COMP_DAY
+                    WHEN RESN.ACCNT_NO IS NOT NULL
+                    THEN RESN.RESN_PROC_DAY
+                    ELSE ''
+               END EVTDT
+             , COUNT(HFUS.ACCNT_NO) RECCNT
+             , NVL((FN_COM_NM('81', ACCNT.STAT)), ' ') APPRRELTN
+             , FN_PROD_NM(ACCNT.PROD_CD) PRODNM
+             , TO_CHAR(ACCNT.REG_DT, 'YYYYMMDD') REGDT
+          FROM (SELECT MPA.ACCNT_NO
+                     , MPA.MEM_NO
+                     , MPA.JOIN_CL
+                     , MPA.PROD_CD
+                     , MPA.JOIN_DT AS JOIN_DT
+                     , MPA.KSTBIT
+                     , MPA.EMPLE_NO EMPLENO
+                     , FN_COM_NM('01', MPA.PAY_MTHD) PAYMTHD
+                     , MPA.B2B_COMP_CD
+                     , HC.STAT
+                     , HC.EMPLE_NO
+                     , MPA.REG_DM AS REG_DT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                       LEFT OUTER JOIN HP_CALL HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                 WHERE 1=1
+                   <if test="dt_typ == '01' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                               AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                   </if>
+                   <if test="join_cl != null and join_cl != '' ">
+                       AND MPA.JOIN_CL = #{join_cl}
+                   </if>
+                   <if test="accnt_no != null and accnt_no != '' ">
+                       AND MPA.ACCNT_NO = #{accnt_no}
+                   </if>
+                   <if test="prod_cd != null and prod_cd != '' ">
+                       AND MPA.PROD_CD = #{prod_cd}
+                   </if>
+                   <if test="b2b_comp != null and b2b_comp != '' ">
+                       AND MPA.B2B_COMP_CD = #{b2b_comp}
+                   </if>
+               ) ACCNT
+               INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+               LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND EVT.DEL_FG = 'N'
+               LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = ACCNT.ACCNT_NO AND RESN.DEL_FG = 'N'
+               LEFT OUTER JOIN HS_FILE_UPLOAD_S HFUS ON ACCNT.ACCNT_NO = HFUS.ACCNT_NO
+                                                        AND HFUS.DEL_FG = 'N'
+                                                       <if test="dt_typ == '02' ">
+                                                           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                                                                   AND TO_CHAR(HFUS.REG_DM,'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                                                              </if>
+                                                       </if>
+                 <if test="dt_typ == '02' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             WHERE HFUS.ACCNT_NO IS NOT NULL
+                        </if>
+                 </if>
+        GROUP BY ACCNT.ACCNT_NO, MEM.MEM_NM, ACCNT.JOIN_CL, ACCNT.KSTBIT, ACCNT.JOIN_DT, EMPLENO, PAYMTHD, ACCNT.B2B_COMP_CD
+               , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                      THEN EVT.EVENT_COMP_DAY
+                      WHEN RESN.ACCNT_NO IS NOT NULL
+                      THEN RESN.RESN_PROC_DAY
+                      ELSE ''
+                 END
+               , ACCNT.STAT
+               , ACCNT.PROD_CD
+               , ACCNT.EMPLE_NO
+               , ACCNT.REG_DT
+         <if test="rec_yn != null and rec_yn != '' ">
+             <if test="rec_yn == '0001' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) > 0
+             </if>
+             <if test="rec_yn == '0002' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) = 0
+             </if>
+         </if>
+    </select>
+
+    <!-- 파일업로드 리스트 -->
+    <select id="DlwProdMap.getFileUploadList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getFileUploadList */
+               HFUS.SEQ
+             , HFUS.FILE_CL
+             , FN_COM_NM('0170', HFUS.FILE_CL) FILE_CL_NM
+             , HFUS.ACCNT_NO
+             , MEM.MEM_NM
+             , HFUS.GEN_DM
+             , HFUS.CL2
+             , FN_COM_NM('0169', HFUS.CL2) CL2_NM
+             , HFUS.CL3
+             , FN_COM_NM('S016', HFUS.CL3) CL3_NM
+             , CASE WHEN NVL(REPLACE(MEM.CELL, '-', ''), ' ') = ' '
+                    THEN CASE WHEN NVL(REPLACE(MEM.HOME_TEL, '-', ''), ' ') = ' '
+                              THEN MEM.WRPL_TEL
+                              ELSE MEM.HOME_TEL
+                         END
+                    ELSE MEM.CELL
+               END  CELL
+             , TO_CHAR(HFUS.REG_DM, 'YYYYMMDD') REG_DM
+             , HFUS.REG_MAN
+             , FN_EMPLE_NM(HFUS.REG_MAN) REG_MAN_NM
+             , HFUS.RANDOM_YN
+             , HFUS.UPLOAD_CL
+             , CASE WHEN HFUS.UPLOAD_CL = '1' THEN '일괄'
+                    WHEN HFUS.UPLOAD_CL = '2' THEN '개별'
+               END UPLOAD_CL_NM
+             , FILE_NM
+             , '' AS CHK
+          FROM HS_FILE_UPLOAD_S HFUS
+               INNER JOIN MEM_PROD_ACCNT ACCNT ON HFUS.ACCNT_NO = ACCNT.ACCNT_NO AND ACCNT.DEL_FG = 'N'
+               INNER JOIN MEMBER MEM ON MEM.MEM_NO = ACCNT.MEM_NO AND MEM.DEL_FG = 'N'
+               INNER JOIN EMPLOYEE EMP ON EMP.EMPLE_NO = ACCNT.EMPLE_NO
+         WHERE HFUS.DEL_FG = 'N'
+           <if test="dt_typ == '01' ">
+           AND HFUS.GEN_DM BETWEEN #{stt_dt} AND #{end_dt}
+           </if>
+           <if test="dt_typ == '02' ">
+           AND TO_CHAR(HFUS.REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+           </if>
+           <if test="mem_nm != null and mem_nm != '' ">
+           AND MEM.MEM_NM LIKE #{mem_nm} || '%'
+           </if>
+           <if test="accnt_no != null and accnt_no != '' ">
+           AND ACCNT.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="random_yn == '01' ">
+           AND HFUS.RANDOM_YN = 'Y'
+           </if>
+           <if test="file_cl != null and file_cl != '' ">
+           AND HFUS.FILE_CL = #{file_cl}
+           </if>
+           <if test="cl2 != null and cl2 != '' ">
+           AND HFUS.CL2 = #{cl2}
+           </if>
+           <if test="cl3 != null and cl3 != '' ">
+           AND HFUS.CL3 = #{cl3}
+           </if>
+           <if test="seq != null and seq != '' ">
+           AND HFUS.SEQ = #{seq}
+           </if>
+        ORDER BY HFUS.FILE_CL, HFUS.ACCNT_NO
+
+    </select>
+
+    <!-- 파일업로드 리스트 -->
+    <select id="DlwProdMap.getUploadFailList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getUploadFailList */
+               HFUF.SEQ
+             , HFUF.FILE_CL
+             , FN_COM_NM('0170', HFUF.FILE_CL) FILE_CL_NM
+             , HFUF.FILE_NM
+             , TO_CHAR(HFUF.REG_DM, 'YYYYMMDD') REG_DM
+             , HFUF.REG_MAN
+             , FN_EMPLE_NM(HFUF.REG_MAN) REG_MAN_NM
+             , HFUF.UPLOAD_CL
+             , CASE WHEN HFUF.UPLOAD_CL = '1' THEN '일괄'
+                    WHEN HFUF.UPLOAD_CL = '2' THEN '개별'
+               END UPLOAD_CL_NM
+          FROM HS_FILE_UPLOAD_F HFUF
+         WHERE HFUF.DEL_FG = 'N'
+           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+           AND TO_CHAR(HFUF.REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+           </if>
+           <if test="file_cl != null and file_cl != '' ">
+           AND HFUF.FILE_CL = #{file_cl}
+           </if>
+         ORDER BY HFUF.FILE_CL, HFUF.FILE_NM
+    </select>
+
+    <!-- 파일 업로드 권한 조회 -->
+    <select id="DlwProdMap.selectHSFileUploadAuth" parameterType="map" resultType="String">
+        SELECT /* DlwProdMap.selectHSFileUploadAuth */
+               nvl(HSF_UPLOAD_AUTH_YN, 'N')
+          FROM EMPLOYEE
+         WHERE EMPLE_NO = #{emple_no}
+    </select>
+
+    <!-- 녹취파일 중복건수 조회 -->
+    <select id="DlwProdMap.recFileDupChk" parameterType="String" resultType="int">
+        SELECT nvl(COUNT(SEQ), 0)
+          FROM HS_FILE_UPLOAD_S
+         WHERE FILE_NM = #{file_name}
+           AND DEL_FG = 'N'
+    </select>
+
+    <!--
+    sql-life.xml [효성팩토링 정상파일 입력] ID : life.insertUploadFile 작성자 : 임병근
+    -->
+    <update id="DlwProdMap.insertUploadFile" parameterType="map">
+        INSERT /* DlwProdMap.insertUploadFile */
+          INTO HS_FILE_UPLOAD_S (
+           SEQ
+          ,FILE_CL
+          ,FILE_NM
+          ,ACCNT_NO
+          ,CL1
+          ,CL2
+          ,CL3
+          ,PHONE
+          ,RANDOM_YN
+          ,UPLOAD_CL
+          <if test="gen_dm != null and gen_dm != ''">
+          ,GEN_DM
+          </if>
+          ,REG_DM
+          ,REG_MAN
+          ,DEL_FG
+          <if test="file_cl != null and   (  file_cl == '0006'  or  file_cl == '0007' ) ">
+          ,QAID
+
+          </if>
+        ) SELECT
+           nvl((SELECT MAX(SEQ) FROM HS_FILE_UPLOAD_S), 0) + 1
+          ,#{file_cl}
+          ,#{file_nm}
+          ,ACCNT.ACCNT_NO
+          ,#{cl1}
+          ,#{cl2}
+          ,#{cl3}
+          ,#{phone}
+          ,#{random_yn}
+          ,#{upload_cl}
+          <if test="gen_dm != null and gen_dm != ''">
+          <!-- ,substr(#{gen_dm}, 1, 8) || ' ' || substr(substr(#{gen_dm}, -6), 1, 2) || ':' || substr(substr(#{gen_dm}, -4), 1, 2) || ':' || substr(#{gen_dm}, -2) -->
+          , substr(#{gen_dm}, 1, 8)
+          </if>
+          , sysdate
+          ,#{emple_no}
+          ,'N'
+          <if test="file_cl != null and  (  file_cl == '0006'  or  file_cl == '0007' )">
+          ,#{qaid}
+          </if>
+          FROM MEM_PROD_ACCNT ACCNT
+                 INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+                 <if test="file_cl != null and  (file_cl != '0002' and file_cl != '0006' and file_cl != '0007') ">
+                 LEFT OUTER JOIN HS_FILE_UPLOAD_S HFUS ON ACCNT.ACCNT_NO = HFUS.ACCNT_NO AND HFUS.FILE_CL = #{file_cl} AND HFUS.DEL_FG = 'N'
+                 </if>
+           WHERE 1=1
+             AND ACCNT.DEL_FG = 'N'
+             AND ACCNT.ACCNT_NO = #{accnt_no}
+            <if test="file_cl != null and (file_cl != '0002' and file_cl != '0006'  and file_cl != '0007' )">
+             AND HFUS.ACCNT_NO IS NULL
+           </if>
+    </update>
+
+    <!-- sql-life.xml [효성팩토링 에러파일 입력] ID : life.insertUploadErrorFile 작성자 : 임병근 -->
+    <insert id="DlwProdMap.insertUploadErrorFile" parameterType="map">
+        INSERT /* DlwProdMap.insertUploadErrorFile */
+          INTO HS_FILE_UPLOAD_F (
+           SEQ
+          ,FILE_CL
+          ,FILE_NM
+          ,UPLOAD_CL
+          ,REG_DM
+          ,REG_MAN
+          ,DEL_FG
+        ) values (
+           (SELECT nvl(MAX(SEQ),0)+1 FROM HS_FILE_UPLOAD_F)
+          ,#{file_cl}
+          ,#{file_nm}
+          ,#{upload_cl}
+          , sysdate
+          ,#{emple_no}
+          ,'N'
+        )
+    </insert>
+
+    <!--
+    업로드 녹취 파일 삭제
+    -->
+    <update id="DlwProdMap.hsUploadDataDelete" parameterType="map">
+        UPDATE /* DlwProdMap.hsUploadDataDelete */
+               HS_FILE_UPLOAD_S
+          SET DEL_FG = 'Y'
+         WHERE SEQ = #{seq}
+    </update>
+
+    <update id="DlwProdMap.deleteFgProdModelClCd" parameterType="map">
+        /* DlwProdMap.deleteFgProdModelClCd */
+        UPDATE PRODUCT_MODEL_CL_CD
+           SET DEL_FG = 'Y'
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+    </update>
+
+    <update id="deleteFgProdKind" parameterType="map">
+        /* DlwProdMap.deleteFgProdKind */
+        UPDATE PRODUCT_KIND
+           SET DEL_FG = 'Y'
+         WHERE MODEL_CL_CD = #{model_cl_cd}
+    </update>
+
+
+
+    <!-- QA녹취리스트_회원별 -->
+    <select id="DlwProdMap.getprodnList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getprodnList */
+              FILE_NM
+              ,SEQ
+          FROM HS_FILE_UPLOAD_S
+         WHERE DEL_FG = 'N'
+           AND ACCNT_NO  = #{accnt_no}
+           AND FILE_CL = #{file_cl}
+           AND QAID = #{qaid}
+         ORDER BY FILE_NM
+    </select>
+
+    <!-- 모니터링 녹취리스트_회원별 -->
+    <select id="DlwProdMap.getmonitoringlist" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getmonitoringlist */
+              FILE_NM  fileName
+              ,'성공' MSG
+              , QAID mid
+              ,' ' READ
+              , 0  filesize
+              ,'N' upload_yn
+              , seq
+          FROM HS_FILE_UPLOAD_S
+         WHERE qAID = #{mid}
+           and del_fg !='Y'
+         ORDER BY FILE_NM
+    </select>
+
+
+       <!-- 모니터링 녹취 삭제 -->
+    <update id="DlwProdMap.deletemonitoring_rec" parameterType="map" >
+
+        UPDATE /* DlwProdMap.deletemonitoring_rec */
+            HS_FILE_UPLOAD_S
+        SET DEL_FG = 'Y'
+          WHERE seq= #{seq}
+    </update>
+
+
+           <!-- 모니터링 녹취 삭제 -->
+    <update id="DlwProdMap.deletemonitoring" parameterType="map" >
+
+       DELETE /* DlwProdMap.deletemonitoring */
+            PS_WILLVI.TB_MONITORING_ADMIN
+          WHERE seq= #{seq}
+    </update>
+
+
+    <select id="DlwProdMap.getDlwpurchaseCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwProdMap.getDlwpurchaseCount */
+            COUNT(*)
+          FROM PURCHASE_ADMIN A
+
+          where 1=1  AND DEL_FG = 'N'
+
+                         <if test="p_seq != null and p_seq != ''">   <!-- 전체조회 -->
+                            AND P_SEQ LIKE '%' ||  #{p_seq} || '%'
+                        </if>
+                        <if test="pp_seq != null and pp_seq != ''">  <!-- 건별삭제등록 -->
+                            AND P_SEQ = #{pp_seq}
+                        </if>
+    </select>
+
+     <select id="DlwProdMap.getDlwpurchaseList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : getDlwpurchaseList -->
+
+
+        SELECT /* DlwProdMap.getDlwpurchaseList */
+               Z.*
+          FROM (SELECT X.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY SEQ ASC) PAGE_INDX
+                        </otherwise>
+                    </choose>
+                  FROM(SELECT ' 'CHK,
+                                  SEQ
+                                ,P_SEQ
+                                ,P_GUBUN
+                                ,P_PRODUCER
+                                ,P_SUPPLIER
+                                ,TO_CHAR(REG_DM,'YYYYMMDDHH24MISS') REG_DM
+                                ,REG_MAN
+                                ,TO_CHAR(UPD_DM,'YYYYMMDDHH24MISS') UPD_DM
+                                ,UPD_MAN
+                                ,BIGO
+                         FROM PURCHASE_ADMIN A
+                         where 1=1  AND DEL_FG = 'N'
+
+                         <if test="p_seq != null and p_seq != ''">   <!-- 전체조회 -->
+                            AND P_SEQ LIKE '%' ||  #{p_seq} || '%'
+                        </if>
+                        <if test="pp_seq != null and pp_seq != ''">  <!-- 건별삭제등록 -->
+                            AND P_SEQ = #{pp_seq}
+                        </if>
+                      ) X
+               ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+
+
+
+
+     <update id="DlwProdMap.updatepurchaseChng" parameterType="map" >
+        UPDATE /* DlwProdMap.updatepurchaseChng */
+            PURCHASE_ADMIN
+        SET P_GUBUN = #{p_gubun} ,
+            P_PRODUCER  = #{p_producer},
+            P_SUPPLIER  = #{p_supplier},
+            UPD_DM  = SYSDATE,
+            UPD_MAN  = #{upd_man},
+            BIGO     = #{bigo}
+        WHERE P_SEQ = #{pp_seq}
+    </update>
+
+         <!-- 매입코드  등록 -->
+    <insert id="DlwProdMap.insertpurchaseNew" parameterType="map">
+        INSERT /* DlwProdMap.insertpurchaseNew */
+          INTO PURCHASE_ADMIN
+             (SEQ,P_SEQ,P_GUBUN,P_PRODUCER,P_SUPPLIER,REG_DM,REG_MAN,DEL_FG)
+        SELECT (SELECT NVL(MAX(SEQ),0) + 1 FROM PURCHASE_ADMIN)
+            ,(SELECT Lpad(NVL(MAX(SEQ),0) + 1, 4, '0') FROM PURCHASE_ADMIN )
+            , #{p_gubun}
+            , #{p_producer}
+            , #{p_supplier}
+            , sysdate
+            , #{reg_man}
+            , 'N'
+        FROM 	DUAL
+
+    </insert>
+
+
+    <update id="DlwProdMap.deletepurchase"  parameterType="map">
+        <!-- DM sql-id : deletepurchase -->
+            UPDATE /* DlwProdMap.deletepurchase */
+                    PURCHASE_ADMIN
+                    SET  DEL_FG = 'Y'
+             WHERE P_SEQ = #{p_seq}
+       </update>
+
+
+    <!-- 상품모델 매입매출가 리스트 건수-->
+    <select id="DlwProdMap.getClassProdPriceCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwProdMap.getClassProdPriceCount */
+               COUNT(*)
+        FROM PRODUCT A
+            LEFT OUTER JOIN PRODUCT_MODEL_MST B ON A.PROD_CD = B.PROD_CD
+            LEFT OUTER JOIN PRODUCT_MODEL_CL_CD C ON B.PROD_KIND = C.MODEL_CL_CD
+            LEFT OUTER JOIN PRODUCT_MODEL_DTL D ON B.SEQ = D.SEQ
+            LEFT OUTER JOIN PRODUCT_MODEL_PRICE E ON A.PROD_CD = E.PROD_CD AND C.MODEL_CL_CD = E.MODEL_CL_CD AND D.MODEL_CD = E.MODEL_CD AND E.DEL_FG = 'N'
+        WHERE 1=1
+          AND B.DEL_FG = 'N'
+          AND A.SECTION_T = '0002' -- 채권
+          <if test="prod_cd != null and prod_cd != ''">
+              AND A.PROD_CD = #{prod_cd}
+          </if>
+          <if test="prod_dtl != null and prod_dtl != ''">
+              AND C.MODEL_CL_CD = #{prod_dtl}
+          </if>
+          <if test="model_nm != null and model_nm != ''">
+              AND D.MODEL_NM LIKE #{model_nm} || '%'
+          </if>
+        ORDER BY A.PROD_CD, B.ORDR_TURN, C.MODEL_CL_CD, E.APP_DAY
+
+    </select>
+
+    <!-- 상품모델 매입매출가 리스트 조회 -->
+    <select id="DlwProdMap.getClassProdPriceList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwProdMap.getClassProdList */
+               '' AS CHK
+               , ROW_NUMBER () OVER (ORDER BY A.PROD_CD) SEQ
+               , B.SEQ KSEQ
+               , A.PROD_CD
+               , A.PROD_NM
+               , A.PAY_TYPE
+               , C.MODEL_CL_NM
+               , D.MODEL_CD
+               , D.MODEL_NM
+               , B.PROD_KIND
+               , E.APP_DAY
+               , E.END_DAY
+               , E.PUR_AMT
+               , E.SALE_AMT
+               , E.PUR_COMP
+               , FN_COM_NM('S021', E.PUR_COMP) AS PUR_COMP_NM
+        FROM PRODUCT A
+            LEFT OUTER JOIN PRODUCT_MODEL_MST B ON A.PROD_CD = B.PROD_CD
+            LEFT OUTER JOIN PRODUCT_MODEL_CL_CD C ON B.PROD_KIND = C.MODEL_CL_CD
+            LEFT OUTER JOIN PRODUCT_MODEL_DTL D ON B.SEQ = D.SEQ
+            LEFT OUTER JOIN PRODUCT_MODEL_PRICE E ON A.PROD_CD = E.PROD_CD AND C.MODEL_CL_CD = E.MODEL_CL_CD AND D.MODEL_CD = E.MODEL_CD AND E.DEL_FG = 'N'
+        WHERE 1=1
+          AND B.DEL_FG = 'N'
+          AND A.SECTION_T = '0002' -- 채권
+          <if test="prod_cd != null and prod_cd != ''">
+              AND A.PROD_CD = #{prod_cd}
+          </if>
+          <if test="prod_dtl != null and prod_dtl != ''">
+              AND C.MODEL_CL_CD = #{prod_dtl}
+          </if>
+          <if test="model_nm != null and model_nm != ''">
+              AND D.MODEL_NM LIKE #{model_nm} || '%'
+          </if>
+        ORDER BY A.REG_DM DESC, A.PROD_CD, B.ORDR_TURN, C.MODEL_CL_CD, D.MODEL_CD, E.APP_DAY
+    </select>
+
+
+    <!-- 상품모델 매입매출가 등록 -->
+    <insert id="DlwProdMap.insertProdModelPrice" parameterType="map">
+        INSERT /* DlwProdMap.insertProdModelPrice */
+          INTO PRODUCT_MODEL_PRICE
+             (PROD_CD, MODEL_CL_CD, MODEL_CD, APP_DAY, END_DAY, PUR_AMT, SALE_AMT, PUR_COMP, REG_MAN, REG_DM)
+        VALUES
+             (#{prod_cd}, #{prod_kind}, #{model_cd}, #{app_day}, #{end_day}, #{pur_amt}, #{sale_amt}, #{pur_comp}, #{reg_man}, sysdate)
+    </insert>
+
+
+    <!-- 상품모델 매입매출가 수정 -->
+    <update id="DlwProdMap.updateProdModelPrice" parameterType="map">
+        UPDATE /* DlwProdMap.updateProdModelPrice */
+               PRODUCT_MODEL_PRICE
+           SET PUR_COMP   = #{pur_comp}
+             , PUR_AMT   = #{pur_amt}
+             , SALE_AMT   = #{sale_amt}
+             , UPD_MAN   = #{upd_man}
+             , UPD_DM    = SYSDATE
+         WHERE PROD_CD = #{prod_cd}
+           AND MODEL_CL_CD = #{prod_kind}
+           AND MODEL_CD = #{model_cd}
+           AND APP_DAY = #{app_day}
+           AND END_DAY = #{end_day}
+           AND DEL_FG = 'N'
+    </update>
+
+    <!-- 상품모델 매입매출가 수정2 (**기존 데이터의 종료일은 (입력적용일-1) 로 UPDATE)) -->
+    <update id="DlwProdMap.updateProdModelPrice2" parameterType="map">
+        UPDATE /* DlwProdMap.updateProdModelPrice2 */
+               PRODUCT_MODEL_PRICE
+           SET <if test='flag == "insert" or flag == "add"'>
+               END_DAY = TO_CHAR(TO_DATE(#{app_day})-1, 'YYYYMMDD')
+               </if>
+               <if test='flag == "delete"'>
+               END_DAY = '99991231'
+               </if>
+             , UPD_MAN   = #{upd_man}
+             , UPD_DM    = SYSDATE
+         WHERE PROD_CD = #{prod_cd}
+           AND MODEL_CL_CD = #{prod_kind}
+           AND MODEL_CD = #{model_cd}
+           AND DEL_FG = 'N'
+           <if test='flag == "insert" or flag == "add"'>
+           AND APP_DAY <![CDATA[<>]]> #{app_day}
+           AND END_DAY = '99991231' <!--  최종 데이터만 수정 -->
+           </if>
+           <if test='flag == "delete"'>
+           AND APP_DAY = ( SELECT MAX(APP_DAY) <!--  최종 데이터만 수정 -->
+                             FROM PRODUCT_MODEL_PRICE
+                            WHERE PROD_CD = #{prod_cd}
+                              AND MODEL_CL_CD = #{prod_kind}
+                              AND MODEL_CD = #{model_cd}
+                              AND DEL_FG = 'N' )
+           </if>
+    </update>
+
+
+    <!-- 상품모델 매입매출가 삭제 -->
+    <delete id="DlwProdMap.deleteProdModelPrice" parameterType="map">
+
+        UPDATE /* DlwProdMap.deleteProdModelPrice */
+               PRODUCT_MODEL_PRICE
+           SET DEL_FG = 'Y'
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+         WHERE PROD_CD = #{prod_cd}
+           AND MODEL_CL_CD = #{prod_kind}
+           AND MODEL_CD = #{model_cd}
+           AND APP_DAY = #{app_day}
+           AND END_DAY = #{end_day}
+           AND DEL_FG = 'N'
+
+        <!--
+        DELETE /* DlwProdMap.deleteProdModelPrice */
+               PRODUCT_MODEL_PRICE
+         WHERE PROD_CD = #{prod_cd}
+           AND MODEL_CL_CD = #{prod_kind}
+           AND MODEL_CD = #{model_cd}
+           AND APP_DAY = #{app_day}
+           AND END_DAY = #{end_day}
+        -->
+    </delete>
+
+
+    <!-- 상품모델 매입매출가 입력가능여부 체크1 : 이전 데이터인지 체크 -->
+    <select id="DlwProdMap.chkProdModelPrice1" parameterType="map" resultType="string">
+
+        SELECT /* DlwProdMap.chkProdModelPrice1 */
+              CASE WHEN COUNT(*) > 0
+                   THEN 'F'
+                   ELSE 'T'
+               END AS CHFG
+          FROM PRODUCT_MODEL_PRICE
+         WHERE PROD_CD = #{prod_cd}
+           AND MODEL_CL_CD = #{prod_kind}
+           AND MODEL_CD = #{model_cd}
+           AND DEL_FG = 'N'
+           AND #{app_day} <![CDATA[<]]> ( SELECT MIN(APP_DAY)
+                                            FROM PRODUCT_MODEL_PRICE
+                                           WHERE PROD_CD = #{prod_cd}
+                                             AND MODEL_CL_CD = #{prod_kind}
+                                             AND MODEL_CD = #{model_cd}
+                                             AND DEL_FG = 'N' )
+
+    </select>
+
+    <!-- 상품모델 매입매출가 입력가능여부 체크2 : 해당되는 기존 데이터가 있는지 체크 -->
+    <select id="DlwProdMap.chkProdModelPrice2" parameterType="map" resultType="string">
+
+        SELECT /* DlwProdMap.chkProdModelPrice2 */
+              CASE WHEN COUNT(*) > 0
+                   THEN 'F'
+                   ELSE 'T'
+               END AS CHFG
+          FROM PRODUCT_MODEL_PRICE
+         WHERE PROD_CD = #{prod_cd}
+           AND MODEL_CL_CD = #{prod_kind}
+           AND MODEL_CD = #{model_cd}
+           AND DEL_FG = 'N'
+           AND #{app_day} BETWEEN ( SELECT MIN(APP_DAY)
+                                      FROM PRODUCT_MODEL_PRICE
+                                     WHERE PROD_CD = #{prod_cd}
+                                       AND MODEL_CL_CD = #{prod_kind}
+                                       AND MODEL_CD = #{model_cd}
+                                       AND DEL_FG = 'N' )
+                              AND ( SELECT APP_DAY
+                                      FROM PRODUCT_MODEL_PRICE
+                                     WHERE PROD_CD = #{prod_cd}
+                                       AND MODEL_CL_CD = #{prod_kind}
+                                       AND MODEL_CD = #{model_cd}
+                                       AND DEL_FG = 'N'
+                                       AND END_DAY = '99991231' )
+
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품별회차관리 조회 수 (마스터)
+     * 대상 테이블 : LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwProdMap.getProductMstListCount" parameterType="map" resultType="int">
+        SELECT /* DlwProdMap.getProductMstListCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                PROD_CD,
+                NVL(EXPR_NO, 0) AS EXPR_NO,
+                (SELECT COUNT(*) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE 1=1 AND PND.PROD_CD = PD.PROD_CD) AS PND_NO,
+                PAY_TYPE,
+                LF_DMUSER.FN_COM_NM('111', PAY_TYPE) AS PAY_TYPE_NM,
+                NVL(MON_PAY_AMT, 0) AS MON_PAY_AMT,
+                CASE WHEN NVL(EXPR_NO, 0) = (SELECT COUNT(*) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE 1=1 AND PND.PROD_CD = PD.PROD_CD) THEN '정상'
+                     ELSE '재등록' 
+                END AS REFLECT_YN
+            FROM LF_DMUSER.PRODUCT PD LEFT OUTER JOIN
+            (
+                SELECT
+                    ROW_NUMBER()OVER(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) AS RNUM,
+                    SEQ, 
+                    CARD_CODE,
+                    APP_DT, 
+                    OCB_POINT, 
+                    OCB_FEE, 
+                    OCB_ANNUAL_FEE, 
+                    REG_DM, 
+                    REG_MAN, 
+                    UPD_DM, 
+                    UPD_MAN, 
+                    DEL_FG
+                FROM OCB_CARD_CODE_MNG
+                WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> APP_DT
+                AND DEL_FG = 'N'
+            ) OCCM ON OCCM.CARD_CODE = PD.MEMBERSHIP AND OCCM.DEL_FG = 'N' AND OCCM.RNUM = 1
+            WHERE 1=1
+            AND PD.DEL_FG = 'N'
+            AND PD.SALE_CL = 'Y'
+            <if test="prod_cd != null and prod_cd != ''">
+              AND PROD_CD LIKE #{prod_cd} || '%'
+            </if>
+            <if test="prod_nm != null and prod_nm != ''">
+              AND PROD_NM LIKE '%' || #{prod_nm} || '%'
+            </if>
+        ) MAIN_TBL 
+        WHERE 1=1
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품별회차관리 조회 리스트 (마스터)
+     * 대상 테이블 : LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwProdMap.getProductMstList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.getProductMstList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                PROD_CD,
+                NVL(EXPR_NO, 0) AS EXPR_NO,
+                (SELECT COUNT(*) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE 1=1 AND PND.PROD_CD = PD.PROD_CD) AS PND_NO,
+                PAY_TYPE,
+                LF_DMUSER.FN_COM_NM('111', PAY_TYPE) AS PAY_TYPE_NM,
+                NVL(MON_PAY_AMT, 0) AS MON_PAY_AMT,
+                CASE WHEN NVL(EXPR_NO, 0) = (SELECT COUNT(*) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE 1=1 AND PND.PROD_CD = PD.PROD_CD) THEN '정상'
+                     ELSE '재등록' 
+                END AS REFLECT_YN
+            FROM LF_DMUSER.PRODUCT PD LEFT OUTER JOIN
+            (
+                SELECT
+                    ROW_NUMBER()OVER(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) AS RNUM,
+                    SEQ, 
+                    CARD_CODE,
+                    APP_DT, 
+                    OCB_POINT, 
+                    OCB_FEE, 
+                    OCB_ANNUAL_FEE, 
+                    REG_DM, 
+                    REG_MAN, 
+                    UPD_DM, 
+                    UPD_MAN, 
+                    DEL_FG
+                FROM OCB_CARD_CODE_MNG
+                WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> APP_DT
+                AND DEL_FG = 'N'
+            ) OCCM ON OCCM.CARD_CODE = PD.MEMBERSHIP AND OCCM.DEL_FG = 'N' AND OCCM.RNUM = 1
+            WHERE 1=1
+            AND PD.DEL_FG = 'N'
+            AND PD.SALE_CL = 'Y'
+            <if test="prod_cd != null and prod_cd != ''">
+              AND PROD_CD LIKE #{prod_cd} || '%'
+            </if>
+            <if test="prod_nm != null and prod_nm != ''">
+              AND PROD_NM LIKE '%' || #{prod_nm} || '%'
+            </if>
+        ) MAIN_TBL 
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품별회차관리 조회 수 (디테일)
+     * 대상 테이블 : LF_DMUSER.PRODUCT_NO_DATA
+     * ================================================================
+     * -->
+    <select id="DlwProdMap.getProductNoDataListCount" parameterType="map" resultType="int">
+        SELECT /* DlwProdMap.getProductNoDataListCount */
+        	COUNT(*) AS ICNT
+        FROM
+        (
+        	SELECT
+        		ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+    			PROD_CD,
+    			NO,
+    			AMT,
+    			REL_AMT,
+    			ADD_AMT,
+    			PCT
+			FROM LF_DMUSER.PRODUCT_NO_DATA
+			WHERE 1=1
+			AND PROD_CD = #{prod_cd}
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품별회차관리 조회 리스트 (디테일)
+     * 대상 테이블 : LF_DMUSER.PRODUCT_NO_DATA
+     * ================================================================
+     * -->
+    <select id="DlwProdMap.getProductNoDataList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.getProductNoDataList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT
+        		ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+    			PROD_CD,
+    			NO,
+    			AMT,
+    			REL_AMT,
+    			ADD_AMT,
+    			PCT
+			FROM LF_DMUSER.PRODUCT_NO_DATA
+			WHERE 1=1
+			AND PROD_CD = #{prod_cd}
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품별 회차 기본정보 
+     * 대상 테이블 : LF_DMUSER.PRODUCT_DTL
+     * ================================================================
+     * -->
+    <select id="DlwProdMap.getProductDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.getProductDtlList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT
+        		PROD_CD,
+                SEQ,
+                ST_NO,
+                END_NO,
+                MONTH_PAY_AMT,
+                ALLT_AMT,
+                ADD_AMT,
+                REG_DM,
+                REG_MAN
+           FROM LF_DMUSER.PRODUCT_DTL
+           WHERE 1=1
+           AND PROD_CD = #{prod_cd}
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품 회차별 청구금액 입력 
+     * 대상 테이블 : LF_DMUSER.PRODUCT_NO_DATA
+     * ================================================================
+     * -->
+    <insert id="DlwProdMap.insertProductNoDataList" parameterType="map">
+        INSERT /* DlwProdMap.insertProductNoDataList */
+        INTO LF_DMUSER.PRODUCT_NO_DATA(PROD_CD, NO, AMT, REL_AMT, ADD_AMT, PCT)
+        VALUES(#{prod_cd}, #{no}, #{amt}, #{rel_amt}, #{add_amt}, '')
+    </insert>
+
+    <!-- ================================================================
+     * 날짜 : 20190828
+     * 이름 : 송준빈
+     * 추가내용 : 상품 회차별 청구금액 삭제 
+     * 대상 테이블 : LF_DMUSER.PRODUCT_NO_DATA
+     * ================================================================
+     * -->
+    <delete id="DlwProdMap.deleteProductNoDataList" parameterType="map">
+        DELETE /* DlwProdMap.deleteProductNoDataList */
+        FROM LF_DMUSER.PRODUCT_NO_DATA
+        WHERE 1=1
+        AND PROD_CD = #{prod_cd}
+    </delete>
+      
+</mapper>

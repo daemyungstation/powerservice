@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExamPrbmMap">
+
+    <sql id="ExamPrbmMap.selectCondition_fragment">
+        <where>
+            <if test="exam_prbm_id != null and exam_prbm_id != ''">
+                AND EXAM_PRBM_ID = #{exam_prbm_id}
+            </if>
+            <if test="emsh_id != null and emsh_id != ''">
+                AND EMSH_ID = #{emsh_id}
+            </if>
+            <if test="exam_prbm_nm != null and exam_prbm_nm != ''">
+                AND EXAM_PRBM_NM LIKE '%' || #{exam_prbm_nm} || '%'
+            </if>
+            <if test="exam_prbm_typ_cd != null and exam_prbm_typ_cd != ''">
+                AND EXAM_PRBM_TYP_CD = #{exam_prbm_typ_cd}
+            </if>
+            <if test="exam_prbm_fld_cd != null and exam_prbm_fld_cd != ''">
+                AND EXAM_PRBM_FLD_CD = #{exam_prbm_fld_cd}
+            </if>
+            <if test="exam_dflv_cd != null and exam_dflv_cd != ''">
+                AND EXAM_DFLV_CD = #{exam_dflv_cd}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="exam_use_yn != null and exam_use_yn != ''">
+                AND EMSH_ID NOT IN (SELECT EMSH_ID
+                                          FROM TB_EXAM_BASI
+                                         WHERE CNTR_CD = #{cntr_cd})
+            </if>
+            <if test="exam_prbm_ids != null and exam_prbm_ids != ''">
+                AND EXAM_PRBM_ID
+                <foreach collection="exam_prbm_ids" item="item" separator="," close=")" open="IN (">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <sql id="ExamPrbmMap.selectCondition_fragment_question">
+        <if test="bzpt_div != null and bzpt_div != ''">
+            AND A.BZPT_DIV = #{bzpt_div}
+        </if>
+        <if test="exam_prgr_stat_cds != null and exam_prgr_stat_cds != ''">
+            AND A.EXAM_PRGR_STAT_CD IN (${exam_prgr_stat_cds})
+        </if>
+        <if test="exam_nm != null and exam_nm != ''">
+            AND A.EXAM_NM LIKE '%' || #{exam_nm} || '%'
+        </if>
+        <if test="exam_prbm_fld_cd != null and exam_prbm_fld_cd != ''">
+            AND B.EXAM_PRBM_FLD_CD = #{exam_prbm_fld_cd}
+        </if>
+        <if test="dateType != null and dateType != ''">
+            <if test="dateType == 'exam_stt_dttm'">
+                AND TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') BETWEEN REPLACE(#{startd}, '-', '') || '0000' AND REPLACE(#{endd}, '-', '') || '2359'
+            </if>
+            <if test="dateType == 'exam_end_dttm'">
+                AND TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') BETWEEN REPLACE(#{startd}, '-', '') || '0000' AND REPLACE(#{endd}, '-', '') || '2359'
+            </if>
+        </if>
+        <if test="exam_ym != null and exam_ym != ''">
+            AND (TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') BETWEEN #{exam_ym} || '010000' AND #{exam_ym} || '312359'
+             OR  TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') BETWEEN #{exam_ym} || '010000' AND #{exam_ym} || '312359'
+             OR  #{exam_ym} BETWEEN TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMM') AND TO_CHAR(A.EXAM_END_DTTM, 'YYYYMM'))
+        </if>
+    </sql>
+
+    <select id="ExamPrbmMap.getExamPrbmCount" parameterType="map" resultType="int">
+        SELECT /* ExamPrbmMap.getExamPrbmCount */
+               COUNT(*)
+          FROM TB_EXAM_PRBM
+         <include refid="ExamPrbmMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmMap.getExamPrbmList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_PRBM_ID, EMSH_ID, EXAM_PRBM_NM, EXAM_PRBM_EXPI
+                     , EXAM_PRBM_TYP_CD, EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL, EXPE_SQNC
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , EXAM_PRBM_TYP_NM, EXAM_PRBM_FLD_NM, EXAM_DFLV_NM, RGSR_NM, AMND_NM
+                     , EXAM_PRGR_STAT_CD
+                  FROM (SELECT EXAM_PRBM_ID, EMSH_ID, EXAM_PRBM_NM, EXAM_PRBM_EXPI, EXAM_PRBM_TYP_CD
+                             , EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL, EXPE_SQNC
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('EXM020', EXAM_PRBM_TYP_CD, A.CNTR_CD) AS EXAM_PRBM_TYP_NM
+                             , GETCODENM('EXM030', EXAM_PRBM_FLD_CD, A.CNTR_CD) AS EXAM_PRBM_FLD_NM
+                             , GETCODENM('EXM040', EXAM_DFLV_CD, A.CNTR_CD) AS EXAM_DFLV_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT EXAM_PRGR_STAT_CD
+                                  FROM TB_EXAM_BASI
+                                 WHERE EMSH_ID = A.EMSH_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EXAM_PRGR_STAT_CD
+                          FROM TB_EXAM_PRBM A
+                      <include refid="ExamPrbmMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ExamPrbmMap.insertExamPrbm" parameterType="map">
+        <selectKey keyProperty="exam_prbm_id" resultType="String" order="BEFORE">
+            SELECT 'EPI' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ExamPrbmMap.insertExamPrbm */
+          INTO TB_EXAM_PRBM
+               (EXAM_PRBM_ID, EMSH_ID, EXAM_PRBM_NM, EXAM_PRBM_EXPI, EXAM_PRBM_TYP_CD
+              , EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL, EXPE_SQNC
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT #{exam_prbm_id}, #{emsh_id}, #{exam_prbm_nm}, #{exam_prbm_expi}, #{exam_prbm_typ_cd}
+              , #{exam_prbm_fld_cd}, #{exam_dflv_cd}, #{exam_prbm_dtsc_vl}, NVL(MAX(EXPE_SQNC), 0) + 1
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EXAM_PRBM
+         WHERE EMSH_ID = #{emsh_id}
+    </insert>
+
+    <update id="ExamPrbmMap.updateExamPrbm" parameterType="map">
+        UPDATE /* ExamPrbmMap.updateExamPrbm */
+               TB_EXAM_PRBM A
+           SET A.AMND_ID       = #{amnd_id}
+             , A.AMNT_DTTM           = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            <if test="exam_prbm_nm != null and exam_prbm_nm != ''">
+             , A.EXAM_PRBM_NM      = #{exam_prbm_nm}
+            </if>
+            <if test="exam_prbm_expi != null and exam_prbm_expi != ''">
+             , A.EXAM_PRBM_EXPI    = #{exam_prbm_expi}
+            </if>
+            <if test="exam_prbm_typ_cd != null and exam_prbm_typ_cd != ''">
+             , A.EXAM_PRBM_TYP_CD  = #{exam_prbm_typ_cd}
+            </if>
+            <if test="exam_prbm_fld_cd != null and exam_prbm_fld_cd != ''">
+             , A.EXAM_PRBM_FLD_CD = #{exam_prbm_fld_cd}
+            </if>
+            <if test="exam_dflv_cd != null and exam_dflv_cd != ''">
+             , A.EXAM_DFLV_CD    = #{exam_dflv_cd}
+            </if>
+            <if test="exam_prbm_dtsc_vl != null and exam_prbm_dtsc_vl != ''">
+             , A.EXAM_PRBM_DTSC_VL   = #{exam_prbm_dtsc_vl}
+            </if>
+            <if test="expe_sqnc != null and expe_sqnc != ''">
+             , A.EXPE_SQNC       = #{expe_sqnc}
+            </if>
+         WHERE A.EXAM_PRBM_ID      = #{exam_prbm_id}
+           AND A.EMSH_ID     = #{emsh_id}
+    </update>
+
+    <update id="ExamPrbmMap.updateExamPrbmDtscVl" parameterType="map">
+        UPDATE /* ExamPrbmMap.updateExamPrbmDtscVl */
+               TB_EXAM_PRBM A
+           SET A.EXAM_PRBM_DTSC_VL   = (CASE A.EXAM_DFLV_CD
+                                         WHEN '10' THEN TO_NUMBER(#{lvl1_scr_vl})
+                                         WHEN '20' THEN TO_NUMBER(#{lvl2_scr_vl})
+                                         WHEN '30' THEN TO_NUMBER(#{lvl3_scr_vl})
+                                         ELSE 0
+                                    END)
+         WHERE A.EMSH_ID     = #{emsh_id}
+    </update>
+
+    <delete id="ExamPrbmMap.deleteExamPrbm" parameterType="map">
+        DELETE /* ExamPrbmMap.deleteExamPrbm */
+          FROM TB_EXAM_PRBM
+         WHERE EMSH_ID = #{emsh_id}
+       <if test="exam_prbm_id != null and exam_prbm_id != ''">
+           AND EXAM_PRBM_ID = #{exam_prbm_id}
+       </if>
+    </delete>
+
+    <insert id="ExamPrbmMap.copyExamPrbm" parameterType="map">
+        <selectKey keyProperty="new_exam_prbm_id" resultType="String" order="BEFORE">
+            SELECT 'EPI' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ExamPrbmMap.copyExamPrbm */
+          INTO TB_EXAM_PRBM
+               (EXAM_PRBM_ID, EMSH_ID, EXAM_PRBM_NM, EXAM_PRBM_EXPI, EXAM_PRBM_TYP_CD
+              , EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL, EXPE_SQNC
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{new_exam_prbm_id}, #{new_emsh_id}, (CASE WHEN #{new_emsh_id} = #{emsh_id} THEN SUBSTRB(#{exam_prbm_nm}, 1, 93) || '_복사' ELSE #{exam_prbm_nm} END), #{exam_prbm_expi}, #{exam_prbm_typ_cd}
+              , #{exam_prbm_fld_cd}, #{exam_dflv_cd}, #{exam_prbm_dtsc_vl}, (SELECT NVL(MAX(EXPE_SQNC), 0) + 1 FROM TB_EXAM_PRBM WHERE EMSH_ID = #{new_emsh_id})
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <select id="ExamPrbmMap.getExamPrbmAnsrList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmMap.getExamPrbmAnsrList */
+               ROWNUM AS PAGE_INDX, EXAM_PRBM_ID, EMSH_ID, EXAM_PRBM_NM, EXAM_PRBM_EXPI
+             , EXAM_PRBM_TYP_CD, EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL, EXPE_SQNC
+             , EXAM_PRBM_TYP_NM, EXAM_PRBM_FLD_NM, EXAM_DFLV_NM, ANSR_YN, ANSR_ACQR_SCR_VL
+          FROM (SELECT A.EXAM_PRBM_ID, A.EMSH_ID, A.EXAM_PRBM_NM, A.EXAM_PRBM_EXPI, A.EXAM_PRBM_TYP_CD
+                     , A.EXAM_PRBM_FLD_CD, A.EXAM_DFLV_CD, A.EXAM_PRBM_DTSC_VL, A.EXPE_SQNC
+                     , GETCODENM('EXM020', A.EXAM_PRBM_TYP_CD, A.CNTR_CD) AS EXAM_PRBM_TYP_NM
+                     , GETCODENM('EXM030', A.EXAM_PRBM_FLD_CD, A.CNTR_CD) AS EXAM_PRBM_FLD_NM
+                     , GETCODENM('EXM040', A.EXAM_DFLV_CD, A.CNTR_CD) AS EXAM_DFLV_NM
+                     , (SELECT ANSR_ACQR_SCR_VL
+                          FROM TB_EXAM_PRBM_ANSR
+                         WHERE EXAM_PRBM_ID = A.EXAM_PRBM_ID
+                           AND EMSH_ID = A.EMSH_ID
+                           AND EXAM_TRPR_ID = #{exam_trpr_id}
+                           AND EXAM_ID = #{exam_id}) AS ANSR_ACQR_SCR_VL
+                     , (CASE WHEN EXISTS (SELECT 'Y'
+                                            FROM TB_EXAM_PRBM_ANSR B
+                                           WHERE B.EXAM_PRBM_ID = A.EXAM_PRBM_ID
+                                             AND B.EMSH_ID = A.EMSH_ID
+                                             AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+                                             AND B.EXAM_ID = #{exam_id}
+                                         )
+                             THEN 'O'
+                             ELSE 'X'
+                        END) AS ANSR_YN
+                  FROM TB_EXAM_PRBM A
+                 WHERE A.EMSH_ID = #{emsh_id}
+                 <if test="prbm_arnm_cd == '10'">
+                 ORDER BY A.EXPE_SQNC
+                 </if>
+                 <if test="prbm_arnm_cd == '20'">
+                 ORDER BY DBMS_RANDOM.VALUE
+                 </if>
+               )
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmMarkingCount" parameterType="map" resultType="int">
+        SELECT /* ExamPrbmMap.getExamPrbmMarkingCount */
+               COUNT(*)
+          FROM TB_EXAM_PRBM
+         WHERE EMSH_ID = (SELECT EMSH_ID
+                                FROM TB_EXAM_BASI
+                               WHERE EXAM_ID = #{exam_id})
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmMarkingList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmMap.getExamPrbmMarkingList */
+               B.*
+             , (SELECT EXAM_RNKN_SQNO FROM TB_EXAM_TRPR WHERE EXAM_ID = B.EXAM_ID AND EXAM_TRPR_ID = B.EXAM_TRPR_ID) AS EXAM_RNKN_SQNO
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_PRBM_ID, EMSH_ID, EXAM_PRBM_NM, EXAM_PRBM_EXPI
+                     , EXAM_PRBM_TYP_CD, EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL, EXPE_SQNC
+                     , EXAM_PRBM_TYP_NM, EXAM_PRBM_FLD_NM, EXAM_DFLV_NM, EXAM_ANSR_ID, EXAM_ID
+                     , EXAM_TRPR_ID, ANSR_ACQR_SCR_VL, PRBM_ANSR_CNTN
+                  FROM (SELECT A.EXAM_PRBM_ID, A.EMSH_ID, A.EXAM_PRBM_NM, A.EXAM_PRBM_EXPI, A.EXAM_PRBM_TYP_CD
+                             , A.EXAM_PRBM_FLD_CD, A.EXAM_DFLV_CD, A.EXAM_PRBM_DTSC_VL, A.EXPE_SQNC
+                             , GETCODENM('EXM020', A.EXAM_PRBM_TYP_CD, A.CNTR_CD) AS EXAM_PRBM_TYP_NM
+                             , GETCODENM('EXM030', A.EXAM_PRBM_FLD_CD, A.CNTR_CD) AS EXAM_PRBM_FLD_NM
+                             , GETCODENM('EXM040', A.EXAM_DFLV_CD, A.CNTR_CD) AS EXAM_DFLV_NM
+                             , B.EXAM_ANSR_ID, B.EXAM_ID, B.EXAM_TRPR_ID, B.ANSR_ACQR_SCR_VL, B.PRBM_ANSR_CNTN
+                          FROM TB_EXAM_PRBM A
+               LEFT OUTER JOIN TB_EXAM_PRBM_ANSR B
+                            ON A.EMSH_ID = B.EMSH_ID
+                           AND A.EXAM_PRBM_ID = B.EXAM_PRBM_ID
+                           AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+                         WHERE A.EMSH_ID = (SELECT EMSH_ID
+                                                  FROM TB_EXAM_BASI
+                                                 WHERE EXAM_ID = #{exam_id})
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmFieldResultCount" parameterType="map" resultType="int">
+        SELECT /* ExamPrbmMap.getExamPrbmFieldResultCount */
+               COUNT(*)
+          FROM TB_CD
+         WHERE CD_SET_CD = 'EXM030'
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmFieldResultList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmMap.getExamPrbmFieldResultList */
+               EXAM_NM, EXAM_PRBM_FLD_CD, EXAM_PRBM_FLD_NM, LV1_CNT, LV2_CNT
+             , LV3_CNT, LV1_CRAN_RATE, LV2_CRAN_RATE, LV3_CRAN_RATE
+          FROM (SELECT EXAM_NM, EXAM_PRBM_FLD_CD, EXAM_PRBM_FLD_NM, SUM(LV1_CNT) AS LV1_CNT , SUM(LV2_CNT) AS LV2_CNT
+                     , SUM(LV3_CNT) AS LV3_CNT, SUM(LV1_CRAN_RATE) AS LV1_CRAN_RATE, SUM(LV2_CRAN_RATE) AS LV2_CRAN_RATE, SUM(LV3_CRAN_RATE) AS LV3_CRAN_RATE
+                  FROM (SELECT A.CD AS EXAM_PRBM_FLD_CD
+                             , A.CD_NM AS EXAM_PRBM_FLD_NM
+                             , A.CD_SQNC AS EXPE_SQNC
+                             , B.EXAM_NM
+                             , (CASE WHEN B.EXAM_DFLV_CD = '10' THEN B.EXAM_PRBM_CNT ELSE 0 END) AS LV1_CNT
+                             , (CASE WHEN B.EXAM_DFLV_CD = '20' THEN B.EXAM_PRBM_CNT ELSE 0 END) AS LV2_CNT
+                             , (CASE WHEN B.EXAM_DFLV_CD = '30' THEN B.EXAM_PRBM_CNT ELSE 0 END) AS LV3_CNT
+                             , (CASE WHEN B.EXAM_DFLV_CD = '10' AND B.MARKING_CNT != 0 AND B.CRAN_CNT != 0 THEN ROUND(B.CRAN_CNT / B.MARKING_CNT * 100, 1) ELSE 0 END) AS LV1_CRAN_RATE
+                             , (CASE WHEN B.EXAM_DFLV_CD = '20' AND B.MARKING_CNT != 0 AND B.CRAN_CNT != 0 THEN ROUND(B.CRAN_CNT / B.MARKING_CNT * 100, 1) ELSE 0 END) AS LV2_CRAN_RATE
+                             , (CASE WHEN B.EXAM_DFLV_CD = '30' AND B.MARKING_CNT != 0 AND B.CRAN_CNT != 0 THEN ROUND(B.CRAN_CNT / B.MARKING_CNT * 100, 1) ELSE 0 END) AS LV3_CRAN_RATE
+                          FROM (SELECT *
+                                  FROM TB_CD
+                                 WHERE CD_SET_CD = 'EXM030') A
+               LEFT OUTER JOIN (SELECT A.EXAM_NM, B.EXAM_PRBM_FLD_CD, B.EXAM_DFLV_CD
+                                     , COUNT(DISTINCT B.EXAM_PRBM_ID) AS EXAM_PRBM_CNT
+                                     , SUM(CASE WHEN C.ANSR_ACQR_SCR_VL IS NOT NULL THEN 1 ELSE 0 END) AS MARKING_CNT
+                                     , SUM(CASE WHEN C.ANSR_ACQR_SCR_VL = B.EXAM_PRBM_DTSC_VL THEN 1 ELSE 0 END) AS CRAN_CNT
+                                  FROM TB_EXAM_BASI A
+                                  JOIN TB_EXAM_PRBM B
+                                    ON A.EXAM_ID = #{exam_id}
+                                   AND A.EMSH_ID = B.EMSH_ID
+                       LEFT OUTER JOIN TB_EXAM_PRBM_ANSR C
+                                    ON A.EXAM_ID = C.EXAM_ID
+                                   AND B.EMSH_ID = C.EMSH_ID
+                                   AND B.EXAM_PRBM_ID = C.EXAM_PRBM_ID
+                          <choose>
+                              <when test="exam_trpr_id != null and exam_trpr_id != ''">
+                                   AND C.EXAM_TRPR_ID = #{exam_trpr_id}
+                              </when>
+                              <when test="examteamcd != null and examteamcd != ''">
+                                   AND EXISTS (SELECT 'Y'
+                                                 FROM TB_USER D
+                                                WHERE D.USER_ID = C.EXAM_TRPR_ID
+                                                  AND D.TEAM_CD = #{team_cd})
+                              </when>
+                          </choose>
+                          <if test="bzpt_div != null and bzpt_div != ''">
+                                 WHERE A.BZPT_DIV = #{bzpt_div}
+                          </if>
+
+                              GROUP BY A.EXAM_NM, B.EXAM_PRBM_FLD_CD, B.EXAM_DFLV_CD
+                                ) B
+                            ON A.CD = B.EXAM_PRBM_FLD_CD
+                )
+               GROUP BY EXAM_NM, EXAM_PRBM_FLD_CD, EXAM_PRBM_FLD_NM, EXPE_SQNC
+               ORDER BY EXPE_SQNC ASC
+               )
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmResultCount" parameterType="map" resultType="int">
+        SELECT /* ExamPrbmMap.getExamPrbmResultCount */
+               COUNT(*)
+          FROM TB_EXAM_BASI A
+             , TB_EXAM_PRBM B
+         WHERE A.EMSH_ID = B.EMSH_ID
+        <include refid="ExamPrbmMap.selectCondition_fragment_question"/>
+    </select>
+
+    <select id="ExamPrbmMap.getExamPrbmResultList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmMap.getExamPrbmResultList */
+               PAGE_INDX, EXAM_ID, EXAM_NM, EXAM_STT_DTTM, EXAM_PRBM_ID, EXAM_PRBM_NM
+             , EXAM_PRBM_TYP_CD, EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL
+             , EXAM_PRBM_TYP_NM, EXAM_PRBM_FLD_NM, EXAM_DFLV_NM, MARKING_CNT, CRAN_CNT
+             , CRAN_RATE
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_ID, EXAM_NM, EXAM_STT_DTTM, EXAM_PRBM_ID, EXAM_PRBM_NM
+                     , EXAM_PRBM_TYP_CD, EXAM_PRBM_FLD_CD, EXAM_DFLV_CD, EXAM_PRBM_DTSC_VL
+                     , EXAM_PRBM_TYP_NM, EXAM_PRBM_FLD_NM, EXAM_DFLV_NM, MARKING_CNT, CRAN_CNT
+                     , (CASE WHEN MARKING_CNT != 0 AND CRAN_CNT != 0 THEN ROUND(CRAN_CNT / MARKING_CNT * 100, 1) ELSE 0 END) AS CRAN_RATE
+                  FROM (SELECT A.EXAM_ID, A.EXAM_NM, TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MISS') AS EXAM_STT_DTTM, B.EXAM_PRBM_ID, B.EXAM_PRBM_NM
+                             , B.EXAM_PRBM_TYP_CD, B.EXAM_PRBM_FLD_CD, B.EXAM_DFLV_CD, B.EXAM_PRBM_DTSC_VL
+                             , GETCODENM('EXM020', B.EXAM_PRBM_TYP_CD, B.CNTR_CD) AS EXAM_PRBM_TYP_NM
+                             , GETCODENM('EXM030', B.EXAM_PRBM_FLD_CD, B.CNTR_CD) AS EXAM_PRBM_FLD_NM
+                             , GETCODENM('EXM040', B.EXAM_DFLV_CD, B.CNTR_CD) AS EXAM_DFLV_NM
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_PRBM_ANSR C
+                                WHERE C.EXAM_ID = A.EXAM_ID
+                                  AND C.EMSH_ID = B.EMSH_ID
+                                  AND C.EXAM_PRBM_ID = B.EXAM_PRBM_ID
+                                  AND C.ANSR_ACQR_SCR_VL IS NOT NULL
+                               ) AS MARKING_CNT
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_PRBM_ANSR C
+                                WHERE C.EXAM_ID = A.EXAM_ID
+                                  AND C.EMSH_ID = B.EMSH_ID
+                                  AND C.EXAM_PRBM_ID = B.EXAM_PRBM_ID
+                                  AND C.ANSR_ACQR_SCR_VL = B.EXAM_PRBM_DTSC_VL
+                               ) AS CRAN_CNT
+                         FROM TB_EXAM_BASI A
+                            , TB_EXAM_PRBM B
+                        WHERE A.EMSH_ID = B.EMSH_ID
+                    <include refid="ExamPrbmMap.selectCondition_fragment_question"/>
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </when>
+                        <otherwise>
+                            ORDER BY A.EXAM_ID, B.EXPE_SQNC
+                        </otherwise>
+                    </choose>
+                       )
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id="ExamPrbmMap.updateExamPrbmExpeSqnc" parameterType="map">
+        UPDATE /* ExamPrbmMap.updateExamPrbmExpeSqnc */
+               TB_EXAM_PRBM
+           SET CNTR_CD = #{cntr_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        <if test="expe_sqnc != null and expe_sqnc != ''">
+            , EXPE_SQNC = #{expe_sqnc}
+        </if>
+         WHERE EXAM_PRBM_ID = #{exam_prbm_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+</mapper>

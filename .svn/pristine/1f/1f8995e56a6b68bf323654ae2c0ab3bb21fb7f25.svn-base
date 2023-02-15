@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL451300_04" classname="DL451300_04" inheritanceid="" position="absolute 0 0 500 395" titletext="만기연장상품조회팝업" scrollbars="none" onload="DL451300_01_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_pop" class="sta_popupBg1" enable="false" position="absolute 0 0 500 395"/>
+        <Button id="btn_close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position2="absolute l:467 w:20 t:8 h:19" positiontype="position2"/>
+        <Static id="stc_30" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 282 28" wordwrap="none" text="만기연장상품조회"/>
+        <Grid id="grd_list" taborder="8" useinputpanel="false" position="absolute 11 95 487 384" binddataset="ds_listMemberMangiGiftset" oncellclick="grd_list_oncellclick" autofittype="col" oncelldblclick="grd_list_oncelldblclick" onkeydown="grd_list_onkeydown">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="80"/>
+                <Column size="230"/>
+                <Column size="80"/>
+                <Column size="80"/>
+                <Column size="60"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="상품코드"/>
+                <Cell col="1" displaytype="normal" text="상품명"/>
+                <Cell col="2" displaytype="normal" text="만기기간" calendardisplaynulltype="none"/>
+                <Cell col="3" displaytype="normal" text="등록일자"/>
+                <Cell col="4"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:gift_code"/>
+                <Cell col="1" displaytype="normal" style="align:left middle;" text="bind:gift_nm"/>
+                <Cell col="2" displaytype="number" style="align:center middle;" text="bind:ext_period"/>
+                <Cell col="3" displaytype="date" style="align:center middle;" text="bind:reg_dm" calendardisplaynulltype="none"/>
+                <Cell col="4" displaytype="button" text="선택"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_04" class="sta_workSrcBg" position2="absolute l:11 r:13 t:45 h:42" positiontype="position2">
+          <Layouts>
+            <Layout width="989" height="42"/>
+          </Layouts>
+        </Static>
+        <Button id="btn_Search" taborder="9" onclick="btn_Search_onclick" class="btn_WF_Search" position2="absolute r:30 w:72 t:56 h:20" positiontype="position2" tooltiptext="조회" style="padding:0 0 0 0;"/>
+        <Static id="stc05" text="상품명" class="sta_workSrcLabel1" position="absolute 23 56 103 76" visible="true"/>
+        <Edit id="edt_giftNmSrch" taborder="18" imemode="hangul" lengthunit="utf8" maxlength="300" position="absolute 110 56 390 76" onkeydown="srch_onkeydown"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="gift_nm" type="STRING" size="256"/>
+          <Column id="ext_period" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_listMemberMangiGiftset" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="serial_num" type="STRING" size="256"/>
+          <Column id="gift_code" type="STRING" size="256"/>
+          <Column id="gift_nm" type="STRING" size="256"/>
+          <Column id="ext_period" type="STRING" size="256"/>
+          <Column id="rgsr_type" type="STRING" size="256"/>
+          <Column id="reg_man" type="STRING" size="256"/>
+          <Column id="reg_dm" type="STRING" size="256"/>
+          <Column id="upd_man" type="STRING" size="256"/>
+          <Column id="upd_dm" type="STRING" size="256"/>
+          <Column id="del_fg" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item0" compid="edt_giftNmSrch" propid="value" datasetid="ds_member" columnid="home_addr2"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function DL451300_01_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_init();
+	
+	fn_commSearch(gfn_getCommTypeInit(), "getMemberMangiGiftsetList"); // 조회
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg)
+{
+	//trace("svcid : " + svcid);
+
+	if (errcd != 0) 
+	{
+		trace(errcd)
+		return false;
+	} 
+	else 
+	{
+		switch (svcid) 
+		{
+			case "getMemberMangiGiftsetList":
+				
+				if (p_giftValue=="0" || p_giftValue=="22" || p_giftValue=="44" || p_giftValue=="88" ){
+					ds_listMemberMangiGiftset.filter("rgsr_type=='A'");
+				} else if (p_giftValue=="32" || p_giftValue=="34" || p_giftValue=="38" ){
+					ds_listMemberMangiGiftset.filter("rgsr_type=='B'");
+				} else {
+					ds_listMemberMangiGiftset.filter("rgsr_type!='A' || rgsr_type!='B'");
+				}
+							
+				// 조회결과 존재시 하단 정보창 DS COPY
+				if(ds_listMemberMangiGiftset.getRowCount() == 0){
+					alert("조회 내역이 없습니다.");
+				} 
+				
+			break;			
+		}
+	}
+}
+
+/* 조회전 처리*/
+function fn_preSearch(sType, svcid) 
+{
+	switch(svcid) 
+    {
+		case "getMemberMangiGiftsetList":
+			ds_inqCndt.clearData();
+		
+			var sGiftNmSrch = edt_giftNmSrch.value;					
+			var nRow = ds_inqCndt.addRow();
+			ds_inqCndt.setColumn(nRow, "gift_nm", sGiftNmSrch);
+			ds_inqCndt.setColumn(nRow, "ext_period", p_giftPeriod);
+		break;
+	}
+	return true;
+}
+
+// 초기화
+function fn_init()
+{
+	
+}
+
+//조회 버튼 이벤트
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch(gfn_getCommTypeInit(), "getMemberMangiGiftsetList"); // 조회
+}
+
+//조회
+function fn_commSearch(sType, searchInfo) 
+{
+	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(searchInfo) 
+    {
+        // 만기연장상품 조회
+		case "getMemberMangiGiftsetList":
+			if (!fn_preSearch(sType, "getMemberMangiGiftsetList"))
+			{
+				return false;
+			}
+			szSvcid       = "getMemberMangiGiftsetList";
+			szController  = "/dlw/pay/getMemberMangiGiftsetList";
+			szInDs        = "ds_input=ds_inqCndt";
+			szOutDs       = "ds_listMemberMangiGiftset=ds_output";
+			szParam       = "";
+			szRetCallback = "fn_callBack";
+        break;
+    }
+    
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback,"","");
+}
+// 닫기
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+function srch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) 
+	{
+		fn_commSearch(gfn_getCommTypeInit(), "getMemberMangiGiftsetList"); 
+	}
+}
+/***************************************************************************
+ * 함  수  명		: grd_list_oncellclick()
+ * 기      능		: 선택 버튼 이벤트
+ ***************************************************************************/
+function grd_list_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+	if(e.cell == "4"){
+	    fn_selProductChk(e);
+	}
+}
+/***************************************************************************
+ * 함  수  명		: grd_list_oncelldblclick()
+ * 기      능		: 더블 클릭 이벤트
+ ***************************************************************************/
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_selProductChk(e);
+}
+
+function grd_list_onkeydown(obj:Grid, e:KeyEventInfo)
+{
+	if (e.keycode == 13 && ds_listMemberMangiGiftset.rowcount > 0) {
+		fn_selProductChk();
+	}
+}
+/***************************************************************************
+ * 함  수  명		: fn_selProductChk(e:GridClickEventInfo)
+ * 기      능		: 상품선택
+ ***************************************************************************/
+function fn_selProductChk(e:GridClickEventInfo) 
+{
+	if (ds_listMemberMangiGiftset.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+	    return;
+	}
+	
+    var nSelectRow = -1;
+    if (e != null) {
+        nSelectRow = e.row;
+    } else {
+        nSelectRow = ds_listMemberMangiGiftset.rowposition;
+    }
+    if (nSelectRow == -1) {
+        return;
+    }
+
+	opener.edt_giftCode.value = ds_listMemberMangiGiftset.getColumn(nSelectRow,"gift_code");
+	opener.edt_giftNm.value = ds_listMemberMangiGiftset.getColumn(nSelectRow,"gift_nm");
+	
+	close();
+}]]></Script>
+  </Form>
+</FDL>

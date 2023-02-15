@@ -1,0 +1,192 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Crypto_Seed_0" classname="Crypto_Seed_0" inheritanceid="" position="absolute 0 0 761 507" titletext="New Form" onload="Crypto_Seed_0_onload">
+    <Layouts>
+      <Layout>
+        <Grid id="Grid01" taborder="5" position="absolute 15 38 745 164" binddataset="dsServer">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="149"/>
+                <Column size="165"/>
+                <Column size="533"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell/>
+                <Cell col="1" text="구분"/>
+                <Cell col="2" text="결과"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:Roundkey"/>
+                <Cell col="1" text="bind:ORGDATA"/>
+                <Cell col="2" style="align:left;" text="bind:ENCDATA"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="Button02" taborder="6" text="조회" position="absolute 655 10 744 32" onclick="Button02_onclick"/>
+        <Static id="Static05" text="Server -&gt; Client" class="sta_WF_subtitle" position="absolute 15 12 613 27"/>
+        <Static id="Static02" text="Client-&gt;Server -&gt;Client " class="sta_WF_subtitle" position="absolute 5 200 603 215"/>
+        <Grid id="Grid00" taborder="7" binddataset="dsSeed" position="absolute 8 213 738 320">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="154"/>
+                <Column size="310"/>
+                <Column size="367"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell/>
+                <Cell col="1" text="Cipher"/>
+                <Cell col="2" text="Plain"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:Roundkey"/>
+                <Cell col="1" text="bind:Cipher"/>
+                <Cell col="2" edittype="text" text="bind:Plain"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="Button00" taborder="8" text="전송데이타  생성" position="absolute 488 181 633 203" onclick="Button00_onclick"/>
+        <Button id="Button01" taborder="9" text="보내기" position="absolute 640 180 743 204" onclick="Button01_onclick"/>
+        <Static id="Static00" text="Result" class="sta_WF_subtitle" position="absolute 15 321 252 336"/>
+        <Grid id="Grid02" taborder="10" binddataset="dsResult" position="absolute 11 344 741 493">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="165"/>
+                <Column size="533"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="구분"/>
+                <Cell col="1" text="결과"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:ORGDATA"/>
+                <Cell col="1" style="align:left;" text="bind:ENCDATA"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="dsSeed" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Roundkey" type="STRING" size="256"/>
+          <Column id="Cipher" type="STRING" size="256"/>
+          <Column id="Plain" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="dsServer" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="ORGDATA" type="STRING" size="256"/>
+          <Column id="ENCDATA" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="dsResult" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="ORGDATA" type="STRING" size="256"/>
+          <Column id="ENCDATA" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[var SeedKey = "tobesoft20000701" ;
+var ExtObj = new ExtCommon();
+
+function Button02_onclick(obj:Button,  e:ClickEventInfo)
+{
+	transaction('select','http://localhost:8080/tobehye/http/SeedEnc.jsp', "","dsServer=output","","fn_callback");
+}
+
+function fn_callback(sid,ecd, emsg)
+{
+	var objCrypto = new Crypto();  
+	objCrypto.init("seed", 128);
+
+	var objKey = objCrypto.getKey(SeedKey);
+
+	var debase64 = ExtObj.decodeBase64(dsServer.getColumn(1,"ENCDATA"),"OBJ");
+	
+
+	var objBuffer1 = objCrypto.decrypt(debase64, objKey);
+	trace("objBuffer1.length====" + objBuffer1.length);
+
+
+	for(var i=1;i<=objBuffer1.length;i++)
+	{
+		trace(i + "===" + objBuffer1.getText(i,i));
+	}
+	dsServer.addRow();
+	dsServer.setColumn(dsServer.rowposition,"ORGDATA", "복호화데이타");
+	dsServer.setColumn(dsServer.rowposition,"ENCDATA", objBuffer1.getText(0,objBuffer1.length));
+
+}
+
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	dsSeed.clearData();
+	var objCrypto = new Crypto();  
+	objCrypto.init("seed", 128);
+
+	var objKey = objCrypto.getKey(SeedKey);
+
+	DataBuffer = new Buffer("111");
+
+	var enBuffer = objCrypto.encrypt(DataBuffer, objKey);
+	trace("en==" + enBuffer.getText(0,enBuffer.length));          
+	trace("en==" + enBuffer);
+
+
+	for(var i=1;i<=enBuffer.length;i++)
+	{
+		trace(i + "===" + enBuffer.getText(i,i));
+	}
+
+	var base64 = ExtObj.encodeBase64(enBuffer); 
+	trace("en64==" + base64);     
+
+	var debase64 = ExtObj.decodeBase64(base64,"OBJ");
+	trace("de64==" + debase64); 
+
+
+	var objBuffer1 = objCrypto.decrypt(debase64, objKey);
+//	trace("base64로받음 값을 이용하여 decrypt시 오류==" +            objBuffer1.getText(0,objBuffer1.length));
+
+	var objBuffer2 = objCrypto.decrypt(enBuffer, objKey);  
+//	trace("enBuffer데이타를 이용하여 decrypt시 정상==" +            objBuffer2.getText(0,objBuffer2.length));
+  
+	dsSeed.addRow();
+	dsSeed.setColumn(dsSeed.rowposition,"Cipher",base64);
+	dsSeed.setColumn(dsSeed.rowposition,"Plain",objBuffer2.getText(0,objBuffer2.length));	
+
+
+}
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	dsResult.clearData();
+	transaction('save','http://www.miplatform.co.kr:8080/Next_JSP/XFShowcase/JSP/Seed.jsp', "input=dsSeed","dsResult=output","","fn_call");
+}
+
+
+function fn_call(sid, ecd, emsg)
+{
+
+}]]></Script>
+  </Form>
+</FDL>

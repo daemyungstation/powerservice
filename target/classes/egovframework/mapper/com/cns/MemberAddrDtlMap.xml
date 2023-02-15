@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MemberAddrDtlMap">
+
+    <sql id="MemberAddrDtlMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                <!-- AND A.MEM_NM LIKE '%' || #{mem_nm} || '%'-->
+                AND A.MEM_NM = #{mem_nm}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND A.MEM_NO = #{mem_no}
+            </if>
+            <if test="rltn_cd != null and rltn_cd != ''">
+                AND A.RLTN_CD = #{rltn_cd}
+            </if>
+            <if test="home_zip != null and home_zip != ''">
+                AND A.HOME_ZIP LIKE '%' || REPLACE(#{home_zip}, '-', '') || '%'
+            </if>
+            <if test="home_addr != null and home_addr != ''">
+                AND A.HOME_ADDR LIKE '%' || #{home_addr} || '%'
+            </if>
+            <if test="cell != null and cell != ''">
+                AND A.CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+            </if>
+            <if test="home_tel != null and home_tel != ''">
+                AND A.HOME_TEL LIKE '%' || REPLACE(#{home_tel}, '-', '') || '%'
+            </if>
+            <if test="mem_addr_id != null and mem_addr_id != ''">
+                AND A.MEM_ADDR_ID = #{mem_addr_id}
+            </if>
+            <if test="bzpt_divs != null and bzpt_divs != ''">
+                AND A.BZPT_DIV IN (${bzpt_divs})
+            </if>
+        </where>
+    </sql>
+
+    <select id="MemberAddrDtlMap.getMemberAddrDtlCount" parameterType="map" resultType="int">
+        SELECT /* MemberAddrDtlMap.getMemberAddrDtlCount */
+               COUNT(*)
+          FROM TB_MEMBER_ADDR_DTL A
+        <include refid="MemberAddrDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="MemberAddrDtlMap.getMemberAddrDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* MemberAddrDtlMap.getMemberAddrDtlList */
+               C.*
+             , (SELECT U.USER_NM
+                  FROM TB_USER U
+                 WHERE U.USER_ID = C.RGSR_ID
+                   AND U.CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , (SELECT U.USER_NM
+                  FROM TB_USER U
+                 WHERE U.USER_ID = C.AMND_ID
+                   AND U.CNTR_CD = C.CNTR_CD) AS AMND_NM
+             , GETCODENM('CUS170', C.RLTN_CD, C.CNTR_CD) AS RLTN_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT A.MEM_ADDR_ID, A.MEM_NO, A.RLTN_CD, A.HOME_ZIP, A.HOME_ADDR
+                             , A.HOME_ADDR2, A.CELL, A.HOME_TEL, A.RGSR_ID, A.RGSN_DTTM
+                             , A.AMND_ID, A.AMNT_DTTM, A.CNTR_CD
+                             , A.MEM_NM
+                          FROM TB_MEMBER_ADDR_DTL A
+                    <include refid="MemberAddrDtlMap.selectCondition_fragment"/>
+                    <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="MemberAddrDtlMap.insertMemberAddrDtl" parameterType="map">
+        <selectKey keyProperty="mem_addr_id" resultType="String" order="BEFORE">
+            SELECT 'MAD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* MemberAddrDtlMap.insertMemberAddrDtl */
+          INTO TB_MEMBER_ADDR_DTL
+               (MEM_ADDR_ID, MEM_NO, RLTN_CD, HOME_ZIP, HOME_ADDR
+              , HOME_ADDR2, CELL, HOME_TEL, RGSR_ID, RGSN_DTTM
+              , AMND_ID, AMNT_DTTM, CNTR_CD, MEM_NM, BZPT_DIV)
+        VALUES (#{mem_addr_id}, #{mem_no}, #{rltn_cd}, REPLACE(#{home_zip}, '-', ''), #{home_addr}
+              , #{home_addr2}, REPLACE(#{cell}, '-', ''), REPLACE(#{home_tel}, '-', ''), #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+              , #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cntr_cd}, #{mem_nm}, #{bzpt_div})
+    </insert>
+
+    <update id="MemberAddrDtlMap.updateMemberAddrDtl" parameterType="map">
+        UPDATE /* MemberAddrDtlMap.updateMemberAddrDtl */
+               TB_MEMBER_ADDR_DTL
+           SET MEM_NO   	= #{mem_no}
+             , RLTN_CD 		= #{rltn_cd}
+             , HOME_ZIP 	= REPLACE(#{home_zip}, '-', '')
+             , HOME_ADDR 	= #{home_addr}
+             , HOME_ADDR2 	= #{home_addr2}
+             , CELL 		= REPLACE(#{cell}, '-', '')
+             , HOME_TEL 	= REPLACE(#{home_tel}, '-', '')
+             , AMND_ID 		= #{amnd_id}
+             , AMNT_DTTM 	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            <if test="mem_nm != null and mem_nm != ''">
+                , MEM_NM    = #{mem_nm}
+            </if>
+        WHERE MEM_ADDR_ID 	= #{mem_addr_id}
+    </update>
+
+    <delete id="MemberAddrDtlMap.deleteMemberAddrDtl" parameterType="map">
+        DELETE /* MemberAddrDtlMap.deleteMemberAddrDtl */
+          FROM TB_MEMBER_ADDR_DTL
+         WHERE MEM_ADDR_ID = #{mem_addr_id}
+    </delete>
+
+    <insert id="MemberAddrDtlMap.mergeMemberAddrDtl" parameterType="map">
+        <selectKey keyProperty="mem_addr_id" resultType="String" order="BEFORE">
+            SELECT 'MAD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        MERGE INTO /* MemberAddrDtlMap.mergeMemberAddrDtl */
+              TB_MEMBER_ADDR_DTL A
+        USING (SELECT #{mem_no} AS MEM_NO
+                    , REPLACE(#{home_zip}, '-', '') AS HOME_ZIP
+                    , #{home_addr} AS HOME_ADDR
+                    , #{home_addr2} AS HOME_ADDR2
+                 FROM DUAL) B
+           ON (A.MEM_NO 		= B.MEM_NO
+               AND A.HOME_ZIP 	= B.HOME_ZIP
+               AND A.HOME_ADDR 	= B.HOME_ADDR
+            <choose>
+                <when test="home_addr2 != null and home_addr2 != ''">
+                    AND A.HOME_ADDR2 = B.HOME_ADDR2
+                </when>
+                <otherwise>
+                    AND A.HOME_ADDR2 IS NULL
+                </otherwise>
+            </choose>
+            )
+         WHEN MATCHED THEN
+                UPDATE SET MEM_NM		= #{mem_nm}
+                         , RLTN_CD 		= #{rltn_cd}
+                         , CELL 		= REPLACE(#{cell}, '-', '')
+                         , HOME_TEL 	= REPLACE(#{home_tel}, '-', '')
+                         , AMND_ID 		= #{amnd_id}
+                         , AMNT_DTTM 	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          WHEN NOT MATCHED THEN
+                INSERT (MEM_ADDR_ID, MEM_NO, RLTN_CD, HOME_ZIP, HOME_ADDR
+                      , HOME_ADDR2, CELL, HOME_TEL, RGSR_ID, RGSN_DTTM
+                      , AMND_ID, AMNT_DTTM, CNTR_CD, MEM_NM, BZPT_DIV)
+                VALUES (#{mem_addr_id}, #{mem_no}, #{rltn_cd}, REPLACE(#{home_zip}, '-', ''), #{home_addr}
+                      , #{home_addr2}, REPLACE(#{cell}, '-', ''), REPLACE(#{home_tel}, '-', ''), #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                      , #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cntr_cd}, #{mem_nm}, #{bzpt_div})
+    </insert>
+
+    <select id="MemberAddrDtlMap.getMemberAddrDtlExistCount" parameterType="map" resultType="int">
+        SELECT /* MemberAddrDtlMap.getMemberAddrDtlExistCount */
+               COUNT(*)
+          FROM TB_MEMBER_ADDR_DTL A
+         WHERE MEM_NO = #{mem_no}
+            <!-- 고객주소관리 -->
+            <if test="mem_addr_id != null and mem_addr_id != ''">
+           AND MEM_ADDR_ID = #{mem_addr_id}
+                <choose>
+                    <when test="home_zip != null and home_zip != ''">
+           AND HOME_ZIP = REPLACE(#{home_zip}, '-', '')
+                    </when>
+                    <otherwise>
+           AND HOME_ZIP IS NULL
+                    </otherwise>
+                </choose>
+                <choose>
+                    <when test="home_addr != null and home_addr != ''">
+           AND HOME_ADDR = #{home_addr}
+                    </when>
+                    <otherwise>
+           AND HOME_ADDR IS NULL
+                    </otherwise>
+                </choose>
+            </if>
+
+            <!-- 고객정보 / 상품정보 -->
+            <if test="mem_addr_id == null or mem_addr_id == ''">
+           AND HOME_ZIP = REPLACE(#{home_zip}, '-', '')
+           AND HOME_ADDR = #{home_addr}
+            </if>
+
+            <!-- 항목 변경 체크 -->
+            <choose>
+                <when test="home_addr2 != null and home_addr2 != ''">
+           AND HOME_ADDR2 = #{home_addr2}
+                </when>
+                <otherwise>
+           AND HOME_ADDR2 IS NULL
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="mem_nm != null and mem_nm != ''">
+           AND MEM_NM = #{mem_nm}
+                </when>
+                <otherwise>
+           AND MEM_NM IS NULL
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="rltn_cd != null and rltn_cd != ''">
+           AND RLTN_CD = #{rltn_cd}
+                </when>
+                <otherwise>
+           AND RLTN_CD IS NULL
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="cell != null and cell != ''">
+           AND CELL = REPLACE(#{cell}, '-', '')
+                </when>
+                <otherwise>
+           AND CELL IS NULL
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="home_tel != null and home_tel != ''">
+           AND HOME_TEL = REPLACE(#{home_tel}, '-', '')
+                </when>
+                <otherwise>
+           AND HOME_TEL IS NULL
+                </otherwise>
+            </choose>
+    </select>
+
+
+    <insert id="MemberAddrDtlMap.insertMemberAddrDtlHstr" parameterType="map">
+        INSERT /* MemberAddrDtlMap.insertMemberAddrDtlHstr */
+          INTO TB_MEMBER_ADDR_DTL_HSTR
+             ( MEM_ADDR_ID
+             , CNTR_CD
+             , CHNG_DTTM
+             , MEM_NO
+             , MEM_NM
+             , RLTN_CD
+             , HOME_ZIP
+             , HOME_ADDR
+             , HOME_ADDR2
+             , CELL
+             , HOME_TEL
+             , BZPT_DIV
+             , RGSR_ID
+             , RGSN_DTTM
+             , AMND_ID
+             , AMNT_DTTM
+             )
+        SELECT MEM_ADDR_ID
+             , CNTR_CD
+             , SYSTIMESTAMP
+             , MEM_NO
+             , MEM_NM
+             , RLTN_CD
+             , HOME_ZIP
+             , HOME_ADDR
+             , HOME_ADDR2
+             , CELL
+             , HOME_TEL
+             , BZPT_DIV
+             , RGSR_ID
+             , RGSN_DTTM
+             , AMND_ID
+             , AMNT_DTTM
+          FROM TB_MEMBER_ADDR_DTL
+        <choose>
+            <when test="member_addr_dtl_merge_yn != null and member_addr_dtl_merge_yn.equalsIgnoreCase('Y')">
+         WHERE MEM_NO = #{mem_no}
+           AND HOME_ZIP = REPLACE(#{home_zip}, '-', '')
+           AND HOME_ADDR = #{home_addr}
+                <choose>
+                    <when test="home_addr2 != null and home_addr2 != ''">
+                    AND HOME_ADDR2 = #{home_addr2}
+                    </when>
+                    <otherwise>
+                    AND HOME_ADDR2 IS NULL
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+         WHERE MEM_ADDR_ID = #{mem_addr_id}
+            </otherwise>
+        </choose>
+    </insert>
+
+    <delete id="MemberAddrDtlMap.deleteMemberAddrDtlHstr" parameterType="map">
+        DELETE /* MemberAddrDtlMap.deleteMemberAddrDtlHstr */
+          FROM TB_MEMBER_ADDR_DTL_HSTR
+         WHERE MEM_ADDR_ID = #{mem_addr_id}
+    </delete>
+
+    <select id="MemberAddrDtlMap.getMemberAddrDtlHstrCount" parameterType="map" resultType="int">
+        SELECT /* MemberAddrDtlMap.getMemberAddrDtlHstrCount */
+               COUNT(*)
+          FROM TB_MEMBER_ADDR_DTL_HSTR A
+         WHERE MEM_ADDR_ID = #{mem_addr_id}
+    </select>
+
+    <select id="MemberAddrDtlMap.getMemberAddrDtlHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* MemberAddrDtlMap.getMemberAddrDtlHstrList */
+               C.*
+             , GETCODENM('CUS170', C.RLTN_CD, C.CNTR_CD) AS RLTN_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT A.MEM_ADDR_ID, TO_CHAR(A.CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM, A.MEM_NO, A.MEM_NM, A.RLTN_CD
+                             , A.HOME_ZIP, A.HOME_ADDR, A.HOME_ADDR2, A.CELL, A.HOME_TEL
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT U.USER_NM
+                                  FROM TB_USER U
+                                 WHERE U.USER_ID = A.RGSR_ID
+                                   AND U.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT U.USER_NM
+                                  FROM TB_USER U
+                                 WHERE U.USER_ID = A.AMND_ID
+                                   AND U.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_MEMBER_ADDR_DTL_HSTR A
+                         WHERE MEM_ADDR_ID = #{mem_addr_id}
+                    <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+</mapper>

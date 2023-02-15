@@ -1,0 +1,574 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_FileUpDownload" classname="Comm_FileUpDownload" inheritanceid="" position="absolute 0 0 444 20" titletext="파일 업로드/다운로드" onload="Comm_FileUpDownload_onload">
+    <Layouts>
+      <Layout>
+        <Button id="btn_addFile" taborder="1" text="파일추가" position="absolute 0 0 63 20" onclick="btn_addFile_onclick" visible="false"/>
+        <Div id="div_Tab" taborder="1" text="Div00" position="absolute 65 0 444 20" style="background:aquamarine;border:1 solid #c6c6c5ff ;" anchor="left top right">
+          <Layouts>
+            <Layout>
+              <Tab id="tab_FileList" anchor="left top right" taborder="0" onextrabuttonclick="tab_FileList_onextrabuttonclick" tabindex="0" scrollbars="autoboth" class="tab_WF_List" position="absolute 5 3 372 18" style="cursor:hand;">
+                <Tabpages/>
+              </Tab>
+            </Layout>
+          </Layouts>
+        </Div>
+        <Button id="btn_downloadFile" taborder="1" text="다운로드" onclick="btn_downloadFile_onclick" visible="false" position="absolute 0 22 63 42" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_FileList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="xRowStatusType" type="STRING" size="256"/>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="fileId" type="STRING" size="256"/>
+          <Column id="fileLPath" type="STRING" size="256"/>
+          <Column id="filePath" type="STRING" size="256"/>
+          <Column id="fileName" type="STRING" size="256"/>
+          <Column id="targetId" type="STRING" size="256"/>
+          <Column id="fileSize" type="STRING" size="256"/>
+          <Column id="fileType" type="STRING" size="256"/>
+          <Column id="detailInfo" type="STRING" size="256"/>
+          <Column id="regDate" type="STRING" size="256"/>
+          <Column id="isUploaded" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_UploadResult" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+var fv_MultiUploadDiv   = "M";				// Multi/Single 처리 구분
+var fv_FilePath   		= "";				// Default 파일경로
+var fv_FilterFlag		= "";				// File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+var arrFiles = new Array();					//파일 오브젝트 리스트
+var fv_WorkMode = "UPLOAD";       			// UPLOAD(업로드), SINGLEDOWN(1건 다운로드), MULTIDOWN(멀티다운로드)
+var nRtn = true;
+var nCurRow;
+
+var httpObject;
+var fileDialog;
+
+var objParentDs;		// 부모창의 첨부파일데이타셋
+
+//var FileInfo;
+
+function Comm_FileUpDownload_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_commInit(obj);
+	//fn_initAttachFileInfo(gfn_getAttachDiv_DownLoad(), ds_FileList);		// 테스틑 위해서 임시작성 (삭제예정)
+}
+
+// 공통처리 부분-----------------------------------------------------------------------
+
+// 첨부파일 리스트를 설정한다.
+
+// sDspsDiv 		: 처리구분(업로드:UPLOAD, 다운로드:DOWNLOAD)
+// objDs 			: 첨부파일 리스트 데이타셋
+// sFileMultiSelDiv : 멀티파일 선택 가능여부(Multi:M,Single:S)
+// sFilePath 			: Default 파일경로
+// sFilterFlag		: File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+function fn_initAttachFileInfo(sDspsDiv, objDs, sFileMultiSelDiv, sFilePath, sFilterFlag)
+{
+	fv_MultiUploadDiv 	= sFileMultiSelDiv;
+	fv_FilePath			= sFilePath;
+	fv_FilterFlag		= sFilterFlag;
+
+	// 부모창의 데이타셋을 가지고 있는다.
+	// 첨부파일 추가/삭제시에 부모창의 파일첨부 데이타셋과 동기화처리시 필요
+	objParentDs = objDs;
+	objParentDs.assign(ds_FileList);
+
+	// 첨부파일 처리
+	ds_FileList.clearData();
+	ds_FileList.appendData(objDs);
+	
+	// TO-DO : 조회시 버튼처리 해야 함
+	if(sDspsDiv == gfn_getAttachDiv_Upload()) {
+		btn_addFile.visible 		= true;
+		btn_downloadFile.visible	= false;
+		
+		fv_WorkMode = gfn_getAttachDiv_Upload();
+	} else if(sDspsDiv == gfn_getAttachDiv_Download()) {
+		btn_addFile.visible 		= false;
+		btn_downloadFile.visible	= true;
+		
+		btn_downloadFile.move(0, 0);
+	}
+}
+
+// 첨부파일 업로드시에 호출하는 함수
+function fn_setAttachFileUpload()
+{
+	if(fn_fileUpload()) {
+		objParentDs.assign(ds_FileList);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+// 첨부파일 조회시에 호출하는 함수
+function fn_setAttachFileList()
+{
+	trace(objParentDs.saveXML());
+
+	ds_FileList.clearData();
+	ds_FileList.appendData(objParentDs, true);
+	ds_FileList.applyChange();
+	
+	for(var i=0;i<ds_FileList.rowcount;i++)
+	{
+		// 탭페이지 추가
+		this.div_Tab.tab_FileList.insertTabpage(ds_FileList.getColumn(i, "fileName"), 0, "", ds_FileList.getColumn(i, "fileName"));	
+	}
+	this.div_Tab.tab_FileList.tabindex = 0;
+}
+
+// 첨부파일 초기화 함수
+function fn_setAttachFileInit()
+{
+	// 파일첨부데이타셋 초기화 처리
+	ds_FileList.clearData();
+	objParentDs.assign(ds_FileList);
+	
+	var arrTabPage = this.div_Tab.tab_FileList.components;
+	for(var i=(arrTabPage.length-1);i>=0;i--)
+	{
+		div_Tab.tab_FileList.removeTabpage(i);
+	}
+	
+	arrFiles = [];
+}
+
+// 여기까지 공통-----------------------------------------------------------------------
+
+function fn_fileDownload()
+{
+	if(fv_WorkMode == "MULTIDOWN") {
+		if(ds_FileList.rowcount == 0){
+			application.alert("다운로드할 파일이 없습니다.");
+			return false;
+		}
+	}
+    
+ 	httpObject = objects["httpObject"];
+ 	
+ 	if (httpObject == null) {
+		httpObject = new HttpObject();
+		httpObject.onload.setHandler(gfn_httpObject_onload);
+	} 
+	
+ 	fileDialog = objects["fileDialog"];
+ 	
+ 	if (fileDialog == null) {
+		fileDialog = new FileDialog();
+		httpObject.onload.setHandler(gfn_httpObject_onload);
+	} 
+	
+	var sPath = fileDialog.open("file find", FileDialog.SELFOLDER,"%MYDOCUMENT%");
+
+	if(fv_WorkMode == "MULTIDOWN") {
+		if(!gfn_isNull(sPath))
+		{
+			for(var i=0;i<ds_FileList.rowcount;i++)
+			{
+				var sFile 	= sPath+"\\"+ ds_FileList.getColumn(i, "fileName");
+				var sFileId = ds_FileList.getColumn(i, "fileId");
+				
+				var vFile_down = new VirtualFile;
+				vFile_down.open(sFile, VirtualFile.openWrite);
+				var rtn = httpObject.download(gfn_getFileDownloadUrl() + "?fileId="+sFileId+"&UUID="+UUID, vFile_down, false);
+			}
+		}	
+	} else if(fv_WorkMode == "SINGLEDOWN") {
+		var sFile 	= sPath+"\\"+ ds_FileList.getColumn(ds_FileList.rowposition, "fileName");
+		var sFileId = ds_FileList.getColumn(ds_FileList.rowposition, "fileId");
+		
+		var vFile_down = new VirtualFile;
+		vFile_down.open(sFile, VirtualFile.openWrite);
+		var rtn = httpObject.download(gfn_getFileDownloadUrl() + "?fileId="+sFileId+"&UUID="+UUID, vFile_down, false);
+	}	
+}
+
+function fn_fileUpload()
+{
+	var nChkCnt = 0;
+	
+	var nFileSize:int = 0;
+	var nTotalFileSize:int = 0;
+	
+	//fv_WorkMode = "UPLOAD";
+    
+    for(var i=0;i<ds_FileList.rowcount; i++) {
+        if(ds_FileList.getRowType(i) == 2 || ds_FileList.getRowType(i) == 4){
+            nChkCnt++;
+        }
+    }
+    
+    if(nChkCnt == 0){
+        application.alert("저장할 파일이 없습니다.");
+        return false;
+    }
+    
+	for(var k=0;k<ds_FileList.rowcount;k++) {
+		nFileSize = ds_FileList.getColumn(k, "fileSize");
+		nTotalFileSize += nFileSize;
+	}    
+    
+	// 1M 이상의 첩부파일은 경고메시지 출력후 전송
+	// 1 * 1024 * 1024 = 1M(1048576)
+	// 5 * 1024 * 1024 = 5M(5242880)
+	if (nTotalFileSize > 1048576) { // 1 * 1024 * 1024 = 1M
+		var bResult = confirm("총 1024KB 이상의 대용량 파일 전송시에는\n전송시간이 다소 오래 걸릴 수 있습니다.\n" +
+				"현재 첨부파일의 용량은 [ " + Math.round(nTotalFileSize / 1024) + "KB ] 입니다.\n\n" +
+				"계속 진행하시겠습니까?\n");
+				
+		if (bResult == false) {
+			return false;
+		}
+	}	    
+    
+ 	httpObject = objects["httpObject"];
+ 	
+ 	if (httpObject == null) {
+		httpObject = new HttpObject();
+		httpObject.onload.setHandler(fn_httpObject_onload);
+	}    
+
+	//alert("aa");
+	//trace("arrFiles::"+arrFiles);
+	
+	if(ds_FileList.findRow("xRowStatusType", "I") == -1) {
+		alert("업로드 할 파일이 없습니다.");
+		return false;
+	}	
+
+	for (var i in arrFiles) {
+	
+		nCurRow = ds_FileList.findRow("fileName", arrFiles[i].filename);
+		
+		if(ds_FileList.getColumn(nCurRow, "xRowStatusType") == "I") {
+			nRtn = httpObject.upload(gfn_getFileUploadUrl()+"?UUID="+UUID,FileDialog.LOAD, arrFiles[i], false);
+			
+			if(nRtn == false) {
+				alert("파일 업로드 중 오류발생!!");
+				return false;
+			}	
+		}		
+    }
+    
+    return true;
+}
+
+function fn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo) 
+{
+	//trace("----------------------- gfn_httpObject_onload : errorcode = " + e.errorcode + "\t" + "errormsg = " + e.errormsg);
+	
+	if (e.errorcode == 0) {
+		if (fv_WorkMode == "UPLOAD") {
+		
+			ds_UploadResult.loadXML(e.errormsg);
+		
+			ds_FileList.setColumn(nCurRow, "fileId", 		ds_UploadResult.getColumn(0, "fileId"));
+			
+			ds_FileList.setColumn(nCurRow, "filePath", 		ds_UploadResult.getColumn(0, "filePath"));
+			ds_FileList.setColumn(nCurRow, "fileSize", 		ds_UploadResult.getColumn(0, "fileSize"));
+            ds_FileList.setColumn(nCurRow, "isUploaded", 	ds_UploadResult.getColumn(0, "isUploaded"));
+            
+            trace("Upload>>>>>>" + ds_UploadResult.getColumn(0, "filePath"));
+
+		} else if (fv_WorkMode == "SINGLEDOWN") {
+			if (confirm("다운받은 파일을 실행하시겠습니까?")) {
+				//system.execShell(objVFile.fullpath);
+                var objExtCommon = new ExtCommon();
+                var rtn = objExtCommon.executeProcess(objVFile.fullpath, "", "")				
+			}			
+		}
+	} else {
+		if (fv_WorkMode == "UPLOAD") {
+			application.alert("첨부파일 업로드가 실패했습니다.");
+		} else {
+			application.alert("첨부파일 다운로드가 실패했습니다.");
+		}
+	}	
+}
+
+// 버튼 이벤트 영역----------------------------------------------------------------------------------------------------------------
+
+function btn_addFile_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var objFiles = gfn_fileSelect(fv_MultiUploadDiv, fv_FilePath, fv_FilterFlag);
+	if (!objFiles) return;
+	
+// 	trace("objFiles::"+objFiles);
+// 	trace("objFiles.length::"+objFiles.length);
+	
+	if(fv_MultiUploadDiv == "S") {
+	
+		if(ds_FileList.rowcount == 0) {
+			var nRow = gfn_addDs(ds_FileList, true);
+			arrFiles[nRow] = objFiles;
+		} else {
+			// 파일명 동일한 경우 패스
+			var nFRow = ds_FileList.findRow("fileName", objFiles.filename);
+			if(nFRow == -1) {
+				var nRow = 0;	
+				arrFiles[nRow] = objFiles;
+				div_Tab.tab_FileList.removeTabpage(nRow);
+			} else {
+				return;
+			}
+		}
+		
+		var arrFileName = String(objFiles.filename).split(".");
+		
+		objFiles.open(VirtualFile.openRead| VirtualFile.openBinary);
+		
+		//ds_FileList.setColumn(nRow, "fileId", 		"");						// 파일 고유 아이디
+		ds_FileList.setColumn(nRow, "fileLPath", 	objFiles.path);				// 파일의 전체 경로(로컬경로)
+		ds_FileList.setColumn(nRow, "fileName", 	objFiles.filename);			// 파일명
+		//ds_FileList.setColumn(nRow, "targetId", 	"");							// 파일에 맵핑된 객체의 아이디
+		ds_FileList.setColumn(nRow, "fileSize", 	objFiles.getFileSize());		// 파일 크기
+		ds_FileList.setColumn(nRow, "fileType", 	arrFileName[1]);				// 파일의 타입(확장자)
+		//ds_FileList.setColumn(nRow, "detailInfo", 	"");						// 추가 정보
+		//ds_FileList.setColumn(nRow, "regDate", 		"");						// 등록 일시
+		//ds_FileList.setColumn(nRow, "isUploaded", 	"");						// 업로드 성공 여부(디비에는 저장안됨)
+		
+		ds_FileList.setRowType(nRow, gfn_getRowTypeInsert());
+		ds_FileList.setColumn(nRow, gfn_getColNmStatus(), gfn_getRowTypeInsert());
+		
+		objFiles.close();
+		
+		// 탭페이지 추가
+		this.div_Tab.tab_FileList.insertTabpage(objFiles.filename, nRow, "", objFiles.filename);	
+		this.div_Tab.tab_FileList.tabindex = 0;
+
+		objParentDs.assign(ds_FileList);
+
+		//trace("arrFiles::"+arrFiles);
+		gfn_viewObjectInfo(arrFiles);
+		//trace(ds_FileList.saveXML());
+		return;
+	} else {
+	
+		for (var i = 0; i < objFiles.length; i++) {
+
+			// 파일명 동일한 경우 패스
+			var nFRow = ds_FileList.findRow("fileName", objFiles[i].filename);
+			if(nFRow == -1) {
+			
+				var nRow = gfn_addDs(ds_FileList, true);
+				
+				arrFiles[nRow] = objFiles[i];
+				
+				var arrFileName = String(objFiles[i].filename).split(".");
+				
+				objFiles[i].open(VirtualFile.openRead| VirtualFile.openBinary);
+				
+				//ds_FileList.setColumn(nRow, "fileId", 		"");						// 파일 고유 아이디
+				ds_FileList.setColumn(nRow, "fileLPath", 	objFiles[i].path);				// 파일의 전체 경로(로컬경로)
+				ds_FileList.setColumn(nRow, "fileName", 	objFiles[i].filename);			// 파일명
+				//ds_FileList.setColumn(nRow, "targetId", 	"");							// 파일에 맵핑된 객체의 아이디
+				ds_FileList.setColumn(nRow, "fileSize", 	objFiles[i].getFileSize());		// 파일 크기
+				ds_FileList.setColumn(nRow, "fileType", 	arrFileName[1]);				// 파일의 타입(확장자)
+				//ds_FileList.setColumn(nRow, "detailInfo", 	"");						// 추가 정보
+				//ds_FileList.setColumn(nRow, "regDate", 		"");						// 등록 일시
+				//ds_FileList.setColumn(nRow, "isUploaded", 	"");						// 업로드 성공 여부(디비에는 저장안됨)
+				
+				objFiles[i].close();
+				
+				// 탭페이지 추가
+				this.div_Tab.tab_FileList.insertTabpage(objFiles[i].filename, nRow, "", objFiles[i].filename);
+			}	
+		}
+		this.div_Tab.tab_FileList.tabindex = 0;
+	}
+	
+	objParentDs.assign(ds_FileList);
+	
+ 	//trace("arrFiles::"+arrFiles);
+ 	gfn_viewObjectInfo(arrFiles);
+ 	//trace(ds_FileList.saveXML());
+}
+
+function tab_FileList_onextrabuttonclick(obj:Tab, e:TabMouseEventInfo)
+{
+// 	trace(obj.components[e.index].name);
+// 	return;
+	
+	var nRow = ds_FileList.findRow("fileName", obj.components[e.index].name);
+	if(nRow != -1) {
+		fn_delFile(nRow);
+		//div_Tab.tab_FileList.removeTabpage(nRow);
+		div_Tab.tab_FileList.removeTabpage(e.index);
+	}
+	
+	//ds_FileList.deleteRow(e.index);
+// 	fn_delFile(e.index);
+// 	tab_FileList.removeTabpage(e.index);
+
+	objParentDs.assign(ds_FileList);
+	
+	trace(ds_FileList.saveXML());
+	trace("arrFiles::"+arrFiles);
+	gfn_viewObjectInfo(arrFiles);
+}
+
+function fn_delFile(nRow)
+{
+	var i;
+	var nDelCount 	= 1;
+	var nCount 		= ds_FileList.rowcount;
+	var j			= nCount - nDelCount;
+	var TempArray 	= new Array(j--);
+	
+	for(i=ds_FileList.rowcount-1;i>-1;i--)
+	{
+		if(i==nRow)
+		{
+			//ds_FileList.deleteRow(i);
+			if(ds_FileList.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeInsert()) {
+				ds_FileList.deleteRow(i);
+			} else {	
+// 				for(var j=0;j<ds_FileList.getColCount();j++)
+// 				{
+// 					ds_FileList.setColumn(i, ds_FileList.getColID(j), ds_FileList.getOrgColumn(i, ds_FileList.getColID(j)));
+// 				}
+			
+				ds_FileList.setColumn(i, gfn_getColNmStatus(), gfn_getRowTypeDelete());
+			}				
+		}else
+		{
+			TempArray[j--] = arrFiles[i];
+		}
+	}
+	arrFiles = TempArray;
+}
+
+
+function btn_delFile_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(ds_FileList.getCaseCount("gfn_isNull(fileId)==true")>0)
+	{
+		var i;
+		var nDelCount 	= ds_FileList.getCaseCount("_chk=='1'");
+		var nCount 		= ds_FileList.rowcount;
+		var j			= nCount - nDelCount;
+		var TempArray 	= new Array(j--);
+		
+		for(i=ds_FileList.rowcount-1;i>-1;i--)
+		{
+			if(ds_FileList.getColumn(i, "_chk")==1)
+			{
+				ds_FileList.deleteRow(i);
+			}else
+			{
+				TempArray[j--] = arrFiles[i];
+			}
+		}
+		arrFiles = TempArray;
+	} else {
+		//alert("서버에 저장된 파일은 삭제할수 없습니다.", "information");
+	}
+	
+// 	for (var i = 0; i < arrFiles.length; i++) {
+// 		trace(arrFiles[i]);
+// 	}
+// 	
+// 	trace(arrFiles);
+}
+
+function btn_uploadFile_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(fn_fileUpload()) {
+		
+		// TO-DO : 파일 업로드 성공한 후 파일정보 DB저장 처리
+// 		trace(ds_FileList.saveXML());
+// 		return;
+		
+		// KWData 설정
+		gfn_kwDataInit();
+		gfn_setKwData_trscCode("PRT00001AA");				// MCI
+		
+		gfn_tranMCI(gfn_getCommTypeSave() 
+					, "FileInfo=ds_FileList:U"
+					, ""
+					, "fn_commSave_callBack");			
+
+	}
+}
+
+function btn_downloadFile_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fv_WorkMode = "MULTIDOWN";
+	fn_fileDownload();
+}
+
+function grd_FileList_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	if(fv_WorkMode == "UPLOAD") return;
+	
+	fv_WorkMode = "SINGLEDOWN";
+	fn_fileDownload();
+}
+
+function fn_commSave_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	
+}	
+
+function grd_FileList_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	if(e.cell == 0) {
+		gfn_setGridCheckAll(obj, e);
+	}	
+}
+
+// // 단일파일 업로드 용도
+// // 시스템 에러발생시 화면켭쳐 파일업로드 사용
+// function gfn_fileUpload(sUploadUrl, sfileLocalPath)
+// {
+// 	var objHttp;
+//  	objHttp = objects["httpObject"];
+//  	
+//  	if (objHttp == null) {
+// 		objHttp = new HttpObject();
+// 		objHttp.onload.setHandler(gfn_httpObject_onload);
+// 	}    
+// 	
+// 	var arrFiles = new Array();
+// 	var objVirtualFiles = new VirtualFile;
+// 	var nRtn = objVirtualFiles.open(sfileLocalPath, VirtualFile.openRead | VirtualFile.openBinary);
+// 	
+// 	if (!nRtn) {
+// 		objVirtualFiles.close();
+// 		return false;
+// 	}	
+// 		
+// 	arrFiles[0] = objVirtualFiles;
+// 	
+// 	var nRtn = objHttp.upload(sUploadUrl ,FileDialog.LOAD, arrFiles, false);
+// 	
+// 	objVirtualFiles.close();	
+// 	
+// 	if(!nRtn) {
+// 		alert("파일 업로드 중 오류발생!!");
+// 		return false;
+// 	}
+// 	
+// 	return true;
+// }
+// 
+// function gfn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo) 
+// {
+// 	//trace("----------------------- gfn_httpObject_onload : errorcode = " + e.errorcode + "\t" + "errormsg = " + e.errormsg);
+// }	
+
+
+]]></Script>
+  </Form>
+</FDL>

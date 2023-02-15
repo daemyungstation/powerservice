@@ -1,0 +1,284 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS999998" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 356 20" titletext="단일파일 업로드" onload="prod_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <FileUpload id="file_upload" taborder="0" uploadurl="  " timeout="0" retry="0" async="true" index="0" onfindclick="file_onfindclick" position2="absolute l:136 w:20 t:144 h:21" positiontype="position2" tooltiptype="hover,mouseleave" style="editbackground:URL('theme://images/bg_compD.png') stretch 5,5;editborder:0 solid #ccccccff ;" visible="false"/>
+        <Button id="btn_fileUpload" taborder="1" text="파일선택" onclick="btn_onclick" class="btn_WF_Common" position="absolute 0 0 92 20" style="padding:0 0 0 0;"/>
+        <Edit id="edt_file" taborder="2" position="absolute 93 0 330 20" readonly="true" class="edt_clssEnable"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_File" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="filePath" type="STRING" size="256"/>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="file_size_vl" type="STRING" size="256"/>
+          <Column id="file_cntn" type="STRING" size="256"/>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+          <Column id="file_nm" type="STRING" size="256"/>
+          <Column id="atch_typ_cd" type="STRING" size="256"/>
+          <Column id="fileUploadYN" type="STRING" size="256"/>
+          <Column id="file_down" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt_file" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_deleteFile" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_file_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <FileDialog id="fd_file" filter="All(*.*)|*.*|" filterindex="0" defaultextention="false" onclose="fd_file_onclose"/>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_fileParam" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="trgt_list_id" type="STRING" size="256"/>
+          <Column id="trgt_list_typ_cd" type="STRING" size="256"/>
+          <Column id="hometelnofg" type="STRING" size="256"/>
+          <Column id="hpnofg" type="STRING" size="256"/>
+          <Column id="fileState" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+/***************************************************************************
+ * Program ID    : PS.xfdl
+ * Program Name  : 이메일 템플릿 선택
+ * Author        : 정 훈
+ * Created On    : 2016.02.
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자       내    용
+ * =========================================================================
+ * 2016.0    정   훈      최초작성
+ 
+ **************************************************************************/
+
+
+/********************************************************************************************/
+/* 1. Include Library include                                                               */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트,전역변수,초기화) 처리                         	*/
+/********************************************************************************************/
+var file_count = 0;
+var arrFiles = new Array();	// FileDialog 선택을 통한 File Array
+var fv_svcPath = gfn_getServiceUrl("fileUrl");
+var toMode ="R";
+//온로드
+
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) {
+     if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch(svcid){
+			case "srchFile"://파일조회콜백
+				ds_File.clearData();
+				gfn_appendSearchDs(ds_File, ds_file_tmp); // 조회된 결과를 실제보여줄 데이타셋으로 Append처리
+				file_count = ds_File.rowcount;
+				parent.edt_fileDown.value = ds_File.getColumn(ds_File.rowposition,'file_nm');
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+//파일 조회전 처리
+function fn_preSearch_file(sType, rltn_item_id)
+{	
+	if(!gfn_preSearchDs(ds_File, sType)) return false;
+		
+	//TO-DO:조회조건 체크
+	ds_inqCndt_file.clearData();
+	ds_inqCndt_file.addRow();
+	ds_inqCndt_file.setColumn(0, "rltn_item_id", rltn_item_id);
+	ds_inqCndt_file.setColumn(0, "orderBy", "amnt_dttm");
+	ds_inqCndt_file.setColumn(0, "orderDirection", "desc");
+	
+	return true;
+}
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//파일조회
+function fn_commSearch_file(sType,rltn_item_id)
+{	
+    if (!fn_preSearch_file(sType,rltn_item_id)) return false;
+	
+	var szSvcid       = "srchFile";
+    var szController  = "/file/list";
+    var szInDs        = "ds_input=ds_inqCndt_file";
+    var szOutDs       = "ds_file_tmp=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback , false);
+}
+
+
+
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+//한칸 다운로드
+function fn_fileDownLoad(fileNm,rltnItemId,rltnTblNm)
+{
+		fdl_btn_fixedFormDown.downloadfilename = fileNm		
+		fdl_btn_fixedFormDown.downloadurl = fv_svcPath +"file/download?file_nm="+fileNm+"&rltn_item_id="+rltnItemId;
+		fdl_btn_fixedFormDown.downloadurl += "&rltn_tbl_nm="+rltnTblNm
+		var bSucc = fdl_btn_fixedFormDown.download();	
+}
+
+
+//파일업로드 필수일경우 
+function fn_saveFileUpload(rltnItemId,rltnTblNm,sSizeLimit,atchTypCd)
+{
+    //아이템 체크
+    if(!file_upload.hasValue(0)){
+        application.alert("저장할 파일이 없습니다.");
+        return false;
+    }
+	
+	var bResult = fn_FileUpload(rltnItemId,rltnTblNm,sSizeLimit,atchTypCd);
+    if (bResult == false) {    //파일업로드 실패
+        return false;
+    }
+    
+   return true;
+}
+
+
+//파일업로드 로직
+function fn_FileUpload(rltnItemId,rltnTblNm,sSizeLimit,atchTypCd)
+{
+	if(rltnItemId == null){
+		alert("rltnItemId 가 없습니다.");
+		return false;
+	}
+	if(rltnTblNm ==null) rltnTblNm = "";
+	if(atchTypCd ==null) atchTypCd = "10";
+	if(sSizeLimit==null) sSizeLimit = 15728640;// 15 * 1024 * 1024 = 15M
+	
+	var bResult;
+	
+	//파일사이즈 체크시 필요
+	var nFileSize:int = 0; 
+	nFileSize = ds_File.getColumn(ds_File.rowposition , 'file_size_vl');
+	if(sSizeLimit != null){
+		if(nFileSize > sSizeLimit){
+			alert("총 15360KB 이상의 파일은 첨부할 수 없습니다.\n첨부파일의 용량이을 줄여주세요.\n\n" +
+		   "현재 첨부파일의 용량은 [ " + Math.round(nFileSize / 1024) + "KB ] 입니다.");
+			return false;
+		}
+	}
+	
+ 	httpObjectInput = objects["httpObject"];
+
+ 	if (httpObjectInput == null) {
+		httpObjectInput = new HttpObject();
+	}			
+				
+	var Url = fv_svcPath +"file/insert?";
+		Url += 'atch_typ_cd='+atchTypCd;
+		Url += '&rltn_item_id='+rltnItemId;
+		Url += '&rltn_tbl_nm='+rltnTblNm;
+		
+    bResult = httpObjectInput.upload(Url, fd_file.LOAD, arrFiles[0], false);
+	if(bResult == false) {
+		return false;
+	}else{
+		return true;
+	}
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+//버튼클릭이벤트
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	switch(obj){
+		case btn_fileUpload: 
+			file_onfindclick();
+		break;
+	}
+}
+
+
+//파일 선택창 
+function file_onfindclick(obj:FileUpload,  e:FileUploadItemEventInfo)
+{
+	var vFile_up = fd_file.open("변경한 텍스트",fd_file.OPEN);
+	
+	file_upload.innerdataset = "";
+	if( vFile_up != undefined) {
+		var nArrIdx = 0;
+		arrFiles[nArrIdx] = vFile_up;
+		vFile_up.open(VirtualFile.openRead| VirtualFile.openBinary);
+		sFilePath = vFile_up.path;
+		sFileName = vFile_up.filename;
+		nFileSize = vFile_up.getFileSize();
+		
+		// 파일크기가 5MB 이상 파일은 업로드 제한 - 2018.08.09
+		if(nFileSize >= 5242880)  // 5 * 1024 * 1024 = 5242880
+		{
+			alert("5 MB 이상의 파일은 첨부할 수 없습니다.\n\n" +
+		   //"현재 첨부파일크기는 [ " + Math.round(nFileSize / 1024 ) + "KB ] 입니다.");
+		   "현재 첨부파일크기는 [ " + Math.round(nFileSize / 1024 / 1024) + "MB ] 입니다.");
+			return false;
+		}
+		
+		edt_file.value = sFileName;
+		ds_File.clearData();
+		ds_File.addRow();
+		ds_File.setColumn(ds_File.rowposition,"filePath", sFilePath);
+		ds_File.setColumn(ds_File.rowposition,"file_nm", sFileName);
+		ds_File.setColumn(ds_File.rowposition,"file_size_vl", nFileSize);
+		
+		//ds_trgtList.setColumn(ds_trgtList.rowposition,'trgt_list_file_nm',vFile_up.filename);
+	}
+
+	file_upload.innerdataset = "ds_file";
+	file_upload.filecolumn = "filePath";
+	
+	return false; //기본으로 뜨는 파일 다이얼로그를 띄우지 않도록 처리함.
+}]]></Script>
+  </Form>
+</FDL>

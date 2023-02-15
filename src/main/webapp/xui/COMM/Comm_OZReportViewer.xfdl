@@ -1,0 +1,256 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_OZReportViewer" classname="OZ_Sample" inheritanceid="" position="absolute 0 0 850 850" titletext="OZReportViewer" onload="Comm_OZReportViewer_onload" style="background:transparent;">
+    <Layouts>
+      <Layout>
+        <ActiveX id="ActiveX00" position="absolute 0 0 850 850" progid="{0DEF32F8-170F-46F8-B1FF-4BF7443F5F25}" anchor="all" taborder="1" popupstyle="true" windowed="true"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_ozrParameter" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="key" type="STRING" size="256"/>
+          <Column id="value" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_odiParameter" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="key" type="STRING" size="256"/>
+          <Column id="value" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_csvData" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_xmlData" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+/*
+	1. 처리유형	
+		1) query + csv + ozr Parameter + odi Parameter 
+		
+	2. 처리방법
+		 	
+		1) query + csv + ozr Parameter + odi Parameter 
+			- csv 처리를 위한 데이타셋 정의
+			- ozr Parameter 처리를 위한 데이타셋 정의
+			- odi Parameter 처리를 위한 데이타셋 정의
+
+	3. 전달 데이타셋
+	
+		1) pv_objDsList
+	
+	
+	4. 전달 파라미터
+	
+		1) pv_ozRptFilePath : OZ File Path(ex:Sample/)
+		2) pv_ozRptFileNm	: OZReport FileName (ex:krp-sample)
+			
+*/
+
+function Comm_OZReportViewer_onload(obj:Form, e:LoadEventInfo)
+{
+	this.getOwnerFrame().openstatus = "maximize";
+	
+	fn_init();
+}
+
+function fn_init()
+{
+	// 부모창에서 전달받은 파라미터 데이타셋 로컬데이타셋으로 복사
+// 	ds_csvData.copyData(pv_objDsCsvData);
+// 	ds_xmlData.copyData(pv_objDsXmlData);
+
+	// ozr,odi 파라미터 설정정보 로컬데이타셋으로 복사
+ 	ds_ozrParameter.copyData(gds_OzRptOzrParam);
+ 	ds_odiParameter.copyData(gds_OzRptOdiParam);	
+ 	
+ 	fn_viewOZReport();
+}
+
+function fn_viewOZReport()
+{
+	var ozSep 		= "^";		// OZ-Report 라인피드
+	var ozColDiv 	= "||";		// CSV방식 Column 구분자
+	var ozRowDiv 	= "\n";		// CSV방식 Row 구분자
+	
+	var strOzReportHead 		= "";
+	var strOzReportOzrParam 	= "";
+	var strOzReportOdiParam 	= "";
+	var strOzReportCsvData 		= "";
+	 
+	var nIndex = 0;
+	strOzReportHead += "connection.servlet=" + gfn_getOZReportUrl() + ozSep; 
+	strOzReportHead += "connection.reportname=" + pv_ozRptFilePath + pv_ozRptFileNm + ".ozr" + ozSep;
+	strOzReportHead += "information.debug=true" + ozSep;
+	strOzReportHead += "viewer.isframe=false" + ozSep;
+	//strOzReportHead += "viewer.mode=preview" + ozSep;	//preview(default), print, export
+	//strOzReportHead += "viewer.namespace=kyowon\\ozviewer" + ozSep;
+	if(pv_previewMode == "silent_tail"){
+		strOzReportHead += "viewer.mode=print" + ozSep;
+		strOzReportHead += "print.mode=silent" + ozSep;
+	}else{
+		strOzReportHead += "viewer.mode=" + pv_previewMode.split("_")[1] + ozSep;
+	}
+	var nPCount = 0;
+	if(pv_objDsList == null) {
+		nPCount = ds_ozrParameter.rowcount;
+	} else {
+		nPCount = ds_ozrParameter.rowcount + 3;		// CSV파라미터 개수 추가
+	}
+	
+	// ozr Parameter pcount 설정
+	strOzReportOzrParam += "connection.pcount="+nPCount + ozSep;
+	
+	// ozr Parameter(Form Parameter)
+	if(ds_ozrParameter.rowcount > 0) {
+		nIndex = 0;
+		for(var i=0;i<ds_ozrParameter.rowcount;i++)
+		{
+			nIndex++;
+			strOzReportOzrParam += "connection.args" + nIndex + "=" + ds_ozrParameter.getColumn(i, "key") + "=" + ds_ozrParameter.getColumn(i, "value") + ozSep;
+		}
+	}	
+
+	// csv 처리
+	// csv 방식으로 n개의 데이타셋 처리시에는 Object로 전달받아서 처리하는 로직 처리 필요
+	if(pv_objDsList != null) {
+		//DataSet 을 CSV로 변환
+		var csvData = fn_getCsvData_OzReport(pv_objDsList, ozColDiv, ozRowDiv);
+	
+		nIndex++;
+		strOzReportCsvData += "connection.args" + nIndex + "=csvdata=" + csvData + ozSep;
+		nIndex++;
+		strOzReportCsvData += "connection.args" + nIndex + "=" + ozColDiv + ozSep;
+		nIndex++;
+		strOzReportCsvData += "connection.args" + nIndex + "=" + ozRowDiv + ozSep;
+	}		
+	
+	var nPCount = ds_odiParameter.rowcount + 1;
+
+	nIndex = 0;
+	strOzReportOdiParam += "odi.odinames=" + pv_ozRptFileNm + ozSep;
+	strOzReportOdiParam += "odi."+pv_ozRptFileNm+".pcount="+nPCount + ozSep;
+			
+	// odi Parameter
+	if(ds_odiParameter.rowcount > 0) {
+		for(var i=0;i<ds_odiParameter.rowcount;i++)
+		{
+			nIndex++;
+			strOzReportOdiParam += "odi."+pv_ozRptFileNm+".args" + nIndex + "=" + ds_odiParameter.getColumn(i, "key") + "=" + ds_odiParameter.getColumn(i, "value") + ozSep;
+		}
+	}	
+
+	// DB접속정보 파라미터 전달(필수)
+	var sConnectDB = gfn_getOZServiceMode();	// OZ-Report 접속DB정보
+	nIndex++;
+	strOzReportOdiParam += "odi."+pv_ozRptFileNm+".args" + nIndex + "=kyowon_db=" + sConnectDB + ozSep;	
+	
+	var strOzReport = strOzReportHead + strOzReportOzrParam + strOzReportCsvData + strOzReportOdiParam;
+	
+	trace("strOzReport::"+strOzReport);
+	
+	this.ActiveX00.CreateReportEx(strOzReport, ozSep);
+	
+	//일괄 처리인 경우 자동으로 ozviewer를 닫는다.
+	if(pv_previewMode.split("_")[0] == "silent"){
+		this.close();
+	}
+}
+
+//DataSet 을 OZReport XMLData 형태로 변환해서 반환하는 함수
+function fn_getXmlData_OzReport(objDs)
+{
+	//var strOZDataXML = "<?xml version=\"1.0\" encoding=\"euc-kr\"?>" + "\n";
+	var strOZDataXML = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + "\n";
+	
+	strOZDataXML += "<DATASETLIST>" + "\n";
+	strOZDataXML += objDs.saveXML() + "\n";
+	strOZDataXML += "</DATASETLIST>" + "\n";
+	
+	return strOZDataXML;
+}
+
+//DataSet 을 OZReport CSVData 형태로 변환해서 반환하는 함수
+function fn_getCsvData_OzReport(objDsList, colDiv, rowDiv)
+{
+	//var csvData = "ID^NAME^ADDRESS///INTEGER^VARCHAR^VARCHAR///1^Park Chan Ho^Texas///2^Shin Ki Sung^Seoul///3^Kim Byung Hyun^Arizona";			// 칼럼구분자("^")
+	//var csvData = "ID||NAME||ADDRESS///INTEGER||VARCHAR||VARCHAR///1||Park Chan Ho||Texas///2||Shin Ki Sung||Seoul///3||Kim Byung Hyun||Arizona";	// 칼럼구분자("||")
+	
+	//trace("objDsList::"+objDsList);
+	
+	var csvData 	= "";
+	var nLoopCnt	= 0;
+	var nobjDsCnt	= 0;
+	
+	for(var k in objDsList)
+	{
+		nobjDsCnt++;
+	}
+
+	for(var k in objDsList)
+	{
+		//trace(k + " " + objDsList[k]);
+		
+		nLoopCnt++;
+		
+		var objDs = objDsList[k];
+		
+		var colList 	= "";
+		var typeList 	= "";
+		var rowList 	= "";
+		
+		for(var i=0;i<objDs.getColCount();i++)
+		{
+			if(i==0) {
+				colList += objDs.getColID(i);
+			} else {
+				colList += colDiv+ objDs.getColID(i);
+			}
+			
+			var o_cinfo =  objDs.getColumnInfo(i);
+			if(i==0) {
+				//typeList += o_cinfo.type;
+				typeList += "VARCHAR";
+			} else {
+				//typeList += colDiv+ o_cinfo.type;
+				typeList += colDiv+ "VARCHAR";
+			}		
+		}
+
+		for(var i=0;i<objDs.rowcount;i++)
+		{
+			if(i!=0) {
+				rowList += rowDiv;
+			}
+		
+			for(var j=0;j<objDs.getColCount();j++)
+			{
+				if(j==0) {
+					rowList += objDs.getColumn(i,j);
+				} else {
+					rowList += colDiv+ objDs.getColumn(i,j);
+				}	
+			}
+		}
+		
+		trace("objDsList.length::"+nobjDsCnt+" nLoopCnt::"+nLoopCnt);
+		
+		var endDiv = (nobjDsCnt!=nLoopCnt?"\n//EOR//\n":"\n");
+		
+		csvData += colList + rowDiv + typeList + rowDiv + rowList + endDiv;
+	}
+	
+	//trace("csvData::"+csvData);
+	
+	return csvData;
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+]]></Script>
+  </Form>
+</FDL>

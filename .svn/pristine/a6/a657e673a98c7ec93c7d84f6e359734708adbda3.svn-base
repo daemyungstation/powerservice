@@ -1,0 +1,1433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwItoMngMap">
+    <!-- ================================================================ 
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 조회수
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getResnDayCloseListCount" parameterType="map" resultType="int">
+         SELECT	COUNT(*)
+		   FROM LF_DMUSER.TB_RESN_DAY_CLOSE
+		  WHERE RESN_PROC_DAY = #{resn_proc_day}
+		    AND DEL_YN = 'N'
+			  
+     </select>
+     <!-- ================================================================ 
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->     
+       <select id="DlwItoMngMap.getResnDayCloseList" parameterType="map" resultType="resultMap">
+          SELECT A.ACCNT_NO							/* 회원번호 		*/
+			   , A.MEM_NM							/* 성명 			*/
+			   , A.PROD_NM							/* 상품명			*/
+			   , A.JOIN_DT							/* 가입일자 		*/
+			   , A.DAMDANG							
+			   , A.DEPT_NM							
+			   , A.RESN_ACPT_DAY					/* 해약등록일 		*/
+			   , A.RESN_PROC_DAY					/* 해약처리일 		*/
+			   , A.RESN_SEND_DAY					/* 해약송금일 		*/
+			   , FN_COM_NM('82',A.RESON) AS RESON   /* 고객사유   		*/
+			   , A.COMP_RESON						
+			   , A.RESN_MTHD						/* 해약환급방법 	*/
+			   , A.BANK_ACCNT_NO					/* 계좌번호 		*/
+			   , A.BANK_CD							/* 은행코드 		*/
+			   , A.BANK_NM							/* 은행명   		*/
+			   , A.DEPR								/* 예금주 			*/
+			   , A.DEPR_INFO						/* 은행명 계좌번호 예금주  */
+			   , A.RELT					   			/* 관계 			*/
+			   , FN_COM_NM('64',A.RESN_CL) AS RESN_CL							/* 해약구분     */
+			   , DECODE(A.RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN		/* 해약처리여부 */ 
+			   , A.DOCUMENT 						
+			   , A.TRUE_CNT							/* 상조회차 		*/
+			   , A.TRUE_AMT							/* 상조금액 		*/
+			   , A.MONTH_TRUE_AMT					/* 월상조통계금액 	*/
+			   , A.REL_AMT							/* 결합금액 		*/
+			   , A.MONTH_REL_AMT					/* 월결합통계금액 	*/
+			   , A.ADD_AMT							/* 추가금액 		*/
+			   , A.GONGJE_AMT						/* 공제금액 		*/
+			   , A.NEW_CHAN_GUNSU 					/* 특별할인회차 	*/
+			   , A.PRE_DC							
+			   , A.RESN_PAY_AMT						/* 실지급금액 		*/
+			   , A.RESN_PLUS						/* 해약수익금 		*/
+			   , A.SHOPPING_USE_AMT		 			/* 쇼핑몰사용금액 	*/   
+		    FROM LF_DMUSER.TB_RESN_DAY_CLOSE A 				    
+		   WHERE 1=1
+		     AND A.RESN_PROC_DAY = #{resn_proc_day}
+		     AND A.DEL_YN = 'N'
+		   ORDER BY A.ACCNT_NO		   
+	   </select>
+
+     <!-- ================================================================ 
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 조회수(해약환급데일리 테이블에 없을때 조회)
+     * 대상 테이블 : RESCISSION , MEM_PROD_ACCNT , MEMBER , PRODUCT , TB_MEMBER_BASIC_INFO_DAY
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getResnDayCloseListCount2" parameterType="map" resultType="int">
+         <![CDATA[
+         WITH TBLMAIN
+		 AS
+		 ( SELECT ACCNT_NO
+		        , MEM_NM
+		        , PROD_NM
+		        , JOIN_DT
+		        , DAMDANG
+		        , DEPT_NM
+		        , RESN_ACPT_DAY
+		        , RESN_PROC_DAY
+		        , RESN_SEND_DAY
+		        , RESON 
+		        , COMP_RESON
+		        , RESN_MTHD
+		        , BANK_ACCNT_NO
+		        , BANK_CD
+		        , BANK_NM
+		        , DEPR
+		        , DEPR_INFO
+		        , RELT
+		        , RESN_CL
+		        , RESN_PROC_YN
+		        , DOCUMENT
+		        , TRUE_CNT
+		        , TRUE_AMT
+		        , ROUND(TRUE_AMT/TRUE_CNT,0) AS MONTH_TRUE_AMT
+		        , REL_AMT
+		        , ROUND(REL_AMT / REL_CNT,0) AS MONTH_REL_AMT
+		        , ADD_AMT
+		        , GONGJE_AMT
+		        , NEW_CHAN_GUNSU 
+		        , PRE_DC
+		        , RESN_PAY_AMT
+		        , RESN_PLUS
+		        , SHOPPING_USE_AMT
+		     FROM 
+		        ( SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		         	 AND RS.DEL_FG = 'N'
+		        	 AND RS.RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RS.RESN_CL = '01'
+		        	 AND RS.RESN_PROC_YN = 'Y'
+		        	 AND RS.RESON != '23'
+		        	 AND RS.CALC_MTHD = '0001'   
+		        
+		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		         	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '02'
+		        	 AND RESON != '23'
+		        	 AND CALC_MTHD = '0001'
+		        
+		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		             AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '02'
+		        	 AND RESON != '23'
+		        	 AND CALC_MTHD = '0002'
+		
+  		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		        	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '03'
+		        	 AND RESN_PROC_YN = 'Y'    
+		        
+		           UNION ALL
+		
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		        	FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		        	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESON = '23'
+		        	 AND RESN_PROC_YN = 'Y'
+		        
+		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		        	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '04'
+		        	 AND RESN_PROC_YN = 'Y'    
+		    	) TBL  
+		)
+		SELECT COUNT(*) FROM TBLMAIN
+     
+		
+		]]>  
+     </select>
+     <!-- ================================================================ 
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트(해약환급데일리 테이블에 데이터 없을때 조회)
+     * 대상 테이블 : RESCISSION , MEM_PROD_ACCNT , MEMBER , PRODUCT , TB_MEMBER_BASIC_INFO_DAY
+     * ================================================================
+     * -->     
+       <select id="DlwItoMngMap.getResnDayCloseList2" parameterType="map" resultType="resultMap">
+          <![CDATA[
+          WITH TBLMAIN
+		  AS
+		  ( SELECT ACCNT_NO
+		         , MEM_NM
+		         , PROD_NM
+		         , JOIN_DT
+		         , DAMDANG
+		         , DEPT_NM
+		         , RESN_ACPT_DAY
+		         , RESN_PROC_DAY
+		         , RESN_SEND_DAY
+		         , RESON 
+		         , COMP_RESON
+		         , RESN_MTHD
+		         , BANK_ACCNT_NO
+		         , BANK_CD
+		         , BANK_NM
+		         , DEPR
+		         , DEPR_INFO
+		         , RELT
+		         , RESN_CL
+		         , RESN_PROC_YN
+		         , DOCUMENT
+		         , TRUE_CNT
+		         , TRUE_AMT
+		         , ROUND(TRUE_AMT/TRUE_CNT,0) AS MONTH_TRUE_AMT
+		         , REL_AMT
+		         , ROUND(REL_AMT / REL_CNT,0) AS MONTH_REL_AMT
+		         , ADD_AMT
+		         , GONGJE_AMT
+		         , NEW_CHAN_GUNSU 
+		         , PRE_DC
+		         , RESN_PAY_AMT
+		         , RESN_PLUS
+		         , SHOPPING_USE_AMT
+		      FROM 
+		         (SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		         	 AND RS.DEL_FG = 'N'
+		        	 AND RS.RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RS.RESN_CL = '01'
+		        	 AND RS.RESN_PROC_YN = 'Y'
+		        	 AND RS.RESON != '23'
+		        	 AND RS.CALC_MTHD = '0001'   
+		        
+		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		         	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '02'
+		        	 AND RESON != '23'
+		        	 AND CALC_MTHD = '0001'
+		        
+		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		             AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '02'
+		        	 AND RESON != '23'
+		        	 AND CALC_MTHD = '0002'
+		
+  		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		        	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '03'
+		        	 AND RESN_PROC_YN = 'Y'    
+		        
+		           UNION ALL
+		
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		        	FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		        	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESON = '23'
+		        	 AND RESN_PROC_YN = 'Y'
+		        
+		           UNION ALL
+		        
+		          SELECT RS.ACCNT_NO
+		               , MB.MEM_NM
+		               , PD.PROD_NM
+		               , MPA.JOIN_DT
+		               , '0' AS DAMDANG
+		               , '0' AS DEPT_NM
+		               , RS.RESN_ACPT_DAY
+		               , RS.RESN_PROC_DAY
+		               , '0' AS RESN_SEND_DAY
+		               , FN_COM_NM('82',RESON) AS RESON
+		               , '0' AS COMP_RESON
+		               , '0' AS RESN_MTHD
+		               , RS.BANK_ACCNT_NO
+		               , RS.BANK_CD
+		               , RS.BANK_NM
+		               , RS.DEPR
+		               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+		               , '0' AS RELT
+		               , FN_COM_NM('64',RESN_CL) AS RESN_CL        
+		               , DECODE(RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN
+		               , '0' AS DOCUMENT
+		               , MBID.TRUE_CNT
+		               , MBID.REL_CNT
+		               , MBID.ADD_CNT
+		               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+		               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+		               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+		               , '0' AS GONGJE_AMT
+		               , MPA.NEW_CHAN_GUNSU 
+		               , '0' AS PRE_DC
+		               , RS.RESN_PAY_AMT
+		               , RESN_PLUS
+		               , SHOPPING_USE_AMT
+		            FROM RESCISSION RS 
+		      INNER JOIN MEM_PROD_ACCNT MPA 
+		              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+		             AND MPA.DEL_FG = 'N' 
+		      INNER JOIN MEMBER MB 
+		              ON MPA.MEM_NO = MB.MEM_NO 
+		             AND MB.DEL_FG = 'N' 
+		      INNER JOIN PRODUCT PD 
+		              ON MPA.PROD_CD = PD.PROD_CD 
+		 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+		              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+		           WHERE 1=1
+		        	 AND RS.DEL_FG = 'N'
+		        	 AND RESN_PROC_DAY = #{resn_proc_day}
+		        	 AND RESN_CL = '04'
+		        	 AND RESN_PROC_YN = 'Y'    
+		    	) TBL
+		)
+
+			SELECT TBLMAIN.* 
+			     , (CASE WHEN (SELECT COUNT(1) 
+                                 FROM TB_RESN_DAY_CLOSE Z 
+                                WHERE Z.ACCNT_NO = TBLMAIN.ACCNT_NO 
+                                  AND Z.DEL_YN = 'N'
+                                  AND Z.RESN_PROC_DAY < #{resn_proc_day}) > 0
+                                  
+                         THEN 1 
+                         ELSE 0 
+                    END) AS RESN_YN
+              FROM TBLMAIN
+			 ORDER BY TBLMAIN.ACCNT_NO
+     
+		   ]]>				
+		  
+	   </select>
+	   
+	 <!-- ================================================================ 
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트 저장
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->            
+           
+    <insert id="DlwItoMngMap.insertResnDayClose" parameterType="map">
+        <![CDATA[
+        INSERT /* DlwItoMngMap.insertResnDayClose */
+          INTO TB_RESN_DAY_CLOSE
+               (  ACCNT_NO
+                , MEM_NM
+				, PROD_NM	
+				, JOIN_DT	
+				, DAMDANG		
+				, DEPT_NM		
+				, RESN_ACPT_DAY	
+				, RESN_PROC_DAY	
+				, RESN_SEND_DAY		
+				, RESON	
+				, COMP_RESON		
+				, RESN_MTHD		
+				, BANK_ACCNT_NO		
+				, BANK_CD	
+				, BANK_NM	
+				, DEPR	
+				, DEPR_INFO		
+				, RELT		
+				, RESN_CL	
+				, RESN_PROC_YN	
+				, DOCUMENT		
+				, TRUE_CNT	
+				, TRUE_AMT	
+				, MONTH_TRUE_AMT		
+				, REL_AMT	
+				, MONTH_REL_AMT		
+				, ADD_AMT	
+				, GONGJE_AMT		
+				, NEW_CHAN_GUNSU	
+				, PRE_DC		
+				, RESN_PAY_AMT	
+				, RESN_PLUS	
+				, SHOPPING_USE_AMT	
+				, REG_MAN	
+				, REG_DM	
+				, UPD_MAN	
+				, UPD_DM
+				, DEL_YN	
+               )
+               SELECT ACCNT_NO
+			        , MEM_NM
+			        , PROD_NM
+			        , JOIN_DT
+			        , DAMDANG
+			        , DEPT_NM
+			        , RESN_ACPT_DAY
+			        , RESN_PROC_DAY
+			        , RESN_SEND_DAY
+			        , RESON 
+			        , COMP_RESON
+			        , RESN_MTHD
+			        , BANK_ACCNT_NO
+			        , BANK_CD
+			        , BANK_NM
+			        , DEPR
+			        , DEPR_INFO
+			        , RELT
+			        , RESN_CL
+			        , RESN_PROC_YN
+			        , DOCUMENT
+			        , TRUE_CNT
+			        , TRUE_AMT
+			        , ROUND(TRUE_AMT/TRUE_CNT,0) AS MONTH_TRUE_AMT
+			        , REL_AMT
+			        , ROUND(REL_AMT / REL_CNT,0) AS MONTH_REL_AMT
+			        , ADD_AMT
+			        , GONGJE_AMT
+			        , NEW_CHAN_GUNSU 
+			        , PRE_DC
+			        , RESN_PAY_AMT
+			        , RESN_PLUS
+			        , SHOPPING_USE_AMT
+			        , #{reg_man}
+			        , SYSDATE
+			        , #{reg_man}
+			        , SYSDATE
+			        , 'N'
+			     FROM 
+			        ( SELECT RS.ACCNT_NO
+			               , MB.MEM_NM
+			               , PD.PROD_NM
+			               , MPA.JOIN_DT
+			               , '0' AS DAMDANG
+			               , '0' AS DEPT_NM
+			               , RS.RESN_ACPT_DAY
+			               , RS.RESN_PROC_DAY
+			               , '0' AS RESN_SEND_DAY
+			               , RESON
+			               , '0' AS COMP_RESON
+			               , '0' AS RESN_MTHD
+			               , RS.BANK_ACCNT_NO
+			               , RS.BANK_CD
+			               , RS.BANK_NM
+			               , RS.DEPR
+			               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+			               , '0' AS RELT
+			               , RESN_CL        
+			               , RESN_PROC_YN
+			               , '0' AS DOCUMENT
+			               , MBID.TRUE_CNT
+			               , MBID.REL_CNT
+			               , MBID.ADD_CNT
+			               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+			               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+			               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+			               , '0' AS GONGJE_AMT
+			               , MPA.NEW_CHAN_GUNSU 
+			               , '0' AS PRE_DC
+			               , RS.RESN_PAY_AMT
+			               , RESN_PLUS
+			               , SHOPPING_USE_AMT
+			            FROM RESCISSION RS 
+			      INNER JOIN MEM_PROD_ACCNT MPA 
+			              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+			             AND MPA.DEL_FG = 'N' 
+			      INNER JOIN MEMBER MB 
+			              ON MPA.MEM_NO = MB.MEM_NO 
+			             AND MB.DEL_FG = 'N' 
+			      INNER JOIN PRODUCT PD 
+			              ON MPA.PROD_CD = PD.PROD_CD 
+			 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+			              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+			           WHERE 1=1
+			         	 AND RS.DEL_FG = 'N'
+			        	 AND RS.RESN_PROC_DAY = #{resn_proc_day}
+			        	 AND RS.RESN_CL = '01'
+			        	 AND RS.RESN_PROC_YN = 'Y'
+			        	 AND RS.RESON != '23'
+			        	 AND RS.CALC_MTHD = '0001'   
+			        
+			           UNION ALL
+			        
+			          SELECT RS.ACCNT_NO
+			               , MB.MEM_NM
+			               , PD.PROD_NM
+			               , MPA.JOIN_DT
+			               , '0' AS DAMDANG
+			               , '0' AS DEPT_NM
+			               , RS.RESN_ACPT_DAY
+			               , RS.RESN_PROC_DAY
+			               , '0' AS RESN_SEND_DAY
+			               , RESON
+			               , '0' AS COMP_RESON
+			               , '0' AS RESN_MTHD
+			               , RS.BANK_ACCNT_NO
+			               , RS.BANK_CD
+			               , RS.BANK_NM
+			               , RS.DEPR
+			               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+			               , '0' AS RELT
+			               , RESN_CL        
+			               , RESN_PROC_YN
+			               , '0' AS DOCUMENT
+			               , MBID.TRUE_CNT
+			               , MBID.REL_CNT
+			               , MBID.ADD_CNT
+			               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+			               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+			               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+			               , '0' AS GONGJE_AMT
+			               , MPA.NEW_CHAN_GUNSU 
+			               , '0' AS PRE_DC
+			               , RS.RESN_PAY_AMT
+			               , RESN_PLUS
+			               , SHOPPING_USE_AMT
+			            FROM RESCISSION RS 
+			      INNER JOIN MEM_PROD_ACCNT MPA 
+			              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+			             AND MPA.DEL_FG = 'N' 
+			      INNER JOIN MEMBER MB 
+			              ON MPA.MEM_NO = MB.MEM_NO 
+			             AND MB.DEL_FG = 'N' 
+			      INNER JOIN PRODUCT PD 
+			              ON MPA.PROD_CD = PD.PROD_CD 
+			 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+			              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+			           WHERE 1=1
+			         	 AND RS.DEL_FG = 'N'
+			        	 AND RESN_PROC_DAY = #{resn_proc_day}
+			        	 AND RESN_CL = '02'
+			        	 AND RESON != '23'
+			        	 AND CALC_MTHD = '0001'
+			        
+			           UNION ALL
+			        
+			          SELECT RS.ACCNT_NO
+			               , MB.MEM_NM
+			               , PD.PROD_NM
+			               , MPA.JOIN_DT
+			               , '0' AS DAMDANG
+			               , '0' AS DEPT_NM
+			               , RS.RESN_ACPT_DAY
+			               , RS.RESN_PROC_DAY
+			               , '0' AS RESN_SEND_DAY
+			               , RESON
+			               , '0' AS COMP_RESON
+			               , '0' AS RESN_MTHD
+			               , RS.BANK_ACCNT_NO
+			               , RS.BANK_CD
+			               , RS.BANK_NM
+			               , RS.DEPR
+			               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+			               , '0' AS RELT
+			               , RESN_CL        
+			               , RESN_PROC_YN
+			               , '0' AS DOCUMENT
+			               , MBID.TRUE_CNT
+			               , MBID.REL_CNT
+			               , MBID.ADD_CNT
+			               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+			               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+			               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+			               , '0' AS GONGJE_AMT
+			               , MPA.NEW_CHAN_GUNSU 
+			               , '0' AS PRE_DC
+			               , RS.RESN_PAY_AMT
+			               , RESN_PLUS
+			               , SHOPPING_USE_AMT
+			            FROM RESCISSION RS 
+			      INNER JOIN MEM_PROD_ACCNT MPA 
+			              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+			             AND MPA.DEL_FG = 'N' 
+			      INNER JOIN MEMBER MB 
+			              ON MPA.MEM_NO = MB.MEM_NO 
+			             AND MB.DEL_FG = 'N' 
+			      INNER JOIN PRODUCT PD 
+			              ON MPA.PROD_CD = PD.PROD_CD 
+			 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+			              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+			           WHERE 1=1
+			             AND RS.DEL_FG = 'N'
+			        	 AND RESN_PROC_DAY = #{resn_proc_day}
+			        	 AND RESN_CL = '02'
+			        	 AND RESON != '23'
+			        	 AND CALC_MTHD = '0002'
+			
+	  		           UNION ALL
+			        
+			          SELECT RS.ACCNT_NO
+			               , MB.MEM_NM
+			               , PD.PROD_NM
+			               , MPA.JOIN_DT
+			               , '0' AS DAMDANG
+			               , '0' AS DEPT_NM
+			               , RS.RESN_ACPT_DAY
+			               , RS.RESN_PROC_DAY
+			               , '0' AS RESN_SEND_DAY
+			               , RESON
+			               , '0' AS COMP_RESON
+			               , '0' AS RESN_MTHD
+			               , RS.BANK_ACCNT_NO
+			               , RS.BANK_CD
+			               , RS.BANK_NM
+			               , RS.DEPR
+			               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+			               , '0' AS RELT
+			               , RESN_CL        
+			               , RESN_PROC_YN
+			               , '0' AS DOCUMENT
+			               , MBID.TRUE_CNT
+			               , MBID.REL_CNT
+			               , MBID.ADD_CNT
+			               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+			               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+			               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+			               , '0' AS GONGJE_AMT
+			               , MPA.NEW_CHAN_GUNSU 
+			               , '0' AS PRE_DC
+			               , RS.RESN_PAY_AMT
+			               , RESN_PLUS
+			               , SHOPPING_USE_AMT
+			            FROM RESCISSION RS 
+			      INNER JOIN MEM_PROD_ACCNT MPA 
+			              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+			             AND MPA.DEL_FG = 'N' 
+			      INNER JOIN MEMBER MB 
+			              ON MPA.MEM_NO = MB.MEM_NO 
+			             AND MB.DEL_FG = 'N' 
+			      INNER JOIN PRODUCT PD 
+			              ON MPA.PROD_CD = PD.PROD_CD 
+			 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+			              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+			           WHERE 1=1
+			        	 AND RS.DEL_FG = 'N'
+			        	 AND RESN_PROC_DAY = #{resn_proc_day}
+			        	 AND RESN_CL = '03'
+			        	 AND RESN_PROC_YN = 'Y'    
+			        
+			           UNION ALL
+			
+			          SELECT RS.ACCNT_NO
+			               , MB.MEM_NM
+			               , PD.PROD_NM
+			               , MPA.JOIN_DT
+			               , '0' AS DAMDANG
+			               , '0' AS DEPT_NM
+			               , RS.RESN_ACPT_DAY
+			               , RS.RESN_PROC_DAY
+			               , '0' AS RESN_SEND_DAY
+			               , RESON
+			               , '0' AS COMP_RESON
+			               , '0' AS RESN_MTHD
+			               , RS.BANK_ACCNT_NO
+			               , RS.BANK_CD
+			               , RS.BANK_NM
+			               , RS.DEPR
+			               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+			               , '0' AS RELT
+			               , RESN_CL        
+			               , RESN_PROC_YN
+			               , '0' AS DOCUMENT
+			               , MBID.TRUE_CNT
+			               , MBID.REL_CNT
+			               , MBID.ADD_CNT
+			               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+			               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+			               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+			               , '0' AS GONGJE_AMT
+			               , MPA.NEW_CHAN_GUNSU 
+			               , '0' AS PRE_DC
+			               , RS.RESN_PAY_AMT
+			               , RESN_PLUS
+			               , SHOPPING_USE_AMT
+			        	FROM RESCISSION RS 
+			      INNER JOIN MEM_PROD_ACCNT MPA 
+			              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+			             AND MPA.DEL_FG = 'N' 
+			      INNER JOIN MEMBER MB 
+			              ON MPA.MEM_NO = MB.MEM_NO 
+			             AND MB.DEL_FG = 'N' 
+			      INNER JOIN PRODUCT PD 
+			              ON MPA.PROD_CD = PD.PROD_CD 
+			 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+			              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+			           WHERE 1=1
+			        	 AND RS.DEL_FG = 'N'
+			        	 AND RESN_PROC_DAY = #{resn_proc_day}
+			        	 AND RESON = '23'
+			        	 AND RESN_PROC_YN = 'Y'
+			        
+			           UNION ALL
+			        
+			          SELECT RS.ACCNT_NO
+			               , MB.MEM_NM
+			               , PD.PROD_NM
+			               , MPA.JOIN_DT
+			               , '0' AS DAMDANG
+			               , '0' AS DEPT_NM
+			               , RS.RESN_ACPT_DAY
+			               , RS.RESN_PROC_DAY
+			               , '0' AS RESN_SEND_DAY
+			               , RESON
+			               , '0' AS COMP_RESON
+			               , '0' AS RESN_MTHD
+			               , RS.BANK_ACCNT_NO
+			               , RS.BANK_CD
+			               , RS.BANK_NM
+			               , RS.DEPR
+			               , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+			               , '0' AS RELT
+			               , RESN_CL        
+			               , RESN_PROC_YN
+			               , '0' AS DOCUMENT
+			               , MBID.TRUE_CNT
+			               , MBID.REL_CNT
+			               , MBID.ADD_CNT
+			               , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+			               , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+			               , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+			               , '0' AS GONGJE_AMT
+			               , MPA.NEW_CHAN_GUNSU 
+			               , '0' AS PRE_DC
+			               , RS.RESN_PAY_AMT
+			               , RESN_PLUS
+			               , SHOPPING_USE_AMT
+			            FROM RESCISSION RS 
+			      INNER JOIN MEM_PROD_ACCNT MPA 
+			              ON RS.ACCNT_NO = MPA.ACCNT_NO 
+			             AND MPA.DEL_FG = 'N' 
+			      INNER JOIN MEMBER MB 
+			              ON MPA.MEM_NO = MB.MEM_NO 
+			             AND MB.DEL_FG = 'N' 
+			      INNER JOIN PRODUCT PD 
+			              ON MPA.PROD_CD = PD.PROD_CD 
+			 LEFT OUTER JOIN TB_MEMBER_BASIC_INFO_DAY MBID 
+			              ON RS.ACCNT_NO = MBID.ACCNT_NO 
+			           WHERE 1=1
+			        	 AND RS.DEL_FG = 'N'
+			        	 AND RESN_PROC_DAY = #{resn_proc_day}
+			        	 AND RESN_CL = '04'
+			        	 AND RESN_PROC_YN = 'Y'    
+			    	) TBL
+			 ]]>	 						               
+    </insert>
+    
+    <!-- ================================================================ 
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트 삭제
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->           
+    <delete id="DlwItoMngMap.deleteResnDayClose">      
+        UPDATE TB_RESN_DAY_CLOSE
+           SET DEL_YN = 'Y'
+             , UPD_MAN = #{reg_man}			         
+			 , UPD_DM = SYSDATE
+         WHERE RESN_PROC_DAY = #{resn_proc_day}
+    </delete>
+    
+     <!-- ================================================================
+     * 날짜 : 20221118
+     * 이름 : 임성수
+     * 추가내용 : 채권추심회원현황 리스트 조회 조회리스트
+     * 대상 테이블 : 
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getCrdtCllctnTitList" parameterType="map" resultType="resultMap">
+        SELECT MST.MST_SEQ
+             , MST.NP_TITLE            
+		  FROM TB_NONPAYMENT_MST MST 
+		 WHERE 1=1
+		   AND EXT_DT = #{ext_dt}
+		 <if test="np_gbn != null and np_gbn != ''">
+           AND MST.NP_GBN = '003'
+         </if>     	
+	   </select>
+    
+     <!-- ================================================================ 
+     * 날짜 : 20221118
+     * 이름 : 임성수
+     * 추가내용 : 채권추심회원현황 리스트 조회수
+     * 대상 테이블 : 
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getCrdtCllctnListCount" parameterType="map" resultType="int">
+         <![CDATA[
+         		 SELECT COUNT(*)
+                   FROM TB_MEMBER_BASIC_INFO_DAY MBID 
+             INNER JOIN MEMBER MB 
+                     ON MBID.MEM_NO = MB.MEM_NO 
+                    AND MB.DEL_FG = 'N' 
+        LEFT OUTER JOIN TB_NONPAYMENT_MNG MNG 
+                     ON MNG.EXT_DT = #{ext_dt} 
+                    AND MBID.ACCNT_NO = MNG.ACCNT_NO 
+             INNER JOIN PRODUCT PD 
+                     ON MBID.PROD_CD = PD.PROD_CD 
+        LEFT OUTER JOIN CARD_MEM_DAMO CARD 
+                     ON MBID.ACCNT_NO = CARD.ACCNT_NO 
+                    AND CARD.DEL_FG = 'N' 
+        LEFT OUTER JOIN CMS_MEM CM 
+                     ON MBID.ACCNT_NO = CM.ACCNT_NO 
+                    AND CM.DEL_FG = 'N'
+                  WHERE MBID.ACCNT_NO IN 
+                      ( SELECT DTL.ACCNT_NO            
+                          FROM TB_NONPAYMENT_MST MST 
+               LEFT OUTER JOIN TB_NONPAYMENT_DTL DTL 
+                            ON MST.MST_SEQ = DTL.MST_SEQ             
+                         WHERE 1=1
+           ]]>
+                    	   AND MST.EXT_DT = #{ext_dt} 
+	                    <if test="np_gbn != null and np_gbn != ''">
+	                       AND MST.NP_GBN = #{np_gbn}
+	                    </if>  
+	                    <if test="mst_seq != null and mst_seq != ''">
+	                       AND MST.MST_SEQ = #{mst_seq}
+	                    </if>
+                       )
+                       <if test="accnt_no != null and accnt_no != ''">
+				          AND MNG.ACCNT_NO = #{accnt_no}
+				       </if>
+				       <if test="section_t_np != null and section_t_np != ''">
+				          AND  MNG.SECTION_T_NP = #{section_t_np}
+				       </if>	        
+				       <if test="diff_yn != null and diff_yn != ''">
+				          AND (CASE WHEN SECTION_T_NP = '001' AND MNG.TRUE_CNT<![CDATA[<]]> MBID.TRUE_CNT THEN 'Y'
+						         	WHEN SECTION_T_NP = '002' AND MNG.REL_CNT <![CDATA[<]]> MBID.REL_CNT THEN 'Y'
+						    		ELSE 'N' END) = #{diff_yn}
+				       </if>
+                       
+                       
+                    
+			  
+     </select>
+     <!-- ================================================================ 
+     * 날짜 : 20221118
+     * 이름 : 임성수
+     * 추가내용 : 채권추심회원현황 리스트
+     * 대상 테이블 : 
+     * ================================================================
+     * -->     
+       <select id="DlwItoMngMap.getCrdtCllctnList" parameterType="map" resultType="resultMap">
+           <![CDATA[
+            		SELECT A.*
+                      FROM (
+			               SELECT ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) AS PAGE_INDX
+			                    , ACCNT_NO
+			                    , MEM_NO
+			                    , MEM_NM
+			                    , CASE WHEN SECTION_T_NP = '002' AND RESN_PROC_YN = 'Y' THEN  (REL_AMT + ADD_AMT)
+			                           WHEN SECTION_T_NP = '002' AND RESN_PROC_YN != 'Y' THEN  (TRUE_AMT + REL_AMT + ADD_AMT)
+			                      ELSE TRUE_AMT
+			                      END AS DIFF_AMT
+			                    , CELL
+			                    , ADDR
+			                    , PROD_NM
+			                    , DIFF_CNT
+			                    , JOIN_DT
+			                    , DECODE(KSTBIT,'01','접수','02','정상','03','해약','행사') AS KSTBIT
+			                    , TRUE_AMT
+			                    , REL_AMT
+			                    , ADD_AMT
+			                    , TRUE_CNT
+			                    , TRUE_DAY
+			                    , ICHAE_DT
+			                    , BRTH_MON_DAY
+			                    , SEX
+			                    , CASE WHEN MON_TRUE_CNT > 0 AND SECTION_T_NP = '002' THEN  (MON_TRUE_AMT + MON_REL_AMT)
+			                           WHEN MON_TRUE_CNT > 0 AND SECTION_T_NP = '001' THEN  (MON_TRUE_AMT)
+			                           WHEN MON_REL_CNT > 0 THEN  (MON_REL_AMT)                 
+			                      ELSE 0
+			                      END AS MON_PAY_AMT
+			                    , CASE WHEN MON_REL_CNT > 0 AND SECTION_T_NP = '002' THEN  REL_DAY 
+			                           WHEN MON_TRUE_CNT > 0 AND SECTION_T_NP = '001' THEN TRUE_DAY
+			                      ELSE ''
+			                      END AS MON_PAY_DAY
+			                    , SECIAL_ETC
+			                    , '채무불이행' AS CHAEMU_INFO
+			                    , DECODE(BANKRUPTCY_YN,'B','파산','R','회생') AS BANKRUPTCY_YN
+			                 FROM (SELECT MBID.ACCNT_NO
+			                            , MBID.MEM_NO
+			                            , MB.MEM_NM
+			                            , '분배액'
+			                            , MB.CELL
+			                            , MB.HOME_ADDR || ' ' || MB.HOME_ADDR2 AS ADDR
+			                            , PD.PROD_NM
+			                            , DIFF_CNT
+			                            , MBID.JOIN_DT
+			                            , MBID.KSTBIT
+			                            , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <= MBID.TRUE_CNT) TRUE_AMT
+			                            , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <= MBID.TRUE_CNT) AS REL_AMT
+			                            , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <= MBID.TRUE_CNT) AS ADD_AMT
+			                            , MBID.TRUE_CNT
+			                            , MBID.TRUE_DAY
+			                            , MBID.REL_DAY
+			                            , CASE WHEN MBID.PAY_MTHD = '04' THEN CM.ICHAE_DT
+			                              ELSE CARD.PAY_DT
+			                              END AS ICHAE_DT
+			                            , MB.BRTH_MON_DAY
+			                            , FN_COM_NM('0123', MB.SEX) AS SEX
+			                            , (MBID.TRUE_CNT - MNG.TRUE_CNT) AS MON_TRUE_CNT
+			                            , (MBID.REL_CNT - MNG.REL_CNT) AS MON_REL_CNT
+			                            , (SELECT MAX(SPECIAL_ETC) FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL WHERE ACCNT_NO = MBID.ACCNT_NO AND DEL_FG = 'N') AS SECIAL_ETC
+			                            , (SELECT MAX(BANKR_GBN) FROM LF_DMUSER.TB_BANKRUPTCY_MNG WHERE MBID.ACCNT_NO = ACCNT_NO AND DEL_FG = 'N') AS BANKRUPTCY_YN
+			                            , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO BETWEEN MNG.TRUE_CNT+1 AND MNG.TRUE_CNT + DIFF_CNT) AS DIFF_TRUE_AMT
+			                            , (SELECT SUM(REL_AMT + ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO BETWEEN MNG.REL_CNT+1 AND MNG.REL_CNT + DIFF_CNT) AS DIFF_REL_AMT
+			                            , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO BETWEEN MNG.TRUE_CNT+1 AND MBID.TRUE_CNT) AS MON_TRUE_AMT
+			                            , (SELECT SUM(REL_AMT + ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO BETWEEN MNG.REL_CNT+1 AND MBID.REL_CNT) AS MON_REL_AMT
+			                            , MNG.SECTION_T_NP
+			                            , MNG.RESN_PROC_YN 
+			                         FROM TB_MEMBER_BASIC_INFO_DAY MBID 
+			                   INNER JOIN MEMBER MB 
+			                           ON MBID.MEM_NO = MB.MEM_NO 
+			                          AND MB.DEL_FG = 'N' 
+			              LEFT OUTER JOIN TB_NONPAYMENT_MNG MNG 
+			                           ON MNG.EXT_DT = #{ext_dt} 
+			                          AND MBID.ACCNT_NO = MNG.ACCNT_NO 
+			                   INNER JOIN PRODUCT PD 
+			                           ON MBID.PROD_CD = PD.PROD_CD 
+			              LEFT OUTER JOIN CARD_MEM_DAMO CARD 
+			                           ON MBID.ACCNT_NO = CARD.ACCNT_NO 
+			                          AND CARD.DEL_FG = 'N' 
+			              LEFT OUTER JOIN CMS_MEM CM 
+			                           ON MBID.ACCNT_NO = CM.ACCNT_NO 
+			                          AND CM.DEL_FG = 'N'
+			                        WHERE MBID.ACCNT_NO IN 
+			                            ( SELECT DTL.ACCNT_NO            
+			                                FROM TB_NONPAYMENT_MST MST 
+			                     LEFT OUTER JOIN TB_NONPAYMENT_DTL DTL 
+			                                  ON MST.MST_SEQ = DTL.MST_SEQ             
+			                               WHERE 1=1
+			           ]]>
+					                          AND MST.EXT_DT = #{ext_dt} 
+					                          <if test="np_gbn != null and np_gbn != ''">
+					                          AND MST.NP_GBN = #{np_gbn}
+					                          </if>
+					                         <if test="mst_seq != null and mst_seq != ''">
+						                      AND MST.MST_SEQ = #{mst_seq}
+						                     </if> 				                     
+			                             )
+			                         <if test="accnt_no != null and accnt_no != ''">
+							          AND MNG.ACCNT_NO = #{accnt_no}
+							         </if>
+							         <if test="section_t_np != null and section_t_np != ''">
+							          AND  MNG.SECTION_T_NP = #{section_t_np}
+							         </if>	        
+							         <if test="diff_yn != null and diff_yn != ''">
+							          AND (CASE WHEN SECTION_T_NP = '001' AND MNG.TRUE_CNT<![CDATA[<]]> MBID.TRUE_CNT THEN 'Y'
+									         	WHEN SECTION_T_NP = '002' AND MNG.REL_CNT <![CDATA[<]]> MBID.REL_CNT THEN 'Y'
+									    		ELSE 'N' END) = #{diff_yn}
+							         </if>
+			                      )
+			          
+			          )A
+			    WHERE 1=1    
+              <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+               AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+               AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+              </if>                	
+	   </select>
+       
+</mapper>

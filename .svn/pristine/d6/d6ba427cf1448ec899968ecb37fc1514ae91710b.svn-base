@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwTrgtCustMap">
+    <sql id="DlwTrgtCustMap.extractCustomerCondition_fragment">
+        <where>
+            <if test= "join_dt_stt != null and join_dt_stt != ''">
+            <![CDATA[
+                AND B.JOIN_DT >= REPLACE(#{join_dt_stt}, '-', '')
+            ]]>
+            </if>
+            <if test= "join_dt_end != null and join_dt_end != ''">
+            <![CDATA[
+                AND B.JOIN_DT <= REPLACE(#{join_dt_end}, '-', '')
+            ]]>
+            </if>
+
+            <if test="pordCdList != null and pordCdList.size > 0">
+                AND B.PROD_CD
+                    <foreach collection="pordCdList" item="item" separator="," close=")" open="IN (">
+                       #{item}
+                    </foreach>
+            </if>
+
+            <if test="trgt_list_typ_cd != null and trgt_list_typ_cd != ''">
+                <if test="trgt_list_typ_cd == '10'"> <!-- 전화 -->
+                <![CDATA[
+                    AND NOT (LENGTH(A.CELL) < 2  AND LENGTH(A.HOME_TEL) <2)
+                ]]>
+                </if>
+
+                <if test="trgt_list_typ_cd == '20'"> <!-- MO -->
+                    AND LENGTH(A.CELL) > 2
+                </if>
+
+                <if test="trgt_list_typ_cd == '30'"> <!-- 이메일 -->
+                    AND LENGTH(A.EMAIL) > 2
+                </if>
+            </if>
+        </where>
+    </sql>
+
+
+    <select id="DlwTrgtCustMap.searchTrgtCustByDB" parameterType="map" resultType="resultMap">
+
+
+        SELECT /*DlwTrgtCustMap.searchTrgtCustByDB */
+             A.MEM_NO, A.MEM_NM, A.HOME_TEL, A.CELL, A.HOME_ZIP,
+             A.HOME_ADDR, A.HOME_ADDR2, A.EMAIL
+          FROM (${extc_qury})A
+         <include refid="DlwTrgtCustMap.extractCustomerCondition_fragment"/>
+    </select>
+
+    <select id="DlwTrgtCustMap.searchCountTrgtCustByDB" parameterType="map" resultType="resultMap">
+
+
+        SELECT /*DlwTrgtCustMap.searchCountTrgtCustByDB */
+             COUNT(*)
+          FROM (${extc_qury})A
+         <include refid="DlwTrgtCustMap.extractCustomerCondition_fragment"/>
+    </select>
+</mapper>

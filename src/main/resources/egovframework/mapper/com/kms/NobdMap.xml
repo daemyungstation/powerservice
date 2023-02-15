@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="NobdMap">
+
+    <sql id="NobdMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="nobd_id != null and nobd_id != ''">
+                AND A.NOBD_ID = #{nobd_id}
+            </if>
+            <!-- <if test="nobd_typ_id != null and nobd_typ_id != '' and nobd_typ_id != 'all'">
+                AND A.NOBD_TYP_ID = #{nobd_typ_id}
+            </if> -->
+            <if test="rgsr_id != null and rgsr_id != ''">
+                AND A.RGSR_ID = #{rgsr_id}
+            </if>
+            <if test="nobd_bswr_div_cd != null and nobd_bswr_div_cd != ''">
+                AND A.NOBD_BSWR_DIV_CD = #{nobd_bswr_div_cd}
+            </if>
+            <!-- <if test="nobd_typ_role_cd != null and nobd_typ_role_cd != ''">
+                AND B.NOBD_TYP_ROLE_CD = #{nobd_typ_role_cd}
+            </if> -->
+
+            <if test="word != null and word != ''">
+                <if test="searchBoard == 'nobd_titl'">
+                    AND NOBD_TITL LIKE '%' || #{word} || '%'
+                </if>
+                <if test="searchBoard == 'nobd_cntn'">
+                    AND NOBD_CNTN LIKE '%' || #{word} || '%'
+                </if>
+                <if test="searchBoard == 'both'">
+                    AND (NOBD_TITL LIKE '%' || #{word} || '%'
+                     OR NOBD_CNTN LIKE '%' || #{word} || '%')
+                </if>
+                <if test="searchBoard == 'rgsr_nm'">
+                    AND A.RGSR_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM LIKE '%' || #{word} || '%')
+                </if>
+                <if test="searchBoard == 'amnd_nm'">
+                    AND A.AMND_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM LIKE '%' || #{word} || '%')
+                </if>
+                <if test="searchBoard == 'all'">
+                    AND (NOBD_TITL LIKE '%' || #{word} || '%'
+                     OR A.AMND_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM LIKE '%' || #{word} || '%'))
+                </if>
+            </if>
+
+            <!-- <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if> -->
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (NOBD_TITL LIKE '%' || #{srch_word} || '%'
+                  OR NOBD_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+
+            <if test="bzpt_divs != null and bzpt_divs != ''">
+                AND BZPT_DIV IN (${bzpt_divs})
+            </if>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+        </where>
+    </sql>
+
+    <resultMap id="nobdResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="nobd_id" column="nobd_id" />
+        <result property="nobd_bswr_div_cd" column="nobd_bswr_div_cd" />
+        <result property="nobd_bswr_div_nm" column="nobd_bswr_div_nm" />
+        <result property="nobd_titl" column="nobd_titl" />
+        <!-- <result property="nobd_cntn" column="nobd_cntn" /> -->
+        <result property="dltn_yn" column="dltn_yn" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_flag" column="file_flag" />
+    </resultMap>
+
+    <resultMap id="nobdResultViewMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="nobd_id" column="nobd_id" />
+        <result property="nobd_bswr_div_cd" column="nobd_bswr_div_cd" />
+        <result property="nobd_bswr_div_nm" column="nobd_bswr_div_nm" />
+        <result property="nobd_titl" column="nobd_titl" />
+        <!-- <result property="nobd_cntn" column="nobd_cntn" /> -->
+        <result property="nobd_cntn" column="nobd_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="nobd_html_cntn" column="nobd_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="dltn_yn" column="dltn_yn" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_flag" column="file_flag" />
+    </resultMap>
+
+    <select id="NobdMap.getNobdCount" parameterType="map" resultType="int">
+        SELECT /* NobdMap.getNobdCount */
+               COUNT(*)
+          FROM TB_NOBD_DTL A
+        <include refid="NobdMap.selectCondition_fragment" />
+    </select>
+
+    <select id="NobdMap.getNobdList" parameterType="map" resultMap="nobdResultMap">
+        SELECT /* NobdMap.getNobdList */
+               C.*
+             , GETCODENM('KMS030', NOBD_BSWR_DIV_CD, C.CNTR_CD) AS NOBD_BSWR_DIV_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT A.NOBD_ID, A.NOBD_TITL, A.KYWD_CNTN
+                            , A.DLTN_YN, A.INQ_CNT, A.NOBD_BSWR_DIV_CD
+                            , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.RGSR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE C
+                                                   WHERE C.RLTN_ITEM_ID = A.NOBD_ID
+                                                     AND C.RLTN_TBL_NM = 'TB_NOBD_DTL'
+                                                     AND C.ATCH_TYP_CD != '30')
+                                     THEN 'Y'
+                                     ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_NOBD_DTL A
+
+        <include refid="NobdMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="NobdMap.getNobdView" parameterType="map" resultMap="nobdResultViewMap">
+        SELECT /* NobdMap.getNobdList */
+               C.*
+             , GETCODENM('KMS030', NOBD_BSWR_DIV_CD, C.CNTR_CD) AS NOBD_BSWR_DIV_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT A.NOBD_ID, A.NOBD_TITL, A.KYWD_CNTN, A.NOBD_CNTN, A.NOBD_HTML_CNTN
+                            , A.DLTN_YN, A.INQ_CNT, A.NOBD_BSWR_DIV_CD
+                            , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.RGSR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE C
+                                                   WHERE C.RLTN_ITEM_ID = A.NOBD_ID
+                                                     AND C.RLTN_TBL_NM = 'TB_NOBD_DTL'
+                                                     AND C.ATCH_TYP_CD != '30')
+                                     THEN 'Y'
+                                     ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_NOBD_DTL A
+        <include refid="NobdMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="NobdMap.insertNobd" parameterType="map">
+        <selectKey keyProperty="nobd_id" resultType="String" order="BEFORE">
+            SELECT 'NBD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* NobdMap.insertNobd */
+          INTO TB_NOBD_DTL
+               (NOBD_ID, NOBD_BSWR_DIV_CD, NOBD_TITL, CNTR_CD, RGSR_ID
+              , RGSN_DTTM, AMND_ID, AMNT_DTTM, NOBD_CNTN, NOBD_HTML_CNTN
+              , BZPT_DIV)
+        VALUES (#{nobd_id}, #{nobd_bswr_div_cd}, #{nobd_titl}, #{cntr_cd}, #{rgsr_id}
+              , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{nobd_cntn:CLOB}, #{nobd_html_cntn:CLOB}, #{bzpt_div})
+    </insert>
+
+    <update id="NobdMap.updateNobd" parameterType="map">
+        UPDATE /* NobdMap.updateNobd */
+               TB_NOBD_DTL
+           SET
+               NOBD_BSWR_DIV_CD = #{nobd_bswr_div_cd}
+             , NOBD_TITL = #{nobd_titl}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , NOBD_CNTN = #{nobd_cntn:CLOB}
+             , NOBD_HTML_CNTN = #{nobd_html_cntn:CLOB}
+         WHERE NOBD_ID = #{nobd_id}
+    </update>
+
+    <delete id="NobdMap.deleteNobd" parameterType="map">
+        DELETE /* NobdMap.deleteNobd */
+          FROM TB_NOBD_DTL
+         WHERE
+         <choose>
+            <when test="nobd_id == null or nobd_id == ''">
+               NOBD_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               NOBD_ID = #{nobd_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+</mapper>

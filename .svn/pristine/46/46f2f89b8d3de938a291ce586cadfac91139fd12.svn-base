@@ -1,0 +1,755 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjeHistMap">
+
+    <select id="GongjeHistMap.getGongjeHistCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getGongjeHistCount */
+               COUNT(*)
+        FROM GONGJE_HIST A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+            LEFT OUTER JOIN EMPLOYEE D ON D.EMPLE_NO = A.SEND_EMP_NO
+            LEFT OUTER JOIN EMPLOYEE E ON E.EMPLE_NO = A.RSLT_EMP_NO
+        WHERE 1=1
+        <if test="stt_dt != null and stt_dt != ''">
+          <![CDATA[AND A.GDATE >= #{stt_dt} ]]>
+        </if>
+        <if test="end_dt != null and end_dt != ''">
+          <![CDATA[AND A.GDATE <= #{end_dt} ]]>
+        </if>
+        <if test="cbo_cl != null and cbo_cl != ''">
+          AND A.CL = #{cbo_cl}
+        </if>
+        <if test="cbo_gbit != null and cbo_gbit != ''">
+          AND A.GBIT = #{cbo_gbit}
+        </if>
+
+    </select>
+
+   <select id="GongjeHistMap.getGongjeHistList" parameterType="map" resultType="resultMap">
+
+       SELECT /* GongjeHistMap.getGongjeHistList */
+               *
+       FROM(
+            SELECT
+                   ROW_NUMBER() OVER(ORDER BY Z.ACCNT_NO) AS PAGE_INDX,
+                   Z.*
+              FROM (   SELECT  A.GDATE,
+                               FN_COM_NM('0157', A.CL) CL,
+                               A.ACCNT_NO,
+                               C.MEM_NM,
+                               FN_COM_NM('190', A.GBIT) GBIT,
+                               TO_CHAR(A.SEND_DT, 'YYYY-MM-DD HH24:MI:SS') SEND_DT,
+                               A.SEND_EMP_NO,
+                               A.RSLT,
+                               A.ERR_TEXT,
+                               TO_CHAR(A.RSLT_DT, 'YYYY-MM-DD HH24:MI:SS') RSLT_DT,
+                               A.RSLT_EMP_NO
+                        FROM GONGJE_HIST A
+                            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                            LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+                            LEFT OUTER JOIN EMPLOYEE D ON D.EMPLE_NO = A.SEND_EMP_NO
+                            LEFT OUTER JOIN EMPLOYEE E ON E.EMPLE_NO = A.RSLT_EMP_NO
+                        WHERE 1=1
+                        <if test="stt_dt != null and stt_dt != ''">
+                          <![CDATA[AND A.GDATE >= #{stt_dt} ]]>
+                        </if>
+                        <if test="end_dt != null and end_dt != ''">
+                          <![CDATA[AND A.GDATE <= #{end_dt} ]]>
+                        </if>
+                        <if test="cbo_cl != null and cbo_cl != ''">
+                          AND A.CL = #{cbo_cl}
+                        </if>
+                        <if test="cbo_gbit != null and cbo_gbit != ''">
+                          AND A.GBIT = #{cbo_gbit}
+                        </if>
+                        <if test="rslt != null and rslt != ''">
+                            <if test="rslt == '01' ">
+                                AND NVL(A.RSLT,' ') = '0000'
+                            </if>
+                            <if test="rslt == '02' ">
+                                AND NVL(A.RSLT,'0000') != '0000'
+                            </if>
+                        </if>
+                        <if test="accnt_no != null and accnt_no != ''">
+                          AND A.ACCNT_NO = #{accnt_no}
+                        </if>
+                    ) Z
+             ) TBL
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+                ]]>
+            </if>
+    </select>
+
+    <select id="GongjeHistMap.getGongjeUploadchkCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getGongjeUploadchkCount */
+               COUNT(*)
+        FROM GONGJE_HIST
+        WHERE GBIT = '02'
+    </select>
+
+    <select id="GongjeHistMap.getGongjeResultchkCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getGongjeResultchkCount */
+               COUNT(*)
+        FROM GONGJE_HIST
+        WHERE GBIT = '02'
+
+    </select>
+
+    <update id="GongjeHistMap.getGongjeUploadResult" parameterType="map" >
+
+        <if test="gubun == '01'">
+
+            MERGE /* GongjeHistMap.getGongjeUploadResult */
+                INTO GONGJE_HIST A
+            USING RESULT_HIST B
+            ON(A.GDATE = B.GDATE AND A.CL = B.GUBUN AND A.ACCNT_NO = B.ACCNT_NO)
+            WHEN MATCHED THEN
+            UPDATE SET GBIT = '02'
+            WHERE A.GDATE = #{gdate}
+              AND B.MEMB_NO = '1040'
+              AND A.GBIT = '01'
+              AND B.GBIT = '01'
+
+        </if>
+
+        <if test="gubun != '01'">
+
+            MERGE /* GongjeHistMap.getGongjeUploadResult */
+                INTO GONGJE_HIST A
+            USING RESULT_HIST B
+            ON(A.GDATE = B.GDATE AND A.CL = B.GUBUN AND A.ACCNT_NO = B.ACCNT_NO AND NVL(A.ADV_PAY_NUM,1) = NVL(B.ADV_PAY_NUM,2))
+            WHEN MATCHED THEN
+            UPDATE SET GBIT = '02'
+            WHERE A.GDATE = #{gdate}
+              AND B.MEMB_NO = '1040'
+              AND A.GBIT = '01'
+              AND B.GBIT = '01'
+
+        </if>
+    </update>
+
+    <update id="GongjeHistMap.getGongjeBaseResult" parameterType="map" >
+
+        MERGE /* GongjeHistMap.getGongjeBaseResult */
+            INTO GONGJE_HIST A
+        USING RESULT_HIST B
+        ON(A.GDATE = B.GDATE AND A.CL = B.GUBUN AND A.ACCNT_NO = B.ACCNT_NO)
+        WHEN MATCHED THEN
+        UPDATE SET RSLT = B.RSLT,
+                   ERR_TEXT = B.ERR_TEXT,
+                   DED_NO = B.DED_NO
+        WHERE B.MEMB_NO = '1040'
+          AND A.GBIT = '02'
+          AND B.GBIT = '01'
+    </update>
+
+    <update id="GongjeHistMap.getGongjeBaseResult_Pay" parameterType="map" >
+
+        MERGE /* GongjeHistMap.getGongjeBaseResult_Pay */
+            INTO GONGJE_HIST A
+        USING RESULT_HIST B
+        ON(A.GDATE = B.GDATE AND A.CL = B.GUBUN AND A.ACCNT_NO = B.ACCNT_NO AND NVL(A.ADV_PAY_NUM,1) = NVL(B.ADV_PAY_NUM,2))
+        WHEN MATCHED THEN
+        UPDATE SET RSLT = B.RSLT,
+                   ERR_TEXT = B.ERR_TEXT,
+                   DED_NO = B.DED_NO
+        WHERE B.MEMB_NO = '1040'
+          AND A.GBIT = '02'
+          AND B.GBIT = '01'
+    </update>
+
+    <insert id="GongjeHistMap.insertFile" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeHistMap.insertFile */
+
+        INSERT ALL
+        <foreach item="item" index="index" collection="list" open="" separator=" " close="">
+               INTO RESULT_HIST(FILE_NM, MEMB_NO, GDATE, GUBUN, ACCNT_NO, DED_NO, GBIT, RSLT, ERR_TEXT, WORK_RESULT, SEQ_NO, ADV_PAY_NUM, PAY_TYPE)
+               VALUES (#{item.fileName},
+                       #{item.memb_no},
+                       #{item.rc_dt},
+                       CASE WHEN #{item.gubun} = 01 THEN 'D'
+                            WHEN #{item.gubun} = 21 AND #{item.pay_type} = 10 THEN 'P'
+                            WHEN #{item.gubun} = 21 AND #{item.pay_type} = 21 THEN 'P_C'
+                            WHEN #{item.gubun} = 31 THEN 'U'
+                            WHEN #{item.gubun} = 41 THEN 'T'
+                            WHEN #{item.gubun} = 51 THEN 'R'
+                            WHEN #{item.gubun} = 52 THEN 'E' ELSE #{item.gubun} END,
+                       #{item.cons_no},
+                       #{item.guar_no},
+                       '01',
+                       #{item.code},
+                       #{item.content},
+                       #{item.work_result},
+                       #{item.seq_no},
+                       #{item.adv_pay_num},
+                       #{item.pay_type})
+        </foreach>
+        SELECT * FROM DUAL
+    </insert>
+
+    <update id="GongjeHistMap.getGongjeSinResult" parameterType="map" >
+
+        UPDATE /* GongjeHistMap.getGongjeSinResult */
+            MEM_PROD_ACCNT B
+        SET (DED_NO, NEW_YN) = (SELECT A.DED_NO, 'N'
+                               FROM GONGJE_HIST A
+                               WHERE A.ACCNT_NO = B.ACCNT_NO
+                                 AND A.CL = 'D'
+                                 AND A.GBIT = '02'
+                                 AND A.RSLT = '0000'
+                                 AND NVL(B.DED_NO,' ') = ' '
+                                 <![CDATA[AND B.JOIN_DT <= TO_CHAR(A.SEND_DT, 'YYYYMMDD')]]>
+                              )
+        WHERE EXISTS (
+                      SELECT *
+                       FROM GONGJE_HIST A
+                       WHERE A.ACCNT_NO = B.ACCNT_NO
+                         AND A.CL = 'D'
+                         AND A.GBIT = '02'
+                         AND A.RSLT = '0000'
+                         AND NVL(B.DED_NO,' ') = ' '
+                         <![CDATA[AND B.JOIN_DT <= TO_CHAR(A.SEND_DT, 'YYYYMMDD')]]>
+                      )
+    </update>
+
+    <update id="GongjeHistMap.getGongjeRessResult" parameterType="map" >
+
+        UPDATE /* GongjeHistMap.getGongjeRessResult */
+            RESCISSION B
+        SET NEW_YN = 'N'
+        WHERE EXISTS (SELECT *
+                      FROM GONGJE_HIST A, MEM_PROD_ACCNT C
+                      WHERE A.ACCNT_NO = B.ACCNT_NO
+                        AND B.DEL_FG = 'N'
+                        AND C.ACCNT_NO = A.ACCNT_NO
+                        AND C.DEL_FG = 'N'
+                        AND A.CL = 'R'
+                        AND A.GBIT = '02'
+                        AND A.RSLT = '0000'
+                        AND NVL(C.DED_NO,' ') != ' '
+                        <![CDATA[AND B.RESN_PROC_DAY <= TO_CHAR(A.SEND_DT, 'YYYYMMDD')]]>
+                      )
+    </update>
+
+    <update id="GongjeHistMap.getGongjeChngResult" parameterType="map" >
+
+        MERGE /* GongjeHistMap.getGongjeChngResult */
+            INTO REG_UPD_DEL_INF B
+        USING(SELECT A.ACCNT_NO, A.SEND_DT
+              FROM GONGJE_HIST A
+                    LEFT OUTER JOIN MEM_PROD_ACCNT C ON C.ACCNT_NO = A.ACCNT_NO AND C.DEL_FG = 'N'
+              WHERE A.CL = 'U'
+                AND A.GBIT = '02'
+                AND A.RSLT = '0000'
+                <![CDATA[AND NVL(C.DED_NO,' ') <> ' ' ]]> ) A
+        ON(A.ACCNT_NO = B.ACCNT_NO)
+        WHEN MATCHED THEN
+        UPDATE SET NEW_YN = 'N'
+        WHERE B.NEW_YN = 'Y'
+        <![CDATA[AND B.WORK_DM <= TO_CHAR(A.SEND_DT, 'YYYYMMDD') ]]>
+    </update>
+
+    <update id="GongjeHistMap.getGongjeHangsaResult" parameterType="map" >
+
+        MERGE /* GongjeHistMap.getGongjeHangsaResult */
+            INTO EVENT B
+        USING(SELECT *
+              FROM GONGJE_HIST A
+                    LEFT OUTER JOIN EVENT B ON A.ACCNT_NO = B.ACCNT_NO AND B.DEL_FG = 'N'
+                    LEFT OUTER JOIN MEM_PROD_ACCNT C ON C.ACCNT_NO = A.ACCNT_NO AND C.DEL_FG = 'N'
+              WHERE A.CL = 'E'
+                AND A.GBIT = '02'
+                AND A.RSLT = '0000'
+                <![CDATA[AND NVL(C.DED_NO,' ') <> ' ' ]]>
+                <![CDATA[AND B.EVENT_PROC_DAY <= TO_CHAR(A.SEND_DT, 'YYYYMMDD') ]]> ) A
+        ON(A.ACCNT_NO = B.ACCNT_NO)
+        WHEN MATCHED THEN
+        UPDATE SET NEW_YN = 'N'
+    </update>
+
+    <update id="GongjeHistMap.getGongjeMemProdUpdate" parameterType="map" >
+
+        UPDATE /* GongjeHistMap.getGongjeMemProdUpdate */
+            MEM_PROD_ACCNT B
+        SET NEW_YN = 'Y'
+        WHERE EXISTS (SELECT *
+                      FROM GONGJE_HIST A
+                      WHERE A.ACCNT_NO = B.ACCNT_NO
+                        AND A.CL IN('R','E')
+                        AND A.GBIT = '02'
+                        AND A.RSLT = '0000'
+                        AND NVL(B.DED_NO,' ') != ' '
+                        <![CDATA[AND B.JOIN_DT <= TO_CHAR(A.SEND_DT, 'YYYYMMDD')]]>
+                      )
+    </update>
+
+    <update id="GongjeHistMap.getGongjeYdsResult" parameterType="map" >
+
+        MERGE /* GongjeHistMap.getGongjeHangsaResult */
+            INTO TRANSFER_BRKDN B
+        USING(SELECT *
+              FROM GONGJE_HIST A
+                    LEFT OUTER JOIN TRANSFER_BRKDN B ON A.ACCNT_NO = B.ACCNT_NO AND B.NEW_YN = 'Y'
+                    LEFT OUTER JOIN MEM_PROD_ACCNT C ON C.ACCNT_NO = A.ACCNT_NO AND C.DEL_FG = 'N'
+              WHERE A.CL = 'T'
+                AND A.GBIT = '02'
+                AND A.RSLT = '0000'
+                <![CDATA[AND NVL(C.DED_NO,' ') <> ' ' ]]>
+                <![CDATA[AND B.HANOV_DT <= TO_CHAR(A.SEND_DT, 'YYYYMMDD') ]]> ) A
+        ON(A.ACCNT_NO = B.ACCNT_NO)
+        WHEN MATCHED THEN
+        UPDATE SET NEW_YN = 'N'
+    </update>
+
+    <update id="GongjeHistMap.getGongjeYds_New_Result" parameterType="map" >
+
+        UPDATE /* GongjeHistMap.getGongjeYds_New_Result */
+            MEM_PROD_ACCNT B
+        SET (DED_NO) = (SELECT A.DED_NO
+                         FROM GONGJE_HIST A
+                         WHERE A.ACCNT_NO = B.ACCNT_NO
+                           AND A.CL = 'T'
+                           AND A.GBIT = '02'
+                           AND A.RSLT = '0000'
+                           AND NVL(B.DED_NO,' ') != ' '
+                        )
+        WHERE EXISTS (
+                      SELECT A.DED_NO, 'N'
+                       FROM GONGJE_HIST A
+                       WHERE A.ACCNT_NO = B.ACCNT_NO
+                         AND A.CL = 'T'
+                         AND A.GBIT = '02'
+                         AND A.RSLT = '0000'
+                         AND NVL(B.DED_NO,' ') != ' '
+                      )
+
+    </update>
+
+    <update id="GongjeHistMap.getGongjePayResult" parameterType="map" >
+
+        MERGE /* GongjeHistMap.getGongjePayResult */
+            INTO PAY_MNG B
+        USING(SELECT *
+              FROM GONGJE_HIST A
+                    LEFT OUTER JOIN PAY_MNG B ON A.ACCNT_NO = B.ACCNT_NO AND B.DEL_FG = 'N' AND A.ADV_PAY_NUM = B.NO
+                    LEFT OUTER JOIN MEM_PROD_ACCNT C ON C.ACCNT_NO = A.ACCNT_NO AND C.DEL_FG = 'N'
+              WHERE A.CL IN('P','P_C')
+                AND A.GBIT = '02'
+                AND A.RSLT = '0000'
+                <![CDATA[AND NVL(C.DED_NO,' ') <> ' ' ]]> ) A
+        ON(A.ACCNT_NO = B.ACCNT_NO AND A.ADV_PAY_NUM = B.NO AND B.DEL_FG = 'N')
+        WHEN MATCHED THEN
+        UPDATE SET NEW_YN = CASE WHEN A.PAY_TYPE = '10' THEN 'N'
+                                 WHEN A.PAY_TYPE = '21' THEN 'Y'
+                                 ELSE 'Y' END
+    </update>
+
+    <update id="GongjeHistMap.getGongjeHistResult" parameterType="map" >
+
+        UPDATE /* GongjeHistMap.getGongjeHistResult */
+               GONGJE_HIST
+        SET GBIT = '03',
+            RSLT_DT = SYSDATE,
+            RSLT_EMP_NO = ''
+        WHERE GBIT = '02'
+    </update>
+
+    <update id="GongjeHistMap.getGongjeLastResult" parameterType="map" >
+
+        UPDATE /* GongjeHistMap.getGongjeLastResult */
+               RESULT_HIST
+        SET GBIT = '02'
+        WHERE GBIT = '01'
+    </update>
+
+   <!-- 월별 보고서 선수금 현황 조회 -->
+   <select id="GongjeHistMap.getGongjeMagamPay" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getGongjeMagamPay */
+               (SELECT NAMT FROM GONGJE_MG WHERE YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')) BAMT, /* 기존선수금액 */
+               TBL.*,
+               (NVL(TBL.PAY_AMT,0) + NVL(TBL.BF_AMT,0) + NVL(TBL.CNCL_AMT,0)) OT_AMT, /* 현금 등 기타 */
+               (NVL(TBL.CMS_AMT,0) + NVL(TBL.PAY_AMT,0) + NVL(TBL.BF_AMT,0) + NVL(TBL.CNCL_AMT,0) - NVL(TBL.RES_AMT,0) - NVL(TBL.HAS_AMT,0) - NVL(TBL.HW_AMT,0)) ID_AMT, /* 증감계 */
+               (NVL((SELECT NAMT FROM GONGJE_MG WHERE YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')),0) + NVL(TBL.CMS_AMT,0) + NVL(TBL.PAY_AMT,0) + NVL(TBL.BF_AMT,0) + NVL(TBL.CNCL_AMT,0)
+               - NVL(TBL.RES_AMT,0) - NVL(TBL.HAS_AMT,0) - NVL(TBL.HW_AMT,0)) TOT_AMT /* 누적선수금 */
+        FROM(
+              SELECT
+                    SUM(CASE WHEN CL = 'P' AND SEQ_NO IN('4','04') AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') THEN AMT ELSE 0 END) CMS_AMT,     /* CMS 이체금액 */
+                    SUM(CASE WHEN CL = 'P' AND SEQ_NO NOT IN('4','04') AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') THEN AMT ELSE 0 END) PAY_AMT, /* CMS 외 금액(현금 등 기타) */
+                    SUM(CASE WHEN CL = 'R' AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') THEN TOT_AMT ELSE 0 END) RES_AMT,                         /* 해약 감소 */
+                    SUM(CASE WHEN CL = 'E' AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') THEN TOT_AMT ELSE 0 END) HAS_AMT,                         /* 행사 감소 */
+                    <!-- 기타(환불 등) 금액과 공제신고데이터와 맞지 않는 부분 수정 - 2018.03.02 -->
+                    <!-- SUM(CASE WHEN CL = 'P_C' AND GDATE <![CDATA[>]]> B.NDATE AND GDATE <![CDATA[<]]> C.NDATE THEN AMT ELSE 0 END) HW_AMT, -->                                      /* 기타(환불 등) 감소 */
+                    <!-- 당월에 (전월데이터) 마감처리 하기전, 전월에 공제신고하지 못한 데이터가 있는 경우 마감처리전에 신고함. 이에 따라 수정 - 2018.04.03 -->
+                    <!-- SUM(CASE WHEN CL = 'P_C' AND GDATE <![CDATA[>]]> B.NDATE THEN AMT ELSE 0 END) HW_AMT, -->                                      /* 기타(환불 등) 감소 */
+                    SUM(CASE WHEN CL = 'P_C' AND GDATE <![CDATA[>]]> B.NDATE AND GDATE <![CDATA[<=]]> C.NDATE THEN AMT ELSE 0 END) HW_AMT, -->                                      /* 기타(환불 등) 감소 */
+                    <!-- 선수금으로 인한 (총) 누적 선수금액차이 발생으로 조건 추가 - 2018.07.04 -->
+                    <!-- SUM(CASE WHEN CL = 'P' AND SUBSTR(SIDATE,1,6) <![CDATA[<]]> TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') AND GDATE <![CDATA[>]]> B.NDATE THEN AMT ELSE 0 END) BF_AMT,  -->      /* 이전달 선수금액(현금 등 기타) */
+                    SUM(CASE WHEN CL = 'P' AND SUBSTR(SIDATE,1,6) <![CDATA[<]]> TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') AND GDATE <![CDATA[>]]> B.NDATE AND GDATE <![CDATA[<=]]> C.NDATE THEN AMT ELSE 0 END) BF_AMT,       /* 이전달 선수금액(현금 등 기타) */
+                    <!-- SUM(CASE WHEN CL IN('R_C','E_C') AND GDATE <![CDATA[>]]> B.NDATE THEN TOT_AMT ELSE 0 END) CNCL_AMT                          /* 행사 및 해약 취소(현금 등 기타) */ -->
+                    <!-- 2018.08.02 : 공제신고 데이터 조건 추가 -->
+                    SUM(CASE WHEN CL IN('R_C','E_C') AND GDATE <![CDATA[>]]> B.NDATE AND GDATE <![CDATA[<=]]> C.NDATE THEN TOT_AMT ELSE 0 END) CNCL_AMT                          /* 행사 및 해약 취소(현금 등 기타) */
+              FROM GONGJE_HIST A
+                LEFT OUTER JOIN GONGJE_MG B ON B.YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                <!-- 기타(환불 등) 금액과 공제신고데이터와 맞지 않는 부분 수정 - 2018.03.02 -->
+                <!-- 당월에 (전월데이터) 마감처리 하기전, 전월에 공제신고하지 못한 데이터가 있는 경우 마감처리전에 신고함. 이에 따라 수정 - 2018.04.03 -->
+                LEFT OUTER JOIN GONGJE_MG C ON C.YYMM = #{stt_dt}
+              WHERE RSLT = '0000'
+            ) TBL
+
+   </select>
+
+   <!-- 월별 보고서 회원 현황 조회 -->
+   <select id="GongjeHistMap.getGongjeMagamMem" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getGongjeMagamMem */
+              TBL.BCNT, TBL.NCNT, TBL.RCNT, TBL.HCNT, TBL.CCNT, (NVL(BCNT,0) + NVL(NCNT,0) - NVL(RCNT,0) - NVL(HCNT,0) + NVL(CCNT,0)) TOT_CNT
+        FROM (
+              SELECT (SELECT NCNT FROM GONGJE_MG WHERE YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')) BCNT,                 /* 기존누적건수 */
+                     (SELECT COUNT(ACCNT_NO) FROM MEM_PROD_ACCNT WHERE NEW_YN = 'N') TOT_CNT, /* 누적건수     */
+                     (SELECT COUNT(ACCNT_NO) FROM GONGJE_HIST WHERE CL = 'D' AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') AND RSLT = '0000') NCNT, /* 당월신규건수 */
+                     (SELECT COUNT(ACCNT_NO) FROM GONGJE_HIST WHERE CL = 'R' AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') AND RSLT = '0000') RCNT, /* 당월해약건수 */
+                     (SELECT COUNT(ACCNT_NO) FROM GONGJE_HIST WHERE CL = 'E' AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') AND RSLT = '0000') HCNT, /* 당월행사건수 */
+                     (SELECT COUNT(ACCNT_NO) FROM GONGJE_HIST WHERE CL IN('R_C','E_C') AND SUBSTR(SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM') AND RSLT = '0000') CCNT  /* 당월취소건수 */
+              FROM DUAL
+              ) TBL
+
+   </select>
+
+   <!-- 월별 보고서 신규내역 건수 조회 -->
+   <select id="GongjeHistMap.getReportNewCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getReportNewList */
+              COUNT(*)
+        FROM GONGJE_HIST A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+          LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        WHERE A.CL = 'D'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.RSLT = '0000'
+          AND A.GBIT = '03'
+
+   </select>
+
+   <!-- 월별 보고서 신규내역 조회 리스트 -->
+   <select id="GongjeHistMap.getReportNewList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getReportNewList */
+              A.GDATE, A.ACCNT_NO, C.MEM_NM, B.JOIN_DT, D.PROD_NM, B.DED_NO
+        FROM GONGJE_HIST A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+          LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        WHERE A.CL = 'D'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.RSLT = '0000'
+          AND A.GBIT = '03'
+        ORDER BY B.JOIN_DT, A.ACCNT_NO
+
+   </select>
+
+   <!-- 월별 보고서 해약내역 건수 조회 -->
+   <select id="GongjeHistMap.getReportResCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getReportResCount */
+              COUNT(*)
+        FROM GONGJE_HIST A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+          LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        WHERE A.CL = 'R'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.RSLT = '0000'
+          AND A.GBIT = '03'
+
+   </select>
+
+   <!-- 월별 보고서 해약내역 조회 리스트 -->
+   <select id="GongjeHistMap.getReportResList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getReportResList */
+              A.GDATE, A.ACCNT_NO, C.MEM_NM, A.SIDATE, D.PROD_NM, A.TOT_AMT, B.DED_NO
+        FROM GONGJE_HIST A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+          LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        WHERE A.CL = 'R'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.RSLT = '0000'
+          AND A.GBIT = '03'
+        ORDER BY A.SIDATE, A.ACCNT_NO
+
+   </select>
+
+   <!-- 월별 보고서 행사내역 건수 조회 -->
+   <select id="GongjeHistMap.getReportEvntCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getReportEvntCount */
+              COUNT(*)
+        FROM GONGJE_HIST A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+          LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        WHERE A.CL = 'E'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.RSLT = '0000'
+          AND A.GBIT = '03'
+
+   </select>
+
+   <!-- 월별 보고서 행사내역 조회 리스트 -->
+   <select id="GongjeHistMap.getReportEvntList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getReportEvntList */
+              A.GDATE, A.ACCNT_NO, C.MEM_NM, A.SIDATE, D.PROD_NM, A.TOT_AMT, B.DED_NO
+        FROM GONGJE_HIST A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+          LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        WHERE A.CL = 'E'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.RSLT = '0000'
+          AND A.GBIT = '03'
+        ORDER BY A.SIDATE, A.ACCNT_NO
+
+   </select>
+
+   <!-- 월별 보고서 기타 환불내역 건수 조회 -->
+   <select id="GongjeHistMap.getReportCnclCount" parameterType="map" resultType="int">
+
+      SELECT /* GongjeHistMap.getReportCnclCount */
+              COUNT(*)
+      FROM GONGJE_HIST A
+        LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+        LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+        LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        LEFT OUTER JOIN GONGJE_MG B ON B.YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+      WHERE A.CL = 'P_C'
+        AND A.GDATE > B.NDATE
+        AND A.RSLT = '0000'
+        AND A.GBIT = '03'
+
+   </select>
+
+   <!-- 월별 보고서 기타 환불내역 조회 리스트 -->
+   <!--
+        당월에 (전월데이터) 마감처리 하기전,
+        전월에 공제신고하지 못한 데이터가 있는 경우 마감처리전에 신고함.
+        이에 따라 수정 - 2018.04.03
+   -->
+   <select id="GongjeHistMap.getReportCnclList" parameterType="map" resultType="resultMap">
+
+      SELECT /* GongjeHistMap.getReportCnclList */
+            A.GDATE, A.ACCNT_NO, C.MEM_NM, A.SIDATE, D.PROD_NM, A.ADV_PAY_NUM, A.AMT, B.DED_NO
+      FROM GONGJE_HIST A
+        LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+        LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+        LEFT OUTER JOIN PRODUCT D ON D.PROD_CD = B.PROD_CD
+        LEFT OUTER JOIN GONGJE_MG B ON B.YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+        LEFT OUTER JOIN GONGJE_MG E ON E.YYMM = #{stt_dt} <!-- 2018.04.03 추가 -->
+      WHERE A.CL = 'P_C'
+        AND A.GDATE > B.NDATE
+        AND A.GDATE <![CDATA[<=]]> E.NDATE                <!-- 2018.04.03 추가 -->
+        AND A.RSLT = '0000'
+        AND A.GBIT = '03'
+      ORDER BY A.SIDATE, A.ACCNT_NO, A.ADV_PAY_NUM
+
+   </select>
+
+   <!-- 월별 보고서 CMS 이체내역 건수 조회 -->
+   <select id="GongjeHistMap.getGongjeReportCmsPayCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getGongjeReportCmsPayCount */
+              COUNT(*)
+        FROM LF_DMUSER.GONGJE_HIST A
+          LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+        WHERE A.CL = 'P'
+          AND A.RSLT = '0000'
+          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+          AND A.SEQ_NO IN('4','04')
+
+   </select>
+
+   <!-- 월별 보고서 CMS 이체내역 조회 리스트 -->
+   <select id="GongjeHistMap.getGongjeReportCmsPayList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getGongjeReportCmsPayList.getGongjeReportCmsPayList */
+                *
+          FROM (SELECT
+                    ROW_NUMBER() OVER(ORDER BY Z.SIDATE, Z.ACCNT_NO) AS PAGE_INDX,
+                    Z.*
+                  FROM (
+                        SELECT
+                              A.ACCNT_NO,
+                              B.DED_NO,
+                              LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM,
+                              LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM,
+                              A.SIDATE,
+                              A.GDATE,
+                              A.AMT
+                        FROM LF_DMUSER.GONGJE_HIST A
+                          LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                        WHERE A.CL = 'P'
+                          AND A.RSLT = '0000'
+                          AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                          AND A.SEQ_NO IN('4','04')
+                        ) Z
+                  )TBL
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+        ORDER BY TBL.SIDATE, TBL.ACCNT_NO
+   </select>
+
+   <!-- 월별 보고서 현금 등 기타내역 건수 조회 -->
+   <select id="GongjeHistMap.getGongjeReportOtPayCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getGongjeReportOtPayCount */
+               COUNT(*)
+        FROM(
+              SELECT A.ACCNT_NO, B.DED_NO, LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM, LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM, A.SIDATE, A.GDATE, A.AMT
+              FROM LF_DMUSER.GONGJE_HIST A
+                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+              WHERE A.CL = 'P'
+                AND A.RSLT = '0000'
+                AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                AND A.SEQ_NO NOT IN('4','04')
+
+              UNION ALL
+
+              SELECT A.ACCNT_NO, B.DED_NO, LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM, LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM, A.SIDATE, A.GDATE, A.AMT
+              FROM LF_DMUSER.GONGJE_HIST A
+                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                LEFT OUTER JOIN LF_DMUSER.GONGJE_MG C ON C.YYMM = '201701'
+              WHERE A.CL = 'P'
+                AND A.RSLT = '0000'
+                AND SUBSTR(A.SIDATE,1,6) <![CDATA[<]]> TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                AND A.GDATE > C.NDATE
+
+              UNION ALL
+
+              SELECT A.ACCNT_NO, B.DED_NO, LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM, LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM, A.SIDATE, A.GDATE, A.TOT_AMT AMT
+              FROM LF_DMUSER.GONGJE_HIST A
+                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                LEFT OUTER JOIN LF_DMUSER.GONGJE_MG C ON C.YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+              WHERE A.CL IN('R_C','E_C')
+                AND A.RSLT = '0000'
+                AND A.GDATE <![CDATA[>]]> C.NDATE
+            ) TBL
+
+   </select>
+
+   <!-- 월별 보고서 현금 등 기타내역 조회 리스트 -->
+   <select id="GongjeHistMap.getGongjeReportOtPayList" parameterType="map" resultType="resultMap">
+        SELECT /* GongjeHistMap.getGongjeReportOtPayList */
+                *
+          FROM (SELECT
+                    ROW_NUMBER() OVER(ORDER BY Z.SIDATE, Z.ACCNT_NO) AS PAGE_INDX,
+                    Z.*
+                  FROM (
+                        SELECT
+                               TBL.ACCNT_NO,
+                               TBL.DED_NO,
+                               TBL.MEM_NM,
+                               TBL.PROD_NM,
+                               TBL.SIDATE,
+                               TBL.GDATE,
+                               TBL.AMT
+                        FROM(
+                              SELECT A.ACCNT_NO, B.DED_NO, LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM, LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM, A.SIDATE, A.GDATE, A.AMT
+                              FROM LF_DMUSER.GONGJE_HIST A
+                                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                              WHERE A.CL = 'P'
+                                AND A.RSLT = '0000'
+                                AND SUBSTR(A.SIDATE,1,6) = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                                AND A.SEQ_NO NOT IN('4','04')
+
+                              UNION ALL
+
+                              SELECT A.ACCNT_NO, B.DED_NO, LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM, LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM, A.SIDATE, A.GDATE, A.AMT
+                              FROM LF_DMUSER.GONGJE_HIST A
+                                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                                LEFT OUTER JOIN LF_DMUSER.GONGJE_MG C ON C.YYMM = '201701'
+                              WHERE A.CL = 'P'
+                                AND A.RSLT = '0000'
+                                AND SUBSTR(A.SIDATE,1,6) <![CDATA[<]]> TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                                AND A.GDATE > C.NDATE
+
+                              UNION ALL
+
+                              SELECT A.ACCNT_NO, B.DED_NO, LF_DMUSER.FN_MEM_NM(B.MEM_NO) MEM_NM, LF_DMUSER.FN_PROD_NM(B.PROD_CD) PROD_NM, A.SIDATE, A.GDATE, A.TOT_AMT AMT
+                              FROM LF_DMUSER.GONGJE_HIST A
+                                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                                LEFT OUTER JOIN LF_DMUSER.GONGJE_MG C ON C.YYMM = TO_CHAR(ADD_MONTHS(#{stt_dt}||'01',-1),'YYYYMM')
+                              WHERE A.CL IN('R_C','E_C')
+                                AND A.RSLT = '0000'
+                                AND A.GDATE <![CDATA[>]]> C.NDATE
+                            ) TBL
+                        ) Z
+                  )TBL
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+        ORDER BY TBL.SIDATE, TBL.ACCNT_NO
+   </select>
+
+   <!-- 월별 보고서 누적 선수금내역 건수 조회 -->
+   <select id="GongjeHistMap.getGongjeReportTotalPayCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeHistMap.getGongjeReportTotalPayCount */
+              COUNT(*)
+        FROM LF_DMUSER.MEM_PROD_ACCNT A
+          LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAYAMT FROM LF_DMUSER.PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) B ON B.ACCNT_NO = A.ACCNT_NO
+        WHERE A.NEW_YN = 'N'
+
+   </select>
+
+   <!-- 월별 보고서 누적 선수금내역 조회 리스트 -->
+   <select id="GongjeHistMap.getGongjeReportTotalPayList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHistMap.getGongjeReportTotalPayList */
+                *
+          FROM (SELECT
+                    ROW_NUMBER() OVER(ORDER BY Z.ACCNT_NO) AS PAGE_INDX,
+                    Z.*
+                  FROM (
+                        SELECT
+                              A.ACCNT_NO,
+                              A.DED_NO,
+                              LF_DMUSER.FN_MEM_NM(A.MEM_NO) MEM_NM,
+                              A.JOIN_DT,
+                              LF_DMUSER.FN_PROD_NM(A.PROD_CD) PROD_NM,
+                              NVL(B.PAYAMT,0) PAYAMT
+                        FROM LF_DMUSER.MEM_PROD_ACCNT A
+                          LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAYAMT FROM LF_DMUSER.PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) B ON B.ACCNT_NO = A.ACCNT_NO
+                        WHERE A.NEW_YN = 'N'
+                        ORDER BY A.ACCNT_NO
+                        ) Z
+                  )TBL
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+        ORDER BY TBL.ACCNT_NO
+   </select>
+
+</mapper>

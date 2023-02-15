@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CmpgTelHandleMap">
+    <sql id="CmpgTelHandleMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="cmpg_prfm_team_cd != null and cmpg_prfm_team_cd != ''">
+                AND CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+            </if>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="cmpg_div_cd  != null and cmpg_div_cd  != ''">
+                AND cmpg_div_cd  = #{cmpg_div_cd}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND CNSR_ID = #{user_id}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="alct_yn != null and alct_yn != '' and alct_yn.equalsIgnoreCase('Y')">
+                AND CNSR_ID IS NOT NULL
+            </if>
+            <if test="trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+                AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+            </if>
+            <if test="periodfg != null and periodfg.equalsIgnoreCase('Y')">
+                AND EXISTS (SELECT 'Y'
+                               FROM TB_CMPG_BASI
+                              WHERE CMPG_ID = TC.CMPG_ID
+                                AND SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 1, 8) BETWEEN CMPG_STT_DT AND CMPG_END_DT
+                            )
+            </if>
+            <if test="cmpg_prgr_stat_cd != null and cmpg_prgr_stat_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                               FROM TB_CMPG_BASI
+                              WHERE CMPG_ID = TC.CMPG_ID
+                                AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+                            )
+            </if>
+            <if test="dpms_stat_cd != null and dpms_stat_cd != ''">
+                AND DPMS_STAT_CD = #{dpms_stat_cd}
+            </if>
+            <if test="dpms_resl_cd != null and dpms_resl_cd != ''">
+                AND DPMS_RESL_CD = #{dpms_resl_cd}
+            </if>
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+                AND RGSN_DTTM BETWEEN REPLACE(#{startd}, '-', '') || '000000' AND REPLACE(#{endd}, '-', '') || '235959'
+            </if>
+            <if test="dpms_startd != null and dpms_startd != '' and dpms_endd != null and dpms_endd != ''">
+                AND DPMS_DTTM BETWEEN REPLACE(#{dpms_startd}, '-', '') || '000000' AND REPLACE(#{dpms_endd}, '-', '') || '235959'
+            </if>
+            <if test="cust_nm != null and cust_nm != ''">
+                AND CUST_NM LIKE  #{cust_nm} || '%'
+            </if>
+            <if test="total_tlno != null and total_tlno != ''">
+                AND ((CLPH_TLNO LIKE '%' || #{total_tlno}) OR (COMP_TLNO LIKE '%' || #{total_tlno})
+                 OR (ETC_TLNO LIKE '%' || #{total_tlno}) OR (HOME_TLNO LIKE '%' || #{total_tlno}))
+            </if>
+            <if test="cnsr_nm != null and cnsr_nm != ''">
+                AND CNSR_NM LIKE  #{cnsr_nm} || '%'
+            </if>
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'mem_no'">
+                    AND MEM_NO LIKE  #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'cust_nm'">
+                    AND CUST_NM LIKE #{searchValue} || '%'
+                </if>
+
+                <if test="searchType == 'home_tlno'">
+                    AND HOME_TLNO  LIKE '%' || REPLACE(#{searchValue},'-','')
+                </if>
+                <if test="searchType == 'clph_tlno'">
+                    AND CLPH_TLNO LIKE '%' || REPLACE(#{searchValue},'-','')
+                </if>
+                <if test="searchType == 'comp_tlno'">
+                    AND COMP_TLNO LIKE '%' || REPLACE(#{searchValue},'-','')
+                </if>
+                <if test="searchType == 'cnsr_nm'">
+                    AND CNSR_NM LIKE  #{searchValue} || '%'
+                </if>
+            </if>
+        </where>
+    </sql>
+
+    <update id="CmpgTelHandleMap.updateCmpgTelHandleResult" parameterType="map">
+        UPDATE /*CmpgTelHandleMap.updateCmpgTelHandleResult */
+               TB_TRGT_CUST_ALCT
+           SET DPMS_STAT_CD = #{dpms_stat_cd}
+             , DPMS_RESL_CD = #{dpms_resl_cd}
+             , DPMS_RESL_CNTN = #{dpms_resl_cntn}
+            <!--  , DPMS_TMCNT = (SELECT MAX(DPMS_TMCNT)+1
+                           FROM TB_TRGT_CUST_ALCT
+                          WHERE TRGT_LIST_ID = #{trgt_list_id}
+                            AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+                            AND CMPG_ID = #{cmpg_id}) -->
+             , DPMS_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID = #{user_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , CNTR_CD = #{cntr_cd}
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+           AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+           AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+           AND CMPG_ID = #{cmpg_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+
+    <update id="CmpgTelHandleMap.updateTrgtCustByCustId" parameterType="map">
+        UPDATE /* CmpgTelHandleMap.updateTrgtCustByCustId */
+               TB_TRGT_CUST_DTPT
+           SET AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                , AMND_ID = #{amnd_id}
+                , MEM_NO = #{mem_no}
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+           AND TRGT_CUST_ID = #{trgt_cust_id}
+    </update>
+
+    <select id="CmpgTelHandleMap.getCmpgTelHandleTotalList" parameterType="map" resultType="resultMap">
+        SELECT /* CmpgTelHandleMap.getCmpgAlctList */
+             D.*
+             ,(SELECT CUST_DATA_EXTC_CNT FROM TB_TRGT_LIST_DTL TT WHERE TT.TRGT_LIST_ID = D.TRGT_LIST_ID) AS CUST_DATA_EXTC_CNT
+             ,(SELECT CMPG_DIV_CD FROM TB_CMPG_BASI TCB WHERE TCB.CMPG_ID = D.CMPG_ID) AS CMPG_DIV_CD
+          FROM
+           (SELECT ROWNUM AS PAGE_INDX, C.*
+              FROM (SELECT
+                             TC.CMPG_ID, TC.CMPG_NM, TC.CNTR_CD, TC.TRGT_LIST_ID
+
+                           , NVL(ASSIGNNUM, 0) AS ASSIGNNUM
+                           , NVL(ST10, 0)      AS ST10
+                           , NVL(ST20, 0)      AS ST20
+                           , NVL(ST30, 0)      AS ST30
+                           , NVL(ST50, 0)      AS ST50
+                           , NVL(ROUND(ST30/ASSIGNNUM*100,1), 0) AS TOTAL_RATE
+                           , NVL(ROUND(ST50/ASSIGNNUM*100,1), 0) AS DAY_RATE
+                           , TC.AMNT_DTTM
+                     FROM (SELECT *
+                             FROM TB_CMPG_BASI TC <include refid="CmpgTelHandleMap.selectCondition_fragment"/>) TC
+                             LEFT JOIN
+                          (SELECT
+                                CMPG_ID
+                              , CNTR_CD
+                              , SUM(ST10)  AS ST10
+                              , SUM(ST20)  AS ST20
+                              , SUM(ST30)  AS ST30
+                              , SUM(ST50)  AS ST50
+                              , SUM(ST10+ST20+ST30) AS ASSIGNNUM
+                             FROM (SELECT TAA.CMPG_ID, TAA.CNTR_CD
+                                        , CASE
+                                          WHEN DPMS_STAT_CD='10'
+                                          THEN 1
+                                          ELSE 0
+                                          END AS ST10
+                                        , CASE
+                                          WHEN DPMS_STAT_CD='20'
+                                          THEN 1
+                                          ELSE 0
+                                          END AS ST20
+                                        , CASE
+                                          WHEN DPMS_STAT_CD='30' OR DPMS_STAT_CD  ='40'
+                                          THEN 1
+                                          ELSE 0
+                                          END AS ST30
+                                        , CASE
+                                          WHEN (DPMS_STAT_CD  ='30' OR DPMS_STAT_CD ='40') AND
+                                                SUBSTR(TO_CHAR(DPMS_DTTM, 'YYYYMMDDHH24MISS'), 1, 8) = SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 1, 8)
+                                          THEN 1
+                                          ELSE 0
+                                          END AS ST50
+                                    FROM (SELECT * FROM TB_TRGT_CUST_ALCT) TAA
+                                 )TAB GROUP BY CMPG_ID, CNTR_CD
+                          )TA
+                     ON TC.CMPG_ID = TA.CMPG_ID
+               )C
+                 ORDER BY CMPG_NM ASC
+         )D
+    </select>
+
+    <select id="CmpgTelHandleMap.getTrgtCustTelHandleCount" parameterType="map" resultType="int">
+         SELECT /* CmpgTelHandleMap.getTrgtCustTelHandleCount */
+               COUNT(*)
+          FROM (SELECT TD.CNTR_CD, TA.CMPG_ID, TD.TRGT_LIST_ID, TD.SUB_TRGT_LIST_ID, TD.CUST_NM
+                      ,TD.HOME_TLNO, TD.COMP_TLNO, TD.CLPH_TLNO, TD.ETC_TLNO
+                      ,TD.TRGT_CUST_DTPT_ID ,TA.CNSR_ID ,TA.DPMS_RESL_CD ,TA.DPMS_STAT_CD
+                      ,TA.DPMS_TLPH_DIV_CD ,TA.DPMS_TLNO ,(SELECT USER_NM FROM TB_USER WHERE USER_ID= TA.CNSR_ID)CNSR_NM ,TA.DPMS_RESL_CNTN
+                      ,TA.DPMS_TMCNT,TA.DPMS_DTTM,TA.PROD_JOIN_YN, TD.RGSR_ID, TD.RGSN_DTTM, TD.AMND_ID, TD.AMNT_DTTM ,TA.CTI_CRNC_DTL_ID
+                  FROM TB_TRGT_CUST_DTPT TD
+                 LEFT JOIN TB_TRGT_CUST_ALCT TA
+                    ON (TA.TRGT_CUST_DTPT_ID = TD.TRGT_CUST_DTPT_ID)
+               )
+            <include refid="CmpgTelHandleMap.selectCondition_fragment" />
+    </select>
+
+    <select id="CmpgTelHandleMap.getTrgtCustTelHandleList" parameterType="map" resultType="resultMap">
+        SELECT /* CmpgTelHandleMap.getTrgtCustTelHandleList */
+              C.*
+              ,(SELECT USER_NM FROM TB_USER WHERE USER_ID = C.RGSR_ID) AS RGSR_NM
+              ,(SELECT USER_NM FROM TB_USER WHERE USER_ID = C.AMND_ID) AS AMND_NM
+              , GETCODENM('CAM130', C.DPMS_TLPH_DIV_CD, C.CNTR_CD) AS DPMS_TLPH_DIV_NM
+              , GETCODENM('CAM090', C.DPMS_RESL_CD, C.CNTR_CD) AS DPMS_RESL_NM
+              , GETCODENM('CAM100', C.DPMS_STAT_CD, C.CNTR_CD) AS DPMS_STAT_NM
+              , (SELECT SUB_TRGT_LIST_NM FROM TB_SUB_TRGT_LIST_DTL WHERE SUB_TRGT_LIST_ID = C.SUB_TRGT_LIST_ID)  AS SUB_TRGT_LIST_NM
+              , ACCNT_NO
+          FROM (SELECT ROWNUM AS PAGE_INDX , B.CNTR_CD, B.CMPG_ID, B.TRGT_LIST_ID, B.SUB_TRGT_LIST_ID, B.TRGT_CUST_DTPT_ID, B.CNSR_ID, B.DPMS_RESL_CD, B.DPMS_STAT_CD, B.DPMS_TLNO, B.DPMS_TLPH_DIV_CD,B.DPMS_TMCNT,B.PROD_JOIN_YN
+                      , B.PRMV_ID
+                      , B.DPMS_RESL_CNTN , B.RGSR_ID, B.RGSN_DTTM, B.AMND_ID, B.AMNT_DTTM, B.CUST_NM, B.MEM_NO, B.HOME_TLNO, B.CLPH_TLNO, B.COMP_TLNO,B.ETC_TLNO, B.UNTY_CASE_ADTL_YN, TO_CHAR(B.DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, TO_CHAR(B.DPMS_DTTM, 'YYYYMMDD') AS DPMS_DT, B.CNSR_NM
+                      , B.USER_DEFN1_CNTN, B.USER_DEFN2_CNTN, B.USER_DEFN3_CNTN, B.USER_DEFN4_CNTN, B.USER_DEFN5_CNTN
+                      , B.USER_DEFN6_CNTN, B.USER_DEFN7_CNTN, B.USER_DEFN8_CNTN, B.USER_DEFN9_CNTN, B.USER_DEFN10_CNTN
+                      , B.ACCNT_NO
+                  FROM (SELECT TD.CNTR_CD, TA.CMPG_ID, TD.TRGT_LIST_ID , TD.SUB_TRGT_LIST_ID, TD.TRGT_CUST_DTPT_ID ,TA.CNSR_ID, TA.DPMS_RESL_CD, TA.DPMS_STAT_CD
+                             , TD.PRMV_ID
+                             , TA.DPMS_TLNO, TA.DPMS_TLPH_DIV_CD, TA.DPMS_TMCNT, TA.PROD_JOIN_YN, TA.DPMS_DTTM, TD.RGSR_ID, TD.RGSN_DTTM, TD.AMND_ID, TD.AMNT_DTTM
+                             , TD.USER_DEFN1_CNTN, TD.USER_DEFN2_CNTN, TD.USER_DEFN3_CNTN, TD.USER_DEFN4_CNTN, TD.USER_DEFN5_CNTN
+                             , TD.USER_DEFN6_CNTN, TD.USER_DEFN7_CNTN, TD.USER_DEFN8_CNTN, TD.USER_DEFN9_CNTN, TD.USER_DEFN10_CNTN
+                             , TD.CUST_NM, TD.ACCNT_NO, TD.MEM_NO, TD.HOME_TLNO, TD.CLPH_TLNO, TD.COMP_TLNO,TD.ETC_TLNO ,TD.UNTY_CASE_ADTL_YN, TA.DPMS_RESL_CNTN
+                             , (SELECT USER_NM FROM TB_USER WHERE USER_ID = TA.CNSR_ID) AS CNSR_NM
+                          FROM TB_TRGT_CUST_DTPT TD
+                         LEFT JOIN TB_TRGT_CUST_ALCT TA
+                            ON (TA.TRGT_CUST_DTPT_ID = TD.TRGT_CUST_DTPT_ID)
+                   )B
+                    <include refid="CmpgTelHandleMap.selectCondition_fragment" />
+                   <choose>
+                       <when test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                       </when>
+                       <otherwise>
+                        ORDER BY DPMS_DTTM DESC
+                       </otherwise>
+                   </choose>
+           )C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    <insert id="CmpgTelHandleMap.insertDpmsReslHstr" parameterType="map">
+        INSERT /* CmpgTelHandleMap.insertDpmsReslHstr */
+          INTO TB_DPMS_RESL_HSTR
+             ( CHNG_DTTM, CNTR_CD, CMPG_ID, TRGT_LIST_ID, CTI_CRNC_DTL_ID
+             , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD, DPMS_STAT_CD
+             , DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT, PROD_JOIN_YN
+             , DPMS_DTTM, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT SYSTIMESTAMP, CNTR_CD, CMPG_ID, TRGT_LIST_ID, CTI_CRNC_DTL_ID
+             , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD, DPMS_STAT_CD
+             , DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT, PROD_JOIN_YN
+             , TO_CHAR(DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+          FROM TB_TRGT_CUST_ALCT
+         WHERE SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+           AND CMPG_ID = #{cmpg_id}
+           AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+    </insert>
+</mapper>

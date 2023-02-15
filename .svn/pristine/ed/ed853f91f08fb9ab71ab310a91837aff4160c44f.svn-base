@@ -1,0 +1,136 @@
+package powerservice.business.dlw.web;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
+import powerservice.business.dlw.service.AddRevenueService;
+import egovframework.rte.cmmn.ria.xplatform.XPlatformConstant;
+import egovframework.rte.cmmn.ria.xplatform.map.DataSetMap;
+import egovframework.rte.cmmn.ria.xplatform.map.XPlatformMapDTO;
+
+/**
+ * 행사 모니터링 정보 관리
+ *
+ * @author 정출연
+ * @date 2016/11/01
+ * @프로그램ID EventMonitor
+ */
+@Controller
+public class AddRevenueController {
+
+	private final Logger log = LoggerFactory.getLogger(AddRevenueController.class);
+	
+    @Resource
+    private AddRevenueService addRevenueService;
+    
+
+    /**
+     * ???
+     * 관련화면 : 추가매출 현황 - 직영 탭
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/evnt/Revenue/selectAddSalesCondList")
+    public ModelAndView selectAddSalesCondList(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        DataSetMap lstColumnInfo = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg  = "OK";
+
+        try {
+            Map <String, Object> mapInVar     = xpDto.getInVariableMap();
+            Map <String, DataSetMap> mapInDs  = xpDto.getInDataSetMap();
+            Map <String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap)mapInDs.get("ds_input");
+            if (listInDs.size() > 0) {
+                hmParam = listInDs.get(0);
+                List<Map<String, Object>> mList = addRevenueService.selectAddSalesCondList(hmParam);
+                
+                
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+                
+                List<Map<String, Object>> lstCol = new ArrayList<>();
+                lstCol.add(hmParam);
+                lstColumnInfo.setRowMaps(lstCol);
+                mapOutDs.put("ds_output2", lstColumnInfo);
+            }
+
+            modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+            modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, 	 xpDto.getOutDataSetMap());
+        } catch (Exception e) {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg  = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG,  szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    /**
+     * ???
+     * 관련화면 : 추가매출 현황 - 외주 탭
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/evnt/Revenue/selectAddSalesOutCondList")
+    public ModelAndView selectAddSalesOutCondList(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg  = "OK";
+
+        try {
+            Map <String, Object> mapInVar     = xpDto.getInVariableMap();
+            Map <String, DataSetMap> mapInDs  = xpDto.getInDataSetMap();
+            Map <String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap)mapInDs.get("ds_input");
+            if (listInDs.size() > 0) {
+                hmParam = listInDs.get(0);
+                List<Map<String, Object>> mList = addRevenueService.selectAddSalesOutCondList(hmParam);
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+            }
+
+            modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+            modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, 	 xpDto.getOutDataSetMap());
+        } catch (Exception e) {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg  = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG,  szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    // 
+    
+}

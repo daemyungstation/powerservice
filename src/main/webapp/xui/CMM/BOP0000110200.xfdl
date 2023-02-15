@@ -1,0 +1,260 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="BOP0000110200" classname="Comm_GrdColSelect" inheritanceid="" position="absolute 0 0 385 455" onload="FrmDev_onload" onkeydown="CommGrdSelect_onkeydown" titletext="조직도검색">
+    <Layouts>
+      <Layout>
+        <Static id="stc_27" class="sta_popupBg1" enable="false" position="absolute 0 0 380 450" tooltiptext="사업부조직검색"/>
+        <Static id="stc_28" text="조직도" class="sta_popupTitle" transparenthittest="true" position="absolute 11 9 186 29"/>
+        <Button id="btn_Close13" taborder="7" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 354 9 374 28"/>
+        <Grid id="grd_treeOrgzInfo" class="grd_Mymenu_tree" taborder="6" binddataset="ds_treeOrgzInfo" useinputpanel="false" cellsizingtype="col" autofittype="col" treeusecheckbox="false" treeinitstatus="collapse,all" position="absolute 11 68 369 439" oncelldblclick="grd_treeOrgzInfo_oncelldblclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="222"/>
+              </Columns>
+              <Rows>
+                <Row size="24"/>
+              </Rows>
+              <Band id="body">
+                <Cell displaytype="tree" edittype="tree" text="bind:orgznm" treestartlevel="0" treelevel="bind:level"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btnConf" taborder="1" text="적용" onclick="fn_Conf" position="absolute 304 45 369 65"/>
+        <Static id="Static17" text="H 10" onclick="Static15_onclick" visible="false" position="absolute 223 35 399 45" style="background:turquoise;align:center middle;"/>
+        <Static id="Static13" text="H 3" onclick="Static13_onclick" visible="false" position="absolute 3 65 397 68" style="background:turquoise;align:center middle;" positionstep="-1"/>
+        <Static id="Static01" text="W 10" onclick="Static15_onclick" visible="false" position="absolute 369 37 379 160" style="background:tomato; align:center middle; "/>
+        <Static id="Static02" text="W 10" onclick="Static15_onclick" visible="false" position="absolute 1 37 11 184" style="background:tomato; align:center middle; "/>
+        <Static id="Static00" text="H 10" onclick="Static15_onclick" visible="false" position="absolute 99 439 275 449" style="background:turquoise;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_treeOrgzInfo" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="orgzcd" type="STRING" size="256"/>
+          <Column id="orgznm" type="STRING" size="256"/>
+          <Column id="hgrnorgzcd" type="STRING" size="256"/>
+          <Column id="level" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_treeOrgzInfoCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="scrnDiv" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_rtnTreeOrgz" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="orgzcd" type="STRING" size="256"/>
+          <Column id="orgznm" type="STRING" size="256"/>
+          <Column id="hgrnorgzcd" type="STRING" size="256"/>
+          <Column id="level" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/***************************************************************************
+ * Program ID    : BOP0000110200.xfdl
+ * Program Name  : 조직도검색
+ * Author        : 정은실
+ * Created On    : 2013.02.18
+ * 개    요 	 : 조직도검색 팝업
+ *
+ * =========================================================================
+ * 변경일자     수정자    내    용
+ * =========================================================================
+ * 2013.02.18    정은실   최초작성
+ **************************************************************************/
+
+//**************************************************************************
+// [ PART 1 ] Form에서 Include 할 라이브러리(xjs)파일 정의
+//**************************************************************************
+include "LIB::lib_All.xjs";
+
+//**************************************************************************
+// [ PART 2 ] Form에서 사용될 전역변수를 선언
+//**************************************************************************
+var fv_bizHdqrCd;    //사업본부코드
+
+//**************************************************************************
+// [ PART 3 ] Form Event 정의
+//**************************************************************************
+/***************************************************************************
+ * 기      능		: 폼 onload이벤트
+ ***************************************************************************/
+ function FrmDev_onload(obj:Form, e:LoadEventInfo)
+{
+	// 시스템 공통함수 호출
+	gfn_commPopInit(obj);
+
+	// 폼 공통함수 호출
+	fn_init();
+
+	// 공통코드 조회
+	fn_getCommCode();
+}
+
+//**************************************************************************
+// [ PART 4 ] Main Process Event 정의
+//**************************************************************************
+
+/***************************************************************************
+ * 함  수  명		: fn_init()
+ * 기      능		: 폼 초기화 공통함수
+   prmrType         : single, multiplex
+ ***************************************************************************/
+function fn_init()
+{
+	//TODO 세션 정보를 이용해서 해당 사업자 구분코드를 가져온 후, 조직 구조에서 활용한다.
+	//사업본부코드
+	/*
+	1000	EDU영업본부
+	1010	L&C영업본부
+	2000	구몬영업본부
+	3000	L&C제조
+	4000	하이퍼센트영업
+	5000	㈜교원여행
+	*/
+
+	//세션 정보
+	//var rtn = gfn_getUserInfo();
+
+	//fv_bizHdqrCd = "1000";
+
+	fn_commSearch();
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_getCommCode()
+ * 기      능 		: 공통코드 조회
+ ***************************************************************************/
+function fn_getCommCode()
+{
+	// TODO
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commInit()
+ * 기      능		: (공통버튼)폼 초기화 프로세스
+ ***************************************************************************/
+function fn_commInit(sType)
+{
+	fn_initDs(ds_treeOrgzInfo);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_preSearch()
+ * 기      능		: 조회 전 처리
+ ***************************************************************************/
+function fn_preSearch(sType)
+{
+	return true;
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch()
+ * 기      능		: (공통버튼)조회 프로세스
+
+ ***************************************************************************/
+function fn_commSearch(sType)
+{
+	if (!fn_preSearch(sType)) return false;
+
+	ds_treeOrgzInfoCndt.clearData();
+	ds_treeOrgzInfoCndt.addRow();
+	ds_treeOrgzInfoCndt.setColumn(0, "scrnDiv", pvScrnDiv);
+
+	// KWData 설정
+
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.bop.dc.querydc.DCQueryComnOrgzInfoSqlMap");
+	gfn_setKwData_sqlId("getListOrgzHrchInfo");
+
+	gfn_setKwData_trscCode("BOP00001R02");
+	gfn_setKwData_trscType(gfn_getTranTypeSearch());
+
+	gfn_tranDIS(gfn_getCommTypeAppend()
+				, "ds_input=ds_treeOrgzInfoCndt"
+				, "ds_treeOrgzInfo=datas"
+				, "fn_commSearch_callBack");
+
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_commSearch_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 조회 후 처리
+	fn_postSearch(strSvcID, nErrorCode);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_postSearch()
+ * 기      능		: 조회 후 처리
+ ***************************************************************************/
+function fn_postSearch(sType, nErrorCode)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+}
+
+//**************************************************************************
+// [ PART 5 ] Detail Process Event 정의
+//**************************************************************************
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/***************************************************************************
+ * 함  수  명		: btnConf_onclick()
+ * 기      능		: 확인
+ ***************************************************************************/
+function btnConf_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_Conf();
+}
+
+/***************************************************************************
+ * 함  수  명		: grd_treeOrgzInfo_oncelldblclick()
+ * 기      능		: 그리드 더블클릭시
+ ***************************************************************************/
+function grd_treeOrgzInfo_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_Conf();
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_Conf()
+ * 기      능		: 결과 데이터셋 리턴
+***************************************************************************/
+function fn_Conf(){
+
+	var tmprRtnDs = ds_rtnTreeOrgz;
+	var tmprListDs = ds_treeOrgzInfo;
+
+	ds_rtnTreeOrgz.clearData();
+	ds_rtnTreeOrgz.addRow();
+	ds_rtnTreeOrgz.copyRow(tmprRtnDs.rowposition, tmprListDs, tmprListDs.rowposition);
+
+	var ds_trrn = new Dataset();
+	ds_trrn.assign(ds_rtnTreeOrgz);
+
+	//trace(ds_trrn.saveXML());
+
+	close(ds_trrn);
+}
+
+]]></Script>
+  </Form>
+</FDL>

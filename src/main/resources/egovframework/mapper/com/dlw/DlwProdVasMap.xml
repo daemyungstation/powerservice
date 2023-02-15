@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwProdVasMap">
+
+
+    <select id="DlwProdVasMap.selectProdOptSvcMstList" parameterType="map" resultType="resultMap">
+
+
+        <!-- DM sql-id : selectProdOptSvcMstList -->
+        SELECT A2.*
+          FROM (SELECT A1.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                   FROM
+                   (
+                        /* sql-life.xml [상품별 부가서비스 조회] ID : life.selectProdOptSvcMstList 작성자 : 이금례 */
+                        SELECT
+                            *
+                        FROM
+                        (
+                            SELECT
+                                   POSM.seq
+                                  ,P.prod_cd			/* 상품코드 */
+                                  ,P.prod_nm			/* 상품명 */
+                                  ,POSM.app_no			/* 적용회차(납입회차) */
+                                  ,POSM.mem_cl			/* 회원구분(L:라이프웨이,T:리조트) */
+                                  ,POSM.resort_mem_cl	/* 우대구분 */
+                                  ,fn_com_nm('106',POSM.MEM_CL) as mem_cl_nm	/* 우대구분명  */
+                                  ,FN_GetProdOptSvcDtl_Nm(posm.seq) as opt_svc_nm		/* 부가서비스 */
+                                  ,FN_GetProdOptSvcDtl_Nm2(posm.seq) as opt_svc_nm_ex
+                                  ,FN_GetProdOptSvcDtl_Cd(posm.seq) as svc_cd
+                                  ,case when POSM.USE_YN ='Y' then '사용'
+                                        when POSM.USE_YN ='N' then '중지'
+                                        else '-'
+                                   end as use_yn_nm
+                                  ,use_yn
+                                  ,case when ((POSM.APP_NO is null) or (POSM.APP_NO=0)) then '후방'
+                                        else '전방'
+                                 end as svc_event_bf_cl		/* 전후방구분 */
+                                ,POSM.vital_service			/* 필수항목 */
+                                ,POSM.online_app_gubun
+                                ,fn_emple_nm(POSM.upd_man) upd_man	/* 수정자 */
+                                ,fn_emple_nm(POSM.reg_man) reg_man	/* 등록자 */
+                                ,NVL(POSM.START_DT, '99991231') start_dt
+                                ,NVL(POSM.END_DT, '99991231') end_dt
+                                ,(CASE WHEN (
+                                                SELECT COUNT(POSMST.SEQ)
+                                                  FROM PROD_OPT_SVC_MST POSMST
+                                                      ,PROD_OPT_SVC_DTL POSD
+                                                      ,SVC_ISU_HIST SIH
+                                                 WHERE POSMST.SEQ = POSD.SEQ
+                                                   AND POSD.OPT_SVC_CD = FN_GetProdOptSvcDtl_Cd(POSM.SEQ)
+                                                   AND POSMST.SEQ = SIH.SEQ
+                                                   AND POSD.OPT_SVC_CD = SIH.OPTSVC_SEQ
+                                                   AND SIH.ACCNT_NO = #{accnt_no}
+                                                   AND POSMST.SEQ = POSM.SEQ
+                                            ) > 0
+                                      THEN 'Y'
+                                      ELSE 'N'
+                                 END) isu_yn
+                                ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                            FROM PROD_OPT_SVC_MST POSM
+                            INNER JOIN PRODUCT P ON POSM.PROD_CD = P.PROD_CD
+                        )tmp
+                         WHERE 1=1
+                        <if test="use_yn != null and use_yn != ''">
+                           <!--수정 : 사용유무 상관없이 종료일자 입력가능하도록 수정 by lbk_2013_06_28 -->
+                           <!-- AND USE_YN = #searchElement.useYn# -->
+                           AND (NVL(tmp.end_dt, '99991231') >= TO_CHAR(SYSDATE,'YYYYMMDD') AND TO_CHAR(tmp.start_dt, 'YYYYMMDD') &lt;= TO_CHAR(SYSDATE,'YYYYMMDD'))
+                        </if>
+
+                        <if test="prod_cd == null or prod_cd == ''">
+                            <if test="search_all == 'N'.toString() ">
+                               AND PROD_CD = #{prod_cd}
+                            </if>
+                        </if>
+
+                        <if test="prod_cd != null and prod_cd != ''">
+                            AND PROD_CD = #{prod_cd}
+                        </if>
+                        <if test="prod_nm != null and prod_nm != ''">
+                            AND MEM_CL = #{prod_nm}
+                        </if>
+                        <if test="opt_svc_nm != null and opt_svc_nm != ''">
+                            AND OPT_SVC_NM  like '%' || #{opt_svc_nm} ||'%'
+                        </if>
+
+                    ) A1
+                ) A2
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+                ]]>
+            </if>
+            ORDER BY USE_YN DESC
+
+    </select>
+
+
+    <select id="DlwProdVasMap.selectProdList" parameterType="map" resultType="resultMap">
+        /* sql-pay.xml [상품 조회] ID : pay.selectProdList 작성자 : 김아영  */
+        SELECT
+               prod_cd
+              ,prod_nm
+              ,'[' || prod_cd || ']' || prod_nm as prod_nm_str
+        FROM
+              PRODUCT
+        WHERE 1=1
+        <if test="del_fg != null and del_fg != ''">
+            AND del_fg = #{del_fg}
+        </if>
+        ORDER BY prod_cd
+    </select>
+
+
+    <!-- sql-common.xml [부가서비스 상세 조회] ID : common.selectOptSvcList 작성자 : 백인주 -->
+    <select id="DlwProdVasMap.selectOptSvcList" parameterType="map" resultType="resultMap">
+        SELECT	/* DlwProdVasMap.selectOptSvcList */
+             OS.seq	/* 부가서비스 코드 */
+            ,OS.seq as opt_svc_cd	/* 부가서비스 코드 */
+            ,'['||fn_com_nm('107',OS.SVC_CL) ||']'|| OS.SVC_NM as svc_nm	/* 부가서비스 */
+            ,OS.svc_nm as svc_nm2	/* 부가서비스2 */
+            ,OS.svc_cl
+            ,OS.use_yn
+            ,OS.no_crt_yn
+            ,CASE WHEN OS.SEQ = '0014' THEN '' ELSE OS.crt_No_Fixed END crt_no_fixed
+            ,OS.prt_file_nm
+            ,CASE WHEN OS.SEQ = '0001' OR OS.SEQ = '0002' THEN OS.crt_no
+                    WHEN OS.SEQ = '0014' OR OS.SEQ = '0015' THEN CNMPD.isu_seq
+                    ELSE CNM.ISU_SEQ END crt_no
+            ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+        FROM OPT_SVC OS
+         LEFT OUTER JOIN (SELECT A.SVC_CD
+                               , A.ISU_YEAR
+                               , A.ISU_MONTH
+                               , A.ISU_SEQ
+                            FROM COUPON_NO_MNG A
+                           WHERE (A.ISU_YEAR||A.ISU_MONTH)
+                                   = (SELECT MAX(ISU_YEAR||ISU_MONTH)
+                                        FROM COUPON_NO_MNG
+                                       WHERE SVC_CD = A.SVC_CD)) CNM ON OS.SEQ = CNM.SVC_CD
+         LEFT OUTER JOIN (SELECT B.SVC_CD
+                               , B.ISU_DT
+                               , B.ISU_SEQ
+                            FROM COUPON_NO_MNG_PER_DAY B
+                           WHERE B.ISU_DT = (SELECT MAX(ISU_DT)
+                                               FROM COUPON_NO_MNG_PER_DAY
+                                              WHERE SVC_CD = B.SVC_CD)) CNMPD ON OS.SEQ = CNMPD.SVC_CD
+        WHERE 1=1
+          AND OS.SVC_CL != '009'
+        <if test="use_yn != null and use_yn != ''">
+            AND OS.USE_YN = #{use_yn}
+        </if>
+        <if test="svc_cd != null and svc_cd != ''">
+            AND OS.seq LIKE '%'|| #{svc_cd} ||'%'
+        </if>
+        <if test="svc_nm != null and svc_nm != ''">
+            AND OS.svc_nm LIKE '%'|| #{svc_nm} ||'%'
+        </if>
+
+          ORDER BY SEQ
+    </select>
+
+
+
+    <!-- sql-common.xml [부가서비스 상세 조회] ID : common.selectOptSvcList 작성자 : 백인주 -->
+    <select id="DlwProdVasMap.selectDetailVas" parameterType="map" resultType="resultMap">
+        SELECT	/* DlwProdVasMap.selectDetailVas */
+               a.seq
+              ,a.prod_cd 			/* 상품코드 */
+              ,a.resort_mem_cl		/* 우대구분 */
+              ,a.app_no				/* 적용회차(납입회차) */
+              ,a.start_dt			/* 시작일자 */
+              ,a.mem_cl				/* 회원구분 */
+              ,a.vital_service		/* 필수항목 */
+          FROM PROD_OPT_SVC_MST a
+         WHERE a.seq = #{seq}
+    </select>
+
+    <!-- sql-common.xml [상품별 부가서비스 DTL 상세조회] ID : common.selectOptSvcList 작성자 : 백인주 -->
+    <select id="DlwProdVasMap.selectProdOptSvcDtl" parameterType="map" resultType="resultMap">
+        SELECT	/* DlwProdVasMap.selectProdOptSvcDtl */
+               a.seq
+              ,a.dtl_seq 			/* 상세번호 */
+              ,a.opt_svc_cd			/* 부가서비스 코드 */
+              ,a.isu_cnt			/* 매수 */
+          FROM PROD_OPT_SVC_DTL a
+         WHERE a.seq = #{seq}
+
+    </select>
+
+
+
+
+    <select id="DlwProdVasMap.selectKeyOptSvcMst" parameterType="map" resultType="String">
+        select nvl(max(seq),0)+1 as seq
+        from prod_opt_svc_mst
+    </select>
+
+    <insert id="DlwProdVasMap.insertProdOptSvcMst" parameterType="map" >
+        /* sql-life.xml [상품별 부가서비스 등록] ID : life.insertProdOptSvcMst 작성자 : 이금례  */
+
+        INSERT INTO PROD_OPT_SVC_MST (
+                 seq
+                ,prod_cd
+                ,mem_cl
+                ,resort_mem_cl
+                ,app_no
+                ,reg_man
+                ,vital_service
+                ,online_app_gubun
+                ,reg_dt
+                ,upd_man
+                ,upd_dt
+                ,START_DT
+            ) VALUES (
+                 #{seq}
+                ,#{prod_cd}
+                ,#{mem_cl}
+                ,#{resort_mem_cl}
+                ,#{app_no}
+                ,#{reg_man}
+                ,#{vital_service}
+                ,#{online_app_gubun}
+                ,SYSDATE
+                ,#{upd_man}
+                ,SYSDATE
+                ,#{start_dt}
+            )
+    </insert>
+
+
+    <update id="DlwProdVasMap.updateProdOptSvcMst" parameterType="map" >
+        /* sql-life.xml [상품별 부가서비스 수정] ID : life.updateProdOptSvcMst 작성자 : 이금례  */
+        UPDATE PROD_OPT_SVC_MST SET
+             prod_cd		= #{prod_cd}
+            ,mem_cl			= #{mem_cl}
+            ,resort_mem_cl	= #{resort_mem_cl}
+            ,app_no			= #{app_no}
+            ,vital_service	= #{vital_service}
+            ,upd_man		= #{upd_man}
+            ,upd_dt 		= SYSDATE
+            ,start_dt = #{start_dt}
+        WHERE seq = #{seq}
+    </update>
+
+
+    <delete id="DlwProdVasMap.deleteProdOptSvc" parameterType="map" >
+        /* sql-life.xml [상품별 서비스  삭제] ID : life.deleteProdOptSvc 작성자 : 임병근  */
+        DELETE FROM PROD_OPT_SVC_MST
+        WHERE SEQ = #{seq}
+    </delete>
+
+    <delete id="DlwProdVasMap.deleteProdOptSvcDtl" parameterType="map" >
+        /* sql-life.xml [상품별 부가서비스 상세 삭제] ID : life.deleteProdOptSvcDtl 작성자 : 이금례  */
+        DELETE FROM prod_opt_svc_dtl
+        WHERE seq = #{seq}
+    </delete>
+
+    <insert id="insertProdOptSvcDtl" parameterType="map" >
+
+        <selectKey keyProperty="dtl_seq" resultType="String" order="BEFORE">
+            select nvl(max(seq),0)+1 from prod_opt_svc_dtl
+        </selectKey>
+
+        /* sql-life.xml [상품별 부가서비스 상세 등록] ID : life.insertProdOptSvcDtl 작성자 : 이금례  */
+        INSERT INTO prod_opt_svc_dtl (
+                 seq
+                ,dtl_seq
+                ,opt_svc_cd
+                ,isu_cnt
+                ,reg_man
+                ,reg_dt
+            ) VALUES (
+                 #{seq}
+                ,#{dtl_seq}
+                ,#{opt_svc_cd}
+                ,#{isu_cnt}
+                ,#{reg_man}
+                ,SYSDATE
+            )
+    </insert>
+
+
+    <insert id="DlwProdVasMap.insertOptSvc" parameterType="map" >
+        /* sql-life.xml [부가서비스  등록] ID : life.insertOptSvc 작성자 : 이금례  */
+
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT LPAD(NVL(MAX(seq),0)+1,4,'0') as seq from opt_svc
+        </selectKey>
+        INSERT INTO opt_svc (
+                 seq
+                ,svc_cl
+                ,svc_nm
+                ,use_yn
+                ,reg_man
+                ,reg_dt
+                ,no_crt_yn
+                ,crt_no
+                ,crt_no_fixed
+                ,prt_file_nm
+                ,upd_man
+                ,upd_dt
+            ) VALUES (
+                 #{seq}
+                ,#{svc_cl}
+                ,#{svc_nm2}
+                ,#{use_yn}
+                ,#{reg_man}
+                ,SYSDATE
+                ,#{no_crt_yn}
+                ,#{crt_no}
+                ,#{crt_no_fixed}
+                ,#{prt_file_nm}
+                ,#{reg_man}
+                ,SYSDATE
+            )
+    </insert>
+
+
+    <update id="DlwProdVasMap.updateOptSvc" parameterType="map" >
+        /* sql-life.xml [ 부가서비스 수정] ID : life.updateOptSvc 작성자 : 이금례  */
+        UPDATE opt_svc SET
+             svc_cl			= #{svc_cl}
+            ,svc_nm			= #{svc_nm2}
+            ,use_yn			= #{use_yn}
+            ,upd_man		= #{upd_man}
+            ,upd_dt 		= SYSDATE
+            ,no_crt_yn		= #{no_crt_yn}
+            ,crt_no			= #{crt_no}
+            ,crt_no_fixed	= #{crt_no_fixed}
+            ,prt_file_nm	= #{prt_file_nm}
+        WHERE seq = #{seq}
+    </update>
+
+
+    <insert id="DlwProdVasMap.insertCouponNoYMS" parameterType="map" >
+        /* sql-life.xml [쿠폰일련번호 삽입(SVC_CD가 0001인 것 제외)] ID : life.insertCouponNoYM 작성자 : 임병근  */
+        INSERT INTO COUPON_NO_MNG (
+             SVC_CD
+              ,ISU_YEAR
+              ,ISU_MONTH
+              ,ISU_SEQ
+        ) VALUES (
+            #{optsvc_seq}
+             ,SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+             ,SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+             ,#{isu_no}
+        )
+    </insert>
+
+
+    <update id="DlwProdVasMap.updateOtherCrtNo1" parameterType="map" >
+        /* sql-life.xml [ 부가서비스 수정] ID : life.updateOptSvc 작성자 : 이금례  */
+        /* sql-life.xml [쿠폰일련번호 수정(SVC_CD가 0001인 것 제외)] ID : life.updateOtherCrtNo 작성자 : 임병근 */
+        UPDATE dbo.COUPON_NO_MNG
+        SET ISU_SEQ = SUBSTR(#{isu_no},-5)
+        where SVC_CD = #{optsvc_seq}
+          and ISU_YEAR = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+          and ISU_MONTH = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+    </update>
+
+</mapper>

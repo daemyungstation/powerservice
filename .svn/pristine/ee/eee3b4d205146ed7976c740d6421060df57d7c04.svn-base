@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvlpInfoMap">
+
+    <sql id="EvlpInfoMap.selectCondition_fragment_user">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+               AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="evlt_plan_id != null and evlt_plan_id != ''">
+                AND NOT EXISTS (SELECT 'Y'
+                                  FROM TB_EVLP_INFO
+                                 WHERE EVLP_ID = A.USER_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND EVLT_PLAN_ID = #{evlt_plan_id})
+                AND NOT EXISTS (SELECT 'Y'
+                                  FROM TB_EVLT_TRPR_INFO
+                                 WHERE TRPR_ID = A.USER_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND EVLT_PLAN_ID = #{evlt_plan_id})
+            </if>
+            <choose>
+                <when test="team_cd != null and team_cd != ''">
+                AND TEAM_CD = #{team_cd}
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TEAM_CD IN (SELECT TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+            <if test="athr_cd != null and athr_cd != ''">
+                AND ATHR_CD IN (${athr_cd})
+            </if>
+            <if test="not_athr_cd != null and not_athr_cd != ''">
+                AND ATHR_CD NOT IN (${not_athr_cd})
+            </if>
+            <if test="user_nm != null and user_nm != ''">
+                AND USER_NM LIKE '%' || #{user_nm} || '%'
+            </if>
+
+            <if test="user_stat_cd != null and user_stat_cd != ''">
+               AND USER_STAT_CD = #{user_stat_cd}
+            </if>
+            <if test="bzpt_div != null and bzpt_div != ''">
+               AND EXISTS (SELECT 'Y'
+                             FROM TB_CONS_TEAM
+                            WHERE TEAM_CD = A.TEAM_CD
+                              AND CNTR_CD = A.CNTR_CD
+                              AND BZPT_DIV = #{bzpt_div})
+            </if>
+            <if test="bzpt_div2 != null and bzpt_div2 != ''">
+                <choose>
+                    <when test="bzpt_div2 == '999999'">
+                        AND NOT EXISTS (SELECT 'Y'
+                                          FROM TB_CONS_TEAM
+                                         WHERE TEAM_CD = A.TEAM_CD
+                                           AND CNTR_CD = A.CNTR_CD
+                                           AND BZPT_DIV = #{bzpt_div2})
+                    </when>
+                    <otherwise>
+                        AND EXISTS (SELECT 'Y'
+                                      FROM TB_CONS_TEAM
+                                     WHERE TEAM_CD = A.TEAM_CD
+                                       AND CNTR_CD = A.CNTR_CD
+                                       AND BZPT_DIV = #{bzpt_div2})
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+    </sql>
+
+    <select id="EvlpInfoMap.getUserCount" parameterType="map" resultType="int">
+        SELECT /* EvlpInfoMap.getUserCount */
+               COUNT(*)
+          FROM TB_USER A
+         <include refid="EvlpInfoMap.selectCondition_fragment_user"/>
+    </select>
+
+    <select id="EvlpInfoMap.getUserList" parameterType="map" resultType="resultMap">
+        SELECT /* EvlpInfoMap.getUserList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY TEAM_NM ASC, USER_NM ASC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT USER_ID, USER_NM, TEAM_CD
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                          FROM (SELECT A.*
+                                  FROM TB_USER A
+                              <include refid="EvlpInfoMap.selectCondition_fragment_user"/>
+                               ) A
+                        ) A
+                  ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="EvlpInfoMap.getEvlpInfoCount" parameterType="map" resultType="int">
+        SELECT /* EvlpInfoMap.getEvlpInfoCount */
+               COUNT(*)
+          FROM TB_EVLP_INFO A
+         WHERE EVLT_PLAN_ID = #{evlt_plan_id}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="EvlpInfoMap.getEvlpInfoList" parameterType="map" resultType="resultMap">
+        SELECT /* EvlpInfoMap.getEvlpInfoList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY TEAM_NM ASC, EVLP_NM ASC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , TEAM_NM, EVLP_NM, EVLT_TRPR_CNT, RGSN_DTTM
+                     , RGSR_ID, EVLP_ID, RGSR_NM, EVLT_PLAN_ID
+                  FROM (SELECT A.EVLP_ID, DECODE(A.EVLT_TRPR_CNT, NULL, 0, A.EVLT_TRPR_CNT) AS EVLT_TRPR_CNT, A.RGSN_DTTM, A.RGSR_ID
+                             , A.EVLT_PLAN_ID, B.USER_NM AS EVLP_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = B.TEAM_CD) AS TEAM_NM
+                          FROM TB_EVLP_INFO A, TB_USER B
+                         WHERE A.EVLT_PLAN_ID = #{evlt_plan_id}
+                           AND A.CNTR_CD = #{cntr_cd}
+                           AND A.EVLP_ID = B.USER_ID
+                           AND A.CNTR_CD = B.CNTR_CD
+                       ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EvlpInfoMap.insertEvlpInfo" parameterType="map">
+        INSERT /* EvlpInfoMap.insertEvlpInfo */
+          INTO TB_EVLP_INFO
+               (EVLP_ID, EVLT_PLAN_ID, EVLT_TRPR_CNT, CNTR_CD, RGSR_ID
+              , RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{evlp_id}, #{evlt_plan_id}, '0', #{cntr_cd}, #{rgsr_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="EvlpInfoMap.updateEvlpInfo" parameterType="map">
+        UPDATE /* EvlpInfoMap.updateEvlpInfo */
+               TB_EVLP_INFO
+           SET EVLT_TRPR_CNT = #{evlt_trpr_cnt}
+         WHERE EVLP_ID = #{evlp_id}
+           AND EVLT_PLAN_ID = #{evlt_plan_id}
+    </update>
+
+    <delete id="EvlpInfoMap.deleteEvlpInfo" parameterType="map">
+        DELETE /* EvlpInfoMap.deleteEvlpInfo */
+          FROM TB_EVLP_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EVLT_PLAN_ID = #{evlt_plan_id}
+        <if test="selectcheck != null and selectcheck != ''">
+            AND EVLP_ID
+            <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+            </foreach>
+        </if>
+    </delete>
+</mapper>

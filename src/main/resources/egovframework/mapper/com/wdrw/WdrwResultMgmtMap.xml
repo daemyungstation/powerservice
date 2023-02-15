@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WdrwResultMgmtMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20200401
+     * 이름 : 송준빈
+     * 추가내용 : 고객청구결과관리 데이터 조회 수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT, LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * -->
+    <select id="WdrwResultMgmtMap.getWdrwResultMgmtCount" parameterType="map" resultType="int">
+        SELECT /* WdrwResultMgmtMap.getWdrwResultMgmtCount */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_MEMBER_WDRW_REQ REQ INNER JOIN
+            LF_DMUSER.PRODUCT PD ON REQ.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+            LF_DMUSER.TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.PAY_MTHD = RST.PAY_MTHD AND REQ.REQ_DAY = RST.REQ_DAY AND REQ.RESULT_KEY = RST.RESULT_KEY LEFT OUTER JOIN
+            LF_DMUSER.TB_MEMBER_REQ_REFUND MRR ON MRR.ACCNT_NO = REQ.ACCNT_NO AND MRR.PAY_MTHD = REQ.PAY_MTHD AND MRR.DEL_FG = 'N' AND MRR.REQ_DAY = REQ.REQ_DAY AND NVL(MRR.RESULT_KEY,'JL32') = NVL(REQ.RESULT_KEY,'JL32') /* JL32 : PGWEB 서버 통신 중 에러 */
+        WHERE 1=1
+        AND REQ.DEL_FG IN ('C', 'F', 'X')
+        AND REQ.PAY_MTHD = #{pay_mthd}
+        <if test="accnt_no != null and accnt_no != ''">
+            AND REQ.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="del_fg != null and del_fg != ''">
+            AND REQ.DEL_FG = #{del_fg}
+        </if>  
+        <if test="stt_req_dt != null and stt_req_dt != '' and end_req_dt != null and end_req_dt != ''">
+            AND REQ.REQ_DAY BETWEEN #{stt_req_dt} AND #{end_req_dt}
+        </if>
+        <if test="result_kind != null and result_kind != ''">
+            AND REQ.RESULT_KIND = #{result_kind}
+        </if>
+        <if test="req_bit != null and req_bit != ''">
+            AND REQ.REQ_BIT = #{req_bit}
+        </if>
+        <if test="auth_yn != null and auth_yn != ''">
+         	  AND REQ.AUTH_YN = #{auth_yn}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200401
+     * 이름 : 송준빈
+     * 추가내용 : 고객청구결과관리 데이터 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT, LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * -->
+    <select id="WdrwResultMgmtMap.getWdrwResultMgmtList" parameterType="map" resultType="resultMap">
+        SELECT /* WdrwResultMgmtMap.getWdrwResultMgmtList */
+            <if test="orderBy != null and orderBy != ''">
+                ROW_NUMBER() OVER(ORDER BY REQ_DAY DESC, REG_DM DESC, REQ_PAY_NO DESC, ACCNT_NO) PAGE_INDX,
+            </if>
+            X.*
+        FROM 
+        (
+            SELECT 
+                REQ.ACCNT_NO,
+                REQ.MEM_NO,
+                PD.PROD_NM,
+                REQ_BIT,
+                REQ.TRUE_CNT,
+                REQ.REQ_PAY_NO,
+                TO_CHAR(RST.REG_DM, 'YYYYMMDDHH24MISS') AS REG_DM,
+                '' AS MAX_REG_DM,
+                REQ.PAY_BIT,
+                REQ.ICHAE_NO,
+                REQ.REQ_DAY,
+                REQ.PAY_AMT,
+                REQ.RESULT_KEY, 
+                RST.TID,
+                RST.PAY_KIND AS RESULT_KIND,
+                RST.RESULT_CD,
+                CASE WHEN REQ.PAY_MTHD = '04'  THEN FN_COM_NM('15', RST.RESULT_CD)
+                     WHEN REQ.PAY_MTHD = '06' AND NVL(REQ.AUTH_YN,'Y') = 'N'  THEN FN_COM_NM('0222', RST.RESULT_CD)
+                     ELSE RST.RESULT_MSG 
+                END AS RESULT_MSG,
+                RST.AUTH_DT,
+                RST.AUTH_CD,
+                (SELECT COUNT(*) FROM TB_MEMBER_REQ_NAUTH_CNCL WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ_PAY_NO = REQ.REQ_PAY_NO AND DEL_FG IN ('P','N','R')) AS CNCL_CNT,
+                CASE WHEN REQ.PAY_MTHD = '04'  THEN  FN_COM_NM('63', NVL(RST.ICHAE_CD,REQ.ICHAE_CD))
+                     WHEN REQ.PAY_MTHD = '06' AND RST.PAY_KIND = '01' THEN  RST.ICHAE_CD
+                     WHEN REQ.PAY_MTHD = '06' AND RST.PAY_KIND != '01' THEN  FN_COM_NM('0120', NVL(RST.ICHAE_CD,REQ.ICHAE_CD))
+                     ELSE '' 
+                END AS ICHAE_CD,
+                MRR.REG_DM AS REFUND_REG_DT,
+                TO_CHAR(MRR.CANCEL_DT, 'YYYYMMDDHH24MISS') AS CANCEL_DT,
+                RST.ETC,
+                REQ.PAY_MTHD,
+                REQ.DEL_FG,
+                CASE WHEN LENGTH(RST.REG_MAN) = 10
+                     THEN ( SELECT EMPLE_NM FROM EMPLOYEE WHERE EMPLE_NO = RST.REG_MAN )
+                     ELSE RST.REG_MAN
+                END AS REG_MAN,
+                REQ.AUTH_YN,
+                REQ.FRANCHISEE_NO
+            FROM LF_DMUSER.TB_MEMBER_WDRW_REQ REQ INNER JOIN
+                LF_DMUSER.PRODUCT PD ON REQ.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                LF_DMUSER.TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.PAY_MTHD = RST.PAY_MTHD AND REQ.REQ_DAY = RST.REQ_DAY AND REQ.RESULT_KEY = RST.RESULT_KEY LEFT OUTER JOIN
+                LF_DMUSER.TB_MEMBER_REQ_REFUND MRR ON MRR.ACCNT_NO = REQ.ACCNT_NO AND MRR.PAY_MTHD = REQ.PAY_MTHD AND MRR.DEL_FG = 'N' AND MRR.REQ_DAY = REQ.REQ_DAY AND NVL(MRR.RESULT_KEY,'JL32') = NVL(REQ.RESULT_KEY,'JL32') /* JL32 : PGWEB 서버 통신 중 에러 */
+            WHERE 1=1
+            AND REQ.DEL_FG IN ('C', 'F', 'X')
+            AND REQ.PAY_MTHD = #{pay_mthd}
+            <if test="accnt_no != null and accnt_no != ''">
+                AND REQ.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="del_fg != null and del_fg != ''">
+                AND REQ.DEL_FG = #{del_fg}
+            </if>  
+            <if test="stt_req_dt != null and stt_req_dt != '' and end_req_dt != null and end_req_dt != ''">
+                AND REQ.REQ_DAY BETWEEN #{stt_req_dt} AND #{end_req_dt}
+            </if>
+            <if test="result_kind != null and result_kind != ''">
+                AND REQ.RESULT_KIND = #{result_kind}
+            </if>
+            <if test="req_bit != null and req_bit != ''">
+                AND REQ.REQ_BIT = #{req_bit}
+            </if>
+            <if test="auth_yn != null and auth_yn != ''">
+             	AND REQ.AUTH_YN = #{auth_yn}
+            </if>
+        ) X
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200401
+     * 이름 : 송준빈
+     * 추가내용 : 고객청구결과관리 고객별 데이터 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT, LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * -->
+    <select id="WdrwResultMgmtMap.getWdrwAccntLogList" parameterType="map" resultType="resultMap">
+        SELECT /* WdrwResultMgmtMap.getWdrwAccntLogList */
+            ROW_NUMBER() OVER(ORDER BY REQ.REQ_DAY DESC, RST.REG_DM DESC, REQ.REQ_PAY_NO DESC, REQ.ACCNT_NO) PAGE_INDX,
+            REQ.ACCNT_NO,
+            REQ.MEM_NO,
+            PD.PROD_NM,
+            REQ_BIT,
+            REQ.TRUE_CNT,
+            REQ.REQ_PAY_NO,
+            (
+                SELECT 
+                    MAX(REQ_PAY_NO)
+                FROM TB_MEMBER_WDRW_REQ
+                WHERE ACCNT_NO = REQ.ACCNT_NO
+                AND DEL_FG = 'C'
+                AND (ACCNT_NO, RESULT_KEY, REQ_DAY, PAY_MTHD) NOT IN (SELECT ACCNT_NO, RESULT_KEY, REQ_DAY, PAY_MTHD FROM TB_MEMBER_REQ_REFUND WHERE DEL_FG = 'N')
+                AND REQ_PAY_NO != 999
+            ) AS MAX_REQ_PAY_NO,
+            TO_CHAR(RST.REG_DM, 'YYYYMMDDHH24MISS') AS REG_DM,
+            REQ.PAY_BIT,
+            REQ.ICHAE_NO,
+            REQ.REQ_DAY,
+            REQ.PAY_AMT,
+            REQ.RESULT_KEY,
+            RST.TID,
+            RST.PAY_KIND AS RESULT_KIND,
+            RST.RESULT_CD,
+            CASE WHEN REQ.PAY_MTHD = '04' THEN FN_COM_NM('15', RST.RESULT_CD)
+                 WHEN REQ.PAY_MTHD = '06' THEN RST.RESULT_MSG
+                 ELSE '' 
+            END AS RESULT_MSG,
+            RST.AUTH_DT,
+            RST.AUTH_CD,
+            (
+                SELECT 
+                    COUNT(*) 
+                FROM TB_MEMBER_REQ_NAUTH_CNCL 
+                WHERE ACCNT_NO = REQ.ACCNT_NO 
+                AND REQ_PAY_NO = REQ.REQ_PAY_NO 
+                AND DEL_FG IN ('P', 'N', 'R')
+            ) AS CNCL_CNT,
+            CASE WHEN REQ.PAY_MTHD = '04'  THEN  FN_COM_NM('63', NVL(RST.ICHAE_CD,REQ.ICHAE_CD))
+                 WHEN REQ.PAY_MTHD = '06' AND RST.PAY_KIND = '01' THEN  RST.ICHAE_CD
+                 WHEN REQ.PAY_MTHD = '06' AND RST.PAY_KIND != '01' THEN  FN_COM_NM('0120', NVL(RST.ICHAE_CD,REQ.ICHAE_CD))
+                 ELSE '' 
+            END AS ICHAE_CD,
+            MRR.REG_DM AS REFUND_REG_DT,
+            TO_CHAR(MRR.CANCEL_DT, 'YYYYMMDDHH24MISS') AS CANCEL_DT,
+            RST.ETC,
+            REQ.PAY_MTHD,
+            REQ.DEL_FG,
+            CASE WHEN LENGTH(RST.REG_MAN) = 10 THEN (SELECT EMPLE_NM FROM EMPLOYEE WHERE EMPLE_NO = RST.REG_MAN)
+                 ELSE RST.REG_MAN
+            END AS REG_MAN,
+            REQ.AUTH_YN,
+            REQ.FRANCHISEE_NO
+        FROM LF_DMUSER.TB_MEMBER_WDRW_REQ REQ INNER JOIN
+            LF_DMUSER.PRODUCT PD ON REQ.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+            LF_DMUSER.TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.PAY_MTHD = RST.PAY_MTHD AND REQ.REQ_DAY = RST.REQ_DAY AND REQ.RESULT_KEY = RST.RESULT_KEY LEFT OUTER JOIN
+            LF_DMUSER.TB_MEMBER_REQ_REFUND MRR ON MRR.ACCNT_NO = REQ.ACCNT_NO AND MRR.PAY_MTHD = REQ.PAY_MTHD AND MRR.DEL_FG = 'N' AND MRR.REQ_DAY = REQ.REQ_DAY AND NVL(MRR.RESULT_KEY,'JL32') = NVL(REQ.RESULT_KEY,'JL32')
+        WHERE 1=1
+        AND REQ.DEL_FG IN ('C', 'F', 'X')
+        AND REQ.ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200401
+     * 이름 : 송준빈
+     * 추가내용 : 고객청구결과관리 고객 산출,청구 여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * -->
+    <select id="WdrwResultMgmtMap.getWdrwNRConfirm" parameterType="String" resultType="resultMap">
+        SELECT
+            REQ.ACCNT_NO,
+            REQ.PROD_CD,
+            REQ.PAY_MTHD,
+            REQ.REQ_BIT,
+            REQ.STAT,
+            REQ.KSTBIT,
+            REQ.TRUE_CNT,
+            REQ.REQ_PAY_NO,
+            REQ.PAY_BIT,
+            REQ.ICHAE_NO,
+            REQ.ICHAE_CD,
+            REQ.REQ_DAY,
+            REQ.BANK_FILIN_BRKDN,
+            REQ.PAY_AMT,
+            REQ.REG_DM,
+            REQ.REG_MAN,
+            REQ.ICHAE_DT,
+            REQ.REQ_PAY_GUNSU,
+            REQ.UPD_DM,
+            REQ.UPD_MAN,
+            REQ.DEL_FG,
+            REQ.BIRTH,
+            REQ.BILL_GUBUN,
+            REQ.RESULT_KEY,
+            REQ.RESULT_KIND,
+            REQ.MONTH_CNT,
+            REQ.MEM_NO,
+            REQ.AUTH_YN,
+            REQ.FRANCHISEE_NO,
+            REQ.EXPIRE_DATE
+        FROM LF_DMUSER.TB_MEMBER_WDRW_REQ REQ
+        WHERE 1=1
+        AND REQ.DEL_FG IN ('N', 'R')
+        AND REQ.ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌 정보 강제마감처리
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <update id="WdrwResultMgmtMap.updateVrtlAccntRecoverProc" parameterType="map">
+        UPDATE /* WdrwResultMgmtMap.updateVrtlAccntRecoverProc */
+            TB_NICE_VRTL_ACCNT_INFO
+        SET DEL_FG = 'N',
+            PREV_CLOSE_DT = NULL
+        WHERE 1=1
+        AND SEQ = #{seq}
+    </update>
+</mapper>

@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwTvFormatMap">
+
+
+    <select id="DlwTvFormatMap.selectTvFormatList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectCouponInfoList -->
+        SELECT A1.*
+             FROM
+             (
+                /* [방송편성관리] : 방송편성관리 조회 */
+                SELECT
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY MST.${orderBy} ${orderDirection}) AS PAGE_INDX
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY FORMAT_SEQ) AS PAGE_INDX
+                      </otherwise>
+                  </choose>
+                    ,'' as chk
+                    , MST.FORMAT_SEQ		/* 편성번호 */
+                    , MST.TV_CD				/* 방송사코드 */
+                    , FN_COM_NM('S015',MST.TV_CD) AS TV_NM	/* 방송사명 */
+                    , MST.FORMAT_DT			/* 편성일자 */
+                     , SUBSTR('00000'||TO_CHAR(MST.FORMAT_STT_TM),-4) FORMAT_STT_TM		/* 방송시작시간 */
+          			  , SUBSTR('00000'|| TO_CHAR( MST.FORMAT_END_TM),-4) FORMAT_END_TM 		/* 방송종료시간 */
+                    , MST.FORMAT_NUM_TM		/* 방송계산시간 */
+                    , SUBSTR('00000'||TO_CHAR(MST.FORMAT_STT_TM),-4)||SUBSTR('00000'|| TO_CHAR( MST.FORMAT_END_TM),-4) AS FORMAT_TM		/* 방송시간 */
+                    , MST.MI_COST			/* 분당비용 */
+                    , MST.TOT_COST			/* 총비용 */
+                    , (SELECT SUM(CALL_CNT) FROM TV_FORMAT_DTL WHERE  FORMAT_SEQ=MST.FORMAT_SEQ  ) FINAL_CALL		/* 최종유입콜 */
+                    , MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                    , NVL(MST.C_CD,'') C_CD             /* 추출값 */
+               FROM TV_FORMAT_MST MST /* 방송편성 마스터 */
+              WHERE 1=1
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND MST.FORMAT_DT BETWEEN #{stt_dt} AND #{end_dt}	/* 평성일자 */
+            </if>
+            <if test="tv_cd != null and tv_cd != ''">
+                AND MST.TV_CD = #{tv_cd}  /* 쿠폰종류 */
+            </if>
+
+        ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+
+    </select>
+
+
+    <select id="DlwTvFormatMap.selectCompaignList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectCouponInfoList -->
+        SELECT A1.*
+             FROM
+             (
+                /* 캠페인 서브대상목록 조회 */
+                SELECT
+                   <choose>
+                       <when test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY TRGT_LIST_ID DESC) AS PAGE_INDX
+                       </when>
+                       <otherwise>
+                           ROW_NUMBER() OVER(ORDER BY TRGT_LIST_ID) AS PAGE_INDX
+                       </otherwise>
+                   </choose>
+                     , CNTR_CD            	/* 센터 코드  */
+                     , TRGT_LIST_ID         /* 대상 목록 ID  */
+                     , SUB_TRGT_LIST_ID     /* 서브대상목록ID  */
+                     , SUB_TRGT_LIST_NM     /* 서브대상목록명 */
+                  FROM PS_WILLVI.TB_SUB_TRGT_LIST_DTL
+                 WHERE 1=1
+               <if test="search_nm != null and search_nm != ''">
+                   AND SUB_TRGT_LIST_NM LIKE '%' || #{search_nm} || '%' /* 서브대상명 */
+               </if>
+
+        ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+
+    </select>
+
+
+    <select id="DlwTvFormatMap.selectTvFormatMstDetail" parameterType="map" resultType="resultMap">
+        SELECT /* 방송편성 MST 상세조회 */
+              FORMAT_SEQ		/* 편성번호 */
+            , TV_CD				/* 방송사코드 */
+            , FORMAT_DT			/* 편성일자 */
+            , SUBSTR('00000'||TO_CHAR(FORMAT_STT_TM),-4) FORMAT_STT_TM		/* 방송시작시간 */
+            , SUBSTR('00000'|| TO_CHAR( FORMAT_END_TM),-4) FORMAT_END_TM 		/* 방송종료시간 */
+            , FORMAT_NUM_TM		/* 방송계산시간 */
+            , MI_COST			/* 분당비용 */
+            , TOT_COST			/* 총비용 */
+             , (SELECT NVL(SUM(CALL_CNT),0) FROM TV_FORMAT_DTL WHERE  FORMAT_SEQ=TV_FORMAT_MST.FORMAT_SEQ  ) FINAL_CALL		/* 최종유입콜 */
+            , '' as dml_mode
+            , C_CD            /* 추출값 */   
+         FROM TV_FORMAT_MST
+        WHERE FORMAT_SEQ = #{format_seq}
+    </select>
+
+
+    <select id="DlwTvFormatMap.selectTvFormatDtlDetail" parameterType="map" resultType="resultMap">
+        SELECT /* 방송편성 DTL 상세조회 */
+              DTL.FORMAT_SEQ				/* 편성번호 */
+            , DTL.FORMAT_DTL_SEQ			/* 편성상세번호 */
+            , DTL.CNTR_CD					/* TB_SUB_TRGT_LIST_DTL(KEY1) */
+            , NVL(DTL.B2BCODE,'')	 B2BCODE			/* TB_SUB_TRGT_LIST_DTL(KEY2) */
+            , NVL(DTL.CALL_CNT,'')		CALL_CNT	/* TB_SUB_TRGT_LIST_DTL(KEY3) */
+            , B2B.COM_NM AS B2BNAME
+          
+         FROM TV_FORMAT_DTL DTL
+          	LEFT OUTER JOIN B2BCOMCD B2B ON DTL.B2BCODE=B2B.COM_CD
+         	
+        WHERE FORMAT_SEQ = #{format_seq}
+    </select>
+
+
+    <update id="DlwTvFormatMap.updateTvFormatMst" parameterType="map" >
+        /* 방송편성 MST 수정  */
+        UPDATE TV_FORMAT_MST SET
+              TV_CD = #{tv_cd}						/* 방송사코드 */
+            , FORMAT_DT = #{format_dt}				/* 편성일자 */
+            , FORMAT_STT_TM = #{format_stt_tm}		/* 방송시작시간 */
+            , FORMAT_END_TM = #{format_end_tm}		/* 방송종료시간 */
+            , FORMAT_NUM_TM = #{format_num_tm}		/* 방송계산시간 */
+            , MI_COST = #{mi_cost}					/* 분당비용 */
+            , TOT_COST = #{tot_cost}				/* 총비용 */
+            , UPD_ID = #{upd_id}					/* 수정자 */
+            , UPD_DATE = SYSDATE				/* 수정일 */
+            , C_CD = #{c_cd}					/* 추출값 */
+        WHERE FORMAT_SEQ = #{format_seq}
+    </update>
+
+
+    <delete id="DlwTvFormatMap.deleteTvFormatMst" parameterType="map" >
+        /* 방송편성 삭제  */
+        DELETE FROM TV_FORMAT_MST
+        WHERE FORMAT_SEQ = #{format_seq}
+    </delete>
+
+
+    <select id="DlwTvFormatMap.selectKeyTvFormatMst" parameterType="map" resultType="String">
+        SELECT TO_CHAR(SYSDATE,'YYYYMMDD')||LPAD(TV_FORMAT_MST_SEQ.NEXTVAL,6,'0') AS format_seq
+        FROM DUAL
+    </select>
+
+
+    <insert id="DlwTvFormatMap.insertTvFormatMst" parameterType="map" >
+        /* 방송편성 등록  */
+        INSERT INTO TV_FORMAT_MST (
+             FORMAT_SEQ			/* 편성번호 */
+            , TV_CD				/* 방송사코드 */
+            , FORMAT_DT			/* 편성일자 */
+            , FORMAT_STT_TM		/* 방송시작시간 */
+            , FORMAT_END_TM		/* 방송종료시간 */
+            , FORMAT_NUM_TM		/* 방송계산시간 */
+            , MI_COST			/* 분당비용 */
+            , TOT_COST			/* 총비용 */
+            , REG_ID			/* 등록자 */
+            , REG_DATE			/* 등록일 */
+            , UPD_ID			/* 수정자 */
+            , UPD_DATE			/* 수정일 */
+            , C_CD				/* 추출값 */
+        ) VALUES (
+              #{format_seq}		/* 편성번호 */
+            ,  #{tv_cd}		/* 방송사코드 */
+            ,  #{format_dt}		/* 편성일자 */
+            ,  #{format_stt_tm}		/* 방송시작시간 */
+            ,  #{format_end_tm}		/* 방송종료시간 */
+            ,  #{format_num_tm}		/* 방송계산시간 */
+            ,  #{mi_cost}		/* 분당비용 */
+            ,  #{tot_cost}		/* 총비용 */
+            ,  #{reg_id}		/* 등록자 */
+            ,  SYSDATE			/* 등록일 */
+            ,  #{upd_id}		/* 수정자 */
+            ,  SYSDATE			/* 수정일 */
+            ,  #{c_cd}		/* 추출값 */
+        )
+    </insert>
+
+
+    <insert id="DlwTvFormatMap.insertTvFormatDtl" parameterType="map" >
+        <selectKey keyProperty="format_dtl_seq" resultType="String" order="BEFORE">
+            select nvl(max(FORMAT_DTL_SEQ),0)+1 as format_dtl_seq
+              from TV_FORMAT_DTL
+             where FORMAT_SEQ = #{format_seq}
+        </selectKey>
+
+        /* 방송편성 DTL 등록  */
+        INSERT INTO TV_FORMAT_DTL (
+             FORMAT_SEQ				/* 편성번호 */
+            , FORMAT_DTL_SEQ		/* 편성상세번호 */
+            , CNTR_CD				/* TB_SUB_TRGT_LIST_DTL(KEY1) */
+            , B2BCODE			/* 콜센터 */
+            , CALL_CNT		/* 유입콜 */
+            , REG_ID				/* 등록자 */
+            , REG_DATE				/* 등록일 */
+            , UPD_ID				/* 수정자 */
+            , UPD_DATE				/* 수정일 */
+        ) VALUES (
+               #{format_seq}		/* 편성번호 */
+            ,  #{format_dtl_seq}	/* 편성상세번호 */
+            ,  #{cntr_cd}			/* TB_SUB_TRGT_LIST_DTL(KEY1) */
+            ,  #{b2bcode}		/* 콜센터 */
+            ,  #{call_cnt}	/* 유입콜 */
+            ,  #{reg_id}			/* 등록자 */
+            ,  SYSDATE				/* 등록일 */
+            ,  #{upd_id}			/* 수정자 */
+            ,  SYSDATE				/* 수정일 */
+        )
+    </insert>
+
+
+    <delete id="DlwTvFormatMap.deleteTvFormatDtl" parameterType="map" >
+        /* 방송편성 DTL 삭제  */
+        DELETE FROM TV_FORMAT_DTL
+         WHERE FORMAT_SEQ = #{format_seq}
+    </delete>
+
+
+</mapper>

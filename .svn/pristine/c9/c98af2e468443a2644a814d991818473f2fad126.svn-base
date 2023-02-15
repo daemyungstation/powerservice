@@ -1,0 +1,1719 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwItoMngMap">
+    <!-- ================================================================
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 조회수
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getResnDayCloseListCount" parameterType="map" resultType="int">
+         SELECT	COUNT(*)
+           FROM LF_DMUSER.TB_RESN_DAY_CLOSE
+          WHERE RESN_PROC_DAY = #{resn_proc_day}
+            AND DEL_YN = 'N'
+
+     </select>
+     <!-- ================================================================
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->
+       <select id="DlwItoMngMap.getResnDayCloseList" parameterType="map" resultType="resultMap">
+          SELECT A.ACCNT_NO							/* 회원번호 		*/
+               , A.MEM_NM							/* 성명 			*/
+               , A.PROD_NM							/* 상품명			*/
+               , A.JOIN_DT							/* 가입일자 		*/
+               , A.DAMDANG
+               , A.DEPT_NM
+               , A.RESN_ACPT_DAY					/* 해약등록일 		*/
+               , A.RESN_PROC_DAY					/* 해약처리일 		*/
+               , A.RESN_SEND_DAY					/* 해약송금일 		*/
+               , FN_COM_NM('82',A.RESON) AS RESON   /* 고객사유   		*/
+               , A.COMP_RESON
+               , A.RESN_MTHD						/* 해약환급방법 	*/
+               , A.BANK_ACCNT_NO					/* 계좌번호 		*/
+               , A.BANK_CD							/* 은행코드 		*/
+               , A.BANK_NM							/* 은행명   		*/
+               , A.DEPR								/* 예금주 			*/
+               , A.DEPR_INFO						/* 은행명 계좌번호 예금주  */
+               , A.RELT					   			/* 관계 			*/
+               , FN_COM_NM('64',A.RESN_CL) AS RESN_CL							/* 해약구분     */
+               , DECODE(A.RESN_PROC_YN,'Y','처리','미대상') AS RESN_PROC_YN		/* 해약처리여부 */
+               , A.DOCUMENT
+               , A.TRUE_CNT AS TRUE_CNT		/* 상조회차 		*/
+               , A.TRUE_AMT	AS TRUE_AMT			/* 상조금액 		*/
+               , A.MONTH_TRUE_AMT AS MONTH_TRUE_AMT	/* 월상조통계금액 	*/
+               , A.REL_AMT	AS REL_AMT			/* 결합금액 		*/
+               , A.MONTH_REL_AMT					/* 월결합통계금액 	*/
+               , A.ADD_AMT	AS ADD_AMT			/* 추가금액 		*/
+               , A.GONGJE_AMT						/* 공제금액 		*/
+               , A.NEW_CHAN_GUNSU 					/* 특별할인회차 	*/
+               , A.PRE_DC
+               , A.RESN_PAY_AMT						/* 실지급금액 		*/
+               , A.RESN_PLUS						/* 해약수익금 		*/
+               , A.SHOPPING_USE_AMT		 			/* 쇼핑몰사용금액 	*/
+            FROM LF_DMUSER.TB_RESN_DAY_CLOSE A
+           WHERE 1=1
+             AND A.RESN_PROC_DAY = #{resn_proc_day}
+             AND A.DEL_YN = 'N'
+           ORDER BY A.ACCNT_NO
+       </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 조회수(해약환급데일리 테이블에 없을때 조회)
+     * 대상 테이블 : RESCISSION , MEM_PROD_ACCNT , MEMBER , PRODUCT , TB_MEMBER_BASIC_INFO_DAY
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getResnDayCloseListCount2" parameterType="map" resultType="int">
+       <![CDATA[
+           WITH RESN_TBL
+           AS
+           (SELECT /* DlwItoMngMap.getResnDayCloseListCount2 */
+                   ACCNT_NO
+                 , RESN_CL
+                 , RESN_PROC_YN
+                 , CALC_MTHD
+                 , MEM_NM
+                 , PROD_CD
+                 , PROD_NM
+                 , JOIN_DT
+                 , '0' AS DAMDANG
+                 , '0' AS DEPT_NM
+                 , RESN_ACPT_DAY
+                 , RESN_PROC_DAY
+                 , '0' AS RESN_SEND_DAY
+                 , FN_COM_NM('82',RESON) AS RESON
+                 , '0' AS COMP_RESON
+                 , '0' AS RESN_MTHD
+                 , BANK_ACCNT_NO
+                 , BANK_CD
+                 , BANK_NM
+                 , DEPR
+                 , BANK_NM||BANK_ACCNT_NO||DEPR AS DEPR_INFO
+                 , '0' AS RELT
+                 , '' AS DOCUMENT
+                 , TRUE_CNT
+                 , REL_CNT
+                 , ADD_CNT
+                 , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+                 , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+                 , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+                 , '0' AS GONGJE_AMT
+                 , NEW_CHAN_GUNSU
+                 , '0' AS PRE_DC
+                 , RESN_PAY_AMT
+                 , RESN_PLUS
+                 , SHOPPING_USE_AMT
+              FROM
+                 ( SELECT RS.ACCNT_NO
+                        , RS.RESN_CL
+                        , RS.RESN_PROC_YN
+                        , RS.CALC_MTHD
+                        , MB.MEM_NM
+                        , PD.PROD_CD
+                        , PD.PROD_NM
+                        , MPA.JOIN_DT
+                        , RS.RESN_ACPT_DAY
+                        , RS.RESN_PROC_DAY
+                        , FN_COM_NM('82',RESON) AS RESON
+                        , RS.BANK_ACCNT_NO
+                        , RS.BANK_CD
+                        , RS.BANK_NM
+                        , RS.DEPR
+                        , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+                        , CASE WHEN TRUE_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                         FROM PAY_MNG
+                                                                        WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                          AND DEL_FG = 'N'
+                                                                          AND PAY_DAY <= #{resn_proc_day})
+                               ELSE TRUE_CNT
+                           END AS TRUE_CNT
+                         , CASE WHEN REL_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                          FROM PAY_MNG_DTL
+                                                                         WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                           AND DEL_FG = 'N' AND PAY_DAY <= #{resn_proc_day})
+                                ELSE REL_CNT
+                            END AS REL_CNT
+
+                         , CASE WHEN ADD_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                          FROM PAY_MNG_DTL1
+                                                                         WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                           AND DEL_FG = 'N' AND PAY_DAY <= #{resn_proc_day})
+                                ELSE ADD_CNT
+                            END AS ADD_CNT
+                         , MPA.NEW_CHAN_GUNSU
+                         , RS.RESN_PAY_AMT
+                         , RS.RESN_PLUS
+                         , RS.SHOPPING_USE_AMT
+                         , CASE WHEN RS.RESN_CL = '01' AND RS.RESON != '23' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                 WHEN RS.RESN_CL = '03' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                 WHEN RS.RESN_CL = '04' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                 WHEN RS.RESN_CL = '02' AND RS.RESON != '23' THEN 'Y'
+                                 WHEN RS.RESON = '23' AND RESN_PROC_YN = 'Y' THEN 'Y'
+                                ELSE 'N'
+                            END AS ROW_YN
+                      FROM RESCISSION RS
+                INNER JOIN TB_MEMBER_BASIC_INFO_DAY MPA
+                        ON RS.ACCNT_NO = MPA.ACCNT_NO
+                INNER JOIN MEMBER MB
+                        ON MPA.MEM_NO = MB.MEM_NO
+                       AND MB.DEL_FG = 'N'
+                INNER JOIN PRODUCT PD
+                        ON MPA.PROD_CD = PD.PROD_CD
+                     WHERE 1=1
+                       AND RS.DEL_FG = 'N'
+                       AND RS.RESN_PROC_DAY = #{resn_proc_day}
+                 ) AA
+             WHERE 1=1
+               AND ROW_YN = 'Y'
+            )
+            SELECT COUNT(*)
+              FROM RESN_TBL
+        ]]>
+     </select>
+     <!-- ================================================================
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트(해약환급데일리 테이블에 데이터 없을때 조회)
+     * 대상 테이블 : RESCISSION , MEM_PROD_ACCNT , MEMBER , PRODUCT , TB_MEMBER_BASIC_INFO_DAY
+     * ================================================================
+     * -->
+       <select id="DlwItoMngMap.getResnDayCloseList2" parameterType="map" resultType="resultMap">
+          <![CDATA[
+           WITH RESN_TBL
+           AS
+           (SELECT /* DlwItoMngMap.getResnDayCloseListCount2 */
+                   ACCNT_NO
+                 , RESN_CL
+                 , RESN_PROC_YN
+                 , CALC_MTHD
+                 , MEM_NM
+                 , PROD_CD
+                 , PROD_NM
+                 , JOIN_DT
+                 , '0' AS DAMDANG
+                 , '0' AS DEPT_NM
+                 , RESN_ACPT_DAY
+                 , RESN_PROC_DAY
+                 , '0' AS RESN_SEND_DAY
+                 , RESON
+                 , '0' AS COMP_RESON
+                 , '0' AS RESN_MTHD
+                 , BANK_ACCNT_NO
+                 , BANK_CD
+                 , BANK_NM
+                 , DEPR
+                 , BANK_NM||BANK_ACCNT_NO||DEPR AS DEPR_INFO
+                 , '0' AS RELT
+                 , '' AS DOCUMENT
+                 , TRUE_CNT
+                 , REL_CNT
+                 , ADD_CNT
+                 , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+                 , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+                 , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+                 , '0' AS GONGJE_AMT
+                 , NEW_CHAN_GUNSU
+                 , '0' AS PRE_DC
+                 , RESN_PAY_AMT
+                 , RESN_PLUS
+                 , SHOPPING_USE_AMT
+              FROM
+                 ( SELECT RS.ACCNT_NO
+                        , RS.RESN_CL
+                        , RS.RESN_PROC_YN
+                        , RS.CALC_MTHD
+                        , MB.MEM_NM
+                        , PD.PROD_CD
+                        , PD.PROD_NM
+                        , MPA.JOIN_DT
+                        , RS.RESN_ACPT_DAY
+                        , RS.RESN_PROC_DAY
+                        , FN_COM_NM('82',RESON) AS RESON
+                        , RS.BANK_ACCNT_NO
+                        , RS.BANK_CD
+                        , RS.BANK_NM
+                        , RS.DEPR
+                        , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+                        , CASE WHEN TRUE_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                         FROM PAY_MNG
+                                                                        WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                          AND DEL_FG = 'N'
+                                                                          AND PAY_DAY <= #{resn_proc_day})
+                               ELSE TRUE_CNT
+                           END AS TRUE_CNT
+                         , CASE WHEN REL_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                          FROM PAY_MNG_DTL
+                                                                         WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                           AND DEL_FG = 'N' AND PAY_DAY <= #{resn_proc_day})
+                                ELSE REL_CNT
+                            END AS REL_CNT
+
+                         , CASE WHEN ADD_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                          FROM PAY_MNG_DTL1
+                                                                         WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                           AND DEL_FG = 'N' AND PAY_DAY <= #{resn_proc_day})
+                                ELSE ADD_CNT
+                            END AS ADD_CNT
+                         , MPA.NEW_CHAN_GUNSU
+                         , RS.RESN_PAY_AMT
+                         , RS.RESN_PLUS
+                         , RS.SHOPPING_USE_AMT
+                         , CASE WHEN RS.RESN_CL = '01' AND RS.RESON != '23' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                 WHEN RS.RESN_CL = '03' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                 WHEN RS.RESN_CL = '04' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                 WHEN RS.RESN_CL = '02' AND RS.RESON != '23' THEN 'Y'
+                                 WHEN RS.RESON = '23' AND RESN_PROC_YN = 'Y' THEN 'Y'
+                                ELSE 'N'
+                            END AS ROW_YN
+                      FROM RESCISSION RS
+                INNER JOIN TB_MEMBER_BASIC_INFO_DAY MPA
+                        ON RS.ACCNT_NO = MPA.ACCNT_NO
+                INNER JOIN MEMBER MB
+                        ON MPA.MEM_NO = MB.MEM_NO
+                       AND MB.DEL_FG = 'N'
+                INNER JOIN PRODUCT PD
+                        ON MPA.PROD_CD = PD.PROD_CD
+                     WHERE 1=1
+                       AND RS.DEL_FG = 'N'
+                       AND RS.RESN_PROC_DAY = #{resn_proc_day}
+                 ) AA
+             WHERE 1=1
+               AND ROW_YN = 'Y'
+            )
+            SELECT ACCNT_NO
+                 , MEM_NM
+                 , PROD_CD
+                 , PROD_NM
+                 , JOIN_DT
+                 , DAMDANG
+                 , DEPT_NM
+                 , RESN_ACPT_DAY
+                 , RESN_PROC_DAY
+                 , RESN_SEND_DAY
+                 , RESON
+                 , COMP_RESON
+                 , RESN_MTHD
+                 , BANK_ACCNT_NO
+                 , BANK_CD
+                 , BANK_NM
+                 , DEPR
+                 , DEPR_INFO
+                 , RELT
+                 , RESN_CL
+                 , RESN_PROC_YN
+                 , DOCUMENT
+                 , TRUE_CNT
+                 , REL_CNT
+                 , ADD_CNT
+                 , TRUE_AMT
+                 , ROUND(TRUE_AMT/TRUE_CNT,0) AS MONTH_TRUE_AMT
+                 , REL_AMT
+                 , ROUND(REL_AMT / REL_CNT,0) AS MONTH_REL_AMT
+                 , ADD_AMT
+                 , GONGJE_AMT
+                 , NEW_CHAN_GUNSU
+                 , PRE_DC
+                 , RESN_PAY_AMT
+                 , RESN_PLUS
+                 , SHOPPING_USE_AMT
+              FROM RESN_TBL
+             ORDER BY ACCNT_NO
+           ]]>
+       </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트 저장
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->
+
+    <insert id="DlwItoMngMap.insertResnDayClose" parameterType="map">
+        <![CDATA[
+        INSERT /* DlwItoMngMap.insertResnDayClose */
+          INTO TB_RESN_DAY_CLOSE
+               (  ACCNT_NO
+                , MEM_NM
+                , PROD_NM
+                , JOIN_DT
+                , DAMDANG
+                , DEPT_NM
+                , RESN_ACPT_DAY
+                , RESN_PROC_DAY
+                , RESN_SEND_DAY
+                , RESON
+                , COMP_RESON
+                , RESN_MTHD
+                , BANK_ACCNT_NO
+                , BANK_CD
+                , BANK_NM
+                , DEPR
+                , DEPR_INFO
+                , RELT
+                , RESN_CL
+                , RESN_PROC_YN
+                , DOCUMENT
+                , TRUE_CNT
+                , TRUE_AMT
+                , MONTH_TRUE_AMT
+                , REL_AMT
+                , MONTH_REL_AMT
+                , ADD_AMT
+                , GONGJE_AMT
+                , NEW_CHAN_GUNSU
+                , PRE_DC
+                , RESN_PAY_AMT
+                , RESN_PLUS
+                , SHOPPING_USE_AMT
+                , REG_MAN
+                , REG_DM
+                , UPD_MAN
+                , UPD_DM
+                , DEL_YN
+               )
+               WITH RESN_TBL
+               AS
+               (SELECT /* DlwItoMngMap.getResnDayCloseListCount2 */
+                       ACCNT_NO
+                     , RESN_CL
+                     , RESN_PROC_YN
+                     , CALC_MTHD
+                     , MEM_NM
+                     , PROD_CD
+                     , PROD_NM
+                     , JOIN_DT
+                     , '0' AS DAMDANG
+                     , '0' AS DEPT_NM
+                     , RESN_ACPT_DAY
+                     , RESN_PROC_DAY
+                     , '0' AS RESN_SEND_DAY
+                     , FN_COM_NM('82',RESON) AS RESON
+                     , '0' AS COMP_RESON
+                     , '0' AS RESN_MTHD
+                     , BANK_ACCNT_NO
+                     , BANK_CD
+                     , BANK_NM
+                     , DEPR
+                     , BANK_NM||BANK_ACCNT_NO||DEPR AS DEPR_INFO
+                     , '0' AS RELT
+                     , '' AS DOCUMENT
+                     , TRUE_CNT
+                     , REL_CNT
+                     , ADD_CNT
+                     , (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= TRUE_CNT) AS TRUE_AMT
+                     , (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= REL_CNT) AS REL_AMT
+                     , (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = AA.PROD_CD AND NO <= ADD_CNT) AS ADD_AMT
+                     , '0' AS GONGJE_AMT
+                     , NEW_CHAN_GUNSU
+                     , '0' AS PRE_DC
+                     , RESN_PAY_AMT
+                     , RESN_PLUS
+                     , SHOPPING_USE_AMT
+                  FROM
+                     ( SELECT RS.ACCNT_NO
+                            , RS.RESN_CL
+                            , RS.RESN_PROC_YN
+                            , RS.CALC_MTHD
+                            , MB.MEM_NM
+                            , PD.PROD_CD
+                            , PD.PROD_NM
+                            , MPA.JOIN_DT
+                            , RS.RESN_ACPT_DAY
+                            , RS.RESN_PROC_DAY
+                            , FN_COM_NM('82',RESON) AS RESON
+                            , RS.BANK_ACCNT_NO
+                            , RS.BANK_CD
+                            , RS.BANK_NM
+                            , RS.DEPR
+                            , RS.BANK_NM||RS.BANK_ACCNT_NO||RS.DEPR AS DEPR_INFO
+                            , CASE WHEN TRUE_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                             FROM PAY_MNG
+                                                                            WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                              AND DEL_FG = 'N'
+                                                                              AND PAY_DAY <= #{resn_proc_day})
+                                   ELSE TRUE_CNT
+                               END AS TRUE_CNT
+                             , CASE WHEN REL_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                              FROM PAY_MNG_DTL
+                                                                             WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                               AND DEL_FG = 'N' AND PAY_DAY <= #{resn_proc_day})
+                                    ELSE REL_CNT
+                                END AS REL_CNT
+
+                             , CASE WHEN ADD_DAY >= #{resn_proc_day} THEN (SELECT COUNT(*)
+                                                                              FROM PAY_MNG_DTL1
+                                                                             WHERE ACCNT_NO = RS.ACCNT_NO
+                                                                               AND DEL_FG = 'N' AND PAY_DAY <= #{resn_proc_day})
+                                    ELSE ADD_CNT
+                                END AS ADD_CNT
+                             , MPA.NEW_CHAN_GUNSU
+                             , RS.RESN_PAY_AMT
+                             , RS.RESN_PLUS
+                             , RS.SHOPPING_USE_AMT
+                             , CASE WHEN RS.RESN_CL = '01' AND RS.RESON != '23' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                     WHEN RS.RESN_CL = '03' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                     WHEN RS.RESN_CL = '04' AND RS.RESN_PROC_YN = 'Y' THEN 'Y'
+                                     WHEN RS.RESN_CL = '02' AND RS.RESON != '23' THEN 'Y'
+                                     WHEN RS.RESON = '23' AND RESN_PROC_YN = 'Y' THEN 'Y'
+                                    ELSE 'N'
+                                END AS ROW_YN
+                          FROM RESCISSION RS
+                    INNER JOIN TB_MEMBER_BASIC_INFO_DAY MPA
+                            ON RS.ACCNT_NO = MPA.ACCNT_NO
+                    INNER JOIN MEMBER MB
+                            ON MPA.MEM_NO = MB.MEM_NO
+                           AND MB.DEL_FG = 'N'
+                    INNER JOIN PRODUCT PD
+                            ON MPA.PROD_CD = PD.PROD_CD
+                         WHERE 1=1
+                           AND RS.DEL_FG = 'N'
+                           AND RS.RESN_PROC_DAY = #{resn_proc_day}
+                     ) AA
+                 WHERE 1=1
+                   AND ROW_YN = 'Y'
+                )
+                SELECT ACCNT_NO
+                     , MEM_NM
+                     , PROD_NM
+                     , JOIN_DT
+                     , DAMDANG
+                     , DEPT_NM
+                     , RESN_ACPT_DAY
+                     , RESN_PROC_DAY
+                     , RESN_SEND_DAY
+                     , RESON
+                     , COMP_RESON
+                     , RESN_MTHD
+                     , BANK_ACCNT_NO
+                     , BANK_CD
+                     , BANK_NM
+                     , DEPR
+                     , DEPR_INFO
+                     , RELT
+                     , RESN_CL
+                     , RESN_PROC_YN
+                     , DOCUMENT
+                     , TRUE_CNT
+                     , TRUE_AMT
+                     , ROUND(TRUE_AMT/TRUE_CNT,0)
+                     , REL_AMT
+                     , ROUND(REL_AMT / REL_CNT,0)
+                     , ADD_AMT
+                     , GONGJE_AMT
+                     , NEW_CHAN_GUNSU
+                     , PRE_DC
+                     , RESN_PAY_AMT
+                     , RESN_PLUS
+                     , SHOPPING_USE_AMT
+                     , #{reg_man}
+                     , SYSDATE
+                     , #{reg_man}
+                     , SYSDATE
+                     , 'N'
+                  FROM RESN_TBL
+
+             ]]>
+    </insert>
+
+    <!-- ================================================================
+     * 날짜 : 20221107
+     * 이름 : 조용우
+     * 추가내용 : 해약환급데일리 작업 리스트 삭제
+     * 대상 테이블 : LF_DMUSER.TB_RESN_DAY_CLOSE
+     * ================================================================
+     * -->
+    <delete id="DlwItoMngMap.deleteResnDayClose">
+        UPDATE TB_RESN_DAY_CLOSE
+           SET DEL_YN = 'Y'
+             , UPD_MAN = #{reg_man}
+             , UPD_DM = SYSDATE
+         WHERE RESN_PROC_DAY = #{resn_proc_day}
+    </delete>
+
+     <!-- ================================================================
+     * 날짜 : 20221118
+     * 이름 : 임성수
+     * 추가내용 : 채권추심회원현황 리스트 조회 조회리스트
+     * 대상 테이블 :
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getCrdtCllctnTitList" parameterType="map" resultType="resultMap">
+        SELECT MST.MST_SEQ
+             , MST.NP_TITLE
+          FROM TB_NONPAYMENT_MST MST
+         WHERE 1=1
+           AND EXT_DT = #{ext_dt}
+         <if test="np_gbn != null and np_gbn != ''">
+           AND MST.NP_GBN = #{np_gbn}
+         </if>
+         ORDER BY NP_TITLE
+       </select>
+
+    <!-- ================================================================
+     * 날짜 : 20221118
+     * 이름 : 임성수
+     * 추가내용 : 채권추심회원현황 리스트 조회수
+     * 대상 테이블 :
+     * ================================================================
+     * -->
+    <select id="DlwItoMngMap.getCrdtCllctnListCount" parameterType="map" resultType="int">
+            SELECT COUNT(*)
+              FROM LF_DMUSER.TB_NONPAYMENT_MNG_TMP TNM
+             WHERE 1=1
+               AND TNM.EXT_DT = #{ext_dt}
+               AND EXISTS (
+                           SELECT 'Y'
+                             FROM LF_DMUSER.TB_NONPAYMENT_DTL
+                            WHERE 1=1
+                              AND ACCNT_NO = TNM.ACCNT_NO
+                              AND NP_SEQ LIKE #{ext_dt}||'%'
+                              AND MST_SEQ IN (
+                                              SELECT MST_SEQ
+                                                FROM LF_DMUSER.TB_NONPAYMENT_MST MST
+                                               WHERE MST.EXT_DT = #{ext_dt}
+        <if test="np_gbn != null and np_gbn != ''">
+                                                 AND MST.NP_GBN = #{np_gbn}
+        </if>
+        <if test="mst_seq != null and mst_seq != ''">
+                                                 AND MST.MST_SEQ = #{mst_seq}
+        </if>
+                                              )
+                          )
+        <if test="accnt_no != null and accnt_no != ''">
+               AND TNM.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="section_t_np != null and section_t_np != ''">
+               AND TNM.SECTION_T_NP = #{section_t_np}
+        </if>
+        <if test="diff_yn != null and diff_yn == 'Y'.toString()">
+               AND TNM.THMN_PYIN_AMT IS NOT NULL
+        </if>
+        <if test="diff_yn != null and diff_yn == 'N'.toString()">
+               AND TNM.THMN_PYIN_AMT IS NULL
+        </if>
+     </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221118
+     * 이름 : 임성수
+     * 추가내용 : 채권추심회원현황 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * -->
+    <select id="DlwItoMngMap.getCrdtCllctnList" parameterType="map" resultType="resultMap">
+        <![CDATA[
+        WITH NO_PAYMENT_CUST AS
+        (
+            SELECT TNM.MEM_NO, TNM.ACCNT_NO
+                 , MB.MEM_NM
+                 , MB.CELL
+                 , MB.HOME_ADDR || ' ' || MB.HOME_ADDR2 AS ADDR
+                 , MB.BRTH_MON_DAY AS BRYR_MNDY
+                 , LF_DMUSER.FN_COM_NM('0123', MB.SEX) AS SEX
+                 , TNM.PROD_CD, PD.PROD_NM
+                 , TNM.NEW_CHAN_GUNSU, TNM.KSTBIT, TNM.PAY_MTHD, TNM.JOIN_DT
+                 , TNM.SECTION_T_NP
+                 , (SELECT DECODE(SPECIAL_BIT, '01', 'Y', '') FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL WHERE ACCNT_NO = TNM.ACCNT_NO AND DEL_FG = 'N' AND SPECIAL_BIT = '01') AS SPCL_YN
+                 , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(TNM.JOIN_DT,0,6) || '01')+1)) AS MNTS_CNT
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.AMT > 0) AS TOT_TRUE_CNT     /* 상조(전체) */
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.REL_AMT > 0) AS TOT_REL_CNT  /* 결합(전체) */
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.ADD_AMT > 0) AS TOT_ADD_CNT  /* 추가(전체) */
+                 , TNM.DIFF_TRUE_CNT, TNM.DIFF_REL_CNT
+                 , TNM.TRUE_CNT AS TRUE_CNT, TNM.REL_CNT AS REL_CNT, TNM.ADD_CNT AS ADD_CNT
+                 , TNM.TRUE_DAY, TNM.REL_DAY , TNM.ADD_DAY
+                 , TNM.THMN_PYIN_AMT, TNM.THMN_PYIN_DAY
+                 , CASE WHEN PAY_MTHD = '04' THEN CM.ICHAE_DT
+                        ELSE CARD.PAY_DT END AS TRAN_DT
+                 , (SELECT ACCNT_NO FROM LF_DMUSER.TB_DEBT_REG WHERE ACCNT_NO = TNM.ACCNT_NO AND CANCEL_YN = 'N') AS DEBT_YN
+                 , (SELECT MAX(SPECIAL_ETC) FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL WHERE ACCNT_NO = TNM.ACCNT_NO AND DEL_FG = 'N') AS EXCD_RSN
+                 , (SELECT MAX(BANKR_GBN) FROM LF_DMUSER.TB_BANKRUPTCY_MNG WHERE ACCNT_NO = TNM.ACCNT_NO AND DEL_FG = 'N') AS BNRU_YN
+              FROM LF_DMUSER.TB_NONPAYMENT_MNG_TMP TNM
+        INNER JOIN LF_DMUSER.MEMBER MB
+                ON TNM.MEM_NO = MB.MEM_NO
+               AND MB.DEL_FG = 'N'
+        INNER JOIN LF_DMUSER.PRODUCT PD
+                ON TNM.PROD_CD = PD.PROD_CD
+   LEFT OUTER JOIN LF_DMUSER.CARD_MEM_DAMO CARD
+                ON TNM.ACCNT_NO = CARD.ACCNT_NO
+               AND CARD.DEL_FG = 'N'
+   LEFT OUTER JOIN LF_DMUSER.CMS_MEM CM
+                ON TNM.ACCNT_NO = CM.ACCNT_NO
+               AND CM.DEL_FG = 'N'
+             WHERE 1=1
+        ]]>
+               AND TNM.EXT_DT = #{ext_dt}
+               AND EXISTS (
+                           SELECT 'Y'
+                             FROM LF_DMUSER.TB_NONPAYMENT_DTL
+                            WHERE 1=1
+                              AND ACCNT_NO = TNM.ACCNT_NO
+                              AND NP_SEQ LIKE #{ext_dt}||'%'
+                              AND MST_SEQ IN (
+                                              SELECT MST_SEQ
+                                                FROM LF_DMUSER.TB_NONPAYMENT_MST MST
+                                               WHERE MST.EXT_DT = #{ext_dt}
+        <if test="np_gbn != null and np_gbn != ''">
+                                                 AND MST.NP_GBN = #{np_gbn}
+        </if>
+        <if test="mst_seq != null and mst_seq != ''">
+                                                 AND MST.MST_SEQ = #{mst_seq}
+        </if>
+                                              )
+                          )
+        <if test="accnt_no != null and accnt_no != ''">
+               AND TNM.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="section_t_np != null and section_t_np != ''">
+               AND TNM.SECTION_T_NP = #{section_t_np}
+        </if>
+        <if test="diff_yn != null and diff_yn == 'Y'.toString()">
+               AND TNM.THMN_PYIN_AMT IS NOT NULL
+        </if>
+        <if test="diff_yn != null and diff_yn == 'N'.toString()">
+               AND TNM.THMN_PYIN_AMT IS NULL
+        </if>
+        )
+        SELECT MNG.PAGE_INDX
+             , MNG.ACCNT_NO /* 회원번호 */
+             , MNG.MEM_NO /* 고유번호 */
+             , MNG.MEM_NM /* 성명 */
+             , MNG.CELL /* 연락처 */
+             , ((MNG.MON_TRUE_AMT - MNG.INTL_TRUE_AMT) + (MNG.MON_REL_AMT  - MNG.INTL_REL_AMT) + (MNG.MON_ADD_AMT  - MNG.INTL_ADD_AMT)) AS NOPAY_AMT /* 미납금액(분배액) */
+             , MNG.ADDR /* 주소 */
+             , MNG.PROD_NM /* 상품명 */
+             , (MNG.THMN_TRUE_CNT - MNG.TRUE_CNT ) AS DIFF_TRUE_CNT /* 미납(상조) */
+             , (MNG.THMN_REL_CNT - MNG.REL_CNT ) AS DIFF_REL_CNT /* 미납(결합) */
+             , MNG.JOIN_DT /* 가입일자 */
+             , MNG.KSTBIT_NM /* 구분2 */
+             , (MNG.MON_TRUE_AMT - MNG.INTL_TRUE_AMT) AS TRUE_AMT /* 상조금액 */
+             , (MNG.MON_REL_AMT  - MNG.INTL_REL_AMT)  AS REL_AMT  /* 결합금액 */
+             , (MNG.MON_ADD_AMT  - MNG.INTL_ADD_AMT)  AS ADD_AMT  /* 추가금액 */
+             , MNG.LAST_MON_DAY AS LAST_MON_DAY /* 최종납일일자 */
+             , MNG.TRAN_DT /* 이체일자 */
+             , MNG.BRYR_MNDY /* 생년월일 */
+             , MNG.SEX /* 성별 */
+             , MNG.THMN_PYIN_AMT AS CUR_MON_PAY_AMT /* 당월납입금액 */
+             , MNG.THMN_PYIN_DAY AS CUR_MON_DAY /* 당월납입일자 */
+             , MNG.EXCD_RSN /* 제외사유 */
+             , MNG.DEBT_NNFL_YN /* 채무불이행 */
+             , MNG.BNRU_YN /* 회생파산 */
+          FROM (
+                SELECT A.PAGE_INDX
+                     , A.ACCNT_NO
+                     , A.MEM_NO, A.MEM_NM, A.CELL
+                     , A.ADDR, A.PROD_NM
+                     , A.DIFF_TRUE_CNT, A.DIFF_REL_CNT
+                     , A.THMN_TRUE_CNT
+                     , A.THMN_REL_CNT
+                     , A.JOIN_DT
+                     , A.KSTBIT_NM
+                     , NVL(A.ADD_DAY, NVL(REL_DAY, NVL(TRUE_DAY, ''))) AS LAST_MON_DAY
+                     , A.TRAN_DT
+                     , A.BRYR_MNDY
+                     , A.SEX
+                     , A.THMN_PYIN_AMT, A.THMN_PYIN_DAY
+                     , A.EXCD_RSN
+                     , CASE WHEN A.DEBT_YN IS NULL THEN '' ELSE '채무불이행등재' END AS DEBT_NNFL_YN
+                     , DECODE(A.BNRU_YN,'B','파산','R','회생') AS BNRU_YN
+                     , A.SECTION_T_NP, A.SPCL_YN
+                     , A.TRUE_CNT, A.REL_CNT, A.ADD_CNT
+                     , NVL((SELECT SUM(AMT)     FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <![CDATA[<=]]> A.MNTS_TRUE_RNTM), 0) AS MON_TRUE_AMT /* 상조금액(월) */
+                     , NVL((SELECT SUM(REL_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <![CDATA[<=]]> A.MNTS_REL_RNTM), 0) AS MON_REL_AMT   /* 결합금액(월) */
+                     , NVL((SELECT SUM(ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <![CDATA[<=]]> A.MNTS_ADD_RNTM), 0) AS MON_ADD_AMT   /* 추가금액(월) */
+                     , NVL((SELECT SUM(AMT)     FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <![CDATA[<=]]> A.TRUE_CNT), 0) AS INTL_TRUE_AMT      /* 상조금액(초기) */
+                     , NVL((SELECT SUM(REL_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <![CDATA[<=]]> A.REL_CNT), 0) AS INTL_REL_AMT        /* 결합금액(초기) */
+                     , NVL((SELECT SUM(ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <![CDATA[<=]]> A.ADD_CNT), 0) AS INTL_ADD_AMT        /* 추가금액(초기) */
+                  FROM (
+                        SELECT ROW_NUMBER() OVER(ORDER BY MEM_NO ASC) AS PAGE_INDX, ACCNT_NO
+                             , MEM_NO, MEM_NM, CELL
+                             , ADDR, PROD_NM
+                             , (CASE WHEN KSTBIT = '03' THEN TRUE_CNT
+                                     ELSE CASE WHEN (TOT_TRUE_CNT - NEW_CHAN_GUNSU) > MNTS_CNT THEN MNTS_CNT
+                                               ELSE (TOT_TRUE_CNT - NEW_CHAN_GUNSU)
+                                           END
+                                     END
+                               ) AS THMN_TRUE_CNT
+                             , (CASE WHEN MNTS_CNT >= TOT_REL_CNT THEN TOT_REL_CNT ELSE MNTS_CNT END) AS THMN_REL_CNT
+                             , DIFF_TRUE_CNT, DIFF_REL_CNT -- 미납회차(상조/결합)
+                             , JOIN_DT
+                             , DECODE(KSTBIT,'01','접수','02','정상','03','해약','행사') AS KSTBIT_NM
+                             , TRUE_DAY, REL_DAY, ADD_DAY  -- 납입정보(일자=>상조/결합/추가)
+                             , TRAN_DT
+                             , BRYR_MNDY, SEX
+                             , THMN_PYIN_AMT, THMN_PYIN_DAY  -- 당월납입정보(당월금액/당월입금일자)
+                             , DEBT_YN, EXCD_RSN, BNRU_YN
+                             , PROD_CD
+                             , SECTION_T_NP, SPCL_YN
+                             , TRUE_CNT, REL_CNT, ADD_CNT  -- 납입정보(회수=>상조/결합/추가)
+                             , CASE WHEN SECTION_T_NP = '001' THEN '비채권'
+                                      WHEN SECTION_T_NP = '002' THEN '채권'
+                                      ELSE SECTION_T_NP
+                                    END SECTION_T_NP_NM
+                             , (CASE WHEN KSTBIT = '03' THEN TRUE_CNT
+                                     ELSE CASE WHEN (TOT_TRUE_CNT - NEW_CHAN_GUNSU) > MNTS_CNT THEN MNTS_CNT
+                                     ELSE (TOT_TRUE_CNT - NEW_CHAN_GUNSU) END
+                                END) AS MNTS_TRUE_RNTM                                                                  -- 당월정보(상조)
+                             , (CASE WHEN MNTS_CNT >= TOT_REL_CNT THEN TOT_REL_CNT ELSE MNTS_CNT END) AS MNTS_REL_RNTM  -- 당월정보(결합)
+                             , (CASE WHEN MNTS_CNT >= TOT_ADD_CNT THEN TOT_ADD_CNT ELSE MNTS_CNT END) AS MNTS_ADD_RNTM  -- 당월정보(추가)
+                          FROM NO_PAYMENT_CUST
+                        ) A
+               ) MNG
+         WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+           AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+           AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20221208
+     * 이름 : 조용우
+     * 추가내용 : 주말 공휴일 대체휴일을 제외한 날짜 조회
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG , EMPLOYEE
+     * ================================================================
+     * -->
+    <select id="DlwItoMngMap.getReqDay"  parameterType="map"  resultType="resultMap">
+        <![CDATA[
+            SELECT A.DT
+              FROM (SELECT TO_CHAR(SDT + LEVEL - 1 , 'YYYYMMDD') DT
+                          , TO_CHAR(SDT + LEVEL - 1, 'D') D
+                      FROM (SELECT TO_DATE((TO_CHAR(SYSDATE, 'YYYY')||'01-01'),'YYYY-MM-DD') SDT
+                                  , TO_DATE((TO_CHAR(ADD_MONTHS(SYSDATE, 12), 'YYYY')||'12-31'),'YYYY-MM-DD') EDT
+                               FROM DUAL
+                            )
+                    CONNECT BY LEVEL <= EDT - SDT +1
+                   ) A
+                 , (
+                    SELECT HOLI_DAY DT
+                      FROM PS_WILLVI.TB_IVR_HOLIDAY_MNG
+                     WHERE SUBSTR(HOLI_DAY,0,4) >= TO_CHAR(SYSDATE,'YYYY')
+                   ) B
+             WHERE TO_DATE(A.DT,'YYYY-MM-DD') = B.DT(+)
+               AND TO_DATE(A.DT,'YYYY-MM-DD') > #{req_today}
+               AND A.D NOT IN ('1','7')
+               AND B.DT IS NULL
+             ORDER BY A.DT ASC
+        ]]>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20221214
+     * 이름 : 조용우
+     * 추가내용 : 종합현황 사원별 리스트 조회수
+     * 대상 테이블 : PAY_MNG , B2BCOMCD , MEM_PROD_ACCNT , RESCISSION , DEPARTMENT , PS_WILLVI.TB_USER , PS_WILLVI.TB_CONS_TEAM
+     * ================================================================
+     * -->
+    <select id="DlwItoMngMap.selectUserTeamListCount" parameterType="map" resultType="int">
+       SELECT COUNT(*)
+         FROM
+               (SELECT EMPLE_NO
+                    , EMPLE_NM
+                 FROM
+                      (SELECT MPA.ACCNT_NO
+                            , MPA.EMPLE_NO	/* 사원명 */
+                            , EMP.EMPLE_NM	/* 사원명 */
+                            , DEP.DEPT_NM	/* 부서명 */
+                            , MPA.KSTBIT	/* 회원상태 */
+                            , MPA.JOIN_DT	/* 가입일자 */
+                            , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(MPA.JOIN_DT,0,6) || '01')+1)) AS MONTH_COUNT
+                            , (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT
+                            , (SELECT COM_NM FROM B2BCOMCD B2B WHERE B2B.COM_CD = MPA.B2B_COMP_CD) AS B2B_COMNM
+                            , RS.RESN_CL
+                            , TO_CHAR(MPA.REG_DM,'YYYYMMDD') AS REG_DM
+                         FROM MEM_PROD_ACCNT MPA
+              LEFT OUTER JOIN RESCISSION RS
+                             ON MPA.ACCNT_NO = RS.ACCNT_NO
+                            AND RS.DEL_FG = 'N'
+                     INNER JOIN EMPLOYEE EMP
+                                ON MPA.EMPLE_NO = EMP.EMPLE_NO
+                     INNER JOIN DEPARTMENT DEP
+                                ON EMP.DEPT_CD = DEP.DEPT_CD
+                        WHERE 1=1
+                          AND MPA.EMPLE_NO IN (
+                                                SELECT USER_ID
+                                                  FROM PS_WILLVI.TB_USER
+                                                 WHERE TEAM_CD IN (
+                                                                    SELECT TEAM_CD
+                                                                     FROM PS_WILLVI.TB_CONS_TEAM
+                                                                    WHERE 1=1
+                                                                    <if test="hgrn_team_cd != null and hgrn_team_cd != '' ">
+                                                                      AND HGRN_TEAM_CD = #{hgrn_team_cd}
+                                                                    </if>
+
+                                                                    <if test="team_cd != null and team_cd != '' ">
+                                                                      AND TEAM_CD = #{team_cd}
+                                                                    </if>
+                                                                   )
+                                                )
+                  <if test="dateTyp =='01'">
+                      <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                          AND MPA.REG_DM BETWEEN TO_TIMESTAMP(#{stt_dt} || '000000000','YYYYMMDDHH24MISSFF') AND TO_TIMESTAMP(#{end_dt} || '235959999','YYYYMMDDHH24MISSFF')
+                      </if>
+                  </if>
+                  <if test="dateTyp =='02'">
+                      <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                          AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                      </if>
+                  </if>
+                      )
+                WHERE 1=1
+        <if test="dateTyp =='01'">
+                GROUP BY EMPLE_NO, EMPLE_NM
+        </if>
+        <if test="dateTyp =='02'">
+                GROUP BY EMPLE_NO, EMPLE_NM
+        </if>
+            )
+     </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221214
+     * 이름 : 조용우
+     * 추가내용 : 종합현황 사원별 리스트 조회
+     * 대상 테이블 : PAY_MNG , B2BCOMCD , MEM_PROD_ACCNT , RESCISSION , DEPARTMENT , PS_WILLVI.TB_USER , PS_WILLVI.TB_CONS_TEAM
+     * ================================================================
+     * -->
+
+     <select id="DlwItoMngMap.selectUserTeamList"  parameterType="map"  resultType="resultMap">
+         SELECT *
+           FROM ( SELECT ROW_NUMBER() OVER(ORDER BY EMPLE_NO ASC) AS PAGE_INDX
+                      , EMPLE_NO
+                      , EMPLE_NM
+
+                      , SUM(CASE WHEN STAT = '승인' AND TRUE_CNT = 0 THEN 1 ELSE 0 END) AS NONE_NO   /* 0회납수 */
+                      , SUM(CASE WHEN ACC_STAT = '정상' AND TRUE_CNT <![CDATA[>=]]> 1 THEN 1 ELSE 0 END) AS FIRST_NO  /* 1회납수 */
+                      , SUM(CASE WHEN SUBSTR(PAY_STAT,-2) = '연체' AND ACC_STAT = '정상' THEN 1 ELSE 0 END) AS YEN_NO  /* 연체자수 */
+                      , SUM(CASE WHEN ACC_STAT = '해약'  THEN 1 ELSE 0 END) AS RESN_01_NO  /* 해약수 */
+                      , SUM(CASE WHEN STAT = '철회'  THEN 1 ELSE 0 END) AS RESN_03_NO  /* 철회수 */
+                      , SUM(CASE WHEN ACC_STAT = '청약철회'  THEN 1 ELSE 0 END) AS RESN_02_NO  /* 청약철회수 */
+                      , SUM(CASE WHEN ACC_STAT = '행사'  THEN 1 ELSE 0 END) AS EVENT_NO  /* 행사자수 */
+                      /*
+                      , SUM(CASE WHEN KSTBIT = '01' THEN 1 ELSE 0 END) AS NONE_NO
+                      , SUM(CASE WHEN KSTBIT = '02' AND TRUE_CNT = 1 THEN 1 ELSE 0 END) AS FIRST_NO
+                      , SUM(CASE WHEN KSTBIT = '02' AND ((MONTH_COUNT - 1) - TRUE_CNT) >= 1 THEN 1 ELSE 0 END) AS YEN_NO
+                      , SUM(CASE WHEN KSTBIT = '03' AND RESN_CL != '02' THEN 1 ELSE 0 END) AS RESN_01_NO
+                      , SUM(CASE WHEN KSTBIT = '03' AND RESN_CL = '02' THEN 1 ELSE 0 END) AS RESN_02_NO
+                      , SUM(CASE WHEN KSTBIT = '04' THEN 1 ELSE 0 END) AS EVENT_NO
+                      */
+                   FROM ( SELECT MPA.ACCNT_NO
+                               , MPA.EMPLE_NO	/* 사원명 */
+                               , EMP.EMPLE_NM	/* 사원명 */
+                               , DEP.DEPT_NM	/* 부서명 */
+                               , MPA.KSTBIT		/* 회원상태 */
+                               , MPA.JOIN_DT	/* 가입일자 */
+                               , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(MPA.JOIN_DT,0,6) || '01')+1)) AS MONTH_COUNT
+                               , (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT
+                               , (SELECT COM_NM FROM B2BCOMCD B2B WHERE B2B.COM_CD = MPA.B2B_COMP_CD) AS B2B_COMNM
+                               , RS.RESN_CL
+                               , TO_CHAR(MPA.REG_DM  ,'YYYYMMDD') REG_DM
+                               , FN_COM_NM('81',(SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO)) STAT					 /* 해피콜승인상태 */
+                               , FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STAT                          									 /* 납입상태 */
+                               , DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS ACC_STAT /* 가입상태 */
+                            FROM MEM_PROD_ACCNT MPA
+                 LEFT OUTER JOIN RESCISSION RS
+                              ON MPA.ACCNT_NO = RS.ACCNT_NO
+                             AND RS.DEL_FG = 'N'
+                      INNER JOIN EMPLOYEE EMP
+                              ON MPA.EMPLE_NO = EMP.EMPLE_NO
+                      INNER JOIN DEPARTMENT DEP
+                              ON EMP.DEPT_CD = DEP.DEPT_CD
+                           WHERE 1=1
+                             AND MPA.EMPLE_NO IN ( SELECT USER_ID
+                                                     FROM PS_WILLVI.TB_USER
+                                                    WHERE TEAM_CD IN ( SELECT TEAM_CD
+                                                                         FROM PS_WILLVI.TB_CONS_TEAM
+                                                                        WHERE 1=1
+                                                                      <if test="hgrn_team_cd != null and hgrn_team_cd != '' ">
+                                                                          AND HGRN_TEAM_CD = #{hgrn_team_cd}
+                                                                      </if>
+                                                                      <if test="team_cd != null and team_cd != '' ">
+                                                                          AND TEAM_CD = #{team_cd}
+                                                                      </if>
+                                                                      )
+                                                  )
+                    <if test="dateTyp =='01'">
+                        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             AND MPA.REG_DM BETWEEN TO_TIMESTAMP(#{stt_dt} || '000000000','YYYYMMDDHH24MISSFF') AND TO_TIMESTAMP(#{end_dt} || '235959999','YYYYMMDDHH24MISSFF')
+                        </if>
+                    </if>
+                    <if test="dateTyp =='02'">
+                        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                        </if>
+                    </if>
+                        )
+                  WHERE 1=1
+            <if test="dateTyp =='01'">
+                  GROUP BY EMPLE_NO, EMPLE_NM
+            </if>
+            <if test="dateTyp =='02'">
+                  GROUP BY EMPLE_NO, EMPLE_NM
+            </if>
+              )
+             WHERE 1=1
+          <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+           </if>
+             ORDER BY PAGE_INDX
+     </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221214
+     * 이름 : 조용우
+     * 추가내용 : 종합현황 업체별 리스트 조회수
+     * 대상 테이블 : PAY_MNG , B2BCOMCD , MEM_PROD_ACCNT , RESCISSION , DEPARTMENT , PS_WILLVI.TB_USER , PS_WILLVI.TB_CONS_TEAM
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.selectUserTeamListCountDept" parameterType="map" resultType="int">
+         SELECT COUNT(*)
+           FROM ( SELECT B2B_COMNM
+                    FROM ( SELECT MPA.ACCNT_NO
+                                , DEP.DEPT_NM	/* 부서명 */
+                                , MPA.KSTBIT	/* 회원상태 */
+                                , MPA.JOIN_DT	/* 가입일자 */
+                                , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(MPA.JOIN_DT,0,6) || '01')+1)) AS MONTH_COUNT
+                                , (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT
+                                , (SELECT COM_NM FROM B2BCOMCD B2B WHERE B2B.COM_CD = MPA.B2B_COMP_CD) AS B2B_COMNM
+                                , RS.RESN_CL
+                             FROM MEM_PROD_ACCNT MPA
+                  LEFT OUTER JOIN RESCISSION RS
+                               ON MPA.ACCNT_NO = RS.ACCNT_NO
+                              AND RS.DEL_FG = 'N'
+                       INNER JOIN EMPLOYEE EMP
+                               ON MPA.EMPLE_NO = EMP.EMPLE_NO
+                       INNER JOIN DEPARTMENT DEP
+                               ON EMP.DEPT_CD = DEP.DEPT_CD
+                            WHERE 1=1
+                              AND MPA.EMPLE_NO IN ( SELECT USER_ID
+                                                      FROM PS_WILLVI.TB_USER
+                                                     WHERE TEAM_CD IN ( SELECT TEAM_CD
+                                                                          FROM PS_WILLVI.TB_CONS_TEAM
+                                                                         WHERE 1=1
+                                                                        <if test="hgrn_team_cd != null and hgrn_team_cd != '' ">
+                                                                           AND HGRN_TEAM_CD = #{hgrn_team_cd}
+                                                                        </if>
+                                                                        <if test="team_cd != null and team_cd != '' ">
+                                                                           AND TEAM_CD = #{team_cd}
+                                                                        </if>
+                                                                       )
+                                                    )
+                      <if test="dateTyp =='01'">
+                          <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                              AND MPA.REG_DM BETWEEN TO_TIMESTAMP(#{stt_dt} || '000000000','YYYYMMDDHH24MISSFF') AND TO_TIMESTAMP(#{end_dt} || '235959999','YYYYMMDDHH24MISSFF')
+                          </if>
+                      </if>
+                      <if test="dateTyp =='02'">
+                          <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                              AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                      </if>
+                         )
+                    WHERE 1=1
+                <if test="dateTyp =='01'">
+                    GROUP BY  B2B_COMNM
+                </if>
+                <if test="dateTyp =='02'">
+                    GROUP BY  B2B_COMNM
+                </if>
+                )
+     </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221214
+     * 이름 : 조용우
+     * 추가내용 : 종합현황 업체별 리스트 조회
+     * 대상 테이블 : PAY_MNG , B2BCOMCD , MEM_PROD_ACCNT , RESCISSION , DEPARTMENT , PS_WILLVI.TB_USER , PS_WILLVI.TB_CONS_TEAM
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.selectUserTeamListDept"  parameterType="map"  resultType="resultMap">
+        SELECT *
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY B2B_COMNM ASC) AS PAGE_INDX
+                      , B2B_COMNM
+
+                      , SUM(CASE WHEN STAT = '승인' AND TRUE_CNT = 0 THEN 1 ELSE 0 END) AS NONE_NO   /* 0회납수 */
+                        , SUM(CASE WHEN ACC_STAT = '정상' AND TRUE_CNT <![CDATA[>=]]> 1 THEN 1 ELSE 0 END) AS FIRST_NO  /* 1회납수 */
+                        , SUM(CASE WHEN SUBSTR(PAY_STAT,-2) = '연체' AND ACC_STAT = '정상' THEN 1 ELSE 0 END) AS YEN_NO  /* 연체자수 */
+                        , SUM(CASE WHEN ACC_STAT = '해약'  THEN 1 ELSE 0 END) AS RESN_01_NO  /* 해약수 */
+                        , SUM(CASE WHEN STAT = '철회'  THEN 1 ELSE 0 END) AS RESN_03_NO  /* 철회수 */
+                        , SUM(CASE WHEN ACC_STAT = '청약철회'  THEN 1 ELSE 0 END) AS RESN_02_NO  /* 청약철회수 */
+                        , SUM(CASE WHEN ACC_STAT = '행사'  THEN 1 ELSE 0 END) AS EVENT_NO  /* 행사자수 */
+                        /*
+                      , SUM(CASE WHEN KSTBIT = '01' THEN 1 ELSE 0 END) AS NONE_NO
+                      , SUM(CASE WHEN KSTBIT = '02' AND TRUE_CNT = 1 THEN 1 ELSE 0 END) AS FIRST_NO
+                      , SUM(CASE WHEN KSTBIT = '02' AND ((MONTH_COUNT - 1) - TRUE_CNT) >= 1 THEN 1 ELSE 0 END) AS YEN_NO
+                      , SUM(CASE WHEN KSTBIT = '03' AND RESN_CL != '02' THEN 1 ELSE 0 END) AS RESN_01_NO
+                      , SUM(CASE WHEN KSTBIT = '03' AND RESN_CL = '02' THEN 1 ELSE 0 END) AS RESN_02_NO
+                      , SUM(CASE WHEN KSTBIT = '04' THEN 1 ELSE 0 END) AS EVENT_NO
+                      */
+                   FROM ( SELECT MPA.ACCNT_NO
+                               , DEP.DEPT_NM	/* 부서명*/
+                               , MPA.KSTBIT		/* 회원상태*/
+                               , MPA.JOIN_DT	/* 가입일자*/
+
+
+                               , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(MPA.JOIN_DT,0,6) || '01')+1)) AS MONTH_COUNT
+                               , (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT
+                               , (SELECT COM_NM FROM B2BCOMCD B2B WHERE B2B.COM_CD = MPA.B2B_COMP_CD) AS B2B_COMNM
+                               , RS.RESN_CL
+
+                               , FN_COM_NM('81',(SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO)) STAT					 /* 해피콜승인상태 */
+                               , FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STAT                          									 /* 납입상태 */
+                               , DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS ACC_STAT /* 가입상태 */
+                            FROM MEM_PROD_ACCNT MPA
+                 LEFT OUTER JOIN RESCISSION RS
+                               ON MPA.ACCNT_NO = RS.ACCNT_NO
+                              AND RS.DEL_FG = 'N'
+                       INNER JOIN EMPLOYEE EMP
+                               ON MPA.EMPLE_NO = EMP.EMPLE_NO
+                       INNER JOIN DEPARTMENT DEP
+                               ON EMP.DEPT_CD = DEP.DEPT_CD
+                           WHERE 1=1
+                             AND MPA.EMPLE_NO IN ( SELECT USER_ID
+                                                     FROM PS_WILLVI.TB_USER
+                                                    WHERE TEAM_CD IN ( SELECT TEAM_CD
+                                                                         FROM PS_WILLVI.TB_CONS_TEAM
+                                                                        WHERE 1=1
+                                                                        <if test="hgrn_team_cd != null and hgrn_team_cd != '' ">
+                                                                          AND HGRN_TEAM_CD = #{hgrn_team_cd}
+                                                                        </if>
+                                                                        <if test="team_cd != null and team_cd != '' ">
+                                                                          AND TEAM_CD = #{team_cd}
+                                                                        </if>
+                                                                      )
+                                                  )
+                     <if test="dateTyp =='01'">
+                         <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             AND MPA.REG_DM BETWEEN TO_TIMESTAMP(#{stt_dt} || '000000000','YYYYMMDDHH24MISSFF') AND TO_TIMESTAMP(#{end_dt} || '235959999','YYYYMMDDHH24MISSFF')
+                         </if>
+                     </if>
+                     <if test="dateTyp =='02'">
+                         <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                         </if>
+                     </if>
+                        )
+                  WHERE 1=1
+            <if test="dateTyp =='01'">
+                  GROUP BY  B2B_COMNM
+            </if>
+            <if test="dateTyp =='02'">
+                  GROUP BY  B2B_COMNM
+            </if>
+              )
+           WHERE 1=1
+       <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+          AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+       </if>
+        ORDER BY PAGE_INDX
+       </select>
+
+            <!-- ================================================================
+     * 날짜 : 20221230
+     * 이름 : 임동진
+     * 추가내용 : 채권추심회원현황 리스트 조회수
+     * 대상 테이블 :
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getDebtListCount" parameterType="map" resultType="int">
+         /* DlwItoMngMap.getDebtListCount  */
+        WITH DEBT_TB
+        AS
+        (
+            SELECT
+                DEBT_DT,
+                MEM_NO,
+                ACCNT_NO,
+                MEM_NM,
+                CELL1 AS CELL,
+                DEBT_TOT_AMT,
+                DEBT_YEN_CNT,
+                DEBT_REL_AMT,
+                (DEBT_TOT_AMT - DEBT_REL_AMT) AS DEBT_DIFF_AMT,
+                (REAL_MONTH_COUNT - REL_CNT) AS REAL_YEN_CNT,
+                REAL_REL_AMT,
+                (REAL_TOT_AMT - REAL_REL_AMT) AS REAL_DIFF_AMT,
+                SAFE_KEY,
+                CANCEL_YN,
+                CANCEL_DT,
+                REL_DAY,
+                CASE WHEN DEBT_REL_CNT >= REL_CNT THEN 'N' ELSE 'Y' END AS PAY_YN
+            FROM
+            (
+                SELECT
+                    DR.DEBT_DT,
+                    DR.ACCNT_NO,
+                    MB.MEM_NM,
+                    MB.CELL1,
+                    MB.MEM_NO,
+                    (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> DR.MONTH_COUNT) AS DEBT_TOT_AMT,
+                    DR.REL_CNT AS DEBT_REL_CNT,
+                    (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> DR.REL_CNT ) AS DEBT_REL_AMT,
+                    (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> MBID.REL_CNT) AS REAL_REL_AMT,
+                    DR.SAFE_KEY,
+                    CANCEL_YN,
+                    CANCEL_DT,
+
+                    CASE WHEN MBID.MONTH_COUNT >= TOT_REL_CNT  THEN TOT_REL_CNT
+                    ELSE MBID.MONTH_COUNT
+                    END AS REAL_MONTH_COUNT,
+
+                    CASE WHEN MBID.MONTH_COUNT >= TOT_REL_CNT  THEN (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD)
+                    ELSE (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> MBID.MONTH_COUNT)
+                    END AS REAL_TOT_AMT,
+
+                    MBID.REL_CNT,
+                    (DR.MONTH_COUNT - DR.REL_CNT) AS DEBT_YEN_CNT,
+                    MBID.REL_DAY
+                FROM TB_DEBT_REG DR INNER JOIN
+                     TB_MEMBER_BASIC_INFO_DAY MBID ON DR.ACCNT_NO = MBID.ACCNT_NO INNER JOIN
+                     MEMBER MB ON MBID.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+                WHERE 1=1
+
+                    <if test="chk_all == 0">
+                         AND DEBT_DT =  #{debt_dt}
+                    </if>
+
+                    <if test="accnt_no != null and accnt_no != ''">
+                         AND DR.ACCNT_NO =  #{accnt_no}
+                    </if>
+
+                    <if test="cancel_yn != null and cancel_yn != ''">
+                         AND CANCEL_YN =  #{cancel_yn}
+                    </if>
+            )
+        )
+
+        SELECT
+            COUNT(*)
+        FROM DEBT_TB
+        WHERE 1=1
+        <if test="pay_yn != null and pay_yn != ''">
+             AND PAY_YN =  #{pay_yn}
+        </if>
+     </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221230
+     * 이름 : 임동진
+     * 추가내용 : 채무불이행등재 리스트
+     * 대상 테이블 : TB_DEBT_REG
+     * ================================================================
+     * -->
+       <select id="DlwItoMngMap.getDebtList" parameterType="map" resultType="resultMap">
+               /* DlwItoMngMap.getDebtList */
+            WITH DEBT_TB
+            AS
+            (
+                SELECT
+                    ROW_NUMBER() OVER(ORDER BY DEBT_DT ASC, ACCNT_NO ASC) AS PAGE_INDX,
+                    DEBT_DT,
+                    MEM_NO,
+                    ACCNT_NO,
+                    MEM_NM,
+                    CELL1 AS CELL,
+                    DEBT_TOT_AMT,
+                    DEBT_YEN_CNT,
+                    DEBT_REL_AMT,
+                    (DEBT_TOT_AMT - DEBT_REL_AMT) AS DEBT_DIFF_AMT,
+                    (REAL_MONTH_COUNT - REL_CNT) AS REAL_YEN_CNT,
+                    REAL_REL_AMT,
+                    (REAL_TOT_AMT - REAL_REL_AMT) AS REAL_DIFF_AMT,
+                    SAFE_KEY,
+                    CANCEL_YN,
+                    CANCEL_DT,
+                    REL_DAY,
+                    CASE WHEN DEBT_REL_CNT >= REL_CNT THEN 'N' ELSE 'Y' END AS PAY_YN,
+                    MST_SEQ
+                FROM
+                (
+                    SELECT
+                        DR.DEBT_DT,
+                        DR.ACCNT_NO,
+                        MB.MEM_NM,
+                        MB.CELL1,
+                        MB.MEM_NO,
+                        (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> DR.MONTH_COUNT) AS DEBT_TOT_AMT,
+                        DR.REL_CNT AS DEBT_REL_CNT,
+                        (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> DR.REL_CNT ) AS DEBT_REL_AMT,
+                        (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> MBID.REL_CNT) AS REAL_REL_AMT,
+                        DR.SAFE_KEY,
+                        CANCEL_YN,
+                        CANCEL_DT,
+
+                        CASE WHEN MBID.MONTH_COUNT >= TOT_REL_CNT  THEN TOT_REL_CNT
+                        ELSE MBID.MONTH_COUNT
+                        END AS REAL_MONTH_COUNT,
+
+                        CASE WHEN MBID.MONTH_COUNT >= TOT_REL_CNT  THEN (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD)
+                        ELSE (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> MBID.MONTH_COUNT)
+                        END AS REAL_TOT_AMT,
+
+                        MBID.REL_CNT,
+                        (DR.MONTH_COUNT - DR.REL_CNT) AS DEBT_YEN_CNT,
+                        MBID.REL_DAY,
+                        DR.MST_SEQ
+                    FROM TB_DEBT_REG DR INNER JOIN
+                         TB_MEMBER_BASIC_INFO_DAY MBID ON DR.ACCNT_NO = MBID.ACCNT_NO INNER JOIN
+                         MEMBER MB ON MBID.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+                    WHERE 1=1
+
+                    <if test="chk_all == 0">
+                         AND DR.DEBT_DT =  #{debt_dt}
+                    </if>
+
+                    <if test="accnt_no != null and accnt_no != ''">
+                         AND DR.ACCNT_NO =  #{accnt_no}
+                    </if>
+
+                    <if test="cancel_yn != null and cancel_yn != ''">
+                         AND DR.CANCEL_YN =  #{cancel_yn}
+                    </if>
+
+                )
+            )
+
+            SELECT
+                *
+            FROM
+            (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY DEBT_DT ASC, ACCNT_NO ASC) AS PAGE_INDX,
+                DEBT_DT,
+                MEM_NO,
+                ACCNT_NO,
+                MEM_NM,
+                CELL,
+                DEBT_TOT_AMT,
+                DEBT_YEN_CNT,
+                DEBT_REL_AMT,
+                DEBT_DIFF_AMT,
+                REAL_YEN_CNT,
+                REAL_REL_AMT,
+                REAL_DIFF_AMT,
+                SAFE_KEY,
+                CANCEL_YN,
+                CANCEL_DT,
+                REL_DAY,
+                PAY_YN,
+                MST_SEQ
+            FROM DEBT_TB TB
+            WHERE 1=1
+                <if test="pay_yn != null and pay_yn != ''">
+                     AND PAY_YN =  #{pay_yn}
+                </if>
+            ) TBL
+            WHERE 1=1
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                  AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+                  AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+               </if>
+       </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221230
+     * 이름 : 임동진
+     * 추가내용 : 채무불이행등재 회원 상세리스트
+     * 대상 테이블 : TB_DEBT_REG
+     * ================================================================
+     * -->
+       <select id="DlwItoMngMap.getDebtDtlList" parameterType="map" resultType="resultMap">
+            SELECT
+                    /* DlwItoMngMap.getDebtDtlList */
+                    MST_SEQ,
+                    DEBT_DT,
+                    ACCNT_NO,
+                    DEBT_TOT_AMT,
+                    DEBT_YEN_CNT,
+                    DEBT_REL_AMT,
+                    DEBT_DIFF_AMT,
+                    CANCEL_YN,
+                    CANCEL_DT,
+                    REAL_YEN_CNT,
+                    REAL_REL_AMT,
+                    (REAL_TOT_AMT - REAL_REL_AMT) AS REAL_DIFF_AMT
+                FROM
+                (
+                    SELECT
+                        MST_SEQ,
+                        DEBT_DT,
+                        ACCNT_NO,
+                        DEBT_TOT_AMT,
+                        DEBT_YEN_CNT,
+                        DEBT_REL_AMT,
+                        (DEBT_TOT_AMT - DEBT_REL_AMT) AS DEBT_DIFF_AMT,
+                        CANCEL_YN,
+                        CANCEL_DT,
+
+                        CASE WHEN TBL1.MONTH_CNT >= TOT_REL_CNT  THEN TOT_REL_CNT - TBL1.REL_CNT
+                        ELSE TBL1.MONTH_CNT - TBL1.REL_CNT
+                        END AS REAL_YEN_CNT,
+
+                        (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL1.PROD_CD AND NO <![CDATA[<=]]> TBL1.REL_CNT) AS REAL_REL_AMT,
+
+                        CASE WHEN TBL1.MONTH_CNT >= TOT_REL_CNT  THEN (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL1.PROD_CD)
+                        ELSE (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL1.PROD_CD AND NO <![CDATA[<=]]> TBL1.MONTH_CNT)
+                        END AS REAL_TOT_AMT
+                    FROM
+                    (
+                        SELECT
+                            DR.MST_SEQ,
+                            DR.DEBT_DT,
+                            DR.ACCNT_NO,
+                            DR.REL_CNT AS DEBT_REL_CNT,
+                            (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> DR.MONTH_COUNT) AS DEBT_TOT_AMT,
+                            (SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND NO <![CDATA[<=]]> DR.REL_CNT ) AS DEBT_REL_AMT,
+                            (DR.MONTH_COUNT - DR.REL_CNT) AS DEBT_YEN_CNT,
+                            DR.SAFE_KEY,
+                            CANCEL_YN,
+                            CANCEL_DT,
+                            MBID.PROD_CD,
+                            (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(MBID.JOIN_DT,0,6) || '01')+1)) AS MONTH_CNT,
+                            NVL((SELECT COUNT(*) FROM PAY_MNG_DTL WHERE ACCNT_NO = MBID.ACCNT_NO AND DEL_FG = 'N'),0) AS REL_CNT,
+                            (SELECT COUNT(*) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD AND REL_AMT > 0) AS TOT_REL_CNT
+                        FROM TB_DEBT_REG DR INNER JOIN
+                             MEM_PROD_ACCNT MBID ON DR.ACCNT_NO = MBID.ACCNT_NO
+                        WHERE 1=1
+                            AND DR.MST_SEQ = #{mst_seq}
+                    ) TBL1
+                ) MAIN
+       </select>
+
+     <!-- ================================================================
+     * 날짜 : 20221230
+     * 이름 : 임동진
+     * 추가내용 : 채무불이행등재 입금정보
+     * 대상 테이블 : TB_DEBT_REG
+     * ================================================================
+     * -->
+       <select id="DlwItoMngMap.getDebtPayInfo" parameterType="map" resultType="resultMap">
+            SELECT
+                    /*DlwItoMngMap.getDebtPayInfo */
+                     MAIN.NO,
+                     TRUE_PAY_AMT,
+                     RELAT_PAY_AMT,
+                     ADD_PAY_AMT,
+                     (TRUE_PAY_AMT + RELAT_PAY_AMT + ADD_PAY_AMT) AS TOT_AMT,
+                     TO_CHAR(ADD_MONTHS(JOIN_DT, NO -1),'YYYYMMDD') AS MON_NO,
+                     (
+                         CASE WHEN STAT = 0 THEN '정상'
+                              WHEN STAT = 1 THEN '선납'
+                         ELSE '연체'
+                         END
+                     ) AS STAT_NM,
+                     CASE WHEN TRUE_PAY_AMT > 0 THEN PAY_DAY1
+                          WHEN TRUE_PAY_AMT = 0 AND RELAT_PAY_AMT > 0 THEN PAY_DAY2
+                     ELSE PAY_DAY3
+                     END AS PAY_DAY,
+                     CASE WHEN TRUE_PAY_AMT > 0 THEN LF_DMUSER.FN_COM_NM('01', MAIN.PAY_MTHD1)
+                          WHEN TRUE_PAY_AMT = 0 AND RELAT_PAY_AMT > 0 THEN LF_DMUSER.FN_COM_NM('01', MAIN.PAY_MTHD2)
+                     ELSE LF_DMUSER.FN_COM_NM('01', MAIN.PAY_MTHD3)
+                     END AS PAY_MTHD_NM
+             FROM
+             (
+                 SELECT
+                     ACCNT_NO,
+                     NO,
+                     MAX(JOIN_DT) AS JOIN_DT,
+                     MAX((CASE WHEN PAY_GNB = 'PM' THEN PAY_AMT ELSE 0 END)) AS TRUE_PAY_AMT,
+                     MAX((CASE WHEN PAY_GNB = 'PM1' THEN PAY_AMT ELSE 0 END)) AS RELAT_PAY_AMT,
+                     MAX((CASE WHEN PAY_GNB = 'PM2' THEN PAY_AMT ELSE 0 END)) AS ADD_PAY_AMT,
+                     MIN((CASE WHEN PAY_GNB = 'PM' THEN PAY_DAY ELSE '99999999' END)) AS PAY_DAY1,
+                     MIN((CASE WHEN PAY_GNB = 'PM1' THEN PAY_DAY ELSE '99999999' END)) AS PAY_DAY2,
+                     MIN((CASE WHEN PAY_GNB = 'PM2' THEN PAY_DAY ELSE '99999999' END)) AS PAY_DAY3,
+                     MIN((CASE WHEN PAY_GNB = 'PM' THEN STAT ELSE 9 END)) AS STAT,
+                     MIN((CASE WHEN PAY_GNB = 'PM' THEN PAY_MTHD ELSE '99' END)) AS PAY_MTHD1,
+                     MIN((CASE WHEN PAY_GNB = 'PM1' THEN PAY_MTHD ELSE '99' END)) AS PAY_MTHD2,
+                     MIN((CASE WHEN PAY_GNB = 'PM2' THEN PAY_MTHD ELSE '99' END)) AS PAY_MTHD3,
+                     ROW_NUMBER() OVER(ORDER BY NO DESC, PAY_DAY DESC) AS PAGE_INDX
+                 FROM
+                 (
+                     SELECT
+                         MPA.ACCNT_NO,
+                         MPA.JOIN_DT,
+                         'PM' AS PAY_GNB,
+                         PM.PAY_MTHD,
+                         PM.STAT,
+                         PM.NO,
+                         PM.PAY_AMT,
+                         PM.PAY_DAY
+                     FROM LF_DMUSER.MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+                         LF_DMUSER.PAY_MNG PM ON MPA.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N'
+                     WHERE 1=1
+                     AND MPA.ACCNT_NO = #{accnt_no}
+                     AND MPA.DEL_FG = 'N'
+
+                     UNION ALL
+
+                     SELECT
+                         MPA.ACCNT_NO,
+                         MPA.JOIN_DT,
+                         'PM1' AS PAY_GNB,
+                         PM.PAY_MTHD,
+                         PM.STAT,
+                         PM.NO,
+                         PM.PAY_AMT,
+                         PM.PAY_DAY
+                     FROM LF_DMUSER.MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+                         LF_DMUSER.PAY_MNG_DTL PM ON MPA.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N'
+                     WHERE 1=1
+                     AND MPA.ACCNT_NO = #{accnt_no}
+                     AND MPA.DEL_FG = 'N'
+
+                     UNION ALL
+
+                     SELECT
+                         MPA.ACCNT_NO,
+                         MPA.JOIN_DT,
+                         'PM2' AS PAY_GNB,
+                         PM.PAY_MTHD,
+                         PM.STAT,
+                         PM.NO,
+                         PM.PAY_AMT,
+                         PM.PAY_DAY
+                     FROM LF_DMUSER.MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+                         LF_DMUSER.PAY_MNG_DTL1 PM ON MPA.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N'
+                     WHERE 1=1
+                     AND MPA.ACCNT_NO = #{accnt_no}
+                     AND MPA.DEL_FG = 'N'
+                 )
+                 GROUP BY ACCNT_NO, NO, PAY_DAY
+                 HAVING NO > 0
+             ) MAIN
+             ORDER BY MAIN.NO DESC
+       </select>
+
+    <!-- ================================================================
+     * 날짜 : 20221230
+     * 이름 : 임동진
+     * 추가내용 : 채무불이행등재 해지
+     * 대상 테이블 : TB_DEBT_REG
+     * ================================================================
+     * -->
+    <update id="DlwItoMngMap.updateDebtCancel">
+        UPDATE TB_DEBT_REG DR
+           SET CANCEL_YN = 'Y'
+             , CANCEL_USER = #{reg_man}
+             , CANCEL_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+         WHERE 1=1
+             AND DR.MST_SEQ = #{mst_seq}
+    </update>
+
+
+    <!-- ================================================================
+     * 날짜 : 20230112
+     * 이름 : 조용우
+     * 추가내용 : 고객미납실적 리스트 조회수
+     * 대상 테이블 : PRODUCT_NO_DATA , TB_NONPAYMENT_MNG , TB_NOPAY_MEM_ACNO , TB_CLOSE_MEMBER_MON , PAY_MNG , PAY_MNG_DTL , PAY_MNG_DTL1 , MEMBER_DAMO
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getNoPaymentCustListCount" parameterType="map" resultType="int">
+         <![CDATA[
+        WITH NO_PAYMENT_CUST AS
+        (
+            SELECT /* DlwItoMngMap.getNoPaymentCustListCount */
+                   TNM.MEM_NO, TNM.ACCNT_NO, TNM.PROD_CD, TNM.NEW_CHAN_GUNSU, TNM.KSTBIT, TNM.PAY_MTHD, TNM.JOIN_DT
+                 , TNM.SECTION_T_NP
+                 , (SELECT DECODE(SPECIAL_BIT, '01', 'Y', '') FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL WHERE ACCNT_NO = TNM.ACCNT_NO AND DEL_FG = 'N' AND SPECIAL_BIT = '01') AS SPCL_YN
+                 , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(TNM.JOIN_DT,0,6) || '01')+1)) AS MNTS_CNT
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.AMT > 0) AS TOT_TRUE_CNT     /* 상조(전체) */
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.REL_AMT > 0) AS TOT_REL_CNT  /* 결합(전체) */
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.ADD_AMT > 0) AS TOT_ADD_CNT  /* 추가(전체) */
+                 , TNM.DIFF_TRUE_CNT, TNM.DIFF_REL_CNT
+                 , TNM.TRUE_CNT AS TRUE_CNT, TNM.REL_CNT AS REL_CNT, TNM.ADD_CNT AS ADD_CNT
+                 , TNM.TRUE_DAY, TNM.REL_DAY , TNM.ADD_DAY
+                 , TNM.THMN_PYIN_AMT, TNM.THMN_PYIN_DAY
+                 , TCA.CNSR_ID, TCA.CNSR_NM
+              FROM LF_DMUSER.TB_NONPAYMENT_MNG_TMP TNM
+   LEFT OUTER JOIN (SELECT A.CNSR_ID, B.USER_NM AS CNSR_NM, A.SUB_TRGT_LIST_ID, A.TRGT_CUST_DTPT_ID
+                      FROM PS_WILLVI.TB_TRGT_CUST_ALCT A
+                     INNER JOIN PS_WILLVI.TB_USER B ON (B.CNTR_CD = A.CNTR_CD AND B.USER_ID = A.CNSR_ID)
+                     WHERE 1=1
+                       AND A.TRGT_LIST_ID = 'TAR202212267976435'
+                       AND A.SUB_TRGT_LIST_ID IN (SELECT 'STLNP' || EXT_DT || SUBSTR('0000000'|| MST_SEQ,-7) FROM LF_DMUSER.TB_NONPAYMENT_MST WHERE 1=1 AND EXT_DT = #{ext_dt})
+                   ) TCA ON (TCA.SUB_TRGT_LIST_ID = TNM.SUB_TRGT_LIST_ID AND TCA.TRGT_CUST_DTPT_ID = TNM.TRGT_CUST_DTPT_ID)
+             WHERE TNM.EXT_DT = #{ext_dt}
+             ]]>
+             <if test="pay_mthd != null and pay_mthd != '' ">
+               AND TNM.PAY_MTHD = #{pay_mthd}
+             </if>
+
+             <if test="diff_true_cnt_stt != null and diff_true_cnt_stt != '' and diff_true_cnt_end != null and diff_true_cnt_end != ''">
+               AND TNM.DIFF_TRUE_CNT BETWEEN #{diff_true_cnt_stt} AND #{diff_true_cnt_end}
+             </if>
+             <if test="diff_rel_cnt_stt != null and diff_rel_cnt_stt != '' and diff_rel_cnt_end != null and diff_rel_cnt_end != ''">
+               AND TNM.DIFF_REL_CNT BETWEEN #{diff_rel_cnt_stt} AND #{diff_rel_cnt_end}
+             </if>
+
+             <if test="accnt_no != null and accnt_no != '' ">
+               AND TNM.ACCNT_NO = #{accnt_no}
+             </if>
+             <if test="mem_no != null and mem_no != '' ">
+               AND TNM.MEM_NO = #{mem_no}
+             </if>
+             <if test="type_c != null and type_c != '' ">
+               AND TNM.SECTION_T_NP = #{type_c}
+             </if>
+        )
+        <![CDATA[
+        SELECT COUNT(*)
+          FROM (SELECT MEM_NO, ACCNT_NO, PROD_CD, SECTION_T_NP, SPCL_YN
+                     , MNTS_CNT
+                     , CASE WHEN SECTION_T_NP = '001' THEN '비채권'
+                            WHEN SECTION_T_NP = '002' THEN '채권'
+                            ELSE SECTION_T_NP END SECTION_T_NP_NM
+                     , CASE WHEN PAY_MTHD = '01' THEN '손수'
+                            WHEN PAY_MTHD = '04' THEN 'CMS'
+                            WHEN PAY_MTHD = '06' THEN '카드'
+                            ELSE PAY_MTHD END PAY_MTHD_NM
+                     , JOIN_DT
+                     , DIFF_TRUE_CNT, DIFF_REL_CNT /* 미납회차(상조/결합)        */
+                     , TRUE_CNT, REL_CNT, ADD_CNT  /* 납입정보(회수=>상조/결합/추가) */
+                     , TRUE_DAY, REL_DAY, ADD_DAY  /* 납입정보(일자=>상조/결합/추가) */
+                     , (CASE WHEN KSTBIT = '03' THEN TRUE_CNT
+                             ELSE CASE WHEN (TOT_TRUE_CNT - NEW_CHAN_GUNSU) > MNTS_CNT THEN MNTS_CNT
+                             ELSE (TOT_TRUE_CNT - NEW_CHAN_GUNSU) END
+                        END) AS MNTS_TRUE_RNTM                                                                  /* 당월정보(상조) */
+                     , (CASE WHEN MNTS_CNT >= TOT_REL_CNT THEN TOT_REL_CNT ELSE MNTS_CNT END) AS MNTS_REL_RNTM  /* 당월정보(결합) */
+                     , (CASE WHEN MNTS_CNT >= TOT_ADD_CNT THEN TOT_ADD_CNT ELSE MNTS_CNT END) AS MNTS_ADD_RNTM  /* 당월정보(추가) */
+                     , THMN_PYIN_AMT, THMN_PYIN_DAY  -- 당월납입정보(당월금액/당월입금일자)
+                     , CNSR_ID, CNSR_NM
+                  FROM NO_PAYMENT_CUST
+                ) A
+         WHERE 1=1
+         ]]>
+
+     </select>
+
+     <!-- ================================================================
+     * 날짜 : 20230112
+     * 이름 : 조용우
+     * 추가내용 : 고객미납실적 리스트 조회
+     * 대상 테이블 : PRODUCT_NO_DATA , TB_NONPAYMENT_MNG , TB_NOPAY_MEM_ACNO , TB_CLOSE_MEMBER_MON , PAY_MNG , PAY_MNG_DTL , PAY_MNG_DTL1 , MEMBER_DAMO
+     * ================================================================
+     * -->
+     <select id="DlwItoMngMap.getNoPaymentCustList"  parameterType="map"  resultType="resultMap">
+         <![CDATA[
+        WITH NO_PAYMENT_CUST AS
+        (
+            SELECT /* DlwItoMngMap.getNoPaymentCustList */
+                   TNM.MEM_NO, TNM.ACCNT_NO, TNM.PROD_CD, TNM.NEW_CHAN_GUNSU, TNM.KSTBIT, TNM.PAY_MTHD, TNM.JOIN_DT
+                 , TNM.SECTION_T_NP
+                 , (SELECT DECODE(SPECIAL_BIT, '01', 'Y', '') FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL WHERE ACCNT_NO = TNM.ACCNT_NO AND DEL_FG = 'N' AND SPECIAL_BIT = '01') AS SPCL_YN
+                 , (TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE,'YYYYMM')||'01',SUBSTR(TNM.JOIN_DT,0,6) || '01')+1)) AS MNTS_CNT
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.AMT > 0) AS TOT_TRUE_CNT     /* 상조(전체) */
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.REL_AMT > 0) AS TOT_REL_CNT  /* 결합(전체) */
+                 , (SELECT COUNT(NO) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = TNM.PROD_CD AND PND.ADD_AMT > 0) AS TOT_ADD_CNT  /* 추가(전체) */
+                 , TNM.DIFF_TRUE_CNT, TNM.DIFF_REL_CNT
+                 , TNM.TRUE_CNT AS TRUE_CNT, TNM.REL_CNT AS REL_CNT, TNM.ADD_CNT AS ADD_CNT
+                 , TNM.TRUE_DAY, TNM.REL_DAY , TNM.ADD_DAY
+                 , TNM.THMN_PYIN_AMT, TNM.THMN_PYIN_DAY
+                 , TCA.CNSR_ID, TCA.CNSR_NM
+              FROM LF_DMUSER.TB_NONPAYMENT_MNG_TMP TNM
+   LEFT OUTER JOIN (SELECT A.CNSR_ID, B.USER_NM AS CNSR_NM, A.SUB_TRGT_LIST_ID, A.TRGT_CUST_DTPT_ID
+                      FROM PS_WILLVI.TB_TRGT_CUST_ALCT A
+                     INNER JOIN PS_WILLVI.TB_USER B ON (B.CNTR_CD = A.CNTR_CD AND B.USER_ID = A.CNSR_ID)
+                     WHERE 1=1
+                       AND A.TRGT_LIST_ID = 'TAR202212267976435'
+                       AND A.SUB_TRGT_LIST_ID IN (SELECT 'STLNP' || EXT_DT || SUBSTR('0000000'|| MST_SEQ,-7) FROM LF_DMUSER.TB_NONPAYMENT_MST WHERE 1=1 AND EXT_DT = #{ext_dt})
+                   ) TCA ON (TCA.SUB_TRGT_LIST_ID = TNM.SUB_TRGT_LIST_ID AND TCA.TRGT_CUST_DTPT_ID = TNM.TRGT_CUST_DTPT_ID)
+             WHERE TNM.EXT_DT = #{ext_dt}
+        ]]>
+            <if test="pay_mthd != null and pay_mthd != '' ">
+               AND TNM.PAY_MTHD = #{pay_mthd}
+            </if>
+            <if test="diff_true_cnt_stt != null and diff_true_cnt_stt != '' and diff_true_cnt_end != null and diff_true_cnt_end != ''">
+               AND TNM.DIFF_TRUE_CNT BETWEEN #{diff_true_cnt_stt} AND #{diff_true_cnt_end}
+            </if>
+            <if test="diff_rel_cnt_stt != null and diff_rel_cnt_stt != '' and diff_rel_cnt_end != null and diff_rel_cnt_end != ''">
+               AND TNM.DIFF_REL_CNT BETWEEN #{diff_rel_cnt_stt} AND #{diff_rel_cnt_end}
+            </if>
+
+            <if test="accnt_no != null and accnt_no != '' ">
+               AND TNM.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="mem_no != null and mem_no != '' ">
+               AND TNM.MEM_NO = #{mem_no}
+            </if>
+            <if test="type_c != null and type_c != '' ">
+               AND TNM.SECTION_T_NP = #{type_c}
+            </if>
+        )
+        <![CDATA[
+        SELECT MNG.PAGE_INDX
+             , MNG.MEM_NO AS MEM_NO /* 고유번호 */
+             , (SELECT MEM_NM FROM LF_DMUSER.MEMBER_DAMO WHERE MEM_NO = MNG.MEM_NO AND DEL_FG = 'N') AS MEM_NM /* 성명 */
+             , (SELECT REPLACE(CELL, '-', '') FROM LF_DMUSER.MEMBER_DAMO WHERE MEM_NO = MNG.MEM_NO AND DEL_FG = 'N') AS CELL /* 연락처 */
+             , MNG.ACCNT_NO AS ACCNT_NO  /* 회원번호 */
+             , MNG.PAY_MTHD_NM AS PAY_MTHD_NM /* 납입방법(명) */
+             , MNG.SECTION_T_NP_NM AS SECTION_T_NP_NM /* 구분정보(채권/비채권) */
+             , MNG.LAST_MON_DAY AS LAST_MON_DAY /* 최종납일일자 */
+             , MNG.DIFF_TRUE_CNT, MNG.DIFF_REL_CNT
+             , ((MNG.MON_TRUE_AMT - MNG.INTL_TRUE_AMT) + (MNG.MON_REL_AMT  - MNG.INTL_REL_AMT) + (MNG.MON_ADD_AMT  - MNG.INTL_ADD_AMT)) AS NOPAY_AMT /* 미납금액(분배액) */
+             , (MNG.MON_TRUE_AMT - MNG.INTL_TRUE_AMT) AS TRUE_AMT /* 상조금액 */
+             , (MNG.MON_REL_AMT  - MNG.INTL_REL_AMT)  AS REL_AMT  /* 결합금액 */
+             , (MNG.MON_ADD_AMT  - MNG.INTL_ADD_AMT)  AS ADD_AMT  /* 추가금액 */
+             , MNG.THMN_PYIN_AMT AS CUR_MON_PAY_AMT /* 당월납입금액 */
+             , MNG.THMN_PYIN_DAY AS CUR_MON_DAY /* 당월납입일자 */
+             , MNG.SPCL_YN AS SPCL_YN /* 임의지정회원여부 */
+             , MNG.CNSR_ID AS CNSR_ID /* 상담사ID */
+             , MNG.CNSR_NM AS CNSR_NM /* 상담사명 */
+          FROM (
+                SELECT ROW_NUMBER() OVER(ORDER BY A.MEM_NO ASC) AS PAGE_INDX
+                     , A.MEM_NO, A.ACCNT_NO, A.PAY_MTHD_NM, A.SECTION_T_NP, A.SECTION_T_NP_NM
+                     , A.SPCL_YN
+                     , A.MNTS_TRUE_RNTM, A.MNTS_REL_RNTM, A.MNTS_ADD_RNTM
+                     , A.TRUE_CNT, A.REL_CNT, A.ADD_CNT
+                     , A.DIFF_TRUE_CNT, A.DIFF_REL_CNT
+                     , NVL(A.ADD_DAY, NVL(REL_DAY, NVL(TRUE_DAY, ''))) AS LAST_MON_DAY
+                     , NVL((SELECT SUM(AMT)     FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <= A.MNTS_TRUE_RNTM), 0) AS MON_TRUE_AMT /* 상조금액(월)   */
+                     , NVL((SELECT SUM(REL_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <= A.MNTS_REL_RNTM), 0) AS MON_REL_AMT   /* 결합금액(월)   */
+                     , NVL((SELECT SUM(ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <= A.MNTS_ADD_RNTM), 0) AS MON_ADD_AMT   /* 추가금액(월)   */
+                     , NVL((SELECT SUM(AMT)     FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <= A.TRUE_CNT), 0) AS INTL_TRUE_AMT      /* 상조금액(초기) */
+                     , NVL((SELECT SUM(REL_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <= A.REL_CNT), 0) AS INTL_REL_AMT        /* 결합금액(초기) */
+                     , NVL((SELECT SUM(ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = A.PROD_CD AND NO <= A.ADD_CNT), 0) AS INTL_ADD_AMT        /* 추가금액(초기) */
+                     , A.THMN_PYIN_AMT, A.THMN_PYIN_DAY
+                     , A.CNSR_ID, A.CNSR_NM
+                  FROM (
+                        SELECT MEM_NO, ACCNT_NO, PROD_CD, SECTION_T_NP, SPCL_YN
+                             , MNTS_CNT
+                             , CASE WHEN SECTION_T_NP = '001' THEN '비채권'
+                                    WHEN SECTION_T_NP = '002' THEN '채권'
+                                    ELSE SECTION_T_NP END SECTION_T_NP_NM
+                             , CASE WHEN PAY_MTHD = '01' THEN '손수'
+                                    WHEN PAY_MTHD = '04' THEN 'CMS'
+                                    WHEN PAY_MTHD = '06' THEN '카드'
+                                    ELSE PAY_MTHD END PAY_MTHD_NM
+                             , DIFF_TRUE_CNT, DIFF_REL_CNT /* 미납회차(상조/결합)        */
+                             , TRUE_CNT, REL_CNT, ADD_CNT  /* 납입정보(회수=>상조/결합/추가) */
+                             , TRUE_DAY, REL_DAY, ADD_DAY  /* 납입정보(일자=>상조/결합/추가) */
+                             , (CASE WHEN KSTBIT = '03' THEN TRUE_CNT
+                                     ELSE CASE WHEN (TOT_TRUE_CNT - NEW_CHAN_GUNSU) > MNTS_CNT THEN MNTS_CNT
+                                     ELSE (TOT_TRUE_CNT - NEW_CHAN_GUNSU) END
+                                END) AS MNTS_TRUE_RNTM                                                                  -- 당월정보(상조)
+                             , (CASE WHEN MNTS_CNT >= TOT_REL_CNT THEN TOT_REL_CNT ELSE MNTS_CNT END) AS MNTS_REL_RNTM  -- 당월정보(결합)
+                             , (CASE WHEN MNTS_CNT >= TOT_ADD_CNT THEN TOT_ADD_CNT ELSE MNTS_CNT END) AS MNTS_ADD_RNTM  -- 당월정보(추가)
+                             , THMN_PYIN_AMT, THMN_PYIN_DAY  /* 당월납입정보(당월금액/당월입금일자) */
+                             , CNSR_ID, CNSR_NM
+                          FROM NO_PAYMENT_CUST
+                        ) A
+               ) MNG
+         WHERE 1=1
+         ]]>
+         <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+           AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+           AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+         </if>
+         ORDER BY PAGE_INDX
+       </select>
+</mapper>

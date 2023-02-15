@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS220403" classname="팝업가이드" inheritanceid="" position="absolute 0 0 547 105" titletext="FILE 추출" onload="PS220104_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 0 547 105"/>
+        <Button id="btn_close" taborder="1" onclick="btn_onclick" class="btn_popupClose" position="absolute 521 8 541 27"/>
+        <Static id="stc_30" text="FILE 추출" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <FileDownload id="fdl_btn_fixedFormDown" taborder="2" downloadurl="/file/download-template?file_nm=CustomerList_sample.xlsx" retry="0" downloadfilename="CustomerList_sample.xlsx" text="양식받기" wordwrap="none" visible="false" position="absolute 573 46 639 67" style="background:URL('theme://images/btn_WF_CommN.png') stretch 5,5;border:0 none #808080ff ;color:#444444ff;font:맑은 고딕,9,bold antialias;cursor:hand;shadow:drop 1,1 1 #0000004a;gradation:none 0,0 white 100,100 black;"/>
+        <Button id="btn_fileExtc" taborder="3" text="FILE추출 선택" onclick="btn_onclick" class="btn_Cancel" position2="absolute r:9 w:88 t:47 h:20" positiontype="position2" tooltiptext="취소" style="padding:0 0 0 0;"/>
+        <Edit id="edt_file" taborder="5" readonly="true" class="edt_clssEnable" position="absolute 8 73 446 93"/>
+        <FileUpload id="file_upload" taborder="6" uploadurl="  " timeout="0" retry="0" async="true" index="0" onfindclick="file_onfindclick" visible="false" position2="absolute l:4 w:20 t:112 h:21" positiontype="position2" tooltiptype="hover,mouseleave" style="editbackground:URL('theme://images/bg_compD.png') stretch 5,5;editborder:0 solid #ccccccff ;"/>
+        <Button id="btn_fixedFormDown" taborder="7" text="양식받기" onclick="btn_onclick" class="btn_Cancel" position2="absolute r:98 w:72 t:47 h:20" positiontype="position2" tooltiptext="취소" style="padding:0 0 0 0;"/>
+        <Button id="btn_extc" taborder="8" text="파일선택" onclick="btn_excelImport_onclick" class="btn_Cancel" position2="absolute r:9 w:90 t:73 h:20" positiontype="position2" tooltiptext="취소" style="padding:0 0 0 0;"/>
+        <Static id="Static07" text="* 엑셀 파일을 해당 양식으로 작성 후 추출 하세요" position2="absolute r:214 w:321 t:47 h:21" positiontype="position2" style="border:0 none #808080ff ;color:red;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <FileDialog id="fd_file" filter="Excel (*.xlsx)|*.xlsx|" filterindex="0" defaultextention="false" onclose="fd_file_onclose"/>
+      <Dataset id="ds_fileExtc" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="mem_no" type="STRING" size="256"/>
+          <Column id="cust_nm" type="STRING" size="256"/>
+          <Column id="accnt_no" type="STRING" size="256"/>
+          <Column id="clph_tlno" type="STRING" size="256"/>
+          <Column id="home_tlno" type="STRING" size="256"/>
+          <Column id="comp_tlno" type="STRING" size="256"/>
+          <Column id="user_defn1_cntn" type="STRING" size="256"/>
+          <Column id="user_defn2_cntn" type="STRING" size="256"/>
+          <Column id="user_defn3_cntn" type="STRING" size="256"/>
+          <Column id="user_defn4_cntn" type="STRING" size="256"/>
+          <Column id="user_defn5_cntn" type="STRING" size="256"/>
+          <Column id="user_defn6_cntn" type="STRING" size="256"/>
+          <Column id="user_defn7_cntn" type="STRING" size="256"/>
+          <Column id="user_defn8_cntn" type="STRING" size="256"/>
+          <Column id="user_defn9_cntn" type="STRING" size="256"/>
+          <Column id="user_defn10_cntn" type="STRING" size="256"/>
+          <Column id="etc_tlno" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/***************************************************************************
+ * Program ID    : PS.xfdl
+ * Program Name  : 우수상담사례 수정
+ * Author        : 정 훈
+ * Created On    : 2016.02.
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자       내    용
+ * =========================================================================
+ * 2016.0    정   훈      최초작성
+ 
+ **************************************************************************/
+
+
+/********************************************************************************************/
+/* 1. Include Library include                                                               */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트,전역변수,초기화) 처리                         	*/
+/********************************************************************************************/
+var fv_svcPath = gfn_getServiceUrl("fileUrl");
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+
+//버튼클릭이벤트
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	switch(obj){
+		case btn_close://닫기버튼
+			close();
+		break;
+
+		case btn_fixedFormDown : //양식받기
+			//FileDown컴포넌트를 이용한 다운로드
+			fdl_btn_fixedFormDown.downloadfilename = "CustomerList_sample.xlsx";			
+			fdl_btn_fixedFormDown.downloadurl = fv_svcPath +"/file/download-template?file_nm=CustomerList_sample.xlsx";
+			var bSucc = fdl_btn_fixedFormDown.download();
+					
+			if(bSucc){
+				alert('다운로드 성공.');
+			}
+			return false; //기본으로 뜨는 파일 다이얼로그를 띄우지 않도록 처리함.
+		break;
+		
+		case btn_fileExtc: //FILE추출 선택
+			if(edt_file.value == null){
+				alert("추출 파일을 선택하세요.");
+			}else{
+				opener.ds_extc.assign(ds_fileExtc);
+				opener.edt_file_or_db.value = edt_file.value;
+				close();
+			}
+		break;
+		
+		default :
+			alert("obj를 확인하세요.")
+		break;
+	}
+}
+
+
+//엑셀업로드버튼
+function btn_excelImport_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var varRet = fd_file.open("FileOpen", fd_file.LOAD, "%DOCUMENT%");
+	if(varRet == null){
+		return;
+	}else{
+		edt_file.value = varRet.filename;
+		this.setWaitCursor(true,true);
+		var objExtComm = new ExtCommon(); // ExtCommon 오브젝트 생성
+		var v_Ret = objExtComm.excelImportByIndex(varRet.fullpath, 0/*시트INDEX*/, "ds_list_tmp", 0, 1, 0, 6);
+		
+		if(ds_list_tmp.rowcount > 0){
+			ds_fileExtc.clearData();
+		}
+		
+		for(i=0; i<ds_list_tmp.rowcount; i++){
+			var nAddRow = ds_fileExtc.addRow();
+			ds_fileExtc.setColumn(nAddRow , "mem_no",           ds_list_tmp.getColumn(i, "Col01"));
+			ds_fileExtc.setColumn(nAddRow , "cust_nm",          ds_list_tmp.getColumn(i, "Col02"));
+			ds_fileExtc.setColumn(nAddRow , "clph_tlno",        ds_list_tmp.getColumn(i, "Col03"));
+			ds_fileExtc.setColumn(nAddRow , "home_tlno",        ds_list_tmp.getColumn(i, "Col04"));
+			ds_fileExtc.setColumn(nAddRow , "comp_tlno",        ds_list_tmp.getColumn(i, "Col05"));
+			ds_fileExtc.setColumn(nAddRow , "etc_tlno", 	    ds_list_tmp.getColumn(i, "Col06"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn1_cntn",  ds_list_tmp.getColumn(i, "Col07"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn2_cntn",  ds_list_tmp.getColumn(i, "Col08"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn3_cntn",  ds_list_tmp.getColumn(i, "Col09"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn4_cntn",  ds_list_tmp.getColumn(i, "Col10"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn5_cntn",  ds_list_tmp.getColumn(i, "Col11"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn6_cntn",  ds_list_tmp.getColumn(i, "Col12"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn7_cntn",  ds_list_tmp.getColumn(i, "Col13"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn8_cntn",  ds_list_tmp.getColumn(i, "Col14"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn9_cntn",  ds_list_tmp.getColumn(i, "Col15"));
+			ds_fileExtc.setColumn(nAddRow , "user_defn10_cntn",  ds_list_tmp.getColumn(i, "Col16"));
+		}
+		this.setWaitCursor(false,true);
+		
+	}
+}
+
+
+
+
+]]></Script>
+  </Form>
+</FDL>

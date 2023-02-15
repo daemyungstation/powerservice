@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="OvrdProdExcdAdmnMap">
+
+    <sql id="OvrdProdExcdAdmnMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="prod_cd != null and prod_cd != ''">
+                AND A.PROD_CD = #{prod_cd}
+            </if>
+            <if test="prod_nm != null and prod_nm != ''">
+                AND A.PROD_NM LIKE '%' || #{prod_nm} || '%'
+            </if>
+            <if test="div_cd != null and div_cd != ''">
+                AND A.DIV_CD = #{div_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <select id="OvrdProdExcdAdmnMap.getOvrdProdExcdAdmnCount" parameterType="map" resultType="int">
+        SELECT /* OvrdProdExcdAdmnMap.getOvrdProdExcdAdmnCount */
+               COUNT(*)
+          FROM TB_OVRD_PROD_EXCD_ADMN A
+        <include refid="OvrdProdExcdAdmnMap.selectCondition_fragment" />
+    </select>
+
+    <select id="OvrdProdExcdAdmnMap.getOvrdProdExcdAdmnList" parameterType="map" resultType="resultMap">
+        SELECT /* OvrdProdExcdAdmnMap.getOvrdProdExcdAdmnList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                             , GETCODENM('CAM160', A.DIV_CD, A.CNTR_CD) AS DIV_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE LGN_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER C
+                                 WHERE LGN_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM (SELECT A.*
+                                  FROM TB_OVRD_PROD_EXCD_ADMN A
+                              <include refid="OvrdProdExcdAdmnMap.selectCondition_fragment" />
+                               ) A
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="OvrdProdExcdAdmnMap.insertOvrdProdExcdAdmn" parameterType="map">
+        INSERT /* OvrdProdExcdAdmnMap.insertOvrdProdExcdAdmn */
+          INTO TB_OVRD_PROD_EXCD_ADMN
+               (PROD_CD, PROD_NM, MNPY_AMT, ADTL_BRAMT_AMT, TOTL_PYIN_AMT
+              , RELAT_MNPY_AMT, RELAT_ADTL_AMT, EXPR_TMCNT
+              , PROD_AMT, ELCR_GDS_AMT, DIV_CD, USE_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{prod_cd}, #{prod_nm}, #{mnpy_amt}, #{adtl_bramt_amt}, #{totl_pyin_amt}
+              , #{relat_mnpy_amt}, #{relat_adtl_amt}, #{expr_tmcnt}
+              , #{prod_amt}, #{elcr_gds_amt}, #{div_cd}, #{use_yn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="OvrdProdExcdAdmnMap.updateOvrdProdExcdAdmn" parameterType="map">
+        UPDATE /* OvrdProdExcdAdmnMap.updateOvrdProdExcdAdmn */
+               TB_OVRD_PROD_EXCD_ADMN
+           SET AMNT_DTTM		= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID			= #{amnd_id}
+             , PROD_NM			= #{prod_nm}
+             , MNPY_AMT			= #{mnpy_amt}
+             , ADTL_BRAMT_AMT	= #{adtl_bramt_amt}
+             , TOTL_PYIN_AMT	= #{totl_pyin_amt}
+             , RELAT_MNPY_AMT	= #{relat_mnpy_amt}
+             , RELAT_ADTL_AMT	= #{relat_adtl_amt}
+             , EXPR_TMCNT		= #{expr_tmcnt}
+             , PROD_AMT			= #{prod_amt}
+             , ELCR_GDS_AMT		= #{elcr_gds_amt}
+             , DIV_CD			= #{div_cd}
+             , USE_YN			= #{use_yn}
+         WHERE PROD_CD			= #{prod_cd}
+    </update>
+
+</mapper>

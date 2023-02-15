@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CoBaVlMap">
+    <sql id="CoBaVlMap.selectCondition_fragment">
+        <where>
+            <if test="colm_basi_vl_id != null and colm_basi_vl_id != ''">
+                AND COLM_BASI_VL_ID = #{colm_basi_vl_id}
+            </if>
+            <if test ="colm_basi_vl_nm != null and colm_basi_vl_nm != ''">
+                AND UPPER(COLM_BASI_VL_NM) LIKE '%' || UPPER(#{colm_basi_vl_nm}) || '%'
+            </if>
+            <if test ="colm_basi_vl != null and colm_basi_vl != ''">
+                AND UPPER(COLM_BASI_VL) LIKE '%' || UPPER(#{colm_basi_vl}) || '%'
+            </if>
+            <if test ="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 컬럼 기본값 관리 건수조회 (15.04.15) -->
+    <select id="CoBaVlMap.getCoBaVlCount" parameterType="map" resultType="int">
+        SELECT /* CoBaVlMap.getCoBaVlCount */
+            COUNT(*)
+          FROM TB_COLM_BASI_VL_INFO
+          <include refid="CoBaVlMap.selectCondition_fragment"/>
+    </select>
+    <!-- // 컬럼 기본값 관리 건수조회 -->
+
+    <!-- 컬럼 기본값 관리 목록조회 (15.04.15) -->
+    <select id="CoBaVlMap.getCoBaVlList" parameterType="map" resultType="resultMap">
+        SELECT /* CoBaVlMap.getCoBaVlList */
+            C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT COLM_BASI_VL_ID, COLM_BASI_VL_NM, COLM_BASI_VL, COLM_BASI_VL_EXPI
+                               , USE_YN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                               , (SELECT USER_NM
+                                   FROM TB_USER
+                                  WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                               , (SELECT USER_NM
+                                   FROM TB_USER
+                                  WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                           FROM TB_COLM_BASI_VL_INFO A
+                           <include refid="CoBaVlMap.selectCondition_fragment"/>
+                           <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                        )B
+                  )C
+          <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- // 컬럼 기본값 관리 목록조회 -->
+
+    <!-- 컬럼 기본값 관리 등록 (15.04.15) -->
+    <insert id="CoBaVlMap.insertCoBaVl">
+        <selectKey keyProperty="colm_basi_vl_id" resultType="String" order="BEFORE">
+            SELECT 'CBV' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* CoBaVlMap.insertCoBaVl */
+            TB_COLM_BASI_VL_INFO
+          VALUES (#{colm_basi_vl_id}, #{colm_basi_vl_nm}, #{colm_basi_vl}, #{colm_basi_vl_expi}, #{use_yn},
+                    #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // 컬럼 기본값 관리 등록 -->
+
+    <!-- 컬럼 기본값 관리 수정 -->
+    <update id="CoBaVlMap.updateCoBaVl" parameterType="map">
+        UPDATE /* CoBaVlMap.updateCoBaVl */
+            TB_COLM_BASI_VL_INFO
+          SET COLM_BASI_VL_NM = #{colm_basi_vl_nm}
+            , COLM_BASI_VL = #{colm_basi_vl}
+            , COLM_BASI_VL_EXPI = #{colm_basi_vl_expi}
+            , USE_YN = #{use_yn}
+            , AMND_ID = #{amnd_id}
+            , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE COLM_BASI_VL_ID = #{colm_basi_vl_id}
+    </update>
+    <!-- // 컬럼 기본값 관리 수정 -->
+</mapper>
+

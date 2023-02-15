@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwProdTrntMap">
+
+    <!-- 양도양수나 상품변경 공제 미신고건 확인 -->
+    <select id="DlwProdTrntMap.getChkProdTransDedAppYn" parameterType="map" resultType="String">
+    <!-- DM sql-id : sql-life.chkProdTransDedAppYn -->
+
+
+        /* DlwProdTrntMap.getChkProdTransDedAppYn */
+
+         DECLARE P_ACCNT_NO VARCHAR(20);
+                P_PROD_CD VARCHAR(2);
+                P_AF_PROD_CD VARCHAR(2);
+                P_PAY_TYPE VARCHAR(3);
+                P_AF_PAY_TYPE VARCHAR(3);
+                P_PAY_CNT NUMBER;
+                P_SUM1 NUMBER; P_SUM2 NUMBER; P_SUM3 NUMBER; P_SUM4 NUMBER;
+                P_APPYN  VARCHAR(20);
+
+        BEGIN
+                          P_ACCNT_NO := #{accnt_no};
+                          P_AF_PROD_CD := #{prod_cd};
+                          P_PROD_CD := SUBSTR(P_ACCNT_NO,5, 2);
+                          SELECT PAY_TYPE INTO P_PAY_TYPE
+                          FROM PRODUCT
+                          WHERE PROD_CD = P_PROD_CD;
+
+                          SELECT PAY_TYPE INTO P_AF_PAY_TYPE
+                          FROM PRODUCT
+                          WHERE PROD_CD = P_AF_PROD_CD;
+
+                          SELECT NVL(COUNT(ACCNT_NO),0) INTO P_SUM1
+                          FROM PAY_MNG
+                          WHERE DEL_FG = 'N'
+                          AND ACCNT_NO = P_ACCNT_NO;
+
+                          SELECT NVL(COUNT(ACCNT_NO),0) INTO P_SUM2
+                          FROM PAY_MNG_DTL
+                          WHERE DEL_FG = 'N'
+                          AND ACCNT_NO = P_ACCNT_NO;
+
+                          SELECT NVL(COUNT(ACCNT_NO), 0) INTO P_SUM3
+                          FROM PAY_MNG_DTL1
+                          WHERE DEL_FG = 'N'
+                          AND ACCNT_NO = P_ACCNT_NO;
+
+                          SELECT NVL(NEW_CHAN_GUNSU, 0) INTO P_SUM4
+                          FROM MEM_PROD_ACCNT
+                          WHERE DEL_FG = 'N'
+                          AND ACCNT_NO = P_ACCNT_NO;
+
+                          P_PAY_CNT := P_SUM1 + P_SUM2 +  P_SUM3 +  P_SUM4;
+
+         SELECT CASE WHEN NVL((SELECT NEW_YN
+                               FROM TRANSFER_BRKDN
+                               WHERE ACCNT_NO = P_ACCNT_NO), 'N') = 'Y'  THEN 'NYT'
+
+                     WHEN P_PAY_CNT > 0
+                          AND (
+                                      CASE WHEN (
+                                                  CASE WHEN P_PAY_TYPE = '002'  THEN CASE WHEN NVL((SELECT COUNT(A.PROD_CD)
+                                                                                                  FROM PRODUCT_DTL A
+                                                                                                  WHERE A.PROD_CD = P_PROD_CD
+                                                                                                 ), 0)
+                                                                                              = NVL((SELECT COUNT(A.PROD_CD)
+                                                                                                     FROM PRODUCT_DTL A
+                                                                                                     WHERE A.PROD_CD = P_PROD_CD
+                                                                                                     AND EXISTS (SELECT *
+                                                                                                                    FROM PRODUCT_DTL B
+                                                                                                                 WHERE B.PROD_CD = P_AF_PROD_CD
+                                                                                                                 AND B.ST_NO = A.ST_NO
+                                                                                                                 AND B.END_NO = A.END_NO
+                                                                                                                 AND B.MONTH_PAY_AMT = A.MONTH_PAY_AMT
+                                                                                                                 AND B.ALLT_AMT = A.ALLT_AMT
+                                                                                                                 AND B.ADD_AMT = A.ADD_AMT
+                                                                                                                   )
+                                                                                                     ), 0) THEN 'E'
+                                                                                               ELSE 'N'
+                                                                                          END
+                                                      ELSE (CASE WHEN (SELECT COUNT(A.PROD_CD)
+                                                                       FROM PRODUCT A
+                                                                       WHERE PROD_CD = P_PROD_CD
+                                                                       AND EXISTS (SELECT *
+                                                                                   FROM PRODUCT B
+                                                                                   WHERE B.PROD_CD = P_AF_PROD_CD
+                                                                                   AND B.MON_PAY_AMT = A.MON_PAY_AMT
+                                                                                   AND B.EXPR_NO = A.EXPR_NO
+                                                                                  )
+                                                                      ) > 0 THEN 'E'
+                                                                  ELSE 'N'
+                                                              END
+                                                             )
+                                                END = 'N'
+
+                                              ) THEN 'NE'
+                                         ELSE 'E'
+                                       END = 'NE'
+                               ) THEN 'PNE'
+                    ELSE ''
+                  END
+                INTO P_APPYN
+         FROM DUAL;
+    END;
+    </select>
+
+    <!-- 공제 해지필요건 확인 -->
+    <select id="DlwProdTrntMap.getDedAppYn" parameterType="map" resultType="String">
+    <!-- DM sql-id : sql-life.dedAppYn -->
+
+
+        SELECT /* DlwProdTrntMap.getDedAppYn */
+               CASE WHEN NVL(MPA.DED_NO, '') = ''
+                         THEN 'N'
+                    ELSE CASE WHEN NVL((SELECT COUNT(EVT.ACCNT_NO)
+                                             FROM EVENT EVT
+                                            WHERE EVT.DEL_FG = 'N'
+                                              AND EVT.NEW_YN = 'N'
+                                              AND EVT.ACCNT_NO = MPA.ACCNT_NO), 0)
+                                   +
+                                   NVL((SELECT COUNT(RESN.ACCNT_NO)
+                                             FROM RESCISSION RESN
+                                            WHERE RESN.DEL_FG = 'N'
+                                              AND RESN.NEW_YN = 'N'
+                                              AND RESN.ACCNT_NO = MPA.ACCNT_NO), 0)
+                                   > 0
+                                   THEN 'N'
+                              ELSE 'Y'
+                         END
+               END
+          FROM MEM_PROD_ACCNT MPA
+         WHERE MPA.ACCNT_NO = #{bf_tr_accnt_no}
+    </select>
+
+
+    <!-- 상품 변환 -->
+    <parameterMap id="updateTransMemProdAccntMap" type="map">
+        <parameter property="bf_tr_accnt_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_prod_cd" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_prod_cd" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_pay_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_pay_amt" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_pay_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_pay_amt" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_allt_pay_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_allt_pay_amt" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_allt_pay_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_allt_pay_amt" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_add_pay_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_add_pay_amt" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_add_pay_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_add_pay_amt" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="bf_tr_dc_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="af_tr_dc_no" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="rgsr_id" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="amnd_id" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="prod_model_kind" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="prod_model_cd" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="prod_kind_nm" javaType="java.lang.String" jdbcType="VARCHAR" mode="IN"/>
+        <parameter property="outSqlMsg" javaType="java.lang.String" jdbcType="VARCHAR" mode="OUT"/>
+    </parameterMap>
+
+    <select id="DlwProdTrntMap.updateTransMemProdAccnt" statementType="CALLABLE" parameterMap="updateTransMemProdAccntMap">
+        {call pr_transMemProdAccnt(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)}
+    </select>
+
+    <update id="DlwProdTrntMap.updateTransMemProdAccnt_backup" parameterType="map">
+    <!-- DM sql-id : sql-life.transMemProdAccnt -->
+        /* DlwProdTrntMap.updateTransMemProdAccnt */
+
+        DECLARE   @BF_ACCNT_NO VARCHAR(20)
+                , @AF_ACCNT_NO VARCHAR(20)
+                , @PROD_CD VARCHAR(4)
+                , @BF_TR_PROD_MODEL_KIND VARCHAR(4)
+                , @BF_TR_PROD_MODEL_CD NUMBER
+                  , @BF_TR_PROD_KIND NUMBER
+
+        BEGIN
+            BF_ACCNT_NO = #{bf_tr_accnt_no};
+            PROD_CD = #{af_tr_prod_cd};
+
+
+            AF_ACCNT_NO = FN_CREATE_ACCNT_NO(@PROD_CD, '');
+
+            SELECT @BF_TR_PROD_MODEL_KIND AS PROD_MODEL_KIND
+                 , @BF_TR_PROD_MODEL_CD AS PROD_MODEL_CD
+                 , @BF_TR_PROD_KIND AS PROD_KIND
+              FROM MEM_PROD_ACCNT
+             WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE ALOW_DTL_T33 SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE CARD_MEM SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE CARD_NEW_CANCL_APP SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE CARD_WDRW_REQ SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE NEW_CANCL_APP SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE WDRW_REQ SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE CERTF_HIST SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE CNSL_MNG SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE DAY_INQ_HIS SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE EVENT SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE EVENT_PIC_UPLOAD SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE HP_CALL SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE HP_CALL_HIST SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE MEM_PROD_ACCNT
+               SET ACCNT_NO = @AF_ACCNT_NO
+                 , PROD_CD = @PROD_CD
+                 , DED_NO = NULL
+                 , PROD_MODEL_KIND = #{prod_model_kind}
+                 , PROD_MODEL_CD = #{prod_model_cd}
+                 , PROD_KIND = #{prod_kind_nm}
+             WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE MEM_PROD_ACCNT_SVC SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE MONTR_RPT_MST SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE OCB_HIST SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE PAY_MNG SET ACCNT_NO = @AF_ACCNT_NO, NEW_YN = 'Y' WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE PAY_MNG_DTL SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE PAY_MNG_DTL1 SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            UPDATE REG_UPD_DEL_INF SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE RT_CARD_PAY_LOG SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE SMS_MSG SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+            UPDATE SVC_ISU_HIST SET ACCNT_NO = @AF_ACCNT_NO WHERE ACCNT_NO = @BF_ACCNT_NO;
+
+            <!-- 상품 변경 이력 등록 -->
+            INSERT INTO MEM_PROD_ACCNT_TRANS
+            (SEQ, BF_TR_ACCNT_NO, AF_TR_ACCNT_NO, BF_TR_PROD_CD, AF_TR_PROD_CD
+           , TR_DT, BF_TR_PAY_NO, BF_TR_PAY_AMT, AF_TR_PAY_NO, AF_TR_PAY_AMT
+           , BF_TR_ALLT_PAY_NO, BF_TR_ALLT_PAY_AMT, AF_TR_ALLT_PAY_NO, AF_TR_ALLT_PAY_AMT, BF_TR_ADD_PAY_NO
+           , BF_TR_ADD_PAY_AMT, AF_TR_ADD_PAY_NO, AF_TR_ADD_PAY_AMT, BF_TR_DC_NO, AF_TR_DC_NO
+           , REG_MAN, REG_DM, UPD_MAN, UPD_DM, NEW_YN
+           , DEL_FG, BF_TR_PROD_MODEL_KIND, AF_TR_PROD_MODEL_KIND, BF_TR_PROD_MODEL_CD, AF_TR_PROD_MODEL_CD
+           , BF_TR_PROD_KIND, AF_TR_PROD_KIND)
+            SELECT ISNULL((SELECT MAX(SEQ)
+                             FROM MEM_PROD_ACCNT_TRANS
+                            WHERE DEL_FG = 'N'), 0) + 1
+                 , @BF_ACCNT_NO, @AF_ACCNT_NO, #{bf_tr_prod_cd}, #{af_tr_prod_cd}, GETDATE()
+                 , #{bf_tr_pay_no}, REPLACE(#{bf_tr_pay_amt}, ',', ''), #{af_tr_pay_no}, REPLACE(#{af_tr_pay_amt}, ',', ''), #{bf_tr_allt_pay_no}
+                 , REPLACE(#{bf_tr_allt_pay_amt}, ',', ''), #{af_tr_allt_pay_no}, REPLACE(#{af_tr_allt_pay_amt}, ',', ''), #{bf_tr_add_pay_no}, REPLACE(#{bf_tr_add_pay_amt}, ',', '')
+                 , #{af_tr_add_pay_no}, REPLACE(#{af_tr_add_pay_amt}, ',', ''), #{bf_tr_dc_no}, #{af_tr_dc_no}, #{rgsr_id}
+                 , GETDATE(), #{amnd_id}, GETDATE(), 'Y', 'N'
+                 , @BF_TR_PROD_MODEL_KIND, #{prod_model_kind}, @BF_TR_PROD_MODEL_CD, #{prod_model_cd}, @BF_TR_PROD_KIND
+                 , #{prod_kind_nm};
+        END;
+    </update>
+
+    <select id="DlwProdTrntMap.getProdTrntHstrCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwProdTrntMap.getProdTrntHstrCount */
+               COUNT(*)
+          FROM MEM_PROD_ACCNT_TRANS
+         WHERE DEL_FG = 'N'
+<!--
+           AND TR_DT BETWEEN #{stt_dt} AND #{end_dt}
+ -->
+    </select>
+
+    <!-- 상품 변경 이력 조회 -->
+    <select id="DlwProdTrntMap.getProdTrntHstrList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectProdTransHist -->
+
+
+        /* DlwProdTrntMap.getProdTrntHstrList */
+        SELECT B.*
+          FROM (SELECT A.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY TR_DT DESC, AF_TR_ACCNT_NO) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                   FROM (SELECT SEQ, BF_TR_ACCNT_NO, AF_TR_ACCNT_NO, BF_TR_PROD_CD, AF_TR_PROD_CD
+                             , FN_PROD_NM(BF_TR_PROD_CD) BF_TR_PROD_NM
+                             , FN_PROD_NM(AF_TR_PROD_CD) AF_TR_PROD_NM
+                             , FN_COM_NM('0168', TR_RESN) TR_RESN_NM
+                             , TR_DT
+                             , CASE WHEN TR_DIF_CL = '01' THEN '납부'
+                                    WHEN TR_DIF_CL = '02' THEN '환불'
+                                    WHEN TR_DIF_CL = '03' THEN '정상'
+                                    ELSE ''
+                                END TR_DIF_CL_NM
+                             , NVL(TR_DIF_AMT, 0) TR_DIF_AMT
+                             , NVL(BF_TR_PAY_NO, 0) BF_TR_PAY_NO
+                             , NVL(BF_TR_PAY_AMT, 0) BF_TR_PAY_AMT
+                             , NVL(AF_TR_PAY_NO, 0) AF_TR_PAY_NO
+                             , NVL(AF_TR_PAY_AMT, 0) AF_TR_PAY_AMT
+                             , NVL(BF_TR_DC_NO, 0) BF_TR_DC_NO
+                             , NVL(BF_TR_DC_AMT, 0) BF_TR_DC_AMT
+                             , NVL(AF_TR_DC_NO, 0) AF_TR_DC_NO
+                             , NVL(AF_TR_DC_AMT, 0) AF_TR_DC_AMT
+                             , NVL((SELECT MODEL_CL_NM
+                                         FROM PRODUCT_MODEL_CL_CD
+                                        WHERE MODEL_CL_CD = BF_TR_PROD_MODEL_KIND
+                                     ), '') BF_TR_PROD_MODEL_KIND
+                             , NVL((SELECT PMD.MODEL_NM
+                                    FROM PRODUCT_MODEL_MST PMM
+                                            INNER JOIN PRODUCT_MODEL_DTL PMD ON PMM.SEQ = PMD.SEQ
+                                    AND PMM.DEL_FG = 'N'
+                                    WHERE PMM.PROD_KIND = BF_TR_PROD_MODEL_KIND
+                                    AND PMM.PROD_CD = BF_TR_PROD_CD
+                                    AND PMD.MODEL_CD = BF_TR_PROD_MODEL_CD
+                                    ), '') BF_TR_PROD_MODEL_CD
+                             , NVL((SELECT PROD_KIND_NM
+                                    FROM PRODUCT_KIND
+                                    WHERE MODEL_CL_CD = BF_TR_PROD_MODEL_KIND
+                                    AND SEQ = BF_TR_PROD_KIND
+                                   ), '') BF_TR_PROD_KIND
+                             , NVL((SELECT MODEL_CL_NM
+                                    FROM PRODUCT_MODEL_CL_CD
+                                    WHERE MODEL_CL_CD = AF_TR_PROD_MODEL_KIND
+                                   ), '') AF_TR_PROD_MODEL_KIND
+                             , NVL((SELECT PMD.MODEL_NM
+                                    FROM PRODUCT_MODEL_MST PMM
+                                            INNER JOIN PRODUCT_MODEL_DTL PMD ON PMM.SEQ = PMD.SEQ
+
+                                    WHERE PMM.PROD_KIND = AF_TR_PROD_MODEL_KIND
+                                    AND PMM.PROD_CD = AF_TR_PROD_CD
+                                    AND PMD.MODEL_CD = AF_TR_PROD_MODEL_CD
+                                    ), '') AF_TR_PROD_MODEL_CD
+                             , NVL((SELECT PROD_KIND_NM
+                                    FROM PRODUCT_KIND
+                                    WHERE MODEL_CL_CD = AF_TR_PROD_MODEL_KIND
+                                    AND SEQ = AF_TR_PROD_KIND
+                                   ), '') AF_TR_PROD_KIND
+                             , FN_EMPLE_NM(REG_MAN) REG_MAN_NM
+                             , TO_CHAR(REG_DM,'yyyymmddhh24mi') AS REG_DM
+                             , TO_CHAR(UPD_DM,'yyyymmddhh24mi') AS UPD_DM
+                             , FN_EMPLE_NM(UPD_MAN) UPD_MAN_NM
+                             , CASE WHEN NEW_YN = 'Y' THEN '미신고'
+                                    ELSE '신고'
+                                END NEW_YN_NM
+                          FROM MEM_PROD_ACCNT_TRANS
+                         WHERE DEL_FG = 'N'
+                         AND TR_DT BETWEEN #{stt_dt} AND #{end_dt}
+                    <if test="accnt_no != null and accnt_no != ''">
+                        AND AF_TR_ACCNT_NO = #{accnt_no}
+                    </if>
+                        ) A
+                ) B
+           <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+</mapper>

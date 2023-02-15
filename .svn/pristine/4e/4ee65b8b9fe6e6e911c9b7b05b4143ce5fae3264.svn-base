@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ScrtMap">
+
+    <sql id="ScrtMap.selectCondition_fragment">
+        <where>
+            <if test= "cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="scrt_nm != null and scrt_nm != ''">
+                AND SCRT_NM LIKE #{scrt_nm} || '%'
+            </if>
+            <if test="scrt_clsf_cd != null and scrt_clsf_cd !=''">
+                AND SCRT_CLSF_CD = #{scrt_clsf_cd}
+            </if>
+            <if test="scrt_id != null and scrt_id !=''">
+                AND SCRT_ID = #{scrt_id}
+            </if>
+            <if test="cmpg_prfm_team_cd != null and cmpg_prfm_team_cd !=''">
+                AND CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+            </if>
+        </where>
+    </sql>
+
+    <resultMap id="scrtPreviewMap" type="resultMap">
+        <result property="scrt_id" column="scrt_id" />
+        <result property="scrt_clsf_cd" column="scrt_clsf_cd" />
+        <result property="scrt_nm" column="scrt_nm" />
+        <result property="scrt_expi" column="scrt_expi" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="cmpg_prfm_team_cd" column="cmpg_prfm_team_cd" />
+        <result property="team_nm" column="team_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="scrt_cntn" column="scrt_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+    </resultMap>
+
+    <select id="ScrtMap.getScrtCount" parameterType="map" resultType="int">
+        SELECT /* ScrtMap.getScrtCount */
+               COUNT(*)
+          FROM TB_SCRT_BASI
+        <include refid="ScrtMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ScrtMap.getScrtList" parameterType="map" resultMap="scrtPreviewMap">
+        SELECT /* ScrtMap.getScrtList */
+               C.*
+               ,(SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = C.CMPG_PRFM_TEAM_CD) AS TEAM_NM
+          FROM (SELECT <choose>
+                           <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY AMNT_DTTM DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                       , SCRT_ID, SCRT_CLSF_CD, SCRT_NM, SCRT_CNTN, SCRT_EXPI, ALCT_YN , CMPG_PRFM_TEAM_CD
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , RGSR_NM, AMND_NM
+                     , GETCODENM('CAM080', B.SCRT_CLSF_CD, B.CNTR_CD) AS SCRT_CLSF_NM
+                  FROM (SELECT SCRT_ID, SCRT_CLSF_CD, SCRT_NM, SCRT_CNTN, SCRT_EXPI, ALCT_YN
+                             , CMPG_PRFM_TEAM_CD
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                            , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_SCRT_BASI A
+                    <include refid="ScrtMap.selectCondition_fragment"/>
+                        ) B
+                ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <select id="ScrtMap.getScrtView" parameterType="map">
+        SELECT /* ScrtMap.getScrtView */
+               SCRT_CNTN
+          FROM TB_SCRT_BASI
+         WHERE SCRT_ID = #{scrt_id}
+    </select>
+
+    <insert id="ScrtMap.insertScrt" parameterType="map">
+        <selectKey keyProperty="scrt_id" resultType="String" order="BEFORE">
+            SELECT 'SCR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ScrtMap.insertScrt */
+          INTO TB_SCRT_BASI
+              (SCRT_ID, SCRT_CLSF_CD, SCRT_NM, SCRT_EXPI, ALCT_YN, SCRT_CNTN ,CMPG_PRFM_TEAM_CD
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{scrt_id}, #{scrt_clsf_cd}, #{scrt_nm}, #{scrt_expi}, 'N', #{scrt_cntn:CLOB} , #{cmpg_prfm_team_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="ScrtMap.updateScrt" parameterType="map">
+        UPDATE /* ScrtMap.updateScrt */
+               TB_SCRT_BASI
+           SET AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        <if test="updateOption =='assign'">
+             , ALCT_YN = DECODE((SELECT COUNT(*) FROM TB_SUB_TRGT_LIST_DTL WHERE INVT_CNTS_ID = #{scrt_id}), 0, 'N', 'Y')
+        </if>
+        <if test="scrt_clsf_cd != null and scrt_clsf_cd != ''">
+             , SCRT_CLSF_CD = #{scrt_clsf_cd}
+        </if>
+        <if test="scrt_nm != null and scrt_nm != ''">
+             , SCRT_NM = #{scrt_nm}
+        </if>
+        <if test="scrt_expi != null and scrt_expi != ''">
+             , SCRT_EXPI = #{scrt_expi}
+        </if>
+        <if test="scrt_cntn != null and scrt_cntn != ''">
+             , SCRT_CNTN = #{scrt_cntn:CLOB}
+        </if>
+         WHERE SCRT_ID = #{scrt_id}
+    </update>
+
+
+    <delete id="ScrtMap.deleteScrt" parameterType="map">
+        DELETE /* ScrtMap.deleteScrt */
+          FROM TB_SCRT_BASI
+         WHERE CNTR_CD = #{cntr_cd}
+           AND SCRT_ID = #{scrt_id}
+    </delete>
+
+    <select id="ScrtMap.getScrtPreview" parameterType="map"  resultMap="scrtPreviewMap">
+        SELECT /* ScrtMap.getScrtPreview */
+               SCRT_ID, SCRT_CLSF_CD, SCRT_NM, SCRT_EXPI, ALCT_YN, SCRT_CNTN
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+          FROM TB_SCRT_BASI A
+         WHERE CNTR_CD = #{cntr_cd}
+           AND SCRT_ID = #{scrt_id}
+    </select>
+
+</mapper>

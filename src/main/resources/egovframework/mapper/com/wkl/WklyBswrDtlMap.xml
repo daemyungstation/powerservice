@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace = "WklyBswrDtlMap">
+    <sql id="WklyBswrDtlMap.selectCondition_fragment">
+        <where>
+            <if test="wkly_rprg_id != null and wkly_rprg_id != ''">
+                AND WKLY_RPRG_ID = #{wkly_rprg_id}
+            </if>
+            <if test="wkly_bswr_typ_cd != null and wkly_bswr_typ_cd != ''">
+                AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+            </if>
+            <if test="wkly_bswr_dtls_cd != null and wkly_bswr_dtls_cd != ''">
+                AND WKLY_BSWR_DTLS_CD = #{wkly_bswr_dtls_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id = "WklyBswrDtlMap.getWklyBusinessCount" parameterType="map" resultType="int">
+        SELECT /* WklyBswrDtlMap.getWklyBusinessCount */
+               COUNT(*)
+          FROM TB_WKLY_BSWR_DTL A
+        <include refid="WklyBswrDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id = "WklyBswrDtlMap.getWklyBusinessList" parameterType="map" resultType="resultMap">
+        SELECT /* WklyBswrDtlMap.getWklyBusinessList */
+              *
+          FROM (SELECT <choose>
+                            <when test="orderBy != null and orderBy != ''">
+                                ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                            </when>
+                            <otherwise>
+                                ROW_NUMBER() OVER (ORDER BY WKLY_RPRG_ID, WKLY_BSWR_TYP_CD, WKLY_BSWR_DTLS_CD ASC) AS PAGE_INDX
+                            </otherwise>
+                         </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                             , (SELECT WKLY_BSWR_TYP_NM
+                                  FROM TB_WKLY_BSWR_TYP
+                                 WHERE WKLY_BSWR_TYP_CD = A.WKLY_BSWR_TYP_CD) AS WKLY_BSWR_TYP_NM
+                             , (SELECT WKLY_BSWR_DTLS_NM
+                                  FROM TB_WKLY_BSWR_DTLS_CD
+                                 WHERE WKLY_BSWR_TYP_CD = A.WKLY_BSWR_TYP_CD
+                                   AND WKLY_BSWR_DTLS_CD = A.WKLY_BSWR_DTLS_CD) AS WKLY_BSWR_DTLS_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                          FROM TB_WKLY_BSWR_DTL A
+                       <include refid="WklyBswrDtlMap.selectCondition_fragment"/>
+                       ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id = "WklyBswrDtlMap.insertWklyBusiness" parameterType="map">
+        INSERT /* WklyBswrDtlMap.insertWklyBusiness */
+          INTO TB_WKLY_BSWR_DTL (
+               WKLY_RPRG_ID, WKLY_BSWR_TYP_CD, WKLY_BSWR_DTLS_CD, WKLY_BSWR_WGVL_VL
+             , BFWK_PLAN_CNTN, THWK_ACRS_CNTN, NTWK_PLAN_CNTN, CNTR_CD, RGSR_ID
+             , AMND_ID, RGSN_DTTM, AMNT_DTTM )
+        VALUES (#{wkly_rprg_id}, #{wkly_bswr_typ_cd}, #{wkly_bswr_dtls_cd}, #{wkly_bswr_wgvl_vl}
+             , #{bfwk_plan_cntn}, #{thwk_acrs_cntn}, #{ntwk_plan_cntn}, #{cntr_cd}, #{rgsr_id}
+             , #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id = "WklyBswrDtlMap.updateWklyBusiness" parameterType="map">
+        UPDATE /* WklyBswrDtlMap.updateWklyBusiness */
+               TB_WKLY_BSWR_DTL
+           SET WKLY_BSWR_WGVL_VL  = #{wkly_bswr_wgvl_vl}
+             , BFWK_PLAN_CNTN   = #{bfwk_plan_cntn}
+             , THWK_ACRS_CNTN   = #{thwk_acrs_cntn}
+             , NTWK_PLAN_CNTN   = #{ntwk_plan_cntn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM     = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE WKLY_RPRG_ID = #{wkly_rprg_id}
+           AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+           AND WKLY_BSWR_DTLS_CD = #{wkly_bswr_dtls_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id ="WklyBswrDtlMap.deleteWklyBusiness" parameterType="map">
+        DELETE /* WklyBswrDtlMap.deleteWklyBusiness */
+          FROM TB_WKLY_BSWR_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND WKLY_RPRG_ID = #{wkly_rprg_id}
+        <if test="wkly_bswr_typ_cd != null and wkly_bswr_typ_cd != ''">
+           AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+        </if>
+        <if test="wkly_bswr_dtls_cd != null and wkly_bswr_dtls_cd != ''">
+           AND WKLY_BSWR_DTLS_CD = #{wkly_bswr_dtls_cd}
+        </if>
+
+    </delete>
+</mapper>

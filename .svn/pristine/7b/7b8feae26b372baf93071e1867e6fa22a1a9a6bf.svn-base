@@ -1,0 +1,256 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL570002P02" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 616 305" titletext="거래처 조회" scrollbars="none" onload="DL570002P02_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 614 300"/>
+        <Button id="btn_Close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 575 8 595 27"/>
+        <Static id="stc_30" text="외주업체 정보 조회" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Static id="stc_23" class="sta_workSrcBg" position="absolute 11 44 595 80"/>
+        <Static id="stc_00" text="거래처 코드" class="sta_workSrcLabel1" position="absolute 24 53 101 73"/>
+        <Button id="btn_Init" taborder="2" onclick="btn_Init_onclick" class="btn_WF_Return" position="absolute 522 52 586 72" tooltiptext="초기화"/>
+        <Button id="btn_Search" taborder="1" onclick="btn_Search_onclick" class="btn_WF_Search" position="absolute 446 52 510 72" tooltiptext="조회" style="shadow:drop 0,0 0 #00000033;"/>
+        <Edit id="edt_custmrCd" taborder="0" position="absolute 99 52 176 73" onkeydown="srch_onkeydown" imemode="alpha" inputmode="upper"/>
+        <Grid id="grd_prodList" taborder="3" binddataset="ds_list" useinputpanel="false" position="absolute 14 109 595 286" scrollpixel="none" onheadclick="grd_list_onheadclick" cellsizingtype="col" autofittype="col" oncellclick="grd_list_oncellclick" autosizingtype="none" selecttype="row" oncelldblclick="grd_list_oncelldblclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="57"/>
+                <Column size="80"/>
+                <Column size="183"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="normal" text="순번"/>
+                <Cell col="1" displaytype="normal" text="거래처코드"/>
+                <Cell col="2" displaytype="normal" text="거래처명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="normal" text="bind:seq"/>
+                <Cell col="1" displaytype="normal" text="bind:custmr_cd"/>
+                <Cell col="2" displaytype="normal" text="bind:custmr_nm"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_35" text="외주업체 목록" class="sta_workTitle2" position="absolute 13 89 310 109"/>
+        <Static id="stc_01" text="거래처명" class="sta_workSrcLabel1" position="absolute 210 53 271 73"/>
+        <Edit id="edt_custmrNm" taborder="5" imemode="hangul" onkeydown="srch_onkeydown" position="absolute 270 52 420 73"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="custmr_cd" type="STRING" size="50"/>
+          <Column id="custmr_nm" type="STRING" size="50"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="6"/>
+          <Column id="custmr_cd" type="STRING" size="256"/>
+          <Column id="custmr_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+var xCustmrCd = "";
+var xCustmrNm = "";
+var xDataSetName = "";
+
+/***************************************************************************
+ * 함  수  명		: prod_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function DL570002P02_onload(obj:Form, e:LoadEventInfo)
+{
+	xCustmrCd = pCustmrCd;
+	xCustmrNm = pCustmrNm;
+	xDataSetName = pDataSetName;
+	
+	edt_custmrCd.value = xCustmrCd;
+	edt_custmrNm.value = xCustmrNm;
+	
+	fn_commSearch(gfn_getCommTypeInit(), "getCustmrPopList");
+}
+
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) 
+	{
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+		    case "getCustmrPopList": // 공통코드 조회 callBack Service ID
+			    if (ds_list.getRowCount() < 1) 
+			    {
+		            alert("조회 결과가 없습니다.");
+		            return false;
+	            }
+			break;
+		}
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_srch_onclick()
+ * 기      능 		: 조회버튼 클릭
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function fn_preSearch(sType, searchInfo)
+{
+	switch (searchInfo) 
+	{
+		case "getCustmrPopList" :
+			ds_inqCndt.clearData();
+		    var nRow = ds_inqCndt.addRow();
+		    
+		    var sCustmrCd = edt_custmrCd.value;
+		    var sCustmrNm = edt_custmrNm.value;
+		    
+		    ds_inqCndt.setColumn(0, "custmr_cd"	, sCustmrCd);
+   		    ds_inqCndt.setColumn(0, "custmr_nm"	, sCustmrNm);
+		break;
+	}
+	
+	return true;
+}
+
+function fn_commSearch(sType, searchInfo) 
+{
+   	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(searchInfo) 
+    {
+		case "getCustmrPopList" :
+			if (!fn_preSearch(gfn_getCommTypeInit(), "getCustmrPopList"))
+			{
+				return false;
+			}
+	
+			szSvcid       = "getCustmrPopList";
+			szController  = "/dlw/evnt/getCustmrPopList";
+			szInDs        = "ds_input=ds_inqCndt";
+			szOutDs       = "ds_list=ds_output";
+			szParam       = "";
+			szRetCallback = "fn_callBack";
+	
+			gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+		break;
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_selProductChk(e:GridClickEventInfo)
+ * 기      능		: 상품선택
+ ***************************************************************************/
+function fn_selCustmrChk() 
+{
+	if (ds_list.getRowCount() < 1) 
+	{
+		alert("조회 결과가 없습니다.");
+	    return;
+	}
+	
+    var nSelectRow = ds_list.rowposition;
+    
+    if(nSelectRow < 0)
+    {
+		return false;
+    }
+    
+    if(xDataSetName == "ds_custmrChk")
+    {
+		opener.ds_custmrChk.clearData();
+		opener.ds_custmrChk.addRow();
+		opener.ds_custmrChk.copyRow(0, ds_list, nSelectRow);
+		
+		opener.fn_custmrResl();
+    }
+    else
+    {
+        opener.ds_custmrChk.clearData();
+		opener.ds_custmrChk.addRow();
+		opener.ds_custmrChk.copyRow(0, ds_list, nSelectRow);
+		
+		opener.fn_custmrResl();
+    }
+	
+	close();
+}
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_init_onclick()
+ * 기      능		: 초기화 버튼클릭시
+ * 수  정  일      : 2016.01.22
+ ***************************************************************************/
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_init();
+}
+
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch(gfn_getCommTypeInit(), "getCustmrPopList");
+}
+
+/***************************************************************************
+ * 함  수  명		: grd_list_oncellclick()
+ * 기      능		: 선택 버튼 이벤트
+ ***************************************************************************/
+function grd_list_oncellclick(obj:Grid, e:GridClickEventInfo)
+{	
+	if(e.cell == "7")
+	{
+	    fn_selCustmrChk();
+	}
+}
+
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_selCustmrChk();
+}
+
+function srch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) 
+	{
+		fn_commSearch(gfn_getCommTypeInit(), "getCustmrPopList");
+	}
+}]]></Script>
+  </Form>
+</FDL>

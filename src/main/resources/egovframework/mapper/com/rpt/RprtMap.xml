@@ -1,0 +1,2024 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="RprtMap">
+
+    <!-- 통계3. 상담현황 추이분석 -->
+    <sql id="RprtMap.selectCounselStateCondition_fragment">
+        WHERE CNTR_CD = #{cntr_cd}
+        <if test="searchType == 'time' and startd !=null and startd !='' and endd != null and endd != ''">
+          AND ACPG_DTTM BETWEEN REPLACE(#{startd}, '-', '') AND REPLACE(#{endd}, '-', '')
+        </if>
+        <if test="searchType == 'month'">
+          AND ACPG_DTTM BETWEEN REGEXP_REPLACE(#{searchyear}, '[^[:digit:]]') || '0101' AND REGEXP_REPLACE(#{searchyear}, '[^[:digit:]]') || '1231'
+        </if>
+        <if test="searchType == 'date'">
+          AND ACPG_DTTM BETWEEN REGEXP_REPLACE(#{searchym}, '[^[:digit:]]') || '01' AND REGEXP_REPLACE(#{searchym}, '[^[:digit:]]') || '31'
+        </if>
+        <if test="searchType == 'day' and startd !=null and startd !='' and endd != null and endd != ''">
+          AND ACPG_DTTM BETWEEN REPLACE(#{startd} || '01', '-', '') AND REPLACE(#{endd} || '31', '-', '')
+        </if>
+        <if test="userType == 'actp_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND ACTP_ID = #{user_id}
+                </when>
+                <when test="team_cd != null and team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team_cd})
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="userType == 'amnd_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND AMND_ID = #{user_id}
+                </when>
+                <when test="team_cd != null and team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team_cd})
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+        </if>
+    </sql>
+
+    <!-- 상담현황 추이분석 대분류 건수(엑셀다운용) -->
+    <select id="RprtMap.getConsCntConsTyp1CdCnt" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getConsCntConsTyp1CdCnt */
+               CASE WHEN EXISTS (SELECT *
+                                   FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+                                    AND CONS_TYP1_CD IS NULL) THEN CNT + 1
+                    ELSE CNT
+                END AS CNT
+          FROM (SELECT COUNT(*) AS CNT
+                  FROM TB_CONS_TYP_CD
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND HGRN_CONS_TYP_CD IS NULL
+                   AND CONS_TYP_LVL_CNT = '1'
+                   AND USE_YN = 'Y')
+    </select>
+
+    <!-- 시간대별 리스트 -->
+    <select id="RprtMap.getConsCscntTimeList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntTimeList */
+               CONS_TYP_NM, TOTAL
+             , NVL(H00, 0) H00, NVL(H01, 0) H01, NVL(H02, 0) H02, NVL(H03, 0) H03, NVL(H04, 0) H04
+             , NVL(H05, 0) H05, NVL(H06, 0) H06, NVL(H07, 0) H07, NVL(H08, 0) H08, NVL(H09, 0) H09
+             , NVL(H10, 0) H10, NVL(H11, 0) H11, NVL(H12, 0) H12, NVL(H13, 0) H13, NVL(H14, 0) H14
+             , NVL(H15, 0) H15, NVL(H16, 0) H16, NVL(H17, 0) H17, NVL(H18, 0) H18, NVL(H19, 0) H19
+             , NVL(H20, 0) H20, NVL(H21, 0) H21, NVL(H22, 0) H22, NVL(H23, 0) H23
+          FROM (WITH TEMP AS (SELECT CNTR_CD, CONS_TYP1_CD, TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM,9), 'HH24MISS'), 'HH24') AS HH24
+                                FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+                             )
+              SELECT B.CONS_TYP_NM, B.CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                          FROM TEMP
+                                                         WHERE A.CONS_TYP1_CD = CONS_TYP1_CD) AS TOTAL
+                FROM (SELECT *
+                        FROM (SELECT *
+                                FROM TEMP
+                               WHERE CONS_TYP1_CD IS NOT NULL
+                             )
+                       PIVOT (COUNT(HH24) FOR HH24 IN ('00' AS H00, '01' AS H01, '02' AS H02, '03' AS H03, '04' AS H04
+                                                     , '05' AS H05, '06' AS H06, '07' AS H07, '08' AS H08, '09' AS H09
+                                                     , '10' AS H10, '11' AS H11, '12' AS H12, '13' AS H13, '14' AS H14
+                                                     , '15' AS H15, '16' AS H16, '17' AS H17, '18' AS H18, '19' AS H19
+                                                     , '20' AS H20, '21' AS H21, '22' AS H22, '23' AS H23)
+                             )
+                     ) A
+                   , TB_CONS_TYP_CD B
+               WHERE A.CONS_TYP1_CD(+) = B.CONS_TYP_CD
+                 AND B.CNTR_CD = #{cntr_cd}
+                 AND B.HGRN_CONS_TYP_CD IS NULL
+                 AND B.CONS_TYP_LVL_CNT = '1'
+                 AND B.USE_YN = 'Y'
+           UNION ALL
+              SELECT '미분류' AS CONS_TYP_NM, NULL AS CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                                          FROM TEMP
+                                                                         WHERE CONS_TYP1_CD IS NULL) AS TOTAL
+                FROM (SELECT *
+                        FROM TEMP
+                       WHERE CONS_TYP1_CD IS NULL
+                     )
+               PIVOT (COUNT(HH24) FOR HH24 IN ('00' AS H00, '01' AS H01, '02' AS H02, '03' AS H03, '04' AS H04
+                                             , '05' AS H05, '06' AS H06, '07' AS H07, '08' AS H08, '09' AS H09
+                                             , '10' AS H10, '11' AS H11, '12' AS H12, '13' AS H13, '14' AS H14
+                                             , '15' AS H15, '16' AS H16, '17' AS H17, '18' AS H18, '19' AS H19
+                                             , '20' AS H20, '21' AS H21, '22' AS H22, '23' AS H23)
+                     ) A
+               )
+    </select>
+
+    <!-- 시간대별 차트 -->
+    <select id="RprtMap.getConsCscntTimeChart" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntTimeChart */
+               '~' || TM || ':00' AS X, NVL(CNT, 0) AS CNT
+          FROM (SELECT LPAD(HH24 + 1, 2, 0) AS HH24, COUNT(*) AS CNT
+                  FROM (SELECT TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM,9), 'HH24MISS'), 'HH24') AS HH24
+                          FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+        <![CDATA[
+                       )
+              GROUP BY HH24
+               ) A
+             , (SELECT LPAD(LEVEL, 2, '0') AS TM
+                  FROM DUAL
+                 WHERE LEVEL > 0
+            CONNECT BY LEVEL <= 24
+               ) B
+         WHERE A.HH24(+) = B.TM
+      ORDER BY TM ASC
+        ]]>
+    </select>
+
+    <!-- 요일별 리스트 -->
+    <select id="RprtMap.getConsCscntDayList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntDayList */
+               CONS_TYP_NM, TOTAL
+             , NVL(SUN, 0) SUN, NVL(MON, 0) MON, NVL(TUE, 0) TUE, NVL(WED, 0) WED, NVL(THU, 0) THU
+             , NVL(FRI, 0) FRI, NVL(SAT, 0) SAT
+          FROM (WITH TEMP AS (SELECT CNTR_CD, CONS_TYP1_CD, TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM, 1, 8), 'YYYYMMDD'), 'D') AS DAYOFWEEK
+                                FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+                             )
+              SELECT B.CONS_TYP_NM, B.CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                          FROM TEMP
+                                                         WHERE A.CONS_TYP1_CD = CONS_TYP1_CD) AS TOTAL
+                FROM (SELECT *
+                        FROM (SELECT *
+                                FROM TEMP
+                               WHERE CONS_TYP1_CD IS NOT NULL
+                             )
+                       PIVOT (COUNT(DAYOFWEEK) FOR DAYOFWEEK IN ('1' AS SUN, '2' AS MON, '3' AS TUE, '4' AS WED, '5' AS THU
+                                                               , '6' AS FRI, '7' AS SAT)
+                             )
+                     ) A
+                   , TB_CONS_TYP_CD B
+               WHERE A.CONS_TYP1_CD(+) = B.CONS_TYP_CD
+                 AND B.CNTR_CD = #{cntr_cd}
+                 AND B.HGRN_CONS_TYP_CD IS NULL
+                 AND B.CONS_TYP_LVL_CNT = '1'
+                 AND B.USE_YN = 'Y'
+           UNION ALL
+              SELECT '미분류' AS CONS_TYP_NM, NULL AS CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                                          FROM TEMP
+                                                                         WHERE CONS_TYP1_CD IS NULL) AS TOTAL
+                FROM (SELECT *
+                        FROM TEMP
+                       WHERE CONS_TYP1_CD IS NULL
+                     )
+               PIVOT (COUNT(DAYOFWEEK) FOR DAYOFWEEK IN ('1' AS SUN, '2' AS MON, '3' AS TUE, '4' AS WED, '5' AS THU
+                                                       , '6' AS FRI, '7' AS SAT)
+                     ) A
+               )
+    </select>
+
+    <!-- 요일별 차트 -->
+    <select id="RprtMap.getConsCscntDayChart" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntDayChart */
+               DECODE(D, 1, '일', 2, '월', 3, '화', 4, '수', 5, '목', 6, '금', 7, '토') || '요일' AS X, NVL(CNT, 0) AS CNT
+          FROM (SELECT DAYOFWEEK,  COUNT(*) AS CNT
+                  FROM (SELECT TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM, 1, 8), 'YYYYMMDD'), 'D') AS DAYOFWEEK
+                          FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+        <![CDATA[
+                       )
+              GROUP BY DAYOFWEEK
+               ) A
+             , (SELECT LEVEL AS D
+                  FROM DUAL
+                 WHERE LEVEL >= 1
+            CONNECT BY LEVEL <= 7
+               ) B
+         WHERE A.DAYOFWEEK(+) = B.D
+      ORDER BY D ASC
+        ]]>
+    </select>
+
+    <!-- 월별 리스트 -->
+    <select id="RprtMap.getConsCscntMonthList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntMonthList */
+               CONS_TYP_NM, TOTAL
+             , NVL(M01, 0) M01, NVL(M02, 0) M02, NVL(M03, 0) M03, NVL(M04, 0) M04, NVL(M05, 0) M05
+             , NVL(M06, 0) M06, NVL(M07, 0) M07, NVL(M08, 0) M08, NVL(M09, 0) M09, NVL(M10, 0) M10
+             , NVL(M11, 0) M11, NVL(M12, 0) M12
+          FROM (WITH TEMP AS (SELECT CNTR_CD, CONS_TYP1_CD, TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM, 1, 8), 'YYYYMMDD'), 'MM') AS MONTHOFYEAR
+                                FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+                             )
+              SELECT B.CONS_TYP_NM, B.CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                          FROM TEMP
+                                                         WHERE A.CONS_TYP1_CD = CONS_TYP1_CD) AS TOTAL
+                FROM (SELECT *
+                        FROM (SELECT *
+                                FROM TEMP
+                               WHERE CONS_TYP1_CD IS NOT NULL
+                             )
+                       PIVOT (COUNT(MONTHOFYEAR) FOR MONTHOFYEAR IN ('01' AS M01, '02' AS M02, '03' AS M03, '04' AS M04, '05' AS M05
+                                                                   , '06' AS M06, '07' AS M07, '08' AS M08, '09' AS M09, '10' AS M10
+                                                                   , '11' AS M11, '12' AS M12)
+                             )
+                     ) A
+                   , TB_CONS_TYP_CD B
+               WHERE A.CONS_TYP1_CD(+) = B.CONS_TYP_CD
+                 AND B.CNTR_CD = #{cntr_cd}
+                 AND B.HGRN_CONS_TYP_CD IS NULL
+                 AND B.CONS_TYP_LVL_CNT = '1'
+                 AND B.USE_YN = 'Y'
+           UNION ALL
+              SELECT '미분류' AS CONS_TYP_NM, NULL AS CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                                          FROM TEMP
+                                                                         WHERE CONS_TYP1_CD IS NULL) AS TOTAL
+                FROM (SELECT *
+                        FROM TEMP
+                       WHERE CONS_TYP1_CD IS NULL
+                     )
+               PIVOT (COUNT(MONTHOFYEAR) FOR MONTHOFYEAR IN ('01' AS M01, '02' AS M02, '03' AS M03, '04' AS M04, '05' AS M05
+                                                           , '06' AS M06, '07' AS M07, '08' AS M08, '09' AS M09, '10' AS M10
+                                                           , '11' AS M11, '12' AS M12)
+                     ) A
+               )
+    </select>
+
+    <!-- 월별 차트 -->
+    <select id="RprtMap.getConsCscntMonthChart" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntMonthChart */
+               MM || '월' AS X, NVL(CNT, 0) AS CNT
+          FROM (SELECT MONTHOFYEAR,  COUNT(*) AS CNT
+                  FROM (SELECT TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM, 1, 8), 'YYYYMMDD'), 'MM') AS MONTHOFYEAR
+                          FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+        <![CDATA[
+                       )
+              GROUP BY MONTHOFYEAR
+               ) A
+             , (SELECT LPAD(LEVEL, 2, '0') AS MM
+                  FROM DUAL
+                 WHERE LEVEL >= 1
+            CONNECT BY LEVEL <= 12
+               ) B
+         WHERE A.MONTHOFYEAR(+) = B.MM
+      ORDER BY MM ASC
+        ]]>
+    </select>
+
+    <!-- 일별 리스트 -->
+    <select id="RprtMap.getConsCscntDateList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntDateList */
+               CONS_TYP_NM, TOTAL
+             , NVL(D01, 0) D01, NVL(D02, 0) D02, NVL(D03, 0) D03, NVL(D04, 0) D04, NVL(D05, 0) D05
+             , NVL(D06, 0) D06, NVL(D07, 0) D07, NVL(D08, 0) D08, NVL(D09, 0) D09, NVL(D10, 0) D10
+             , NVL(D11, 0) D11, NVL(D12, 0) D12, NVL(D13, 0) D13, NVL(D14, 0) D14, NVL(D15, 0) D15
+             , NVL(D16, 0) D16, NVL(D17, 0) D17, NVL(D18, 0) D18, NVL(D19, 0) D19, NVL(D20, 0) D20
+             , NVL(D21, 0) D21, NVL(D22, 0) D22, NVL(D23, 0) D23, NVL(D24, 0) D24, NVL(D25, 0) D25
+             , NVL(D26, 0) D26, NVL(D27, 0) D27, NVL(D28, 0) D28, NVL(D29, 0) D29, NVL(D30, 0) D30
+             , NVL(D31, 0) D31, TO_CHAR(LAST_DAY(TO_DATE(REGEXP_REPLACE(#{searchym}, '[^[:digit:]]'), 'YYYYMM')), 'DD') AS LASTDAY
+          FROM (WITH TEMP AS (SELECT CNTR_CD, CONS_TYP1_CD, TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM, 1, 8), 'YYYYMMDD'), 'DD') AS DD
+                                FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+                             )
+              SELECT B.CONS_TYP_NM, B.CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                          FROM TEMP
+                                                         WHERE A.CONS_TYP1_CD = CONS_TYP1_CD) AS TOTAL
+                FROM (SELECT *
+                        FROM (SELECT *
+                                FROM TEMP
+                               WHERE CONS_TYP1_CD IS NOT NULL
+                             )
+                       PIVOT (COUNT(DD) FOR DD IN ('01' AS D01, '02' AS D02, '03' AS D03, '04' AS D04, '05' AS D05
+                                                 , '06' AS D06, '07' AS D07, '08' AS D08, '09' AS D09, '10' AS D10
+                                                 , '11' AS D11, '12' AS D12, '13' AS D13, '14' AS D14, '15' AS D15
+                                                 , '16' AS D16, '17' AS D17, '18' AS D18, '19' AS D19, '20' AS D20
+                                                 , '21' AS D21, '22' AS D22, '23' AS D23, '24' AS D24, '25' AS D25
+                                                 , '26' AS D26, '27' AS D27, '28' AS D28, '29' AS D29, '30' AS D30, '31' AS D31)
+                             )
+                     ) A
+                   , TB_CONS_TYP_CD B
+               WHERE A.CONS_TYP1_CD(+) = B.CONS_TYP_CD
+                 AND B.CNTR_CD = #{cntr_cd}
+                 AND B.HGRN_CONS_TYP_CD IS NULL
+                 AND B.CONS_TYP_LVL_CNT = '1'
+                 AND B.USE_YN = 'Y'
+           UNION ALL
+              SELECT '미분류' AS CONS_TYP_NM, NULL AS CONS_TYP_SQNC, A.*, (SELECT COUNT(*)
+                                                                          FROM TEMP
+                                                                         WHERE CONS_TYP1_CD IS NULL) AS TOTAL
+                FROM (SELECT *
+                        FROM TEMP
+                       WHERE CONS_TYP1_CD IS NULL
+                     )
+               PIVOT (COUNT(DD) FOR DD IN ('01' AS D01, '02' AS D02, '03' AS D03, '04' AS D04, '05' AS D05
+                                         , '06' AS D06, '07' AS D07, '08' AS D08, '09' AS D09, '10' AS D10
+                                         , '11' AS D11, '12' AS D12, '13' AS D13, '14' AS D14, '15' AS D15
+                                         , '16' AS D16, '17' AS D17, '18' AS D18, '19' AS D19, '20' AS D20
+                                         , '21' AS D21, '22' AS D22, '23' AS D23, '24' AS D24, '25' AS D25
+                                         , '26' AS D26, '27' AS D27, '28' AS D28, '29' AS D29, '30' AS D30, '31' AS D31)
+                     ) A
+               )
+    </select>
+
+    <!-- 일별 차트 -->
+    <select id="RprtMap.getConsCscntDateChart" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsCscntDateChart */
+               TO_NUMBER(DD) || '일' AS X, NVL(CNT, 0) AS CNT
+          FROM (SELECT DATEOFMONTH,  COUNT(*) AS CNT
+                  FROM (SELECT TO_CHAR(TO_DATE(SUBSTR(ACPG_DTTM, 1, 8), 'YYYYMMDD'), 'DD') AS DATEOFMONTH
+                          FROM TB_CONS A
+        <include refid="RprtMap.selectCounselStateCondition_fragment" />
+        <![CDATA[
+                       )
+              GROUP BY DATEOFMONTH
+               ) A
+             , (SELECT LPAD(LEVEL, 2, '0') AS DD
+                  FROM DUAL
+                 WHERE LEVEL >= 1
+            CONNECT BY LEVEL <= 31
+               ) B
+         WHERE A.DATEOFMONTH(+) = B.DD
+      ORDER BY DD ASC
+        ]]>
+    </select>
+    <!-- //통계3. 상담현황 추이분석 -->
+
+    <select id="RprtMap.getConsTypDspsStatCountTyp1" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getConsTypDspsStatCountTyp1 */
+               COUNT(*)
+          FROM (SELECT CONS_TYP1_CD, COUNT(*) AS CONS_CNT
+                  FROM TB_CONS A
+                 <where>
+                   <if test="cntr_cd != null and cntr_cd != ''">
+                       CNTR_CD = #{cntr_cd}
+                   </if>
+                   <if test="startd != null and startd != ''">
+                       AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                   </if>
+                   <if test="endd != null and endd != ''">
+                       AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                   </if>
+                   <if test="searchType == 'actp_id'">
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND ACTP_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.ACTP_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                             , TB_CONS_TEAM C
+                                         WHERE B.USER_ID = A.ACTP_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = C.TEAM_CD
+                                           AND B.CNTR_CD = C.CNTR_CD
+                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                    </if>
+                    <if test="searchType == 'amnd_id'">
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND AMND_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                             , TB_CONS_TEAM C
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = C.TEAM_CD
+                                           AND B.CNTR_CD = C.CNTR_CD
+                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                    </if>
+                 </where>
+                 GROUP BY CONS_TYP1_CD
+                 ORDER BY CONS_TYP1_CD
+                )
+    </select>
+
+    <select id="RprtMap.getConsTypDspsStatListTyp1" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsTypDspsStatListTyp1 */
+               CONS_TYP1_NM, CONS_CNT, CONS_RATE
+          FROM (SELECT NVL(FN_GETCONSTYPNM(CONS_TYP1_CD, #{cntr_cd}), '미분류') AS CONS_TYP1_NM, CONS_CNT, ROUND((CONS_CNT/TOT_CNT*100), 2) AS CONS_RATE
+                   FROM (SELECT CONS_TYP1_CD, COUNT(*) AS CONS_CNT
+                           FROM TB_CONS A
+                          <where>
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="startd != null and startd != ''">
+                                AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                            </if>
+                            <if test="endd != null and endd != ''">
+                                AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                            </if>
+                            <if test="(user_id == null or user_id == '') and team_cd != null and team_cd != ''">
+                                AND ACTP_ID IN (SELECT USER_ID
+                                                 FROM TB_USER
+                                                WHERE TEAM_CD = #{team_cd}
+                                                  AND CNTR_CD = A.CNTR_CD)
+                            </if>
+                            <if test="searchType == 'actp_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND ACTP_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                            <if test="searchType == 'amnd_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND A.AMND_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                          </where>
+                          GROUP BY CONS_TYP1_CD
+                          ORDER BY CONS_TYP1_CD
+                         ),
+                         (SELECT COUNT(*) AS TOT_CNT
+                            FROM TB_CONS A
+                          <where>
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="startd != null and startd != ''">
+                                AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                            </if>
+                            <if test="endd != null and endd != ''">
+                                AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                            </if>
+                            <if test="searchType == 'actp_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND ACTP_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                            <if test="searchType == 'amnd_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND AMND_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                          </where>
+                         )
+                    )
+    </select>
+
+     <select id="RprtMap.getConsTypDspsStatCountTyp2" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getConsTypDspsStatCountTyp2 */
+               COUNT(*)
+          FROM (SELECT CONS_TYP1_CD, CONS_TYP2_CD, COUNT(*) AS CONS_CNT
+                  FROM TB_CONS A
+                 <where>
+                   <if test="cntr_cd != null and cntr_cd != ''">
+                       CNTR_CD = #{cntr_cd}
+                   </if>
+                   <if test="startd != null and startd != ''">
+                       AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                   </if>
+                   <if test="endd != null and endd != ''">
+                       AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                   </if>
+                   <if test="searchType == 'actp_id'">
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND ACTP_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.ACTP_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                             , TB_CONS_TEAM C
+                                         WHERE B.USER_ID = A.ACTP_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = C.TEAM_CD
+                                           AND B.CNTR_CD = C.CNTR_CD
+                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                    </if>
+                    <if test="searchType == 'amnd_id'">
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND AMND_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                             , TB_CONS_TEAM C
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = C.TEAM_CD
+                                           AND B.CNTR_CD = C.CNTR_CD
+                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                    </if>
+                 </where>
+                 GROUP BY CONS_TYP1_CD, CONS_TYP2_CD
+                  ORDER BY CONS_TYP1_CD, CONS_TYP2_CD
+                )
+    </select>
+
+    <select id="RprtMap.getConsTypDspsStatListTyp2" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsTypDspsStatListTyp2 */
+               CONS_TYP1_NM, CONS_TYP2_NM, CONS_CNT, CONS_RATE
+          FROM (SELECT NVL(FN_GETCONSTYPNM(CONS_TYP1_CD, #{cntr_cd}), '미분류') AS CONS_TYP1_NM, NVL(FN_GETCONSTYPNM(CONS_TYP2_CD, #{cntr_cd}), '미분류') AS CONS_TYP2_NM, CONS_CNT, ROUND((CONS_CNT/TOT_CNT*100), 2) AS CONS_RATE
+                   FROM (SELECT CONS_TYP1_CD, CONS_TYP2_CD, COUNT(*) AS CONS_CNT
+                           FROM TB_CONS A
+                          <where>
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="startd != null and startd != ''">
+                                AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                            </if>
+                            <if test="endd != null and endd != ''">
+                                AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                            </if>
+                            <if test="searchType == 'actp_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND ACTP_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                            <if test="searchType == 'amnd_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND AMND_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                          </where>
+                          GROUP BY CONS_TYP1_CD, CONS_TYP2_CD
+                          ORDER BY CONS_TYP1_CD, CONS_TYP2_CD
+                         ),
+                         (SELECT COUNT(*) AS TOT_CNT
+                            FROM TB_CONS A
+                          <where>
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="startd != null and startd != ''">
+                                AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                            </if>
+                            <if test="endd != null and endd != ''">
+                                AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                            </if>
+                            <if test="searchType == 'actp_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND ACTP_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                            <if test="searchType == 'amnd_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND AMND_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                          </where>
+                         )
+                )
+    </select>
+
+    <select id="RprtMap.getConsTypDspsStatCountTyp3" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getConsTypDspsStatCountTyp3*/
+               COUNT(*)
+          FROM (SELECT CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, COUNT(*) AS CONS_CNT
+                  FROM TB_CONS A
+                 <where>
+                   <if test="cntr_cd != null and cntr_cd != ''">
+                       CNTR_CD = #{cntr_cd}
+                   </if>
+                   <if test="startd != null and startd != ''">
+                       AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                   </if>
+                   <if test="endd != null and endd != ''">
+                       AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                   </if>
+                   <if test="searchType == 'actp_id'">
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND ACTP_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.ACTP_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                             , TB_CONS_TEAM C
+                                         WHERE B.USER_ID = A.ACTP_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = C.TEAM_CD
+                                           AND B.CNTR_CD = C.CNTR_CD
+                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                    </if>
+                    <if test="searchType == 'amnd_id'">
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND AMND_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER B
+                                             , TB_CONS_TEAM C
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD
+                                           AND B.TEAM_CD = C.TEAM_CD
+                                           AND B.CNTR_CD = C.CNTR_CD
+                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                    </if>
+                 </where>
+                 GROUP BY CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                  ORDER BY CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                )
+    </select>
+
+    <select id="RprtMap.getConsTypDspsStatListTyp3" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsTypDspsStatListTyp3 */
+               CONS_TYP1_NM, CONS_TYP2_NM, CONS_TYP3_NM, CONS_CNT, CONS_RATE
+          FROM (SELECT NVL(FN_GETCONSTYPNM(CONS_TYP1_CD, #{cntr_cd}), '미분류') AS CONS_TYP1_NM
+                     , NVL(FN_GETCONSTYPNM(CONS_TYP2_CD, #{cntr_cd}), '미분류') AS CONS_TYP2_NM
+                     , NVL(FN_GETCONSTYPNM(CONS_TYP3_CD, #{cntr_cd}), '미분류') AS CONS_TYP3_NM, CONS_CNT, ROUND((CONS_CNT/TOT_CNT*100), 2) AS CONS_RATE
+                   FROM (SELECT CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, COUNT(*) AS CONS_CNT
+                           FROM TB_CONS A
+                          <where>
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="startd != null and startd != ''">
+                                AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                            </if>
+                            <if test="endd != null and endd != ''">
+                                AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                            </if>
+                            <if test="searchType == 'actp_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND ACTP_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                            <if test="searchType == 'amnd_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND AMND_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                          </where>
+                          GROUP BY CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                          ORDER BY CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                         ),
+                         (SELECT COUNT(*) AS TOT_CNT
+                            FROM TB_CONS A
+                          <where>
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="startd != null and startd != ''">
+                                AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                            </if>
+                            <if test="endd != null and endd != ''">
+                                AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                            </if>
+                            <if test="searchType == 'actp_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND ACTP_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.ACTP_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                            <if test="searchType == 'amnd_id'">
+                                <choose>
+                                    <when test="user_id != null and user_id != ''">
+                                    AND AMND_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                    AND EXISTS (SELECT 'Y'
+                                                  FROM TB_USER B
+                                                     , TB_CONS_TEAM C
+                                                 WHERE B.USER_ID = A.AMND_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                                   AND B.TEAM_CD = C.TEAM_CD
+                                                   AND B.CNTR_CD = C.CNTR_CD
+                                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                            </if>
+                          </where>
+                         )
+               )
+    </select>
+
+    <select id="RprtMap.getUserDspsStatCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getUserDspsStatCount */
+               COUNT(*)
+          FROM (SELECT ACTP_ID, COUNT(*) AS CONS_CNT
+                     , (SELECT TEAM_CD FROM TB_USER WHERE USER_ID = ACTP_ID) AS TEAM_CD
+                  FROM TB_CONS
+                <where>
+                   <if test="cntr_cd != null and cntr_cd != ''">
+                       CNTR_CD = #{cntr_cd}
+                   </if>
+                   <if test="startd != null and startd != ''">
+                       AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                   </if>
+                   <if test="endd != null and endd != ''">
+                       AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                   </if>
+                   <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+                       AND ACPG_CHNL_CD = #{acpg_chnl_cd}
+                   </if>
+                   <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                       AND CONS_TYP1_CD = #{cons_typ1_cd}
+                   </if>
+                   <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                       AND CONS_TYP2_CD = #{cons_typ2_cd}
+                   </if>
+                   <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                       AND CONS_TYP3_CD = #{cons_typ3_cd}
+                   </if>
+                 </where>
+                GROUP BY ACTP_ID
+                )
+    </select>
+
+    <select id="RprtMap.getUserDspsStatList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getUserDspsStatList */
+               TEAM_NM, USER_NM, CONS_CNT, CONS_RATE
+          FROM (SELECT (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TEAM_CD) AS TEAM_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.ACTP_ID) AS USER_NM
+                     , CONS_CNT
+                     , (CASE WHEN TOT_CNT > 0
+                             THEN ROUND((CONS_CNT/TOT_CNT*100), 2)
+                             ELSE 0
+                        END) AS CONS_RATE
+                  FROM (SELECT ACTP_ID, COUNT(*) AS CONS_CNT
+                             , (SELECT TEAM_CD FROM TB_USER WHERE USER_ID = ACTP_ID) AS TEAM_CD
+                          FROM TB_CONS
+                        <where>
+                           <if test="cntr_cd != null and cntr_cd != ''">
+                               CNTR_CD = #{cntr_cd}
+                           </if>
+                           <if test="startd != null and startd != ''">
+                               AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                           </if>
+                           <if test="endd != null and endd != ''">
+                               AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                           </if>
+                           <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+                               AND ACPG_CHNL_CD = #{acpg_chnl_cd}
+                           </if>
+                           <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                               AND CONS_TYP1_CD = #{cons_typ1_cd}
+                           </if>
+                           <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                               AND CONS_TYP2_CD = #{cons_typ2_cd}
+                           </if>
+                           <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                               AND CONS_TYP3_CD = #{cons_typ3_cd}
+                           </if>
+                         </where>
+                        GROUP BY ACTP_ID) A,
+                       (SELECT COUNT(*) AS TOT_CNT
+                          FROM TB_CONS
+                        <where>
+                           <if test="cntr_cd != null and cntr_cd != ''">
+                               CNTR_CD = #{cntr_cd}
+                           </if>
+                           <if test="startd != null and startd != ''">
+                               AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '')
+                           </if>
+                           <if test="endd != null and endd != ''">
+                               AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '')
+                           </if>
+                           <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+                               AND ACPG_CHNL_CD = #{acpg_chnl_cd}
+                           </if>
+                           <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                               AND CONS_TYP1_CD = #{cons_typ1_cd}
+                           </if>
+                           <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                               AND CONS_TYP2_CD = #{cons_typ2_cd}
+                           </if>
+                           <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                               AND CONS_TYP3_CD = #{cons_typ3_cd}
+                           </if>
+                         </where>) B
+                )
+    </select>
+
+    <select id="RprtMap.getDspsmddlDtptDspsStatCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getDspsmddlDtptDspsStatCount */
+               COUNT(*)
+          FROM (SELECT (SELECT TEAM_NM
+                            FROM TB_CONS_TEAM T
+                               , TB_USER U
+                           WHERE U.USER_ID = A.ACTP_ID
+                             AND T.TEAM_CD = U.TEAM_CD) AS TEAM_NM
+                        , (SELECT USER_NM
+                               FROM TB_USER
+                              WHERE USER_ID = A.ACTP_ID) AS USER_NM
+                      , MAX(DECODE(CONS_DSPSMDDL_DTPT_CD, '10', CNT, 0)) CONS_CNT10
+                      , MAX(DECODE(CONS_DSPSMDDL_DTPT_CD, '20', CNT, 0)) CONS_CNT20
+                      , MAX(DECODE(CONS_DSPSMDDL_DTPT_CD, '30', CNT, 0)) CONS_CNT30
+                   FROM (SELECT ACTP_ID, CONS_DSPSMDDL_DTPT_CD, COUNT(*) AS CNT
+                           FROM TB_CONS
+                         <where>
+                           <if test="cntr_cd != null and cntr_cd != ''">
+                               CNTR_CD = #{cntr_cd}
+                           </if>
+                           <if test="startd != null and startd != ''">
+                               AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '')
+                           </if>
+                           <if test="endd != null and endd != ''">
+                               AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '')
+                           </if>
+                           <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+                               AND ACPG_CHNL_CD = #{acpg_chnl_cd}
+                           </if>
+                           <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                               AND CONS_TYP1_CD = #{cons_typ1_cd}
+                           </if>
+                           <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                               AND CONS_TYP2_CD = #{cons_typ2_cd}
+                           </if>
+                           <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                               AND CONS_TYP3_CD = #{cons_typ3_cd}
+                           </if>
+                         </where>
+                       GROUP BY ACTP_ID, CONS_DSPSMDDL_DTPT_CD) A
+                GROUP BY ACTP_ID
+                ORDER BY TEAM_NM, USER_NM
+                )
+    </select>
+
+    <select id="RprtMap.getDspsmddlDtptDspsStatList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getDspsmddlDtptDspsStatList */
+               TEAM_NM, USER_NM, CONS_CNT10, CONS_CNT20, CONS_CNT30
+             , CONS_CNT
+          FROM (SELECT TEAM_NM, USER_NM, CONS_CNT10, CONS_CNT20, CONS_CNT30
+                     , (CONS_CNT10 + CONS_CNT20 + CONS_CNT30) AS CONS_CNT
+                  FROM (SELECT (SELECT TEAM_NM
+                                    FROM TB_CONS_TEAM T
+                                       , TB_USER U
+                                   WHERE U.USER_ID = A.ACTP_ID
+                                     AND T.TEAM_CD = U.TEAM_CD) AS TEAM_NM
+                                , (SELECT USER_NM
+                                       FROM TB_USER
+                                      WHERE USER_ID = A.ACTP_ID) AS USER_NM
+                                , MAX(DECODE(CONS_DSPSMDDL_DTPT_CD, '10', CNT, 0)) CONS_CNT10
+                                , MAX(DECODE(CONS_DSPSMDDL_DTPT_CD, '20', CNT, 0)) CONS_CNT20
+                                , MAX(DECODE(CONS_DSPSMDDL_DTPT_CD, '30', CNT, 0)) CONS_CNT30
+                           FROM (SELECT ACTP_ID, CONS_DSPSMDDL_DTPT_CD, COUNT(*) AS CNT
+                                   FROM TB_CONS
+                                 <where>
+                                   <if test="cntr_cd != null and cntr_cd != ''">
+                                       CNTR_CD = #{cntr_cd}
+                                   </if>
+                                   <if test="startd != null and startd != ''">
+                                       AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '')
+                                   </if>
+                                   <if test="endd != null and endd != ''">
+                                       AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '')
+                                   </if>
+                                   <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+                                       AND ACPG_CHNL_CD = #{acpg_chnl_cd}
+                                   </if>
+                                   <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                                       AND CONS_TYP1_CD = #{cons_typ1_cd}
+                                   </if>
+                                   <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                                       AND CONS_TYP2_CD = #{cons_typ2_cd}
+                                   </if>
+                                   <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                                       AND CONS_TYP3_CD = #{cons_typ3_cd}
+                                   </if>
+                                 </where>
+                               GROUP BY ACTP_ID, CONS_DSPSMDDL_DTPT_CD) A
+                        GROUP BY ACTP_ID
+                        ORDER BY TEAM_NM, USER_NM
+                        )
+                 )
+    </select>
+
+    <select id="RprtMap.getCalbDspsStatCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getCalbDspsStatCount */
+               COUNT(*)
+          FROM (SELECT B.TEAM_CD, A.CHPR_ID, B.USER_NM, COUNT(*) AS CALB_CNT
+                  FROM TB_CALB_DTL A
+                     , TB_USER B
+                 WHERE A.CHPR_ID = B.USER_ID(+)
+                <if test="cntr_cd != null and cntr_cd != ''">
+                    AND A.CNTR_CD = #{cntr_cd}
+                </if>
+                <if test="startd != null and startd != ''">
+                    AND A.RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '')
+                </if>
+                <if test="endd != null and endd != ''">
+                    AND A.RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '')
+                </if>
+               <choose>
+                    <when test="user_id != null and user_id != ''">
+                    AND A.CHPR_ID = #{user_id}
+                    </when>
+                    <when test="team_cd != null and team_cd != ''">
+                    AND B.TEAM_CD = #{team_cd}
+                    </when>
+                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_CONS_TEAM T
+                                 WHERE T.CNTR_CD = B.CNTR_CD
+                                   AND T.HGRN_TEAM_CD = #{hgrn_team_cd})
+                    </when>
+                </choose>
+              GROUP BY B.TEAM_CD, A.CHPR_ID, B.USER_NM
+                )
+    </select>
+
+    <select id="RprtMap.getCalbDspsStatList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getCalbDspsStatList */
+               TEAM_NM, USER_NM, CALB_CNT, CALB_RATE
+          FROM (SELECT X.*
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = X.TEAM_CD) AS TEAM_NM
+                     , ROUND(CALB_CNT/TOTL_CNT*100,2) AS CALB_RATE
+                  FROM (SELECT B.TEAM_CD, A.CHPR_ID, B.USER_NM, COUNT(*) AS CALB_CNT
+                          FROM TB_CALB_DTL A
+                             , TB_USER B
+                         WHERE A.CHPR_ID = B.USER_ID(+)
+                        <if test="cntr_cd != null and cntr_cd != ''">
+                            AND A.CNTR_CD = #{cntr_cd}
+                        </if>
+                        <if test="startd != null and startd != ''">
+                            AND A.RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '')
+                        </if>
+                        <if test="endd != null and endd != ''">
+                            AND A.RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '')
+                        </if>
+                        <if test="(user_id == null or user_id == '') and team_cd != null and team_cd != ''">
+                            AND B.TEAM_CD = #{team_cd}
+                        </if>
+                        <if test="user_id != null and user_id != ''">
+                            AND A.CHPR_ID = #{user_id}
+                        </if>
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND A.CHPR_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND B.TEAM_CD = #{team_cd}
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_CONS_TEAM T
+                                         WHERE T.CNTR_CD = B.CNTR_CD
+                                           AND T.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                      GROUP BY B.TEAM_CD, A.CHPR_ID, B.USER_NM) X
+                     , (SELECT COUNT(*) AS TOTL_CNT
+                          FROM TB_CALB_DTL A
+                        <where>
+                        <if test="cntr_cd != null and cntr_cd != ''">
+                            AND CNTR_CD = #{cntr_cd}
+                        </if>
+                        <if test="startd != null and startd != ''">
+                            AND RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '')
+                        </if>
+                        <if test="endd != null and endd != ''">
+                            AND RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '')
+                        </if>
+                        <choose>
+                            <when test="user_id != null and user_id != ''">
+                            AND A.CHPR_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER U
+                                         WHERE U.USER_ID = A.CHPR_ID
+                                           AND U.CNTR_CD = A.CNTR_CD
+                                           AND U.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                            AND EXISTS (SELECT 'Y'
+                                          FROM TB_USER U
+                                             , TB_CONS_TEAM T
+                                         WHERE U.USER_ID = A.CHPR_ID
+                                           AND U.CNTR_CD = A.CNTR_CD
+                                           AND U.TEAM_CD = T.TEAM_CD
+                                           AND U.CNTR_CD = T.CNTR_CD
+                                           AND T.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                        </where> ) Y
+               )
+    </select>
+
+    <select id="RprtMap.getVocDspsStatCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getVocDspsStatCount */
+               COUNT(*)
+          FROM (SELECT ACPG_DTTM
+                     , MAX(DECODE(VOC_DSPS_STAT_CD, 10, CNT, 0)) AS STAT10_CNT
+                     , MAX(DECODE(VOC_DSPS_STAT_CD, 20, CNT, 0)) AS STAT20_CNT
+                     , MAX(DECODE(VOC_DSPS_STAT_CD, 30, CNT, 0)) AS STAT30_CNT
+                  FROM (SELECT SUBSTR(B.ACPG_DTTM, 1, 8) AS ACPG_DTTM, A.VOC_DSPS_STAT_CD, COUNT(*) AS CNT
+                          FROM TB_VOC_DTL A
+                             , TB_CONS B
+                         WHERE A.CONSNO = B.CONSNO
+                           AND A.CNTR_CD = B.CNTR_CD
+                         <if test="cntr_cd != null and cntr_cd != ''">
+                            AND A.CNTR_CD = #{cntr_cd}
+                         </if>
+                         <if test="startd != null and startd != ''">
+                            AND B.ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                         </if>
+                         <if test="endd != null and endd != ''">
+                            AND B.ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                         </if>
+                         <if test="(user_id == null or user_id == '') and team_cd != null and team_cd != ''">
+                            AND <if test="searchType != 'amnd_id'">B.ACTP_ID</if>
+                                <if test="searchType == 'amnd_id'">A.VOC_DSSR_ID</if> IN (SELECT USER_ID
+                                                                                             FROM TB_USER
+                                                                                            WHERE TEAM_CD = #{team_cd}
+                                                                                              AND CNTR_CD = A.CNTR_CD)
+                         </if>
+                         <if test="user_id != null and user_id != '' and searchType == 'actp_id'">
+                            AND B.ACTP_ID = #{user_id}
+                         </if>
+                         <if test="user_id != null and user_id != '' and searchType == 'amnd_id'">
+                            AND A.VOC_DSSR_ID = #{user_id}
+                         </if>
+                      GROUP BY SUBSTR(B.ACPG_DTTM, 1, 8), A.VOC_DSPS_STAT_CD)
+              GROUP BY ACPG_DTTM
+                )
+    </select>
+
+    <select id="RprtMap.getVocDspsStatList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getVocDspsStatList */
+               ACPG_DTTM, TOT_CNT, STAT10_CNT, STAT20_CNT, STAT30_CNT
+             , RATE
+          FROM (SELECT ACPG_DTTM, STAT10_CNT, STAT20_CNT, STAT30_CNT
+                     , (STAT10_CNT + STAT20_CNT + STAT30_CNT) AS TOT_CNT
+                      , ROUND((STAT30_CNT/(STAT10_CNT + STAT20_CNT + STAT30_CNT)*100), 2) AS RATE
+                  FROM (SELECT ACPG_DTTM
+                             , MAX(DECODE(VOC_DSPS_STAT_CD, 10, CNT, 0)) AS STAT10_CNT
+                             , MAX(DECODE(VOC_DSPS_STAT_CD, 20, CNT, 0)) AS STAT20_CNT
+                             , MAX(DECODE(VOC_DSPS_STAT_CD, 30, CNT, 0)) AS STAT30_CNT
+                          FROM (SELECT SUBSTR(B.ACPG_DTTM, 1, 8) AS ACPG_DTTM, A.VOC_DSPS_STAT_CD, COUNT(*) AS CNT
+                                  FROM TB_VOC_DTL A
+                                     , TB_CONS B
+                                 WHERE A.CONSNO = B.CONSNO
+                                   AND A.CNTR_CD = B.CNTR_CD
+                                 <if test="cntr_cd != null and cntr_cd != ''">
+                                    AND A.CNTR_CD = #{cntr_cd}
+                                 </if>
+                                 <if test="startd != null and startd != ''">
+                                    AND B.ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                                 </if>
+                                 <if test="endd != null and endd != ''">
+                                    AND B.ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                                 </if>
+                                 <if test="searchType == 'actp_id'">
+                                    <choose>
+                                        <when test="user_id != null and user_id != ''">
+                                        AND B.ACTP_ID = #{user_id}
+                                        </when>
+                                        <when test="team_cd != null and team_cd != ''">
+                                        AND EXISTS (SELECT 'Y'
+                                                      FROM TB_USER U
+                                                     WHERE U.USER_ID = B.ACTP_ID
+                                                       AND U.CNTR_CD = B.CNTR_CD
+                                                       AND U.TEAM_CD = #{team_cd})
+                                        </when>
+                                        <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                        AND EXISTS (SELECT 'Y'
+                                                      FROM TB_USER U
+                                                         , TB_CONS_TEAM T
+                                                     WHERE U.USER_ID = B.ACTP_ID
+                                                       AND U.CNTR_CD = B.CNTR_CD
+                                                       AND U.TEAM_CD = T.TEAM_CD
+                                                       AND U.CNTR_CD = T.CNTR_CD
+                                                       AND T.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                        </when>
+                                    </choose>
+                                </if>
+                                <if test="searchType == 'amnd_id'">
+                                    <choose>
+                                        <when test="user_id != null and user_id != ''">
+                                        AND A.VOC_DSSR_ID = #{user_id}
+                                        </when>
+                                        <when test="team_cd != null and team_cd != ''">
+                                        AND EXISTS (SELECT 'Y'
+                                                      FROM TB_USER U
+                                                     WHERE U.USER_ID = A.VOC_DSSR_ID
+                                                       AND U.CNTR_CD = A.CNTR_CD
+                                                       AND U.TEAM_CD = #{team_cd})
+                                        </when>
+                                        <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                        AND EXISTS (SELECT 'Y'
+                                                      FROM TB_USER U
+                                                         , TB_CONS_TEAM T
+                                                     WHERE U.USER_ID = A.VOC_DSSR_ID
+                                                       AND U.CNTR_CD = A.CNTR_CD
+                                                       AND U.TEAM_CD = T.TEAM_CD
+                                                       AND U.CNTR_CD = T.CNTR_CD
+                                                       AND T.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                        </when>
+                                    </choose>
+                                </if>
+                              GROUP BY SUBSTR(B.ACPG_DTTM, 1, 8), A.VOC_DSPS_STAT_CD)
+                      GROUP BY ACPG_DTTM)
+              )
+    </select>
+
+    <select id="RprtMap.getCalbDtptDspsStatCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getCalbDtptDspsStatCount */
+               COUNT(*)
+          FROM (SELECT CHPR_ID, MAX(DECODE(CALB_DSPS_RSN_CD, 10, CNT, 0)) AS CALL_END_CNT
+                     , MAX(DECODE(CALB_DSPS_RSN_CD, 20, CNT, 0)) AS OVER_TRY_CNT
+                     , MAX(DECODE(CALB_DSPS_RSN_CD, 30, CNT, 0)) AS WRONG_NUM_CNT
+                     , MAX(DECODE(CALB_DSPS_RSN_CD, 40, CNT, 0)) AS ADMIN_END_CNT
+                     , MAX(DECODE(CALB_DSPS_RSN_CD, NULL, CNT, 0)) AS NOT_END_CNT
+                  FROM (SELECT CHPR_ID, CALB_DSPS_RSN_CD, COUNT(*) AS CNT
+                          FROM TB_CALB_DTL A
+                       <where>
+                        <if test="cntr_cd != null and cntr_cd != ''">
+                            CNTR_CD = #{cntr_cd}
+                        </if>
+                        <if test="startd != null and startd != ''">
+                            AND RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                        </if>
+                        <if test="endd != null and endd != ''">
+                            AND RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                        </if>
+                        <choose>
+                             <when test="user_id != null and user_id != ''">
+                                AND CHPR_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                                AND EXISTS (SELECT 'Y'
+                                                FROM TB_USER B
+                                              WHERE B.USER_ID = A.CHPR_ID
+                                                  AND B.CNTR_CD = A.CNTR_CD
+                                                  AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                AND EXISTS (SELECT 'Y'
+                                                FROM TB_USER B
+                                                  , TB_CONS_TEAM C
+                                              WHERE B.USER_ID = A.CHPR_ID
+                                                  AND B.CNTR_CD = A.CNTR_CD
+                                                  AND B.TEAM_CD = C.TEAM_CD
+                                                  AND B.CNTR_CD = C.CNTR_CD
+                                                  AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                      </where>
+                      GROUP BY CHPR_ID, CALB_DSPS_RSN_CD)
+              GROUP BY CHPR_ID
+                )
+    </select>
+
+    <select id="RprtMap.getCalbDtptDspsStatList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getCalbDtptDspsStatList */
+               TEAM_NM, USER_NM, TOT_CNT, END_CNT, CALL_END_CNT
+             , OVER_TRY_CNT, WRONG_NUM_CNT, ADMIN_END_CNT, NOT_END_CNT, END_RATE
+          FROM (SELECT (SELECT TEAM_NM
+                         FROM TB_CONS_TEAM A
+                            , TB_USER B
+                        WHERE A.TEAM_CD = B.TEAM_CD
+                          AND A.CNTR_CD = B.CNTR_CD
+                          AND B.USER_ID=CHPR_ID) AS TEAM_NM
+                     , (SELECT USER_NM
+                           FROM TB_USER
+                          WHERE USER_ID=CHPR_ID) AS USER_NM
+                     , (CALL_END_CNT+OVER_TRY_CNT+WRONG_NUM_CNT+ADMIN_END_CNT+NOT_END_CNT) AS TOT_CNT
+                     , (CALL_END_CNT+OVER_TRY_CNT+WRONG_NUM_CNT+ADMIN_END_CNT) AS END_CNT
+                     , CALL_END_CNT, OVER_TRY_CNT, WRONG_NUM_CNT, ADMIN_END_CNT, NOT_END_CNT
+                     , ROUND((CALL_END_CNT+OVER_TRY_CNT+WRONG_NUM_CNT+ADMIN_END_CNT)/(CALL_END_CNT+OVER_TRY_CNT+WRONG_NUM_CNT+ADMIN_END_CNT+NOT_END_CNT)*100, 2) AS END_RATE
+                  FROM (SELECT CHPR_ID, MAX(DECODE(CALB_DSPS_RSN_CD, 10, CNT, 0)) AS CALL_END_CNT
+                             , MAX(DECODE(CALB_DSPS_RSN_CD, 20, CNT, 0)) AS OVER_TRY_CNT
+                             , MAX(DECODE(CALB_DSPS_RSN_CD, 30, CNT, 0)) AS WRONG_NUM_CNT
+                             , MAX(DECODE(CALB_DSPS_RSN_CD, 40, CNT, 0)) AS ADMIN_END_CNT
+                             , MAX(DECODE(CALB_DSPS_RSN_CD, NULL, CNT, 0)) AS NOT_END_CNT
+                          FROM (SELECT CHPR_ID, CALB_DSPS_RSN_CD, COUNT(*) AS CNT
+                                  FROM TB_CALB_DTL A
+                               <where>
+                                <if test="cntr_cd != null and cntr_cd != ''">
+                                    CNTR_CD = #{cntr_cd}
+                                </if>
+                                <if test="startd != null and startd != ''">
+                                    AND RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                                </if>
+                                <if test="endd != null and endd != ''">
+                                    AND RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                                </if>
+                                <choose>
+                                     <when test="user_id != null and user_id != ''">
+                                        AND CHPR_ID = #{user_id}
+                                    </when>
+                                    <when test="team_cd != null and team_cd != ''">
+                                        AND EXISTS (SELECT 'Y'
+                                                        FROM TB_USER B
+                                                      WHERE B.USER_ID = A.CHPR_ID
+                                                          AND B.CNTR_CD = A.CNTR_CD
+                                                          AND B.TEAM_CD = #{team_cd})
+                                    </when>
+                                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                        AND EXISTS (SELECT 'Y'
+                                                        FROM TB_USER B
+                                                          , TB_CONS_TEAM C
+                                                      WHERE B.USER_ID = A.CHPR_ID
+                                                          AND B.CNTR_CD = A.CNTR_CD
+                                                          AND B.TEAM_CD = C.TEAM_CD
+                                                          AND B.CNTR_CD = C.CNTR_CD
+                                                          AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                    </when>
+                                </choose>
+                              </where>
+                              GROUP BY CHPR_ID, CALB_DSPS_RSN_CD)
+                      GROUP BY CHPR_ID)
+                )
+    </select>
+
+    <select id="RprtMap.getNobdUseStatCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getNobdUseStatCount */
+               COUNT(*)
+          FROM (SELECT B.NOBD_TYP_ID, B.NOBD_TYP_NM, A.RGSR_ID, COUNT(*) AS REG_CNT
+                  FROM TB_NOBD_DTL A
+                     , TB_NOBD_TYP_ADMN B
+                 WHERE A.NOBD_TYP_ID = B.NOBD_TYP_ID
+                 <if test="cntr_cd != null and cntr_cd != ''">
+                     AND A.CNTR_CD = #{cntr_cd}
+                 </if>
+                 <if test="startd != null and startd != ''">
+                     AND A.RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                 </if>
+                 <if test="endd != null and endd != ''">
+                     AND A.RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                 </if>
+                 <choose>
+                     <when test="user_id != null and user_id != ''">
+                        AND A.RGSR_ID = #{user_id}
+                    </when>
+                    <when test="team_cd != null and team_cd != ''">
+                        AND EXISTS (SELECT 'Y'
+                                        FROM TB_USER B
+                                      WHERE B.USER_ID = A.RGSR_ID
+                                          AND B.CNTR_CD = A.CNTR_CD
+                                          AND B.TEAM_CD = #{team_cd})
+                    </when>
+                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                        AND EXISTS (SELECT 'Y'
+                                        FROM TB_USER B
+                                          , TB_CONS_TEAM C
+                                      WHERE B.USER_ID = A.RGSR_ID
+                                          AND B.CNTR_CD = A.CNTR_CD
+                                          AND B.TEAM_CD = C.TEAM_CD
+                                          AND B.CNTR_CD = C.CNTR_CD
+                                          AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                    </when>
+                </choose>
+              GROUP BY A.RGSR_ID, B.NOBD_TYP_ID, B.NOBD_TYP_NM
+                )
+    </select>
+
+    <select id="RprtMap.getNobdUseStatList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getNobdUseStatList */
+               NOBD_TYP_NM, TEAM_NM, USER_NM, REG_CNT
+          FROM (SELECT NOBD_TYP_NM, REG_CNT
+                     , (SELECT TEAM_NM FROM TB_CONS_TEAM T, TB_USER U WHERE T.TEAM_CD = U.TEAM_CD AND T.CNTR_CD = U.CNTR_CD AND U.USER_ID = K.RGSR_ID) AS TEAM_NM
+                     , (SELECT USER_NM FROM TB_USER WHERE USER_ID = K.RGSR_ID) AS USER_NM
+                  FROM (SELECT B.NOBD_TYP_ID, B.NOBD_TYP_NM, A.RGSR_ID, COUNT(*) AS REG_CNT
+                          FROM TB_NOBD_DTL A
+                             , TB_NOBD_TYP_ADMN B
+                         WHERE A.NOBD_TYP_ID = B.NOBD_TYP_ID
+                         <if test="cntr_cd != null and cntr_cd != ''">
+                             AND A.CNTR_CD = #{cntr_cd}
+                         </if>
+                         <if test="startd != null and startd != ''">
+                             AND A.RGSN_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                         </if>
+                         <if test="endd != null and endd != ''">
+                             AND A.RGSN_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                         </if>
+                         <choose>
+                             <when test="user_id != null and user_id != ''">
+                                AND A.RGSR_ID = #{user_id}
+                            </when>
+                            <when test="team_cd != null and team_cd != ''">
+                                AND EXISTS (SELECT 'Y'
+                                                FROM TB_USER B
+                                              WHERE B.USER_ID = A.RGSR_ID
+                                                  AND B.CNTR_CD = A.CNTR_CD
+                                                  AND B.TEAM_CD = #{team_cd})
+                            </when>
+                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                AND EXISTS (SELECT 'Y'
+                                                FROM TB_USER B
+                                                  , TB_CONS_TEAM C
+                                              WHERE B.USER_ID = A.RGSR_ID
+                                                  AND B.CNTR_CD = A.CNTR_CD
+                                                  AND B.TEAM_CD = C.TEAM_CD
+                                                  AND B.CNTR_CD = C.CNTR_CD
+                                                  AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                            </when>
+                        </choose>
+                      GROUP BY A.RGSR_ID, B.NOBD_TYP_ID, B.NOBD_TYP_NM ) K
+                )
+    </select>
+
+    <select id="RprtMap.getConsCscnt" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getConsCscnt */
+               COUNT(*)
+          FROM TB_CONS A
+        <where>
+           <if test="cntr_cd != null and cntr_cd != ''">
+               CNTR_CD = #{cntr_cd}
+           </if>
+           <if test="startd != null and startd != ''">
+               AND ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+           </if>
+           <if test="endd != null and endd != ''">
+               AND ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+           </if>
+           <if test="searchType == 'actp_id'">
+                <choose>
+                    <when test="user_id != null and user_id != ''">
+                    AND ACTP_ID = #{user_id}
+                    </when>
+                    <when test="team_cd != null and team_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = #{team_cd})
+                    </when>
+                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD
+                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                    </when>
+                </choose>
+            </if>
+            <if test="searchType == 'amnd_id'">
+                <choose>
+                    <when test="user_id != null and user_id != ''">
+                    AND AMND_ID = #{user_id}
+                    </when>
+                    <when test="team_cd != null and team_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = #{team_cd})
+                    </when>
+                    <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD
+                                   AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                    </when>
+                </choose>
+            </if>
+           <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+               AND CONS_TYP1_CD = #{cons_typ1_cd}
+           </if>
+           <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+               AND CONS_TYP2_CD = #{cons_typ2_cd}
+           </if>
+           <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+               AND CONS_TYP3_CD = #{cons_typ3_cd}
+           </if>
+         </where>
+    </select>
+
+    <select id="RprtMap.getConsList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getConsList*/
+               CUST_NM, CUST_TYP_NM, CONS_TYP1_NM, CONS_TYP2_NM, CONS_TYP3_NM, CONS_DSPSMDDL_DTPT_NM, AMND_NM, CONS_QUST_CNTN, CONS_ANSR_CNTN
+          FROM (SELECT C.*
+                     , DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAYFG
+                     , GETCODENM('CNS010', ACPG_CHNL_CD, C.CNTR_CD) AS ACPG_CHNL_NM
+                     , GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, C.CNTR_CD) AS CONS_DSPSMDDL_DTPT_NM
+                     , GETCODENM('CNS030', CONS_STAT_CD, C.CNTR_CD) AS CONS_STAT_NM
+                     , GETCODENM('CUS060', GNDR_CD, C.CNTR_CD) AS GNDR_NM
+                     , GETCODENM('CUS010', CUST_TEND_CD, C.CNTR_CD) AS CUST_TEND_NM
+                     , GETCODENM('CUS020', CUST_TYP_CD, C.CNTR_CD) AS CUST_TYP_NM
+                     <!-- , GETCODENM('CUS100', CUSTCLASSCD, C.CNTR_CD) AS CUSTCLASSNM
+                     , GETCODENM('CUS090', PCFG, C.CNTR_CD) AS PCFGNM-->
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = C.ACTP_ID
+                           AND CNTR_CD = C.CNTR_CD) AS ACTP_NM
+                  FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                          FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO, A.CUST_ID
+                                     , A.ARS_SRVC_ADDR, A.INCO_TLNO, A.ACPG_CHNL_CD
+                                     , A.CONS_TYP1_CD
+                                     , A.CONS_TYP2_CD, A.CONS_TYP3_CD, A.CONS_QUST_CNTN, A.CONS_ANSR_CNTN
+                                     , A.CONS_DSPSMDDL_DTPT_CD, A.CONS_STAT_CD, A.TOTL_CONS_HR
+                                     , A.ACTP_ID, A.ACPG_DTTM, A.CONS_DSPS_DTTM
+                                     , A.CALL_ID, A.CNTR_CD
+                                     , A.AMND_ID, A.AMNT_DTTM, B.CUST_NM, B.GNDR_CD, B.CUST_TEND_CD
+                                     , B.CUST_TYP_CD, <!--  B.CUSTCLASSCD, -->B.ZPCD, B.ADDR_OLNW_YN
+                                     , B.BASI_ADDR, B.DTPT_ADDR, B.TLNO, B.CLPH_NO, B.FAX_NO
+                                     , B.EMIL_ADDR
+                                     , (SELECT CONS_TYP_NM
+                                          FROM TB_CONS_TYP_CD
+                                         WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                           AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                                     , (SELECT CONS_TYP_NM
+                                          FROM TB_CONS_TYP_CD
+                                         WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                           AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                                     , (SELECT CONS_TYP_NM
+                                          FROM TB_CONS_TYP_CD
+                                         WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                           AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                                     , (SELECT USER_NM
+                                          FROM TB_USER
+                                         WHERE USER_ID = A.AMND_ID
+                                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                                  FROM TB_CONS A
+                                     , TB_CUST_BASI B
+                                 WHERE A.CUST_ID = B.CUST_ID(+)
+                                   <if test="cntr_cd != null and cntr_cd != ''">
+                                       AND A.CNTR_CD = #{cntr_cd}
+                                   </if>
+                                   <if test="startd != null and startd != ''">
+                                       AND A.ACPG_DTTM <![CDATA[>=]]> REPLACE(#{startd}, '-', '') || '000000'
+                                   </if>
+                                   <if test="endd != null and endd != ''">
+                                       AND A.ACPG_DTTM <![CDATA[<=]]> REPLACE(#{endd}, '-', '') || '235959'
+                                   </if>
+                                   <if test="searchType == 'actp_id'">
+                                        <choose>
+                                            <when test="user_id != null and user_id != ''">
+                                            AND ACTP_ID = #{user_id}
+                                            </when>
+                                            <when test="team_cd != null and team_cd != ''">
+                                            AND EXISTS (SELECT 'Y'
+                                                          FROM TB_USER B
+                                                         WHERE B.USER_ID = A.ACTP_ID
+                                                           AND B.CNTR_CD = A.CNTR_CD
+                                                           AND B.TEAM_CD = #{team_cd})
+                                            </when>
+                                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                            AND EXISTS (SELECT 'Y'
+                                                          FROM TB_USER B
+                                                             , TB_CONS_TEAM C
+                                                         WHERE B.USER_ID = A.ACTP_ID
+                                                           AND B.CNTR_CD = A.CNTR_CD
+                                                           AND B.TEAM_CD = C.TEAM_CD
+                                                           AND B.CNTR_CD = C.CNTR_CD
+                                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                            </when>
+                                        </choose>
+                                    </if>
+                                    <if test="searchType == 'amnd_id'">
+                                        <choose>
+                                            <when test="user_id != null and user_id != ''">
+                                            AND AMND_ID = #{user_id}
+                                            </when>
+                                            <when test="team_cd != null and team_cd != ''">
+                                            AND EXISTS (SELECT 'Y'
+                                                          FROM TB_USER B
+                                                         WHERE B.USER_ID = A.AMND_ID
+                                                           AND B.CNTR_CD = A.CNTR_CD
+                                                           AND B.TEAM_CD = #{team_cd})
+                                            </when>
+                                            <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                                            AND EXISTS (SELECT 'Y'
+                                                          FROM TB_USER B
+                                                             , TB_CONS_TEAM C
+                                                         WHERE B.USER_ID = A.AMND_ID
+                                                           AND B.CNTR_CD = A.CNTR_CD
+                                                           AND B.TEAM_CD = C.TEAM_CD
+                                                           AND B.CNTR_CD = C.CNTR_CD
+                                                           AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                                            </when>
+                                        </choose>
+                                    </if>
+                                   <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                                       AND A.CONS_TYP1_CD = #{cons_typ1_cd}
+                                   </if>
+                                   <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                                       AND A.CONS_TYP2_CD = #{cons_typ2_cd}
+                                   </if>
+                                   <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                                       AND A.CONS_TYP3_CD = #{cons_typ3_cd}
+                                   </if>
+                <if test="orderBy != null and orderBy != ''">
+                             ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                               ) B
+                       ) C
+            ) D
+         <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+         ]]>
+         </if>
+    </select>
+
+    <select id="RprtMap.getSurvansObjectiveCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getSurvansObjectiveCount */
+               COUNT(*)
+          FROM TB_SURVITMEXAM
+         WHERE SURVEYID = (SELECT SURVEYID
+                             FROM TB_CAMPAIGN
+                            WHERE CAMPAIGNID = #{campaignid}
+                              AND CNTR_CD = #{cntr_cd})
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="RprtMap.getSurvansObjectiveList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getSurvansObjectiveList */
+               SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, SURVEYITMNM, SURVITMEXAMNM
+             , SURVITMEXAMORD, SURVEYITMID, CHOICECNT, SURVEYITMCNT, DATATYPENM
+             , RESPONSECNT, CHOICERATE, STATENM
+          FROM (SELECT SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, SURVEYITMNM, SURVITMEXAMNM
+                     , SURVITMEXAMORD, SURVEYITMID, CHOICECNT, SURVEYITMCNT, DATATYPENM
+                     , STATENM
+                     , DECODE(RESPONSECNT, '', '0', RESPONSECNT) AS RESPONSECNT
+                     , DECODE(RESPONSECNT, '0', '0', TRUNC((CHOICECNT/RESPONSECNT*100), 2)) || '%' AS CHOICERATE
+                  FROM (SELECT E.SURVEYITMNUM, E.CAMPAIGNID, E.CAMPAIGNNM, E.SURVEYITMNM, E.SURVITMEXAMNM
+                             , E.SURVITMEXAMORD, E.SURVEYITMID, E.STATENM
+                             , E.DATATYPENM
+                             , DECODE(F.CHOICECNT, '', '0', F.CHOICECNT) AS CHOICECNT
+                             , DECODE(E.SURVEYITMCNT, '', '0', E.SURVEYITMCNT) AS SURVEYITMCNT
+                             , SUM(F.CHOICECNT) OVER(PARTITION BY E.SURVEYITMID) AS RESPONSECNT
+                          FROM (SELECT C.SURVEYITMNUM, C.CAMPAIGNID, C.CAMPAIGNNM, C.SURVEYID, C.CNTR_CD
+                                     , C.SURVEYITMID, C.SURVEYITMNM, C.SURVEYITMORD, C.DATATYPENM, D.SURVITMEXAMID
+                                     , D.SURVITMEXAMNM, D.SURVITMEXAMORD, C.STATENM
+                                     , COUNT(*) OVER(PARTITION BY C.SURVEYITMID) AS SURVEYITMCNT
+                                  FROM (SELECT ROWNUM AS SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, SURVEYID, CNTR_CD
+                                             , SURVEYITMID, SURVEYITMNM, SURVEYITMORD, DATATYPECD, DATATYPENM
+                                             , STATENM
+                                          FROM (SELECT A.CAMPAIGNID, A.CAMPAIGNNM, A.SURVEYID, A.CNTR_CD, B.SURVEYITMID
+                                                     , B.SURVEYITMNM, B.SURVEYITMORD, B.DATATYPECD
+
+                                                     , GETCODENM('C30020', B.DATATYPECD, B.CNTR_CD) AS DATATYPENM
+                                                     , GETCODENM('CAM050', A.STATECD, A.CNTR_CD) AS STATENM
+                                                  FROM TB_CAMPAIGN A
+                                                     , TB_SURVEYITM B
+                                                 WHERE A.CAMPAIGNID = #{campaignid}
+                                                   AND A.METHODCD = '10'
+                                                   AND A.CNTR_CD = #{cntr_cd}
+                                                   AND A.SURVEYID = B.SURVEYID
+                                                   AND B.SURVEYITMTYPECD = '10'
+                                              ORDER BY B.SURVEYITMORD ASC
+                                                )
+                                        ) C
+                                      , TB_SURVITMEXAM D
+                                 WHERE C.DATATYPECD IN ('10', '30')
+                                   AND C.SURVEYID = D.SURVEYID
+                                   AND C.SURVEYITMID = D.SURVEYITMID
+                                   AND C.CNTR_CD = D.CNTR_CD
+                                ) E
+                              , (SELECT CAMPAIGNID, SURVEYID, SURVEYITMID, SURVITMEXAMID, CHOICECNT
+                                   FROM (SELECT CAMPAIGNID, SURVEYID, SURVEYITMID, SURVITMEXAMID
+                                              , COUNT(*) OVER(PARTITION BY SURVITMEXAMID) AS CHOICECNT
+                                           FROM TB_SURVANS
+                                          WHERE CNTR_CD = #{cntr_cd}
+                                            AND CAMPAIGNID = #{campaignid}
+                                            AND SURVITMEXAMID <![CDATA[<>]]> 'CONTENTS')
+                                       GROUP BY CAMPAIGNID, SURVEYID, SURVEYITMID, SURVITMEXAMID, CHOICECNT
+                                 ) F
+                         WHERE E.CAMPAIGNID = F.CAMPAIGNID(+)
+                           AND E.SURVEYID = F.SURVEYID(+)
+                           AND E.SURVEYITMID = F.SURVEYITMID(+)
+                           AND E.SURVITMEXAMID = F.SURVITMEXAMID(+)
+                      ORDER BY E.SURVEYITMORD ASC, E.SURVITMEXAMORD ASC
+                        ))
+    </select>
+
+    <select id="RprtMap.getSurvansSubjectiveCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getSurvansSubjectiveCount */
+               COUNT(*)
+          FROM TB_SURVANS
+         WHERE CAMPAIGNID = #{campaignid}
+           AND CNTR_CD = #{cntr_cd}
+           AND SURVITMEXAMID = 'CONTENTS'
+        <if test="surveyitmid != null and surveyitmid != ''">
+            AND SURVEYITMID = #{surveyitmid}
+        </if>
+    </select>
+
+    <select id="RprtMap.getSurvansSubjectiveList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getSurvansSubjectiveList */
+               SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, SURVEYITMNM, SURVANSCNTS
+             , DATATYPENM, STATENM
+          FROM (SELECT C.SURVEYITMNUM, C.CAMPAIGNID, C.CAMPAIGNNM, C.SURVEYITMNM, C.DATATYPENM
+                     , C.STATENM, D.SURVANSCNTS
+                  FROM (SELECT ROWNUM AS SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, SURVEYID, CNTR_CD
+                             , SURVEYITMID, SURVEYITMNM, SURVEYITMORD, DATATYPECD, DATATYPENM
+                             , STATENM
+                          FROM (SELECT A.CAMPAIGNID, A.CAMPAIGNNM, A.SURVEYID, A.CNTR_CD, B.SURVEYITMID
+                                     , B.SURVEYITMNM, B.SURVEYITMORD, B.DATATYPECD
+                                     , GETCODENM('C30020', B.DATATYPECD, B.CNTR_CD) AS DATATYPENM
+                                     , GETCODENM('CAM050', A.STATECD, A.CNTR_CD) AS STATENM
+                                  FROM TB_CAMPAIGN A
+                                     , TB_SURVEYITM B
+                                 WHERE A.CAMPAIGNID = #{campaignid}
+                                   AND A.CNTR_CD = #{cntr_cd}
+                                   AND A.METHODCD = '10'
+                                   AND A.SURVEYID = B.SURVEYID
+                                   AND B.SURVEYITMTYPECD = '10'
+                              ORDER BY B.SURVEYITMORD ASC
+                               )
+                        ) C
+                      , TB_SURVANS D
+                 WHERE C.CAMPAIGNID = D.CAMPAIGNID
+                   AND C.SURVEYID = D.SURVEYID
+                   AND C.SURVEYITMID = D.SURVEYITMID
+                   AND C.CNTR_CD = D.CNTR_CD
+                   AND C.DATATYPECD IN ('20', '40')
+                   AND D.SURVITMEXAMID = 'CONTENTS'
+                <if test="surveyitmid != null and surveyitmid != ''">
+                    AND C.SURVEYITMID = #{surveyitmid}
+                </if>
+              ORDER BY C.SURVEYITMORD ASC
+                )
+    </select>
+
+    <select id="RprtMap.getSurveyitmNmList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getSurveyitmNmList */
+               A.CAMPAIGNID, B.SURVEYITMID, B.SURVEYITMNM
+          FROM TB_CAMPAIGN A, TB_SURVEYITM B
+         WHERE A.CAMPAIGNID = #{campaignid}
+           AND A.CNTR_CD = #{cntr_cd}
+           AND A.SURVEYID = B.SURVEYID
+           AND A.CNTR_CD = B.CNTR_CD
+           AND B.SURVEYITMTYPECD = '10'
+           AND B.DATATYPECD IN ('20', '40')
+    </select>
+
+    <select id="RprtMap.getSurvansDetailCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getSurvansDetailCount */
+               COUNT(*)
+          FROM TB_SURVANS
+         WHERE CAMPAIGNID = #{campaignid}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="RprtMap.getSurvansDetailList" parameterType="map" resultType="resultMap">
+        SELECT /* RprtMap.getSurvansDetailList */
+               SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, SURVEYITMNM, CUST_ID
+             , CUST_NM, HOMETELNO, HPNO, DATATYPENM, STATENM
+             , SURVANSCNTS, SURVITMEXAMORD, SURVITMEXAMNM
+          FROM (SELECT F.SURVEYITMNUM, F.CAMPAIGNID, F.CAMPAIGNNM, F.SURVEYITMNM, F.SURVEYITMORD
+                     , F.CUST_ID, F.CUST_NM, F.HOMETELNO, F.HPNO, F.DATATYPENM, F.STATENM
+                     , I.SURVANSCNTS, I.SURVITMEXAMNM, I.SURVITMEXAMORD
+                  FROM (SELECT C.SURVEYITMNUM, C.CAMPAIGNID, C.CAMPAIGNNM, C.TARGETLISTID, C.SURVEYID
+                             , C.CNTR_CD, C.SURVEYITMID, C.SURVEYITMNM, C.SURVEYITMORD, C.DATATYPENM
+                             , C.STATENM, D.TGTCUSTASSIGNID, D.TARGETCUSTID
+                             , E.CUST_ID, E.CUST_NM, E.HOMETELNO, E.HPNO, D.SUBTARGETLISTID
+                          FROM (SELECT ROWNUM AS SURVEYITMNUM, CAMPAIGNID, CAMPAIGNNM, TARGETLISTID, SURVEYID
+                                     , CNTR_CD, SURVEYITMID, SURVEYITMNM, SURVEYITMORD, DATATYPENM
+                                     , STATENM
+                                  FROM (SELECT A.CAMPAIGNID, A.CAMPAIGNNM, A.TARGETLISTID, A.SURVEYID, A.CNTR_CD
+                                             , B.SURVEYITMID, B.SURVEYITMNM, B.SURVEYITMORD
+                                             , GETCODENM('C30020', B.DATATYPECD, B.CNTR_CD) AS DATATYPENM
+                                             , GETCODENM('CAM050', A.STATECD, A.CNTR_CD) AS STATENM
+                                          FROM TB_CAMPAIGN A
+                                             , TB_SURVEYITM B
+                                         WHERE A.CAMPAIGNID = #{campaignid}
+                                           AND A.CNTR_CD = #{cntr_cd}
+                                           AND A.SURVEYID = B.SURVEYID
+                                           AND A.CNTR_CD = B.CNTR_CD
+                                           AND A.METHODCD = '10'
+                                           AND B.SURVEYITMTYPECD = '10'
+                                      ORDER BY SURVEYITMORD ASC
+                                        )
+                                ) C
+                              , TB_TGTCUSTASSIGN D
+                              , TB_TARGETCUST E
+                         WHERE C.CAMPAIGNID = D.CAMPAIGNID
+                           AND C.TARGETLISTID = D.TARGETLISTID
+                           AND C.CNTR_CD = D.CNTR_CD
+                           AND D.RESULTCD IS NOT NULL
+                           AND C.TARGETLISTID = E.TARGETLISTID
+                           AND D.TARGETLISTID = E.TARGETLISTID
+                           AND D.SUBTARGETLISTID = E.SUBTARGETLISTID
+                           AND D.TARGETCUSTID = E.TARGETCUSTID
+                       ) F
+                     , (SELECT G.CAMPAIGNID, G.TARGETLISTID, G.TARGETCUSTID, G.SURVEYID, G.SURVEYITMID
+                             , G.SURVITMEXAMID, G.SURVANSCNTS, G.CNTR_CD, H.SURVITMEXAMNM, H.SURVITMEXAMORD
+                             , G.SUBTARGETLISTID
+                          FROM TB_SURVANS G
+                             , TB_SURVITMEXAM H
+                         WHERE G.CAMPAIGNID = #{campaignid}
+                           AND G.CNTR_CD = #{cntr_cd}
+                           AND G.SURVEYID = H.SURVEYID(+)
+                           AND G.SURVEYITMID = H.SURVEYITMID(+)
+                           AND G.SURVITMEXAMID = H.SURVITMEXAMID(+)
+                           AND G.CNTR_CD = H.CNTR_CD(+)
+                        ) I
+                 WHERE F.CAMPAIGNID = I.CAMPAIGNID
+                   AND F.TARGETLISTID = I.TARGETLISTID
+                   AND F.SUBTARGETLISTID = I.SUBTARGETLISTID
+                   AND F.TARGETCUSTID = I.TARGETCUSTID
+                   AND F.SURVEYID = I.SURVEYID
+                   AND F.SURVEYITMID = I.SURVEYITMID
+                   AND F.CNTR_CD = I.CNTR_CD
+              ORDER BY F.TGTCUSTASSIGNID, F.SURVEYITMORD, I.SURVITMEXAMORD ASC
+                )
+    </select>
+
+    <select id="RprtMap.getSurvansCount" parameterType="map" resultType="int">
+        SELECT /* RprtMap.getSurvansCount */
+               COUNT(*)
+          FROM TB_TGTCUSTASSIGN
+         WHERE CAMPAIGNID = #{campaignid}
+           AND RESULTCD IS NOT NULL
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+</mapper>

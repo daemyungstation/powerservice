@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwAltrHistMap">   
+    
+    <!-- ================================================================
+     * 날짜 : 20210215
+     * 이름 : 송준빈
+     * 추가내용 : 일일종합현황데이터 처리일자 등록
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_ALTR_HIST
+     * ================================================================
+     * -->
+     <parameterMap id="insertMemAccntAltrHistDataMap" type="resultMap">
+        <parameter property="mem_no" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="accnt_no" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="emple_no" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="team_cd" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="loc" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="fieldnm" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="asisval" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="tobeval" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+    </parameterMap>
+    
+    <insert id="DlwAltrHistMap.insertMemAccntAltrHistList" statementType="CALLABLE" parameterMap="insertMemAccntAltrHistDataMap">
+        {CALL SP_ALTR_HIST_INSERT(?, ? ,?, ?, ?, ?, ?, ?)}
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20210215
+     * 이름 : 송준빈
+     * 추가내용 : 일일종합현황데이터 처리일자 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_ALTR_HIST
+     * ================================================================
+     * -->
+    <select id="DlwAltrHistMap.getMemAccntAltrHistConsList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwAltrHistMap.getMemAccntAltrHistConsList */
+            MAAH.ALTR_HIST_ID,
+            MAAH.MEM_NO,
+            MAAH.ACCNT_NO,
+            MAAH.UPD_MAN,
+            (SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = MAAH.UPD_MAN) AS USER_NM,
+            MAAH.TEAM_CD,
+            (SELECT TEAM_NM FROM PS_WILLVI.TB_CONS_TEAM WHERE TEAM_CD = MAAH.TEAM_CD) AS TEAM_NM,
+            MAAH.UPD_DM,
+            MAAH.ALTR_ITEM,
+            MAAH.ALTR_MEMO,
+            MAAH.UPD_YYYYMMDD,
+            MAAH.DEL_FG
+        FROM TB_MEM_ACCNT_ALTR_HIST MAAH
+        WHERE 1=1
+        AND MAAH.DEL_FG = 'N'
+        AND MAAH.MEM_NO = #{mem_no}
+        ORDER BY MAAH.UPD_YYYYMMDD DESC, MAAH.ALTR_HIST_ID DESC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210215
+     * 이름 : 송준빈
+     * 추가내용 : 일일종합현황데이터 조회 조회건수
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_ALTR_HIST
+     * ================================================================
+     * -->
+    <select id="DlwAltrHistMap.getMemAccntAltrHistCount" parameterType="map" resultType="int">
+        SELECT /* DlwAltrHistMap.getMemAccntAltrHistCount */
+            COUNT(*) AS ICNT
+        FROM TB_MEM_ACCNT_ALTR_HIST MAAH
+        WHERE 1=1
+        AND MAAH.DEL_FG = 'N'
+        <if test="upd_yyyymmdd_stt != null and upd_yyyymmdd_stt != '' and upd_yyyymmdd_end != null and upd_yyyymmdd_end != ''">
+            AND MAAH.UPD_YYYYMMDD BETWEEN #{upd_yyyymmdd_stt} AND #{upd_yyyymmdd_end}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND MAAH.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="team_cd != null and team_cd != ''">
+            AND MAAH.TEAM_CD = #{team_cd}
+        </if>
+        <if test="upd_man != null and upd_man != ''">
+            AND MAAH.UPD_MAN = #{upd_man}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20210215
+     * 이름 : 송준빈
+     * 추가내용 : 일일종합현황데이터 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_ALTR_HIST
+     * ================================================================
+     * -->
+    <select id="DlwAltrHistMap.getMemAccntAltrHistList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwAltrHistMap.getMemAccntAltrHistList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                MAAH.ALTR_HIST_ID,
+                MAAH.MEM_NO,
+                MAAH.ACCNT_NO,
+                MAAH.UPD_MAN,
+                MAAH.TEAM_CD,
+                MAAH.UPD_DM,
+                MAAH.ALTR_ITEM,
+                MAAH.ALTR_MEMO,
+                MAAH.UPD_YYYYMMDD
+                MAAH.DEL_FG
+            FROM TB_MEM_ACCNT_ALTR_HIST MAAH
+            WHERE 1=1
+            AND MAAH.DEL_FG = 'N'
+            <if test="upd_yyyymmdd_stt != null and upd_yyyymmdd_stt != '' and upd_yyyymmdd_end != null and upd_yyyymmdd_end != ''">
+                AND MAAH.UPD_YYYYMMDD BETWEEN #{upd_yyyymmdd_stt} AND #{upd_yyyymmdd_end}
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND MAAH.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="team_cd != null and team_cd != ''">
+                AND MAAH.TEAM_CD = #{team_cd}
+            </if>
+            <if test="upd_man != null and upd_man != ''">
+                AND MAAH.UPD_MAN = #{upd_man}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+</mapper>

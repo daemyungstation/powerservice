@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwPayCloseMap">
+
+
+    <select id="DlwPayCloseMap.selectPayCloseList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectPayCloseList -->
+        SELECT A1.*
+             FROM
+             (
+                /* [입금마감관리] : 입금마감현황 조회 */
+                SELECT
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY MST.${orderBy} ${orderDirection}) AS PAGE_INDX
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX
+                      </otherwise>
+                  </choose>
+                      ,TO_CHAR(TO_DATE(MST.PAY_DL_YYYYMM,'YYYYMM'),'YYYY-MM') AS PAY_DL_YYYYMM		/* 입금마감년월 */
+                      ,FN_COM_NM('S010', MST.DL_TYPE) DL_TYPE			/* 마감구분 */
+                      ,MST.MEM_NO				/* 고유번호 */
+                      ,MST.ACCNT_NO			/* 회원코드 */
+                      ,MEM.MEM_NM				/* 회원명 */
+                      ,MST.EMPLE_NO			/* 사원코드 */
+                      ,FN_EMPLE_NM(MST.EMPLE_NO) AS EMPLE_NM /* 사원명 */
+                      ,FN_DEPT_NM(MST.DEPTCD) AS DEPT_NM		/* 부서명 */
+                      ,FN_PROD_NM(MST.PROD_CD) AS PROD_NM		/* 상품명 */
+                      ,MST.LAST_PAY_DAY		/* 최종입금일자 */
+                      ,MST.JOIN_DT			/* 가입일자 */
+                      ,MST.REG_DT				/* 등록일자 */
+                      ,MST.PAY_DT				/* 납부일자 */
+                      ,MST.B2BCOMCD							/* B2B코드 */
+                      ,FN_COM_NM('0125', MST.SALE_TYPE) SALE_TYPE		/* 영업상태 */
+                      ,FN_COM_NM('0114', MST.KSTBIT) AS KSTBIT		/* 회원상태 */
+                      ,FN_COM_NM('64', MST.KBN1) AS KBN1				/* 처리구분 */
+                      ,MST.CDATE				/* 처리일자 */
+                      ,MST.PAY_NO				/* 최종납입회차 */
+                      ,NVL(DTL.PAY_AMT, 0) AS PAY_AMT    /* 최종납입금 */
+                      ,NVL(DTL.DTL_AMT, 0) AS DTL_AMT /* 결합상품금 */
+                      ,NVL(DTL.DTL1_AMT, 0) AS DTL1_AMT /* 추가부담금 */
+                      ,NVL(MST.PAY_TOT_AMT, 0) AS PAY_TOT_AMT    /* 부금_누계 */
+                      ,NVL(MST.DTL_TOT_AMT, 0) AS DTL_TOT_AMT    /* 결합상품_누계 */
+                      ,NVL(MST.DTL1_TOT_AMT, 0) AS DTL1_TOT_AMT    /* 추가금_누계 */
+                      ,NVL(MST.TOT_AMT, 0) AS TOT_AMT    /* 총 입금액 */
+                      ,NVL(MST.RM_PAY_EAMT, 0) AS RM_PAY_EAMT    /* 잔여납입금 */
+                      ,NVL(MST.RM_DTL_EAMT, 0) AS RM_DTL_EAMT /* 잔여결합상품금 */
+                      ,NVL(MST.RM_DTL1_EAMT, 0) AS RM_DTL1_EAMT /* 잔여추가부담금 */
+                      ,MST.PAY_DL_SEQ
+                      ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                 FROM PAY_DL_MST MST
+                INNER JOIN MEMBER MEM    /* 회원정보 */
+                   ON MEM.MEM_NO = MST.MEM_NO
+                LEFT OUTER JOIN
+                (
+                  SELECT
+                         ACCNT_NO
+                        ,PAY_DL_SEQ
+                        ,PAY_DL_YYYYMM
+                        ,DL_TYPE
+                        ,MAX(PAY_NO) AS PAY_NO
+                        ,SUM(PAY_AMT) AS PAY_AMT
+                        ,SUM(DTL_AMT) AS DTL_AMT
+                        ,SUM(DTL1_AMT) AS DTL1_AMT
+                    FROM PAY_DL_DTL
+                   WHERE 1=1
+                  <if test="work_mnth != null and work_mnth != ''">
+                     AND PAY_DL_YYYYMM = SUBSTR(#{work_mnth},1,6) /* 기준월 */
+                  </if>
+                  <if test="accnt_no != null and accnt_no != ''">
+                     AND ACCNT_NO LIKE #{accnt_no} || '%'	/* 회원번호 */
+                  </if>
+                   GROUP BY PAY_DL_SEQ,PAY_DL_YYYYMM,ACCNT_NO,DL_TYPE
+                  ) DTL
+                   ON MST.PAY_DL_SEQ = DTL.PAY_DL_SEQ
+                  AND MST.PAY_DL_YYYYMM = DTL.PAY_DL_YYYYMM
+                  AND MST.DL_TYPE = DTL.DL_TYPE
+                WHERE 1=1
+              <if test="work_mnth != null and work_mnth != ''">
+                  AND MST.PAY_DL_YYYYMM = SUBSTR(#{work_mnth},1,6) /* 기준월 */
+              </if>
+              <if test="dl_flag_cd == 'Y'.toString() or (dl_flag_cd == null or dl_flag_cd == '')">
+                  <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                      <if test="srch_typ == 'rgsn_dt'">
+                          AND TO_CHAR(MST.REG_DT, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}	/* 등록일자 */
+                      </if>
+                      <if test="srch_typ == 'join_dt'">
+                          AND MST.JOIN_DT  BETWEEN #{stt_dt} AND #{end_dt}	/* 가입일자 */
+                      </if>
+                  </if>
+              </if>
+              <if test="accnt_no != null and accnt_no != ''">
+                  AND MST.ACCNT_NO LIKE #{accnt_no} || '%'	/* 회원번호 */
+              </if>
+              <if test="mem_nm != null and mem_nm != ''">
+                  AND MEM.MEM_NM LIKE '%' || #{mem_nm} || '%'	/* 회원명 */
+              </if>
+              <if test="prod_cd != null and prod_cd != ''">
+                  AND MST.PROD_CD = #{prod_cd}	/* 상품코드 */
+              </if>
+              <if test="dl_type != null and dl_type != ''">
+                  AND MST.DL_TYPE = #{dl_type}	/* 마감구분 */
+              </if>
+
+              <if test="pay_yn == 'Y'.toString() ">
+                  AND DTL.PAY_DL_SEQ IS NOT NULL	/* 입금생성 */
+              </if>
+              <if test="pay_yn == 'N'.toString() ">
+                  AND DTL.PAY_DL_SEQ IS NULL	/* 입금미생성 */
+              </if>
+
+              ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+      ORDER BY PAY_DL_YYYYMM,ACCNT_NO DESC
+
+    </select>
+
+
+
+    <parameterMap id="totPayCloseMap" type="map">
+        <parameter property="work_mnth" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="dl_type" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="outsqlcd" mode="OUT" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <parameter property="outsqlmg" mode="OUT" jdbcType="VARCHAR"  javaType="java.lang.String" />
+    </parameterMap>
+
+
+    <update id="DlwPayCloseMap.execPayDlProcTotMst" statementType="CALLABLE" parameterMap="totPayCloseMap">
+           {call SP_PAY_DL_MST_MAIN (SUBSTR(?,1,6),?,?,?) }
+    </update>
+
+    <update id="DlwPayCloseMap.execPayDlProcTotDtl" statementType="CALLABLE" parameterMap="totPayCloseMap">
+           {call SP_PAY_DL_DTL_MAIN (SUBSTR(?,1,6),?,?,?) }
+    </update>
+
+
+    <delete id="execPayDlTotCancelMstProc" parameterType="map">
+        DELETE FROM PAY_DL_MST
+         WHERE PAY_DL_YYYYMM = SUBSTR(#{work_mnth},1,6)
+           AND DL_TYPE = #{dl_type}
+    </delete>
+
+    <delete id="execPayDlTotCancelDtlProc" parameterType="map">
+        DELETE FROM PAY_DL_DTL
+         WHERE PAY_DL_YYYYMM = SUBSTR(#{work_mnth},1,6)
+           AND DL_TYPE = #{dl_type}
+    </delete>
+
+
+     <select id="selectDupChk" parameterType="map" resultType="string">
+        SELECT COUNT(*) AS CNT
+          FROM PAY_DL_MST
+         WHERE ROWNUM = 1
+           AND PAY_DL_YYYYMM = SUBSTR(#{work_mnth},1,6)
+           AND DL_TYPE = #{dl_type}
+    </select>
+
+</mapper>

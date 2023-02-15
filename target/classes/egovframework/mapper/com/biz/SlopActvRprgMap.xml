@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SlopActvRprgMap">
+    <!-- 사업원장관리  -> 영업 활동정보 검색 조건 -->
+    <sql id="SlopActvRprgMap.selectCondition_fragment">
+            WHERE  A.BIZ_ID = #{biz_id}
+        <if test="slop_actv_rprg_id != null and slop_actv_rprg_id != ''">
+            AND SLOP_ACTV_RPRG_ID = #{slop_actv_rprg_id}
+        </if>
+    </sql>
+    <!-- //사업원장관리  -> 영업 활동정보 검색 조건 -->
+
+
+    <!-- 사업원장관리  -> 영업 활동정보 건수 조회 -->
+    <select id="SlopActvRprgMap.getSlopActvRprgCount" parameterType="map" resultType="int">
+        SELECT /* SlopActvRprgMap.getSlopActvRprgCount */
+               COUNT(*)
+          FROM TB_SLOP_ACTV_RPRG_DTL A JOIN TB_BIZ_BASI B ON A.BIZ_ID = B.BIZ_ID
+         <include refid="SlopActvRprgMap.selectCondition_fragment" />
+    </select>
+    <!-- //사업원장관리  -> 영업 활동정보 건수 조회 -->
+
+    <!-- 사업원장관리  -> 영업 활동정보 목록 조회 -->
+
+    <select id="SlopActvRprgMap.getSlopActvRprgList" parameterType="map" resultType="resultMap">
+      SELECT /* SlopActvRprgMap.getSlopActvRprgList */
+            C.*
+        FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                FROM (SELECT A.SLOP_ACTV_RPRG_ID
+                            ,A.BIZ_ID
+                            ,A.SLOP_ACTV_DT
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.SLOP_ACTV_RPTR_ID) AS SLOP_ACTV_RPTR
+                            ,A.SLOP_ACTV_RPTR_ID
+                            ,A.SLOP_ACTV_CNTN
+                            ,A.AFWR_SLOP_ACTV_CNTN
+                            ,A.RGSR_ID
+                            ,A.RGSN_DTTM
+                            ,A.AMND_ID
+                            ,A.AMNT_DTTM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                        FROM TB_SLOP_ACTV_RPRG_DTL A JOIN TB_BIZ_BASI D ON A.BIZ_ID = D.BIZ_ID
+        <include refid="SlopActvRprgMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                       ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    ) B
+                   )C
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- //사업원장관리  -> 영업 활동정보 목록 조회 -->
+
+
+      <!-- 사업원장관리  -> 영업 활동정보 등록 -->
+    <insert id="SlopActvRprgMap.insertSlopActvRprg">
+    <selectKey keyProperty="slop_actv_rprg_id" resultType="String" order="BEFORE">
+        SELECT 'SLOP' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+    </selectKey>
+
+        INSERT /* SlopActvRprgMap.insertSlopActvRprg */
+          INTO  TB_SLOP_ACTV_RPRG_DTL
+                (SLOP_ACTV_RPRG_ID
+                ,BIZ_ID
+                ,SLOP_ACTV_DT
+                ,SLOP_ACTV_RPTR_ID
+                ,SLOP_ACTV_CNTN
+                ,AFWR_SLOP_ACTV_CNTN
+                ,CNTR_CD
+                ,RGSR_ID
+                ,RGSN_DTTM
+                ,AMND_ID
+                ,AMNT_DTTM
+                )
+        VALUES (#{slop_actv_rprg_id}
+                ,#{biz_id}
+                ,#{slop_actv_dt}
+                ,#{slop_actv_rptr_id}
+                ,#{slop_actv_cntn}
+                ,#{afwr_slop_actv_cntn}
+                ,#{cntr_cd}
+                ,#{rgsr_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                ,#{amnd_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- //사업원장관리  -> 영업 활동정보 등록 -->
+
+
+    <!-- 사업원장관리  -> 영업 활동정보 수정 -->
+    <update id="SlopActvRprgMap.updateSlopActvRprg" parameterType="map">
+      UPDATE /* SlopActvRprgMap.updateSlopActvRprg */
+           TB_SLOP_ACTV_RPRG_DTL
+         SET   SLOP_ACTV_DT = #{slop_actv_dt}
+              ,SLOP_ACTV_RPTR_ID= #{slop_actv_rptr_id}
+              ,SLOP_ACTV_CNTN = #{slop_actv_cntn}
+              ,AFWR_SLOP_ACTV_CNTN = #{afwr_slop_actv_cntn}
+              ,CNTR_CD = #{cntr_cd}
+              ,AMND_ID = #{amnd_id}
+              ,AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+       WHERE SLOP_ACTV_RPRG_ID = #{slop_actv_rprg_id}
+    </update>
+    <!-- //사업원장관리  -> 영업 활동정보 수정 -->
+
+    <!-- //사업원장관리  -> 영업 활동정보 삭제 -->
+    <delete id="SlopActvRprgMap.deleteSlopActvRprg" parameterType="map">
+      DELETE /* SlopActvRprgMap.deleteSlopActvRprg */
+        FROM TB_SLOP_ACTV_RPRG_DTL
+       WHERE SLOP_ACTV_RPRG_ID = #{slop_actv_rprg_id}
+    </delete>
+    <!-- //사업원장관리  -> 영업 활동정보 삭제 -->
+
+</mapper>

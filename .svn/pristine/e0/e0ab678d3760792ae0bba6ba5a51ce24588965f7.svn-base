@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvltPlanMap">
+
+    <sql id="EvltPlanMap.selectCondition_fragment">
+        <where>
+            <choose>
+                <when test="gubun != null and gubun == 'qaresult'">
+                    <if test="bzpt_div != null and bzpt_div != ''">
+                        AND (BZPT_DIV = #{bzpt_div}
+                          OR EXISTS (SELECT 'Y'
+                                       FROM TB_EVLT_TRPR_INFO TI, TB_USER TU, TB_CONS_TEAM TT
+                                      WHERE TI.TRPR_ID = TU.USER_ID
+                                        AND TI.CNTR_CD = TU.CNTR_CD
+                                        AND TU.TEAM_CD = TT.TEAM_CD
+                                        AND TU.CNTR_CD = TT.CNTR_CD
+                                        AND TT.BZPT_DIV = #{bzpt_div}
+                                        AND TI.EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                        AND TI.CNTR_CD = A.CNTR_CD ))
+                    </if>
+                </when>
+                <otherwise>
+                    <if test="bzpt_div != null and bzpt_div != ''">
+                        AND BZPT_DIV = #{bzpt_div}
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="evlt_plan_nm != null and evlt_plan_nm != ''">
+                AND EVLT_PLAN_NM LIKE '%' || #{evlt_plan_nm} || '%'
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="evlt_plan_id != null and evlt_plan_id != ''">
+                AND EVLT_PLAN_ID = #{evlt_plan_id}
+            </if>
+            <if test="deleteChk != null and deleteChk != ''">
+                AND EVST_ID = #{evst_id}
+            </if>
+            <if test="evlt_prgr_stat_cd != null and evlt_prgr_stat_cd != ''">
+                AND EVLT_PRGR_STAT_CD = #{evlt_prgr_stat_cd}
+            </if>
+            <if test="evst_id != null and evst_id != ''">
+                AND EVST_ID = #{evst_id}
+            </if>
+        </where>
+    </sql>
+
+    <select id="EvltPlanMap.getEvltPlanCount" parameterType="map" resultType="int">
+        SELECT /* EvltPlanMap.getEvltPlanCount */
+               COUNT(*)
+          FROM TB_EVLT_PLAN A
+         <include refid="EvltPlanMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EvltPlanMap.getEvltPlanList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltPlanMap.getEvltPlanList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                             , A.EVLT_PRGR_STAT_CD AS OLD_EVLT_PRGR_STAT_CD
+                             , (SELECT COUNT(*)
+                                  FROM TB_EVLP_INFO
+                                 WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EVLP_CNT
+                             , (SELECT COUNT(*)
+                                  FROM TB_EVLT_TRPR_INFO
+                                 WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EVLT_TRPR_CNT
+                        <choose>
+                            <when test="bzpt_div != null and bzpt_div != ''">
+                             , (SELECT COUNT(*)
+                                  FROM TB_EVLT_TRPR_INFO TI, TB_USER TU, TB_CONS_TEAM TT
+                                 WHERE TI.TRPR_ID = TU.USER_ID
+                                   AND TI.CNTR_CD = TU.CNTR_CD
+                                   AND TU.TEAM_CD = TT.TEAM_CD
+                                   AND TU.CNTR_CD = TT.CNTR_CD
+                                   AND TT.BZPT_DIV = #{bzpt_div}
+                                   AND TI.EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                   AND TI.CNTR_CD = A.CNTR_CD) AS BZPT_TRPR_CNT
+                            </when>
+                            <otherwise>
+                             , 0 AS BZPT_TRPR_CNT
+                            </otherwise>
+                        </choose>
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = (SELECT EVLP_ID
+                                                    FROM TB_EVLP_INFO
+                                                   WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                                     AND ROWNUM = 1)
+                               ) AS EVLP_NM
+                             , (SELECT DECODE(EVST_NM, NULL, '미등록', EVST_NM || ' (문항수 : ' || EVLT_QSIT_CNT || ' , 총점 : ' || EVLT_TOTL_SCR || ')')
+                                  FROM TB_EVST_DTL
+                                 WHERE EVST_ID = A.EVST_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EVST_NM
+                             , GETCODENM('EVL010', A.EVLT_PRGR_STAT_CD, A.CNTR_CD) AS EVLT_PRGR_STAT_NM
+                             , (CASE WHEN A.DIST_END_DT <![CDATA[>=]]> TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END) AS DIST_YN
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM (SELECT A.*
+                                  FROM TB_EVLT_PLAN A
+                              <include refid="EvltPlanMap.selectCondition_fragment"/>
+                               ) A
+                        ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EvltPlanMap.insertEvltPlan" parameterType="map">
+        <selectKey keyProperty="evlt_plan_id" resultType="String" order="BEFORE">
+            SELECT 'EPI' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* EvltPlanMap.insertEvltPlan */
+          INTO TB_EVLT_PLAN
+              (EVLT_PLAN_ID, EVLT_BAS_YRMN, EVST_ID, EVLT_PLAN_NM, DIST_END_DT
+             , GOAL_CALL_CNT, EVLT_PRGR_STAT_CD, CNTR_CD, RGSR_ID, RGSN_DTTM
+             , AMND_ID, AMNT_DTTM, BZPT_DIV)
+        VALUES (#{evlt_plan_id}, #{evlt_bas_yrmn}, #{evst_id}, #{evlt_plan_nm}, #{dist_end_dt}
+              , #{goal_call_cnt}, #{evlt_prgr_stat_cd}, #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+              , #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{bzpt_div})
+    </insert>
+
+    <update id="EvltPlanMap.updateEvltPlan" parameterType="map">
+        UPDATE /* EvltPlanMap.updateEvltPlan */
+               TB_EVLT_PLAN A
+           SET A.EVLT_BAS_YRMN    	= #{evlt_bas_yrmn}
+             , A.EVST_ID    		= #{evst_id}
+             , A.EVLT_PLAN_NM   	= #{evlt_plan_nm}
+             , A.DIST_END_DT       	= #{dist_end_dt}
+             , A.GOAL_CALL_CNT     	= #{goal_call_cnt}
+             , A.EVLT_PRGR_STAT_CD  = #{evlt_prgr_stat_cd}
+             , A.AMND_ID      		= #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , A.CNTR_CD       		= #{cntr_cd}
+         WHERE A.EVLT_PLAN_ID   	= #{evlt_plan_id}
+    </update>
+
+    <delete id="EvltPlanMap.deleteEvltPlan" parameterType="map">
+        DELETE /* EvltPlanMap.deleteEvltPlan */
+          FROM TB_EVLT_PLAN
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EVLT_PLAN_ID
+        <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+            #{item}
+        </foreach>
+    </delete>
+
+    <select id="EvltPlanMap.getEvltPlanByEvlp" parameterType="map" resultType="resultMap">
+        SELECT /* EvltPlanMap.getEvltPlanByEvlp */
+               A.EVLT_PLAN_ID, A.EVLT_PLAN_NM, A.GOAL_CALL_CNT
+          FROM TB_EVLT_PLAN A
+         WHERE A.CNTR_CD = #{cntr_cd}
+           AND EXISTS (SELECT 'Y'
+                         FROM TB_EVLP_INFO
+                        WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                          AND CNTR_CD = A.CNTR_CD
+                          AND EVLP_ID = #{evlp_id})
+        <if test="evlt_prgr_stat_cd != null and evlt_prgr_stat_cd != ''">
+           AND A.EVLT_PRGR_STAT_CD = #{evlt_prgr_stat_cd}
+        </if>
+         ORDER BY A.EVLT_PLAN_NM ASC
+    </select>
+
+    <select id="EvltPlanMap.getUserFinishCount" parameterType="map" resultType="resultMap">
+        SELECT /* EvltPlanMap.getUserFinishCount */
+                A.*
+          FROM (SELECT USER_NM
+                     , (GOAL_CALL_CNT - USER_CNT) AS RE_COUNT
+                 FROM (SELECT EVLP_ID
+                           , (SELECT USER_NM FROM TB_USER WHERE USER_ID = A.EVLP_ID) AS USER_NM
+                           , (SELECT GOAL_CALL_CNT
+                                FROM TB_EVLT_PLAN
+                               WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                 AND CNTR_CD = A.CNTR_CD) AS GOAL_CALL_CNT
+                           , (SELECT COUNT(*)
+                                FROM TB_EVLT_RESL_DTL
+                               WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                 AND EVLP_ID = A.EVLP_ID
+                                 AND CNTR_CD = A.CNTR_CD
+                                 AND EVLT_RESL_STAT_CD = '30') AS USER_CNT
+                        FROM TB_EVLP_INFO A
+                       WHERE EVLT_PLAN_ID = #{evlt_plan_id}
+                      ) A
+               ) A
+         WHERE RE_COUNT <![CDATA[>]]> 0
+    </select>
+
+
+     <sql id="EvltPlanMap.selectCondition_fragment_monitoring">
+        <where>
+            <choose>
+                <when test="gubun != null and gubun == 'qaresult'">
+                    <if test="bzpt_div != null and bzpt_div != ''">
+                        AND (BZPT_DIV = #{bzpt_div}
+                          OR EXISTS (SELECT 'Y'
+                                       FROM TB_EVLT_TRPR_INFO TI, TB_USER TU, TB_CONS_TEAM TT
+                                      WHERE TI.TRPR_ID = TU.USER_ID
+                                        AND TI.CNTR_CD = TU.CNTR_CD
+                                        AND TU.TEAM_CD = TT.TEAM_CD
+                                        AND TU.CNTR_CD = TT.CNTR_CD
+                                        AND TT.BZPT_DIV = #{bzpt_div}
+                                        AND TI.EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                        AND TI.CNTR_CD = A.CNTR_CD ))
+                    </if>
+                </when>
+                <otherwise>
+                    <if test="bzpt_div != null and bzpt_div != ''">
+                        AND BZPT_DIV = #{bzpt_div}
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                   AND JDATE BETWEEN #{stt_dt} AND #{end_dt}
+           </if>
+           <if test="seq != null and seq != ''">
+                   AND seq = #{seq}
+           </if>
+           <if test="mid != null and mid != ''">
+                   AND mid = #{mid}
+           </if>
+           <if test="gubun != null and gubun != ''">
+                   AND gubun = #{gubun}
+           </if>
+           <if test="jbit != null and jbit != ''">
+                   AND jbit = #{jbit}
+           </if>
+           <if test="emple_no != null and emple_no != ''">
+                   AND scode = #{emple_no}
+           </if>
+        </where>
+    </sql>
+
+        <insert id="EvltPlanMap.insertmonitoring" parameterType="map">
+              <selectKey keyProperty="mid" resultType="String" order="BEFORE">
+               SELECT   'MO' || TO_CHAR(SYSDATE, 'YYYYMMDD') ||  LPAD(NVL(COUNT(MID),0) + 1 , 5, '0')  FROM PS_WILLVI.TB_MONITORING_ADMIN  WHERE  JDATE=TO_CHAR(SYSDATE, 'YYYYMMDD')
+            </selectKey>
+
+        INSERT /* EvltPlanMap.insertmonitoring */
+          INTO TB_MONITORING_ADMIN
+              (SEQ,MID,SCODE,CNTR_CD,GUBUN,UBIT,JBIT,JDATE,ACCNT_NO, BIGO,MBIGO,GBIGO,REG_DM,REG_MAN,BZPT_DIV,TITLE)
+        SELECT		(SELECT NVL(MAX(SEQ),0) + 1  FROM PS_WILLVI.TB_MONITORING_ADMIN )
+              ,#{mid}
+              ,#{scode}
+              ,'CCA'
+              ,#{gubun}
+              ,#{ubit}
+              ,nvl(#{jbit},' ')
+              ,to_char(sysdate,'yyyymmdd')
+              ,#{accnt_no}
+              ,#{bigo}
+              ,nvl(#{mbigo},' ')
+              ,nvl(#{gbigo},' ')
+              ,sysdate
+              ,#{reg_man}
+              ,nvl(#{bzpt_div},' ')
+              ,nvl(#{title},' ')
+        FROM DUAL
+
+    </insert>
+
+
+     <select id="EvltPlanMap.getmonitoringCount" parameterType="map" resultType="int">
+        SELECT /* EvltPlanMap.getmonitoringCount */
+               COUNT(*)
+          FROM TB_MONITORING_ADMIN A
+         <include refid="EvltPlanMap.selectCondition_fragment_monitoring"/>
+    </select>
+
+
+     <select id="EvltPlanMap.getmonitoringList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltPlanMap.getmonitoringList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY MID desc) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT  A.SEQ
+                                  ,A.SCODE
+                              ,A.CNTR_cD
+                              ,A.GUBUN
+                              ,A.UBIT
+                              ,A.JBIT
+                              ,A.JDATE
+                              ,A.ACCNT_NO
+                              ,A.BIGO
+                              ,A.MBIGO
+                              ,A.GBIGO
+                              ,to_char(A.reg_dm,'YYYYMMDDHHMMSS')  REG_DM
+                              ,to_char(A.upd_dm,'YYYYMMDDHHMMSS')  UPD_DM
+                              ,A.MID
+                            ,A.TITLE
+                            , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.SCODE
+                                   AND CNTR_CD = A.CNTR_CD) AS SNAME
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.REG_MAN
+                                   AND CNTR_CD = A.CNTR_CD) AS REG_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.UPD_MAN
+                                   AND CNTR_CD = A.CNTR_CD) AS UPD_NM
+
+                             ,  (select mem_nm from lf_dmuser.member  where mem_no = A.mem_no) MEM_NM
+
+                          FROM (SELECT A.*
+                                  ,MPA.MEM_NO
+                                  FROM TB_MONITORING_ADMIN A
+
+                                    left outer join lf_dmuser.mem_prod_accnt  mpa on a.accnt_no=mpa.accnt_no
+
+                              <include refid="EvltPlanMap.selectCondition_fragment_monitoring"/>
+                               ) A
+                        ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+
+    </select>
+
+
+
+         <update id="EvltPlanMap.updatemonitoring" parameterType="map">
+        UPDATE /* EvltPlanMap.updatemonitoring */
+               TB_MONITORING_ADMIN A
+           SET A.scode    	= #{scode}
+             , A.gubun    	= #{gubun}
+             , A.ubit   	= #{ubit}
+             , A.jbit       = #{jbit}
+             , A.jdate      = replace(#{jdate},'-','')
+             , A.accnt_no   = #{accnt_no}
+             , A.bigo  		= #{bigo}
+             , A.mbigo  	= #{mbigo}
+             , A.gbigo 		= #{gbigo}
+             , A.title  	= #{title}
+             , A.upd_man    = #{rgsr_id}
+             , A.upd_dm     = SYSDATE
+         WHERE A.seq   		= #{seq}
+    </update>
+</mapper>

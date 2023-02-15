@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjePayMap">
+
+    <select id="GongjePayMap.getGongjePayCount" parameterType="map" resultType="int">
+
+        SELECT /* "GongjePayMap.getGongjePayCount" */
+               COUNT(*)
+        FROM LF_DMUSER.GONGJE_HIST_TEMP
+        WHERE CL = 'P'
+    </select>
+
+   <select id="GongjePayMap.getGongjePayList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjePayMap.getGongjePayList */
+                *
+          FROM (SELECT
+                    ROW_NUMBER() OVER(ORDER BY Z.ACCNT_NO, Z.PAY_DT) AS PAGE_INDX,
+                    Z.*
+                  FROM (   SELECT '21' AS GUBUN,  /* 구분(선수금) */
+                                   A.ACCNT_NO,    /* 소비자번호 */
+                                   B.DED_NO,	  /* 공제번호 */
+                                   SUBSTR(A.PAY_DAY,1,6) YYMM, /* 정산년월 */
+                                   A.PAY_DAY AS PAY_DT,			  /* 납입일자 / 취소일자 */
+                                   A.NO,												  /* 납입회차 */
+                                   A.PAY_AMT,											  /* 납입금액 */
+                                   '10' AS PAY_TYPE,
+                                   CASE WHEN A.PAY_MTHD = '01' THEN '수금'
+                                        WHEN A.PAY_MTHD = '04' THEN '자동이체'
+                                        WHEN A.PAY_MTHD = '06' THEN '카드' ELSE '기타' END TYPE,
+                                   A.PAY_MTHD AS SEQ_NO
+                            FROM LF_DMUSER.PAY_MNG A
+                                LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                            WHERE A.NEW_YN = 'Y'                                                      /* 입금신고 안된건중에 */
+                              AND A.DEL_FG = 'N'                                                      /* 삭제되지 않은 입금건중에 */
+                              <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>                              /* 공제번호 존재하며 */
+                              AND NVL(A.PAY_CANCEL_DAY,' ') = ' '                                    /* 취소건이 아니며 */
+                              AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM LF_DMUSER.RESCISSION WHERE DEL_FG='N' AND ((RESN_CL IN('01','03') AND RESN_PROC_YN = 'Y') OR (RESN_CL IN('02','04'))) AND RESN_PROC_DAY <![CDATA[<=]]> #{end_dt} AND NEW_YN = 'N') /* 해약회원제외 */
+                              AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM LF_DMUSER.EVENT WHERE DEL_FG='N' AND EVENT_PROC_DAY <![CDATA[<=]]> #{end_dt} AND NEW_YN = 'N')      /* 행사회원제외 */
+                              AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM LF_DMUSER.GONGJE_HIST WHERE GBIT IN('01','02'))
+                              AND A.ACCNT_NO IN(SELECT ACCNT_NO FROM LF_DMUSER.GONGJE_HIST_TEMP WHERE ACCNT_NO = A.ACCNT_NO AND CL = 'P')
+                              <if test="stt_dt != null and stt_dt != ''">
+                                  <![CDATA[AND A.PAY_DAY >= #{stt_dt} ]]>
+                              </if>
+                              <if test="end_dt != null and end_dt != ''">
+                                  <![CDATA[AND A.PAY_DAY <= #{end_dt} ]]>
+                              </if>
+                        ) Z
+                  )TBL
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <insert id="GongjePayMap.getGongjePayInsert" parameterType="map">
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjePayMap.getGongjePayInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, AMT, SEQ_NO, ADV_PAY_NUM, PAY_TYPE, SIDATE)
+        SELECT  GDATE, CL, ACCNT_NO, GBIT, AMT, SEQ_NO, ADV_PAY_NUM, PAY_TYPE, SIDATE
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'P'
+    </insert>
+
+    <insert id="GongjePayMap.getGongjePayInsert_Temp" parameterType="map">
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjePayMap.getGongjePayInsert_Temp */
+
+        INSERT INTO GONGJE_HIST_TEMP
+               (GDATE, CL, ACCNT_NO, GBIT, AMT, ADV_PAY_NUM, PAY_TYPE, SIDATE, SEQ_NO)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'P',
+                A.ACCNT_NO,
+                '00',
+                A.PAY_AMT,
+                A.NO,
+                '10',
+                A.PAY_DAY,
+                A.PAY_MTHD
+        FROM PAY_MNG A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+        WHERE A.NEW_YN = 'Y'                                                      /* 입금신고 안된건중에 */
+          AND A.DEL_FG = 'N'                                                      /* 삭제되지 않은 입금건중에 */
+          <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>                              /* 공제번호 존재하며 */
+          AND NVL(A.PAY_CANCEL_DAY,' ') = ' '                                    /* 취소건이 아니며 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N' AND ((RESN_CL IN('01','03') AND RESN_PROC_YN = 'Y') OR (RESN_CL IN('02','04'))) AND RESN_PROC_DAY <![CDATA[<=]]> #{end_dt} AND NEW_YN = 'N') /* 해약회원제외 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N' AND EVENT_PROC_DAY <![CDATA[<=]]> #{end_dt} AND NEW_YN = 'N' )      /* 행사회원제외 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          <if test="stt_dt != null and stt_dt != ''">
+              <![CDATA[AND A.PAY_DAY >= #{stt_dt} ]]>
+          </if>
+          <if test="end_dt != null and end_dt != ''">
+              <![CDATA[AND A.PAY_DAY <= #{end_dt} ]]>
+          </if>
+    </insert>
+
+    <select id="GongjePayMap.getGongjePay_CnclCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjePayMap.getGongjePay_CnclCount */
+               COUNT(*)
+        FROM PAY_MNG A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN (SELECT * FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N') C ON A.ACCNT_NO = C.ACCNT_NO AND A.NO = C.NO
+        WHERE A.NEW_YN = 'N'                                                      /* 입금신고 된건중에 */
+          AND A.DEL_FG = 'N'                                                      /* 삭제되지 않은 입금건중에 */
+          <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>  							  /* 공제번호 존재하며 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND A.ACCNT_NO = #{accnt_no}
+          <if test="fcnt != null and fcnt != ''">
+          <![CDATA[AND A.NO >= #{fcnt} ]]>
+          </if>
+          <if test="tcnt != null and tcnt != ''">
+          <![CDATA[AND A.NO <= #{tcnt} ]]>
+          </if>
+    </select>
+
+   <select id="GongjePayMap.getGongjePay_CnclList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjePayMap.getGongjePay_CnclList */
+               *
+          FROM (   SELECT '21' AS GUBUN,  /* 구분(선수금) */
+                           A.ACCNT_NO,    /* 소비자번호 */
+                           B.DED_NO,	  /* 공제번호 */
+                           SUBSTR(A.PAY_DAY,1,6) YYMM, /* 정산년월 */
+                           C.PAY_DAY AS PAY_DT,			  /* 납입일자 / 취소일자 */
+                           A.NO,												  /* 납입회차 */
+                           A.PAY_AMT,											  /* 납입금액 */
+                           '21' AS PAY_TYPE,
+                           CASE WHEN A.PAY_MTHD = '01' THEN '수금'
+                                WHEN A.PAY_MTHD = '04' THEN '자동이체'
+                                WHEN A.PAY_MTHD = '06' THEN '카드' ELSE '기타' END TYPE,
+                           A.NO AS SEQ_NO
+                    FROM PAY_MNG A
+                        LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                        LEFT OUTER JOIN (SELECT * FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N') C ON A.ACCNT_NO = C.ACCNT_NO AND A.NO = C.NO
+                    WHERE A.NEW_YN = 'N'                                                      /* 입금신고 된건중에 */
+                      AND A.DEL_FG = 'N'                                                      /* 삭제되지 않은 입금건중에 */
+                      <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>  							  /* 공제번호 존재하며 */
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02')) /* 공제처리중인 회원코드가 아니며 */
+                      AND A.ACCNT_NO = #{accnt_no}
+                      <if test="fcnt != null and fcnt != ''">
+                      <![CDATA[AND A.NO >= #{fcnt} ]]>
+                      </if>
+                      <if test="tcnt != null and tcnt != ''">
+                      <![CDATA[AND A.NO <= #{tcnt} ]]>
+                      </if>
+                ) Z
+        ORDER BY Z.NO
+    </select>
+
+    <insert id="GongjePayMap.getGongjePay_CnclInsert" parameterType="map">
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjePayMap.getGongjePay_CnclInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, AMT, ADV_PAY_NUM, PAY_TYPE, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'P_C',
+                A.ACCNT_NO,
+                '00',
+                A.PAY_AMT,
+                A.NO,
+                '21',
+                C.PAY_DAY AS PAY_DT
+        FROM PAY_MNG A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN (SELECT * FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N') C ON A.ACCNT_NO = C.ACCNT_NO AND A.NO = C.NO
+        WHERE A.NEW_YN = 'N'                                                      /* 입금신고 된건중에 */
+          AND A.DEL_FG = 'N'                                                      /* 삭제되지 않은 입금건중에 */
+          <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>  							  /* 공제번호 존재하며 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND A.ACCNT_NO = #{accnt_no}
+          <if test="fcnt != null and fcnt != ''">
+          <![CDATA[AND A.NO >= #{fcnt} ]]>
+          </if>
+          <if test="tcnt != null and tcnt != ''">
+          <![CDATA[AND A.NO <= #{tcnt} ]]>
+          </if>
+    </insert>
+
+</mapper>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TrgtListMap">
+
+    <sql id="TrgtListMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trgt_list_nm != null and trgt_list_nm != ''">
+                AND TRGT_LIST_NM LIKE #{trgt_list_nm} || '%'
+            </if>
+            <if test="cmpg_pran_chnl_cd != null and cmpg_pran_chnl_cd != ''">
+                AND CMPG_PRAN_CHNL_CD = #{cmpg_pran_chnl_cd}
+            </if>
+            <if test="cmpg_invt_mthd_cd != null and cmpg_invt_mthd_cd != ''">
+                AND CMPG_INVT_MTHD_CD = #{cmpg_invt_mthd_cd}
+            </if>
+            <if test="alct_yn != null and alct_yn != ''">
+                AND ALCT_YN = #{alct_yn}
+            </if>
+            <if test="cmpg_prfm_team_cd != null and cmpg_prfm_team_cd != ''">
+                AND CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+                AND AMNT_DTTM BETWEEN REPLACE(#{startd}, '-', '') || '000000' AND REPLACE(#{endd}, '-', '') || '999999'
+            </if>
+            <if test="hgrn_hrch_cd != null and hgrn_hrch_cd != ''">
+                AND HGRN_HRCH_CD = #{hgrn_hrch_cd}
+            </if>
+
+            <choose>
+                <when test="searchOption=='existsError'">
+                    AND DFCT_DATA_CNT > 0
+                </when>
+            </choose>
+        </where>
+    </sql>
+
+    <select id="TrgtListMap.getTrgtListCount" parameterType="map" resultType="int">
+        SELECT /* TrgtListMap.getTrgtListCount */
+               COUNT(*)
+          FROM( SELECT B.*
+                  FROM (SELECT A.TRGT_LIST_ID, A.TRGT_LIST_NM, A.TRGT_LIST_EXPI
+                             , A.CMPG_INVT_MTHD_CD, A.CMPG_PRAN_CHNL_CD
+                             , A.CMPG_TYP_CD, A.ALCT_YN, A.CUST_DATA_EXTC_CNT
+                             , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.CNTR_CD, HC.HGRN_HRCH_CD, HC.HRCH_ADTL_CD, HC.HRCH_ADTL_CD_NM
+                             , A.CMPG_PRFM_TEAM_CD
+                         FROM TB_TRGT_LIST_DTL A LEFT JOIN TB_HRCH_CD HC ON A.CMPG_TYP_CD = HC.HRCH_CD
+                       ) B
+        <include refid="TrgtListMap.selectCondition_fragment"/>
+              )C
+    </select>
+
+    <select id="TrgtListMap.getTrgtListList" parameterType="map" resultType="resultMap">
+        SELECT /* TrgtListMap.getTrgtListList */
+               C.*
+               , (SELECT USER_NM FROM TB_USER WHERE USER_ID = C.RGSR_ID AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+               , (SELECT USER_NM FROM TB_USER WHERE USER_ID = C.AMND_ID AND CNTR_CD = C.CNTR_CD) AS AMND_NM
+               , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = C.CMPG_PRFM_TEAM_CD) AS CMPG_PRFM_TEAM_NM
+               , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = C.HGRN_TEAM_CD) AS HGRN_TEAM_NM
+               , GETCODENM('CAM060', C.CMPG_INVT_MTHD_CD, C.CNTR_CD) AS CMPG_INVT_MTHD_NM
+               , GETCODENM('CAM120', C.CMPG_PRAN_CHNL_CD, C.CNTR_CD) AS CMPG_PRAN_CHNL_NM
+               , FN_GETHRCHCDNM('CAM990', C.CMPG_TYP_CD, C.CNTR_CD) AS CMPG_TYP_NM
+               , FN_GETHRCHCDNM('CAM990', C.HGRN_HRCH_CD, C.CNTR_CD) AS HGRN_HRCH_NM
+          FROM (SELECT <choose>
+                           <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY AMNT_DTTM DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                     , TRGT_LIST_ID, TRGT_LIST_NM, TRGT_LIST_EXPI, CMPG_INVT_MTHD_CD ,CMPG_PRAN_CHNL_CD
+                     , CMPG_TYP_CD, ALCT_YN, CUST_DATA_EXTC_CNT, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , CNTR_CD, HGRN_HRCH_CD, HRCH_ADTL_CD ,HRCH_ADTL_CD_NM
+                     , CMPG_PRFM_TEAM_CD
+                     , (SELECT HGRN_TEAM_CD FROM TB_CONS_TEAM WHERE TEAM_CD = B.CMPG_PRFM_TEAM_CD) AS HGRN_TEAM_CD
+                  FROM (SELECT  A.TRGT_LIST_ID, A.TRGT_LIST_NM, A.TRGT_LIST_EXPI
+                              , A.CMPG_INVT_MTHD_CD, A.CMPG_PRAN_CHNL_CD
+                              , A.CMPG_TYP_CD, A.ALCT_YN, A.CUST_DATA_EXTC_CNT
+                              , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                              , A.CNTR_CD, HC.HGRN_HRCH_CD, HC.HRCH_ADTL_CD, HC.HRCH_ADTL_CD_NM
+                              , A.CMPG_PRFM_TEAM_CD
+                          FROM TB_TRGT_LIST_DTL A LEFT JOIN TB_HRCH_CD HC ON A.CMPG_TYP_CD = HC.HRCH_CD
+                       ) B
+                       <include refid="TrgtListMap.selectCondition_fragment"/>
+                ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <insert id="TrgtListMap.insertTrgtList" parameterType="map">
+        <selectKey keyProperty="trgt_list_id" resultType="String" order="BEFORE">
+            SELECT 'TAR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* TrgtListMap.insertTrgtList */
+          INTO TB_TRGT_LIST_DTL
+              (TRGT_LIST_ID, TRGT_LIST_NM, TRGT_LIST_EXPI, CMPG_INVT_MTHD_CD
+             , CMPG_PRAN_CHNL_CD, CMPG_TYP_CD, ALCT_YN,CMPG_PRFM_TEAM_CD
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{trgt_list_id}, #{trgt_list_nm}, #{trgt_list_expi}, #{cmpg_invt_mthd_cd}
+              , #{cmpg_pran_chnl_cd},  #{cmpg_typ_cd},'N', #{cmpg_prfm_team_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <!-- ?ъ슜 -->
+    <update id="TrgtListMap.updateTrgtList" parameterType="map">
+        UPDATE /* TrgtListMap.updateTrgtList */
+               TB_TRGT_LIST_DTL
+           SET
+        <choose>
+            <when test="updateOption == 'assign'">
+               ALCT_YN         = NVL2((SELECT MIN(CMPG_ID) KEEP(DENSE_RANK FIRST ORDER BY CMPG_NM)
+                                          FROM TB_CMPG_BASI B
+                                         WHERE TRGT_LIST_ID=#{trgt_list_id}), 'Y','N')
+            </when>
+            <when test="updateOption == 'extract'">
+               CUST_DATA_EXTC_CNT       = (SELECT COUNT(*) FROM TB_TRGT_CUST_DTPT B WHERE B.TRGT_LIST_ID = #{trgt_list_id} AND B.CNTR_CD = #{cntr_cd})
+            </when>
+            <otherwise>
+               TRGT_LIST_NM     = #{trgt_list_nm}
+             , TRGT_LIST_EXPI   = #{trgt_list_expi}
+             , CNTR_CD         = #{cntr_cd}
+             , AMND_ID        = #{amnd_id}
+             , AMNT_DTTM            = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            </otherwise>
+        </choose>
+         WHERE TRGT_LIST_ID		= #{trgt_list_id}
+           AND CNTR_CD			= #{cntr_cd}
+    </update>
+
+    <delete id="TrgtListMap.deleteTrgtList" parameterType="map">
+        DELETE /* TrgtListMap.deleteTrgtList */
+          FROM TB_TRGT_LIST_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND TRGT_LIST_ID = #{trgt_list_id}
+    </delete>
+</mapper>

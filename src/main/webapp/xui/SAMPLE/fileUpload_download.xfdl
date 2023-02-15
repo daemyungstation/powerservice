@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="FileUpload" classname="FileUpload" inheritanceid="" position="absolute 0 0 641 319" titletext="New Form">
+    <Layouts>
+      <Layout>
+        <FileUpload id="FileUpload00" taborder="0" timeout="0" retry="0" index="0" position="absolute 16 61 323 104" onload="FileUpload00_onload" async="true" onitemchanged="FileUpload00_onitemchanged" innerdataset="@Dataset01" filecolumn="Column0"/>
+        <Button id="Button00" taborder="1" text="FileUpload" position="absolute 16 112 127 156" onclick="Button00_onclick"/>
+        <FileDownload id="FileDownload00" taborder="4" text="FileDownload00" position="absolute 332 61 616 102" onclick="FileDownload00_onclick" onload="FileDownload00_onload"/>
+        <Static id="Static00" text="FileUpload 컴포넌트" position="absolute 26 32 306 51"/>
+        <Static id="Static01" text="FileDownload 컴포넌트(클릭시 다운가능)" position="absolute 330 32 610 51"/>
+        <ImageViewer id="ImageViewer00" taborder="6" text="ImageViewer00" position="absolute 141 128 584 295"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_uploadresult" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" onload="ds_uploadresult_onload">
+        <ColumnInfo>
+          <Column id="fileName" type="STRING" size="32"/>
+          <Column id="fileSize" type="BIGDECIMAL" size="8"/>
+          <Column id="fileType" type="STRING" size="32"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="Dataset00" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Column0" type="STRING" size="256"/>
+          <Column id="Column1" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="Column0">C:\Documents and Settings\Administrator\My Documents\Cap.jpg</Col>
+            <Col id="Column1">Y</Col>
+          </Row>
+          <Row>
+            <Col id="Column0">C:\Documents and Settings\Administrator\My Documents\chocochip-1.jpg</Col>
+            <Col id="Column1">N</Col>
+          </Row>
+          <Row>
+            <Col id="Column0">C:\Documents and Settings\Administrator\My Documents\chocochip-3.jpg</Col>
+            <Col id="Column1">Y</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="Ds_Del" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="FileNm" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="FileNm">00501.png</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="dsAttachFile" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="compcd" type="STRING" size="256"/>
+          <Column id="fileid" type="STRING" size="256"/>
+          <Column id="regseq" type="STRING" size="256"/>
+          <Column id="filenm" type="STRING" size="256"/>
+          <Column id="filelen" type="STRING" size="256"/>
+          <Column id="filefullpath" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="compcd"/>
+            <Col id="regseq">1</Col>
+            <Col id="filenm">TEST.txt</Col>
+            <Col id="filelen">120832</Col>
+            <Col id="filefullpath">D:\TEST.txt</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="Dataset01" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Column0" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="Column0">C:\Users\Hyeyoung\Documents\tsis.png</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[//업로드 버튼을 클릭시 다운로드
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var strUrl = "http://172.10.11.160:8080/tobehye/controll/fileupload.jsp?PATH=file";
+	var bSucc = FileUpload00.upload(strUrl);
+	trace("bSucc >>>> "+bSucc);
+}
+
+//다운로드 버튼을 클릭시 다운로드
+function FileDownload00_onclick(obj:FileDownload,  e:ClickEventInfo)
+{
+	var strFileName = ds_uploadresult.getColumn(0,"fileName");
+	FileDownload00.downloadfilename = strFileName;
+    alert("strFileName:"+strFileName);
+	FileDownload00.downloadurl = "http://172.10.11.160:8080/tobehye/controll/fileDownload.jsp?file="+strFileName;
+	var bSucc = FileDownload00.download();
+	trace("bSucc >> "+bSucc);
+}
+
+function FileUpload00_onload(obj:FileUpload,  e:FileUploadLoadEventInfo)
+{
+	if( e.datasets == null )
+	{
+		alert("업로드 실패");
+	} else {
+		alert("업로드 성공");
+		trace(e.datasets[0].saveXML());
+		//업로드 성공 후 받은 데이터셋에서 해당 파일의 파일명을 데이터셋에 저장.
+		ds_uploadresult.setColumn(0,"fileName",e.datasets[0].getColumn(0,"fileName"));
+		Ds_Del.setColumn(0,"FileNm",e.datasets[0].getColumn(0,"fileName"));
+		
+		//FileDown컴포넌트를 클릭시 다운로드 되도록 셋팅.
+		FileDownload00.text = e.datasets[0].getColumn(0,"fileName");
+		FileDownload00.downloadfilename = e.datasets[0].getColumn(0,"fileName");
+		alert(e.datasets[0].getColumn(0,"fileName"));
+		FileDownload00.downloadurl = "http://172.10.11.160:8080/tobehye/controll/fileDownload.jsp?FILE="+e.datasets[0].getColumn(0,"fileName");	
+		ds_uploadresult.copyData(e.datasets[0]);
+	}	
+}
+
+function FileDownload00_onload(obj:FileDownload,  e:FileDownloadLoadEventInfo)
+{
+	alert("다운로드 성공");
+}
+
+
+function fn_callback( svcID, nCD , sMSG)
+{
+	if (nCD < 0 )
+	{
+		alert("실패");
+		return;
+	}
+	
+	if (svcID == "Del")
+	{
+		alert(sMSG);
+	}	
+}
+
+function FileUpload00_onitemchanged(obj:FileUpload,  e:FileUploadItemChangeEventInfo)
+{
+	ImageViewer00.image=FileUpload00.value;
+
+}
+
+
+
+]]></Script>
+  </Form>
+</FDL>

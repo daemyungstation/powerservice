@@ -1,0 +1,345 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Login" classname="Login" inheritanceid="" position="absolute 0 0 342 351" titletext="로그인" onload="Login_onload" class="frm_LoginBg" style="background:URL('IMG::bg_login.png') stretch 10,100;border:0 none #808080ff ;">
+    <Layouts>
+      <Layout>
+        <Button id="btn_Close" taborder="1" text="X" onclick="btn_Close_onclick" class="btn_popupClose" position2="absolute l:305 w:20 t:10 h:19" positiontype="position2"/>
+        <Static id="sta_userId" text="아이디" class="sta_userIdPw" position2="absolute l:30 w:75 t:234 h:24" positiontype="position2"/>
+        <Static id="sta_pwd" text="비밀번호" class="sta_userIdPw" position2="absolute l:30 w:75 t:262 h:24" positiontype="position2"/>
+        <Edit id="edt_userId" taborder="1" autoselect="true" onkeydown="edt_userId_onkeydown" position2="absolute l:103 w:135 t:233 h:24" positiontype="position2"/>
+        <Edit id="edt_pwd" taborder="1" password="true" autoselect="true" onkeydown="edt_pwd_onkeydown" position2="absolute l:103 w:135 t:262 h:24" positiontype="position2"/>
+        <Button id="btn_Login" taborder="1" onclick="btn_Login_onclick" class="btn_Login03" position2="absolute l:244 w:64 t:233 h:53" positiontype="position2"/>
+        <CheckBox id="chk_saveId" taborder="1" text="아이디 저장" position2="absolute l:155 w:80 t:291 h:20" positiontype="position2"/>
+        <Button id="Button00" taborder="1" position="absolute 85 125 163 203" class="btn_Login_call"/>
+        <Button id="Button01" class="btn_Login_manage" position="absolute 179 125 257 203" enable="true"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Login" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="bzdpDivCd" type="STRING" size="256"/>
+          <Column id="userId" type="STRING" size="256"/>
+          <Column id="pwd" type="STRING" size="256"/>
+          <Column id="pwdEncrypt" type="STRING" size="256"/>
+          <Column id="_chk" type="INT" size="1"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="userId">admin</Col>
+            <Col id="pwd">1111</Col>
+            <Col id="bzdpDivCd">ADM</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="dsl_Comp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="COMN_CD_ID" type="STRING" size="255"/>
+          <Column id="CD_USPL_DIV_CD" type="STRING" size="255"/>
+          <Column id="CD_VL" type="STRING" size="255"/>
+          <Column id="CD_VL_NM" type="STRING" size="255"/>
+          <Column id="SHRD_CD_VL_NM" type="STRING" size="255"/>
+          <Column id="LNP_SQNC" type="STRING" size="255"/>
+          <Column id="DLTN_YN" type="STRING" size="255"/>
+          <Column id="PREN_CD_VL" type="STRING" size="255"/>
+          <Column id="LAST_AMNT_DTTM" type="STRING" size="255"/>
+          <Column id="_chk" type="INT" size="10"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="COMN_CD_ID">11125</Col>
+            <Col id="CD_USPL_DIV_CD">00</Col>
+            <Col id="CD_VL">ADM</Col>
+            <Col id="CD_VL_NM">시스템관리</Col>
+          </Row>
+          <Row>
+            <Col id="COMN_CD_ID">11125</Col>
+            <Col id="CD_USPL_DIV_CD">00</Col>
+            <Col id="CD_VL">TST</Col>
+            <Col id="CD_VL_NM">TST</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item0" compid="edt_userId" propid="value" datasetid="ds_Login" columnid="userId"/>
+      <BindItem id="item1" compid="edt_pwd" propid="value" datasetid="ds_Login" columnid="pwd"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function Login_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_setConnectUrl();				// 접속 대상서버 Url 설정
+	
+	var sLoginId = getPrivateProfile("loginId");
+	if(!gfn_isNull(sLoginId)) {
+		ds_Login.setColumn(0, "userId", sLoginId);
+		chk_saveId.value = 1;
+	}		
+	
+	this.getOwnerFrame().topmost = true;
+}
+
+function btn_Close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	exit();
+}
+
+function btn_Login_onclick(obj:Button,  e:ClickEventInfo)
+{
+	// 접속사업부 저장
+	GV_BZDPDIVCD = this.ds_Login.getColumn(0, "bzdpDivCd");		
+
+	fn_Login();
+}
+
+// 로그인 처리
+function fn_Login()
+{
+	if(gfn_isNull(edt_userId.value)) {
+		alert("사용자아이디를 입력하세요!!");
+		return false;
+	}
+
+	if(gfn_isNull(edt_pwd.value)) {
+		alert("비밀번호를 입력하세요!!");
+		return false;
+	}
+
+	var sTrscCode = "";
+	sTrscCode = "SYS00001R01";
+	
+	//// 패스워드 암호화 처리
+	var encData = gfn_seedEncryptByString(ds_Login.getColumn(0, "pwd"));
+	this.ds_Login.setColumn(0, "pwdEncrypt", encData);	
+
+	gfn_kwDataInit();
+	gfn_setKwData_trscCode(sTrscCode);	
+	gfn_setKwData_trscReslType(gfn_getTranDataType_xml());
+
+	gfn_tranNMCI("System_Login" 
+				, "ds_Login=ds_Login"
+				, "gds_UserInfo=ds_UserInfo"
+				//, "");	
+				, "fn_Login_callBack");	
+
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_Login_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_Login_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		trace("Login Error!! nErrorCode::"+nErrorCode);
+		return false;
+	}
+
+	if(gds_UserInfo.rowcount != 1) { 
+		application.alert("사용자정보가 없습니다.");
+		return;
+	} else {
+		var objDiv = application.mainframe.titlebar.div_Title;
+		if(objDiv != undefined) {
+			var objUserInfo = gfn_getUserInfo();
+			objDiv.sta_UserInfo.text = objUserInfo.userNm + "(" + gfn_transNullToEmpty(objUserInfo.userId, "") + ")";			
+		}
+	}
+	
+	// 공통코드, 공통메세지 처리
+	if(!gfn_getTranCommInfo("SYS00002R10", false, gds_ComMsg, 			"01")) {
+		alert("공통메세지 처리 중 오류가 발생했습니다.");
+		//return;	// Comn MSG
+	}
+		
+	if(!gfn_getTranCommInfo("SYS00002R11", false, gds_ComCode, 			"02")) { 
+		alert("공통코드 처리 중 오류가 발생했습니다.");
+		//return;	// Comn Code	
+	}	
+	
+	if(!gfn_getTranCommInfo("SYS00002R12", false, gds_OrdrTyp, 			"03")) {
+		alert("주문유형코드 처리 중 오류가 발생했습니다.");
+		//return;	// 주문유형코드 처리
+	}	
+	
+	if(!gfn_getTranCommInfo("SYS00002R13", false, gds_LgstCntr, 		"06")) {
+		alert("물류 센터 및 거점 창고 코드 처리 중 오류가 발생했습니다.");
+		//return;	// 물류 센터 및 거점 창고 코드
+	}
+		
+	if(!gfn_getTranCommInfo("SYS00002R14", false, gds_BswrDtrsCd, 		"07")) {
+		alert("업무별 직책 코드(사업자 영역) 처리 중 오류가 발생했습니다.");
+		//return;	// 업무별 직책 코드(사업자 영역)
+	}
+		
+	if(!gfn_getTranCommInfo("SYS00002R15", false, gds_OrgzLvlCd, 		"08")) {
+		alert("조직 레벨 코드(사업자 영역) 처리 중 오류가 발생했습니다.");
+		//return;	// 조직 레벨 코드(사업자 영역)
+	}	
+	
+	//if(!gfn_getTranCommInfo("SYS00002R14", false, gds_PrdtInfo, 		"05")) return;	// 의류상품정보 처리
+	//if(!gfn_getTranCommInfo("SYS00002R13", false, gds_EduPrdtGrp, 		"04")) return;	// EDU 상품군코드 처리
+
+	// 공통성코드 추가 - 2013/03/27 박만건과장 요청
+	gfn_getTranOprnPsblOrgz();				// 운영 가능 조직
+	gfn_getTranPsvtCprnBzop();				// 피 협업 사업자
+
+	// 삭제예정
+	gfn_getTranPrdtInfo();				// 의류상품정보 처리
+	gfn_getTranEduPrdtGrp();			// EDU 상품군코드 처리
+	
+	// LNC 로직 추가
+	if(ds_Login.getColumn(0, "bzdpDivCd") == "LNC") {
+		gfn_getTranCommInfoToDataset("SYS00002R16", "getListlncSalePrdtPrc", 	gds_lncSalePrdtPrc);		// LNC판매상품가격 
+		gfn_getTranCommInfoToDataset("SYS00002R16", "getListlncSetPrdt", 		gds_lncSetPrdt);			// LNC세트상품      
+		gfn_getTranCommInfoToDataset("SYS00002R16", "getListlncSetPrdtComsDtl", gds_lncSetPrdtComsDtl);		// LNC세트상품구성내역  
+		gfn_getTranCommInfoToDataset("SYS00002R16", "getListlncClthSize", 		gds_lncClthSize);			// LNC의류사이즈     
+		gfn_getTranCommInfoToDataset("SYS00002R16", "getListlncMmbsPrc", 		gds_lncMmbsPrc);			// LNC멤버십가격        
+	}
+	
+	// 메뉴조회
+	fn_searchMenu();
+}
+
+// 메뉴 조회
+function fn_searchMenu()
+{
+	gds_Menu.clearData();
+	gds_UserMyMenu.clearData();
+
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.authorityadmnistrationdc.DCAthrAdmnSqlMap");
+	gfn_setKwData_trscCode("SYS00001R10");	
+	gfn_setKwData_sqlId("getUserMenuList");
+
+	gfn_tranDIS(gfn_getCommTypeAppend()
+				, "ds_Login=ds_Login"
+				, "gds_Menu=datas"
+				, "fn_searchMenu_callBack");	
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_searchMenu_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_searchMenu_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return false;
+	}
+	
+	if(gds_Menu.rowcount <= 0) {
+		alert("프로그램 사용권한이 없습니다.");
+		return false;
+	}
+
+	fn_searchMyMenu();
+}	
+
+// 마이메뉴 조회
+function fn_searchMyMenu()
+{
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.authorityadmnistrationdc.DCAthrAdmnSqlMap");
+	gfn_setKwData_trscCode("SYS00001R10");	
+	gfn_setKwData_sqlId("getUserMyMenuList");
+
+	gfn_tranDIS(gfn_getCommTypeAppend()
+				, "ds_Login=ds_Login"
+				, "gds_UserMyMenu=datas"
+				, "fn_searchMyMenu_callBack");
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_searchMyMenu_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_searchMyMenu_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return false;
+	}
+
+	// 개인환경설정정보 가져오기
+	fn_getEnvrStup();
+}	
+
+// 개인환경설정정보 가져오기
+function fn_getEnvrStup()
+{
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.authorityadmnistrationdc.DCAthrAdmnSqlMap");
+	gfn_setKwData_trscCode("SYS00010R01");
+	gfn_setKwData_sqlId("getUserStup");
+	//gfn_setKwData_trscReslType(gfn_getTranDataType_xml());
+
+	gfn_tranDIS(gfn_getCommTypeAppend() 
+				, "ds_input=ds_Login"
+				, "gds_userEnvrStup=datas"
+				, "fn_getEnvrStup_callBack");	
+
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_getEnvrStup_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_getEnvrStup_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	
+	if(gds_userEnvrStup.rowcount <= 0) {
+		var nRow = gds_userEnvrStup.addRow();
+		gds_userEnvrStup.setColumn(nRow, "basiMenuStupCd", 	0);
+		gds_userEnvrStup.setColumn(nRow, "leftMenuExpeYn", 	"Y");
+		gds_userEnvrStup.setColumn(nRow, "hrchMenuExpeYn", 	"Y");
+		gds_userEnvrStup.setColumn(nRow, "systMsgPpupYn", 	"Y");
+		gds_userEnvrStup.setColumn(nRow, "recpMsgNtfYn", 	"Y");
+	}
+
+	fn_Commit();
+}	
+
+function fn_Commit()
+{
+	// 트리상태(열림/펼침)처리 위한 칼럼 생성
+	gds_Menu.addColumn("treeStat", "String", 1);
+	
+	// 로그인 성공 후 처리(Menu)
+	// QuickView 예외처리
+	if(this.opener.name == "") {
+		ap_TopFrame.form.fn_Comm_Init("N", ds_Login.getColumn(0, "bzdpDivCd"));	// 메뉴설정 처리
+		ap_BottomFrame.form.fn_PushConnect();	// XPush Connection 처리
+		ap_BottomFrame.form.fn_init();			
+		ap_WorkMainFrame.form.fn_init();
+		
+		//ap_LeftFrame.form.tab_Menu.tabpage1.btn_LeftMenuHide.click();
+	}
+	
+	// 로그인시간 저장
+	GV_LOGINTIME = gfn_getTodayFull();
+	
+	// 아이디 저장
+	if(chk_saveId.value == 1) {
+		setPrivateProfile("loginId", ds_Login.getColumn(0, "userId"));			
+	} else {
+		setPrivateProfile("loginId", "");			
+	}
+	
+	close("OK");
+}
+
+function btn_Cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	exit();
+}
+]]></Script>
+  </Form>
+</FDL>

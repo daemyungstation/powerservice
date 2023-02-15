@@ -1,0 +1,1072 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+
+
+
+<mapper namespace="AcnTranMap">
+
+    <!-- [ [신규 탭] ]리스트 출력 : getUpdateInfo  -->
+     <select id="AcnTranMap.getTranNewCount" parameterType="map" resultType="int">
+
+
+
+
+ <![CDATA[
+
+
+
+       SELECT COUNT(*) FROM (
+
+                    SELECT '가입' as gubun
+                           ,MPA.ACCNT_NO
+                           ,MPA.kydate
+                           ,0 a1
+                           ,0 a2
+                           ,case when  NVL(MB.safekey,' ') >' '  then 'Y' else 'N' end safekey
+                           ,'y' as acon
+                           ,MB.HOME_ZIP
+                           ,mka.CPOST
+                           ,MB.HOME_ADDR
+                           ,mka.CADDR1
+                            ,HOME_ADDR2
+                           ,mka.CADDR2
+
+                    FROM MEM_PROD_ACCNT  MPA
+                         LEFT OUTER JOIN  MEMBER   MB ON MPA.MEM_NO=MB.MEM_NO
+                           LEFT OUTER JOIN  PRODUCT PRD ON MPA.PROD_CD=PRD.PROD_CD
+                         LEFT OUTER JOIN  PRODUCT_dTL PD ON MPA.PROD_CD=PD.PROD_CD  AND ALLT_AMT +ADD_aMT >0
+                           LEFT OUTER JOIN  MEM_KWN_AC   mka on MPA.ACCNT_NO =mka.accnt_no
+                           LEFT OUTER JOIN  PRODUCT_MODEL_CL_CD  pmcc on  mpa.prod_model_kind=pmcc.model_cl_cd
+                           LEFT OUTER JOIN (
+                                              SELECT PROD_CD
+                                                   ,END_NO
+                                                    ,(ALLT_aMT+ADD_AMT) HAP
+                                                  ,END_NO *(ALLT_aMT+ADD_AMT) HALBUAMT
+                                               FROM PRODUCT_DTL
+                                              WHERE PROD_CD='AB'
+                                             AND  (ALLT_AMT <>0 OR ADD_aMT <> 0)
+                                           )  HALBU ON MPA.PROD_CD = HALBU.PROD_CD
+
+                            LEFT OUTER JOIN (
+                                           SELECT accnt_no,max(no) cnt
+                                           FROM PAY_MNG
+                                           GROUP BY accnt_no
+                                          ) pay_mng_cnt on mpa.ACCNT_NO = pay_mng_cnt.ACCNT_NO
+                            LEFT OUTER JOIN CMS_MEM CM  ON MPA.ACCNT_NO=CM.ACCNT_NO
+
+
+                        WHERE   NVL(mka.accnt_no,' ') =' '  AND  PRD.ACUON_YN ='Y'
+                                                       ]]>
+
+
+
+                          <!--  AND  MPA.KYDATE   <![CDATA[  <= ]]> P_TDATE   -->
+
+                            <if test="kydate != null and kydate != '' and kydate.equalsIgnoreCase(1)">
+                                <![CDATA[   AND  NVL(mpa.kydate,' ') <= substr(#{year_mon},1,6) || '15' ]]>
+                          </if>
+                          <if test="kydate != null and kydate != '' and kydate.equalsIgnoreCase(2)">
+                                 <![CDATA[   and   NVL(mpa.kydate,' ')  <=  TO_CHAR(ADD_MONTHS( #{year_mon}, -1),'YYYYMM') ||'31'   ]]>
+                          </if>
+
+
+
+
+
+             UNION ALL
+
+                    SELECT '연체3회차해지'
+                            ,MPA.ACCNT_NO
+                            ,MPA.kydate    <!-- 오늘자 해지 -->
+        <![CDATA[           ,CASE WHEN ALLT_AMT > 0  AND add_amt < 0
+                                      THEN yen_che  *  ALLT_AMT
+
+                                  WHEN ALLT_AMT < 0  AND add_amt > 0
+                                      THEN yen_che1 * add_amt
+                                  ELSE yen_che * (allt_Amt+add_Amt)
+                             END
+                            ,CASE WHEN ALLT_AMT > 0  AND add_amt < 0
+                                      THEN  	yen_che
+                                  WHEN ALLT_AMT < 0  and add_amt > 0
+                                      THEN  	yen_che1
+                                  ELSE yen_che
+                             END
+                            ,''
+                            ,''
+                            ,''
+                            ,''
+                            ,''
+                            ,''
+                            ,''
+                            ,''
+                    FROM  MEM_PROD_ACCNT  MPA
+                          INNER  JOIN (select m.accnt_no,
+                              TRUNC(MONTHS_BETWEEN( #{year_mon}, SUBSTR(join_dt,1,6)||'01'))  + 1 as join_no,
+                              new_chan_gunsu,
+                              P.expr_no,
+                              NVL(count(r.no), 0) as pay_no,
+                             case when  allt_amt > 0 then   NVL((TRUNC(MONTHS_BETWEEN( #{year_mon}, substr(join_dt,1,6)||mka1.MEM_KDAY ) )  ), 0) +1   - NVL((NVL(count(r.no), 0)), 0)  else 0 end   as yen_che,
+                             case when add_amt >0 then      NVL((TRUNC(MONTHS_BETWEEN( #{year_mon}, substr(join_dt,1,6)||mka1.MEM_KDAY ) )  ), 0) +1   - NVL((NVL(count(r1.no), 0)), 0)  else  0 end  as yen_che1,
+                             allt_amt,
+                             add_Amt
+                            from mem_prod_accnt   m
+                              inner join product  p on m.prod_cd = p.prod_cd
+                              left outer join PAY_MNG_DTL   r on m.accnt_no = r.accnt_no and r.del_fg = 'N'
+                              left outer join PAY_MNG_DTL1   r1 on m.accnt_no = r1.accnt_no and r1.del_fg = 'N'
+                              left outer join PRODUCT_DTL   PD ON M.PROD_CD=PD.PROD_CD  AND (ALLT_AMT+ ADD_aMT ) > 0
+                              left outer join MEM_KWN_AC MKA1  ON m.ACCNT_NO =MKA1.ACCNT_NO  and  mka1.GGUBUN not in ('A4','B1','C1')
+                            where NVL(M.KYDATE,' ') > ' '  AND NVL(MKA1.ACCNT_NO,' ') >' '
+                            group by m.accnt_no, m.join_dt, new_chan_gunsu, expr_no,allt_amt,add_Amt ,mka1.MEM_KDAY ) BB on MPA.ACCNT_NO =BB.ACCNT_NO
+                              left outer join DELIVERY_INFO DI ON MPA.ACCNT_NO=DI.ACCNT_NO
+                      WHERE NVL(MPA.KYDATE,'') > ' '
+                        AND case when ALLT_AMT > 0  and add_amt < 0 then  	yen_che
+                            when ALLT_AMT < 0  and add_amt > 0 then  	yen_che1 else yen_che end  > 3
+
+
+           ]]>
+              UNION ALL
+
+
+                    SELECT  '정보변경'
+                            ,MPA.ACCNT_NO  <!--  회원번호 -->
+                            ,MPA.kydate
+                            ,0 a1
+                            ,0 a2
+                            ,''
+                            ,''
+                            ,MB.HOME_ZIP
+                            ,mka.CPOST
+                            ,MB.HOME_ADDR
+                            ,mka.CADDR1
+                            ,HOME_ADDR2
+                            ,mka.CADDR2
+                    FROM mem_prod_accnt  mpa
+                         LEFT OUTER JOIN  MEMBER  MB ON MPA.MEM_NO=MB.MEM_NO
+                         LEFT OUTER JOIN MEM_KWN_AC mka on mpa.ACCNT_NO =mka.ACCNT_NO  AND ggubun in ('A1','A3')
+                         LEFT OUTER JOIN  cms_mem  cm on  mpa.ACCNT_NO =cm.ACCNT_NO
+
+         <![CDATA[
+                    WHERE NVL(mka.accnt_no,' ') >' '
+                    AND  MB.HOME_ZIP  <>   mka.CPOST
+                    AND  MB.HOME_ADDR  <>   mka.CADDR1
+                    AND   HOME_ADDR2     <>   mka.CADDR2
+          ]]>
+                             )  CC  <!--SELECT COUNT FROM 닫는 괄호  -->
+
+
+
+     </select>
+
+     <select id="AcnTranMap.getTranNewList" parameterType="map" resultType="resultMap" >
+
+     <![CDATA[   SELECT   /* AcnTranMap.getTranNewList */
+                            '가입' as gubun
+                           ,MPA.ACCNT_NO
+                           ,MB.MEM_NM
+                           ,MPA.kydate
+                           ,0 a1
+                           ,0 a2
+                         ,case when  NVL(MB.safekey,' ') >' '  then  case when ACUON_FITNESS_YN ='Y' then   'Y' else 'N : SAFEKEY 부적합' end  else      'N : SAFEKEY 없음 ' end safekey
+                           , case when  ARH.cnt > 0 then 'Y :' || to_char(ARH.cnt)  ||'건'  else 'N' end  as acon
+                           /*  ,MB.HOME_ZIP
+                           ,mka.CPOST
+                           ,MB.HOME_ADDR
+                           ,mka.CADDR1
+                            ,HOME_ADDR2
+                           ,mka.CADDR2 */
+                           ,'' HOME_ZIP
+                           ,'' CPOST
+                           ,'' HOME_ADDR
+                           ,'' CADDR1
+                           ,'' HOME_ADDR2
+                           ,'' CADDR2
+                           ,   case when   NVL(MB.HOME_ZIP,' ') >' ' or
+                                           NVL(MB.HOME_ADDR,' ') >' ' or
+                                            NVL(MB.HOME_ADDR2,' ') >' '    THEN 'Y' ELSE 'N' END  HOME_YN
+                           ,NVL(ACO_REBIT,' ') ACO_REBIT
+                            ,(case when  NVL(FN_PAY_MNG(MPA.ACCNT_NO) ,' ') >' ' then 'Y' else 'N' end)  PAY_STAT_1NO
+                           ,NVL(MB.CELL,' ') CELL
+                           ,  CONFIRM_DT CONFIRM_DT
+                           ,  DELIVERY_DT DELIVERY_DT
+                           ,  ORDER_DT ORDER_DT
+                            , JOIN_DT JOIN_DT
+                            , (case when   FLOOR(MONTHS_BETWEEN(SYSDATE,TO_DATE(MB.BRTH_MON_DAY,'YYYYMMDD'))/12)  >= 25 and
+                                         FLOOR(MONTHS_BETWEEN(SYSDATE,TO_DATE(MB.BRTH_MON_DAY,'YYYYMMDD'))/12) <= 65    then TO_CHAR(FLOOR(MONTHS_BETWEEN(SYSDATE,TO_DATE(MB.BRTH_MON_DAY,'YYYYMMDD'))/12)) else
+                                         FLOOR(MONTHS_BETWEEN(SYSDATE,TO_DATE(MB.BRTH_MON_DAY,'YYYYMMDD'))/12) || '/제외자' end ) MAN
+
+                    FROM MEM_PROD_ACCNT  MPA
+                           LEFT OUTER JOIN  MEMBER   MB ON MPA.MEM_NO=MB.MEM_NO
+                           LEFT OUTER JOIN  PRODUCT PRD ON MPA.PROD_CD=PRD.PROD_CD
+                           LEFT OUTER JOIN  PRODUCT_dTL PD ON MPA.PROD_CD=PD.PROD_CD  AND ALLT_AMT +ADD_aMT >0
+                           LEFT OUTER JOIN  MEM_KWN_AC   mka on MPA.ACCNT_NO =mka.accnt_no
+                           LEFT OUTER JOIN  PRODUCT_MODEL_CL_CD  pmcc on  mpa.prod_model_kind=pmcc.model_cl_cd
+                           LEFT OUTER JOIN (
+                                              SELECT PROD_CD
+                                                   ,END_NO
+                                                    ,(ALLT_aMT+ADD_AMT) HAP
+                                                  ,END_NO *(ALLT_aMT+ADD_AMT) HALBUAMT
+                                               FROM PRODUCT_DTL
+                                              WHERE PROD_CD='AB'
+                                             AND  (ALLT_AMT <>0 OR ADD_aMT <> 0)
+                                           )  HALBU ON MPA.PROD_CD = HALBU.PROD_CD
+
+                            LEFT OUTER JOIN (
+                                           SELECT accnt_no,max(no) cnt
+                                           FROM PAY_MNG
+                                           GROUP BY accnt_no
+                                          ) pay_mng_cnt on mpa.ACCNT_NO = pay_mng_cnt.ACCNT_NO
+                            LEFT OUTER JOIN CMS_MEM CM  ON MPA.ACCNT_NO=CM.ACCNT_NO
+                            left outer join (select accnt_no ,count(accnt_no) cnt from ACUON_REC_HIST where agubun='2' AND SDATE= #{year_mon} group by accnt_no) ARH on MPA.ACCNT_NO=ARH.ACCNT_NO
+                            left outer join DELIVERY_INFO DI ON MPA.ACCNT_NO=DI.ACCNT_NO
+                        WHERE NVL(MKA.ACCNT_NO,' ') =' ' AND  PRD.ACUON_YN ='Y'
+                                                       ]]>
+
+                          <!--  AND  MPA.KYDATE   <![CDATA[  <= ]]> P_TDATE   -->
+                            <if test="kydate != null and kydate != '' and kydate.equalsIgnoreCase(1)">
+                                <![CDATA[   AND NVL(mpa.kydate,' ') <= substr(#{year_mon},1,6) || '15' ]]>
+                          </if>
+                          <if test="kydate != null and kydate != '' and kydate.equalsIgnoreCase(2)">
+                                 <![CDATA[   and   NVL(mpa.kydate,' ') <=  TO_CHAR(ADD_MONTHS( #{year_mon}, -1),'YYYYMM') ||'31'   ]]>
+                          </if>
+            UNION ALL
+
+
+
+
+                    SELECT '연체4해지'
+                            ,MPA.ACCNT_NO
+                             ,MB.MEM_NM
+                            ,MPA.kydate    <!-- 오늘자 해지 -->
+        <![CDATA[           ,CASE WHEN ALLT_AMT > 0  AND add_amt < 0
+                                      THEN yen_che  *  ALLT_AMT
+
+                                  WHEN ALLT_AMT < 0  AND add_amt > 0
+                                      THEN yen_che1 * add_amt
+                                  ELSE yen_che * (allt_Amt+add_Amt)
+                             END
+                            ,CASE WHEN ALLT_AMT > 0  AND add_amt < 0
+                                      THEN  	yen_che
+                                  WHEN ALLT_AMT < 0  and add_amt > 0
+                                      THEN  	yen_che1
+                                  ELSE yen_che
+                             END
+                            ,''
+                            ,''
+                            ,''
+
+                            ,''
+                            ,''
+                            ,''
+                            ,''
+                             ,''
+                            ,''
+                            ,''
+                            ,''
+                            ,MB.CELL
+                            , CONFIRM_DT CONFIRM_DT
+                           ,  DELIVERY_DT DELIVERY_DT
+                           , ORDER_DT ORDER_DT
+                           ,MPA.JOIN_DT
+                           ,''
+                    FROM  MEM_PROD_ACCNT  MPA
+                     LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO=MB.MEM_NO
+                     INNER  JOIN (select m.accnt_no,
+                              TRUNC(MONTHS_BETWEEN( #{year_mon}, SUBSTR(join_dt,1,6)||'01'))  + 1 as join_no,
+                              new_chan_gunsu,
+                              P.expr_no,
+                              NVL(count(r.no), 0) as pay_no,
+                             case when  allt_amt > 0 then   NVL((TRUNC(MONTHS_BETWEEN( #{year_mon}, substr(join_dt,1,6)||mka1.MEM_KDAY ) )  ), 0) +1   - NVL((NVL(count(r.no), 0)), 0)  else 0 end   as yen_che,
+                             case when add_amt >0 then      NVL((TRUNC(MONTHS_BETWEEN( #{year_mon}, substr(join_dt,1,6)||mka1.MEM_KDAY ) )  ), 0) +1   - NVL((NVL(count(r1.no), 0)), 0)  else  0 end  as yen_che1,
+                             allt_amt,
+                             add_Amt
+                            from mem_prod_accnt   m
+                              inner join product  p on m.prod_cd = p.prod_cd
+                              left outer join PAY_MNG_DTL   r on m.accnt_no = r.accnt_no and r.del_fg = 'N'
+                              left outer join PAY_MNG_DTL1   r1 on m.accnt_no = r1.accnt_no and r1.del_fg = 'N'
+                              left outer join PRODUCT_DTL   PD ON M.PROD_CD=PD.PROD_CD  AND (ALLT_AMT+ ADD_aMT ) > 0
+                              left outer join MEM_KWN_AC MKA1  ON m.ACCNT_NO =MKA1.ACCNT_NO  and  mka1.GGUBUN not in ('A4','B1','C1')
+                            where NVL(M.KYDATE,' ') > ' '  AND NVL(MKA1.ACCNT_NO,' ') >' '
+                            group by m.accnt_no, m.join_dt, new_chan_gunsu, expr_no,allt_amt,add_Amt ,mka1.MEM_KDAY ) BB on MPA.ACCNT_NO =BB.ACCNT_NO
+                              left outer join DELIVERY_INFO DI ON MPA.ACCNT_NO=DI.ACCNT_NO
+                      WHERE NVL(MPA.KYDATE,'') > ' '
+                        AND case when ALLT_AMT > 0  and add_amt < 0 then  	yen_che
+                            when ALLT_AMT < 0  and add_amt > 0 then  	yen_che1 else yen_che end  > 3
+
+           ]]>
+              UNION ALL
+
+
+                    SELECT  '정보변경'
+                            ,MPA.ACCNT_NO  <!--  회원번호 -->
+                             ,MB.MEM_NM
+                            ,MPA.kydate
+                            ,0 a1
+                            ,0 a2
+                            ,''
+                            ,''
+                            ,MB.HOME_ZIP
+                            ,mka.CPOST
+                            ,MB.HOME_ADDR
+                            ,mka.CADDR1
+                            ,HOME_ADDR2
+                            ,mka.CADDR2
+                             ,''
+                            ,''
+
+                            ,''
+                            ,MB.CELL
+                            ,CONFIRM_DT CONFIRM_DT
+                           , DELIVERY_DT DELIVERY_DT
+                           , ORDER_DT ORDER_DT
+                            ,MPA.JOIN_DT
+                            ,''
+                    FROM mem_prod_accnt  mpa
+                         LEFT OUTER JOIN  MEMBER  MB ON MPA.MEM_NO=MB.MEM_NO
+                         LEFT OUTER JOIN MEM_KWN_AC mka on mpa.ACCNT_NO =mka.ACCNT_NO  AND ggubun in ('A1','A3')
+                         LEFT OUTER JOIN  cms_mem  cm on  mpa.ACCNT_NO =cm.ACCNT_NO
+                         left outer join DELIVERY_INFO DI ON MPA.ACCNT_NO=DI.ACCNT_NO
+
+         <![CDATA[
+                    WHERE NVL(mka.accnt_no,' ') >' '
+                    AND  MB.HOME_ZIP  <>   mka.CPOST
+                    AND  MB.HOME_ADDR  <>   mka.CADDR1
+                    AND   HOME_ADDR2     <>   mka.CADDR2
+          ]]>
+
+
+
+    </select>
+
+
+
+     <!--삭제카운트... -->
+
+       <delete id="AcnTranMap.deleteCount" parameterType="map">
+        DELETE /* EdctCrsMap.deleteEdctCrs */
+          FROM MEM_SEND_AC
+        WHERE JDATE = #{year_mon}
+         </delete>
+
+
+           <!--수납삭제카운트... -->
+
+       <delete id="AcnTranMap.deletesunapCount" parameterType="map">
+        DELETE /* EdctCrsMap.deletesunapEdctCrs */
+          FROM MEMBER_IPSEND_AC
+        WHERE JDATE  = #{year_mon}
+         </delete>
+
+
+<!-- [ [메인산출 탭] ]검색결과 count  -->
+
+    <select id="AcnTranMap.getTranMonCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*) FROM MEM_SEND_AC
+        WHERE  GUBUN   <![CDATA[<]]>'4'
+
+     </select>
+
+
+    <!-- [ [메인산출err] ]검색결과 count  -->
+
+    <select id="AcnTranMap.getTranMonerrCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*) FROM MEM_SEND_AC_hist
+        WHERE  jdate  = #{jdate}
+
+     </select>
+
+    <select id="AcnTranMap.getselectresultCount" parameterType="map" resultType="int">
+
+        SELECT  /* AcnTranMap.getselectresultCount */
+                COUNT(*) FROM mem_kwn_ac mka
+                inner join mem_prod_accnt mpa on mka.accnt_no=mpa.ACCNT_NO
+                   left outer join member mb on mpa.mem_no=mb.mem_no
+               where 1 = 1
+          <if test="gbit_yn != null and gbit_yn != ''">
+                 <if test='gbit_yn == "1" '>
+                    AND mka.ggubun  in ('A1','A3')
+                 </if>
+                 <if test='gbit_yn == "2" '>
+                   AND mka.ggubun  in ('A4','B1','C1')
+                 </if>
+          </if>
+          <if test="accnt_no != null and accnt_no != ''">
+                and mka.accnt_no = #{accnt_no}
+          </if>
+          <if test="mem_nm != null and mem_nm != ''">
+                and mb.mem_nm = #{mem_nm}
+          </if>
+          <if test="fyenche != null and fyenche != ''  ">
+                 and FN_ACO_YENCHE(mka.ACCNT_NO) >=  #{fyenche}
+           </if>
+           <if test="tyenche != null and tyenche != ''  ">
+                 and FN_ACO_YENCHE(mka.ACCNT_NO)<![CDATA[<=]]>  #{tyenche}
+           </if>
+
+
+     </select>
+
+
+
+<!-- [ [애큐온신고리스트] ] 검색결과 list  -->
+        <select id="AcnTranMap.gettranseletresultList" parameterType="map" resultType="resultMap" >
+
+
+                SELECT  /* AcnTranMap.gettranseletresultList */
+                            ROW_NUMBER() OVER(order by cnt ) AS SEQ
+                        ,MEM_KWN_AC.JDATE
+                        ,MEM_KWN_AC.GDATE
+                           ,MEM_KWN_AC.CNT
+                          ,MEM_KWN_AC.ACCNT_NO
+                        ,case when MEM_KWN_AC.GUBUN ='1' then '생성'
+                              when MEM_KWN_AC.GUBUN ='2' then '전송'
+                              when MEM_KWN_AC.GUBUN ='3' then '결과처리'
+                              when MEM_KWN_AC.GUBUN ='4' then '완료'
+                              else '' end as GUBUN
+                        ,MEM_KWN_AC.KYDATE
+                           , MEM_KWN_AC.GGUBUN
+                           ,MEM_KWN_AC.CTEL
+                           ,MEM_KWN_AC.CPOST
+                           ,MEM_KWN_AC.CADDR1
+                           ,MEM_KWN_AC.CADDR2
+                        ,MEM_KWN_AC.CADDRGUBUN
+                           ,MEM_KWN_AC.PCHANNEL
+                          ,MEM_KWN_AC.BDATE
+                           ,MEM_KWN_AC.BCNT
+                           ,MEM_KWN_AC.JCODE
+                           ,MEM_KWN_AC.PCODE
+                           ,MEM_KWN_AC.MODELNAME
+                           ,MEM_KWN_AC.KMODELNAME
+                           ,nvl(MEM_KWN_AC.HAL_AMT,0) as HAL_AMT
+                           ,nvl(MEM_KWN_AC.HAL_CNT,0) as HAL_CNT
+                           ,MEM_KWN_AC.HAL_FDATE
+                           ,MEM_KWN_AC.HAL_EDATE
+                           ,MEM_KWN_AC.CDATE
+                           ,MEM_KWN_AC.HAEJI_DATE
+                           ,MEM_KWN_AC.HBIGO
+                           ,nvl(MEM_KWN_AC.HAL_SUSU,0) as HAL_SUSU
+                           ,MEM_KWN_AC.KDAY
+                           ,MEM_KWN_AC.KBANK
+                           ,nvl(MEM_KWN_AC.KBNO ,0)as   KBNO
+                           ,MEM_KWN_AC.M_YN
+                           ,MEM_KWN_AC.M_YN1
+                           ,MEM_KWN_AC.M_YN2
+                           ,MEM_KWN_AC.M_YN3
+                           ,MEM_KWN_AC.M_YN4
+                           ,MEM_KWN_AC.M_YN5
+                           ,MEM_KWN_AC.M_YN6
+                           ,MEM_KWN_AC.M_YN7
+                           ,MEM_KWN_AC.M_YN8
+                           ,MEM_KWN_AC.M_YN9
+                           ,MEM_KWN_AC.M_YN10
+                           ,MEM_KWN_AC.NICE_JDDATE
+                           ,MEM_KWN_AC.NICE_JGUBUN
+                           ,MEM_KWN_AC.NICE_JDATE
+                           ,MEM_KWN_AC.NICE_CB
+                          , MEM_KWN_AC.NICE_SP
+                           ,MEM_KWN_AC.NICE_SAFEKEY
+                          , nvl(MEM_KWN_AC.NICE_NCNT,0) as NICE_NCNT
+                           ,MEM_KWN_AC.NICE_YN
+                           ,MEM_KWN_AC.GS_YN1
+                           ,MEM_KWN_AC.GS_YN2
+                           ,MEM_KWN_AC.GS_YN3
+                           ,nvl(MEM_KWN_AC.NAPBU_GCNT,0) as NAPBU_GCNT
+                           ,MEM_KWN_AC.MEM_KDAY
+                           ,NVL(MEM_KWN_AC.MINAP,0) MINAP
+                           ,NVL(MEM_KWN_AC.YEOUNCHE,0) YEOUNCHE
+                           ,MEM_KWN_AC.HAL_SILAMT
+                           ,MEM_KWN_AC.HAL_GUBUN
+                           ,replace(MEM_KWN_AC.HAL_REJECT,' ','') HAL_REJECT
+                           ,REPLACE(MEMBER.MEM_NM,' ','')as MEM_NM
+                           ,MEMBER.MEM_NO
+                           ,substr(MEMBER.BRTH_MON_DAY,-6) || substr(SEX,-1)  AS BRTH_MON_DAY
+                           ,MEM_KWN_AC.CAMT
+                           ,MEM_KWN_AC.SUAMT
+                           ,MEM_KWN_AC.CSUAMT
+                           ,MEM_KWN_AC.IP_DATE
+                           ,MEM_KWN_AC.IP_AMT
+                           ,MEM_KWN_AC.IP_NO
+                           ,CC.CD_NM
+						   , FN_ACO_YENCHE(MEM_KWN_AC.ACCNT_NO) YENCHE
+                  FROM MEM_KWN_AC
+                        LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEM_KWN_AC.ACCNT_NO =MPA.ACCNT_NO
+                        LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+                        LEFT OUTER JOIN  COM_CD CC  ON  CC.GRP_CD='S007' AND  SUBSTR(REPLACE(MEM_KWN_AC.HAL_REJECT,' ',''),-4) = CC.COM_CD
+
+                  where 1 = 1
+                  <if test="gbit_yn != null and gbit_yn != ''">
+                         <if test='gbit_yn == "1" '>
+                            AND MEM_KWN_AC.ggubun  in ('A1','A3')
+                         </if>
+                         <if test='gbit_yn == "2" '>
+                           AND MEM_KWN_AC.ggubun  in ('A4','B1','C1')
+                         </if>
+		                  </if>
+		                  <if test="accnt_no != null and accnt_no != ''">
+		                        and MEM_KWN_AC.accnt_no = #{accnt_no}
+		                  </if>
+		                  <if test="mem_nm != null and mem_nm != ''">
+		                        and MEMBER.mem_nm = #{mem_nm}
+		                  </if>
+		                  <if test="fyenche != null and fyenche != ''  ">
+		                        and FN_ACO_YENCHE(MEM_KWN_AC.ACCNT_NO) >=  #{fyenche}
+		                  </if>
+		                  <if test="tyenche != null and tyenche != ''  ">
+		                        and FN_ACO_YENCHE(MEM_KWN_AC.ACCNT_NO)<![CDATA[<=]]>  #{tyenche}
+		                  </if>
+
+
+
+
+
+    </select>
+
+
+
+
+       <select id="AcnTranMap.getsuTranMonCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*) FROM MEMBER_IPSEND_AC
+        WHERE GUBUN   <![CDATA[<]]>'4'
+
+     </select>
+
+
+
+    <select id="AcnTranMap.getsuCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*) FROM MEMBER_IPSEND_AC
+        WHERE JDATE = #{year_mon}
+
+     </select>
+
+
+
+
+     <select id="AcnTranMap.getrecacoCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*) FROM MEM_SEND_AC
+        WHERE JDATE = #{year_mon} and  ggubun='A1'
+
+     </select>
+
+
+
+
+
+<!-- [ [녹취산출 탭] ] 검색결과 list  -->
+        <select id="AcnTranMap.getrecacoList" parameterType="map" resultType="resultMap" >
+
+
+
+          <!--       SELECT ROW_NUMBER() OVER(order by ARH.accnt_no ) AS SEQ
+                        ,ARH.SDATE JDATE
+                        ,ARH.ACCNT_NO
+                        ,COUNT(*) CNT
+                        ,(SELECT CASE WHEN NVL(max(ACCNT_NO),'99')='99' THEN 'X' ELSE 'O' END  FROM MEM_SEND_AC WHERE JDATE = #{year_mon} AND ACCNT_NO=ARH.ACCNT_NO) YN
+                  FROM ACUON_REC_HIST ARH
+
+                 WHERE ARH.SDATE = #{year_mon}
+
+                 GROUP BY ARH.SDATE,ARH.ACCNT_NO   -->
+
+                 select  ROW_NUMBER() OVER(order by msa.accnt_no ) as seq ,
+                        msa.ACCNT_NO ,
+                        msa.JDATE,
+                        ARH.SDATE,
+                        (SELECT COUNT(ACCNT_NO) FROM ACUON_REC_HIST WHERE  ACCNT_NO=MSA.ACCNT_NO  AND SDATE=ARH.SDATE) CNT ,
+                        CASE WHEN ARH.SDATE =#{year_mon} THEN 'O' ELSE 'X' END  AS YN
+                from MEM_SEND_AC msa
+                     LEFT OUTER JOIN (select ACCNT_NO,MAX(SDATE) SDATE
+                                        from ACUON_REC_HIST WHERE  AGUBUN='2'
+                                        GROUP BY ACCNT_NO) ARH ON MSA.ACCNT_NO=ARH.ACCNT_NO
+                where msa.jdate =#{year_mon} and
+                      msa.ggubun='A1'
+
+
+    </select>
+
+
+
+
+
+
+
+                <select id="AcnTranMap.getrejectList" parameterType="map" resultType="resultMap" >
+
+
+                SELECT ROW_NUMBER() OVER(order by MEM_PROD_ACCNT.ACCNT_NO ) AS SEQ
+                        ,MEM_PROD_ACCNT.ACCNT_NO
+                        ,MEM_NM
+                        ,MEM_PROD_ACCNT.ACO_ERR
+                        , case when MEM_PROD_ACCNT.ACO_REBIT = '0' then '신청보류' else MEM_PROD_ACCNT.ACO_REBIT end as ACO_REBIT
+
+                  FROM MEM_PROD_ACCNT
+                        LEFT OUTER JOIN  MEMBER ON MEM_PROD_ACCNT.MEM_NO =MEMBER.MEM_NO
+
+         <![CDATA[         WHERE nvl(MEM_PROD_ACCNT.KYDATE,' ') >' ' AND   nvl(MEM_PROD_ACCNT.ACO_ERR,' ') > '0000' AND MEM_PROD_ACCNT.ACO_REBIT IN ('1')  ]]>
+
+
+    </select>
+
+
+
+
+
+
+
+
+
+<!-- [ [메인산출 탭] ] 검색결과 list  -->
+        <select id="AcnTranMap.getTranMonList" parameterType="map" resultType="resultMap" >
+
+
+                SELECT ROW_NUMBER() OVER(order by MEM_SEND_AC.cnt ) AS SEQ
+                        ,MEM_SEND_AC.JDATE
+                        ,MEM_SEND_AC.GDATE
+                           ,MEM_SEND_AC.CNT
+                          ,MEM_SEND_AC.ACCNT_NO
+                        ,case when MEM_SEND_AC.GUBUN ='1' then '생성'
+                              when MEM_SEND_AC.GUBUN ='2' then '전송'
+                              when MEM_SEND_AC.GUBUN ='3' then '결과처리'
+                              when MEM_SEND_AC.GUBUN ='4' then '완료'
+                              else '' end as GUBUN
+                        ,MEM_SEND_AC.KYDATE
+                           , MEM_SEND_AC.GGUBUN
+                           ,MEM_SEND_AC.CTEL
+                           ,MEM_SEND_AC.CPOST
+                           ,MEM_SEND_AC.CADDR1
+                           ,MEM_SEND_AC.CADDR2
+                        ,MEM_SEND_AC.CADDRGUBUN
+                           ,MEM_SEND_AC.PCHANNEL
+                          ,MEM_SEND_AC.BDATE
+                           ,MEM_SEND_AC.BCNT
+                           ,MEM_SEND_AC.JCODE
+                           ,MEM_SEND_AC.PCODE
+                           ,MEM_SEND_AC.MODELNAME
+                           ,MEM_SEND_AC.KMODELNAME
+                           ,CASE WHEN  MEM_SEND_AC.GGUBUN ='A3' THEN MKA.HAL_AMT ELSE nvl(MEM_SEND_AC.HAL_AMT,0) END  AS HAL_AMT
+                           ,nvl(MEM_SEND_AC.HAL_CNT,0) as HAL_CNT
+                           ,MEM_SEND_AC.HAL_FDATE
+                           ,MEM_SEND_AC.HAL_EDATE
+                           ,MEM_SEND_AC.CDATE
+                           ,MEM_SEND_AC.HAEJI_DATE
+                           ,MEM_SEND_AC.HBIGO
+                           ,nvl(MEM_SEND_AC.HAL_SUSU,0) as HAL_SUSU
+                           ,MEM_SEND_AC.KDAY
+                           ,MEM_SEND_AC.KBANK
+                           ,nvl(MEM_SEND_AC.KBNO ,0)as   KBNO
+                           ,MEM_SEND_AC.M_YN
+                           ,MEM_SEND_AC.M_YN1
+                           ,MEM_SEND_AC.M_YN2
+                           ,MEM_SEND_AC.M_YN3
+                           ,MEM_SEND_AC.M_YN4
+                           ,MEM_SEND_AC.M_YN5
+                           ,MEM_SEND_AC.M_YN6
+                           ,MEM_SEND_AC.M_YN7
+                           ,MEM_SEND_AC.M_YN8
+                           ,MEM_SEND_AC.M_YN9
+                           ,MEM_SEND_AC.M_YN10
+                           ,MEM_SEND_AC.NICE_JDDATE
+                           ,MEM_SEND_AC.NICE_JGUBUN
+                           ,MEM_SEND_AC.NICE_JDATE
+                           ,MEM_SEND_AC.NICE_CB
+                          ,MEM_SEND_AC.NICE_SP
+                           ,MEM_SEND_AC.NICE_SAFEKEY
+                          ,nvl(MEM_SEND_AC.NICE_NCNT,0) as NICE_NCNT
+                           ,MEM_SEND_AC.NICE_YN
+                           ,MEM_SEND_AC.GS_YN1
+                           ,MEM_SEND_AC.GS_YN2
+                           ,MEM_SEND_AC.GS_YN3
+                           ,nvl(MEM_SEND_AC.NAPBU_GCNT,0) as NAPBU_GCNT
+                           ,MEM_SEND_AC.MEM_KDAY
+                           ,NVL(MEM_SEND_AC.MINAP,0) MINAP
+                           ,NVL(MEM_SEND_AC.YEOUNCHE,0) YEOUNCHE
+                           ,MEM_SEND_AC.HAL_SILAMT
+                           ,MEM_SEND_AC.HAL_GUBUN
+                           ,MEM_SEND_AC.HAL_REJECT
+                           ,REPLACE(MEMBER.MEM_NM,' ','')as MEM_NM
+                           ,MEMBER.MEM_NO
+                           ,substr(MEMBER.BRTH_MON_DAY,-6) || substr(SEX,-1)  AS BRTH_MON_DAY
+
+
+                  FROM MEM_SEND_AC
+                        LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEM_SEND_AC.ACCNT_NO =MPA.ACCNT_NO
+                      LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+                      LEFT OUTER JOIN  MEM_KWN_AC MKA ON MEM_SEND_AC.ACCNT_NO=MKA.ACCNT_NO
+
+                 WHERE MEM_SEND_AC.JDATE = #{year_mon}
+
+                  <if test="kydate != null and kydate != '' ">
+                      <![CDATA[    and MEM_SEND_AC.GBIT =#{kydate} ]]>
+                  </if>
+
+    </select>
+
+
+
+<!-- [ [메인산출err] ] 검색결과 list  -->
+        <select id="AcnTranMap.getTranMonerrList" parameterType="map" resultType="resultMap" >
+
+
+                  SELECT ROW_NUMBER() OVER(order by MEM_SEND_AC_HIST.HGUBUN ) AS SEQ
+                        ,MEM_SEND_AC_HIST.JDATE
+                        ,MEM_SEND_AC_HIST.GDATE
+                           ,MEM_SEND_AC_HIST.CNT
+                          ,MEM_SEND_AC_HIST.ACCNT_NO
+                        ,case when MEM_SEND_AC_HIST.GUBUN ='1' then '생성'
+                              when MEM_SEND_AC_HIST.GUBUN ='2' then '전송'
+                              when MEM_SEND_AC_HIST.GUBUN ='3' then '결과처리'
+                              when MEM_SEND_AC_HIST.GUBUN ='4' then '완료'
+                              else '' end as GUBUN
+                        ,MEM_SEND_AC_HIST.KYDATE
+                           , MEM_SEND_AC_HIST.GGUBUN
+                           ,MEM_SEND_AC_HIST.CTEL
+                           ,MEM_SEND_AC_HIST.CPOST
+                           ,MEM_SEND_AC_HIST.CADDR1
+                           ,MEM_SEND_AC_HIST.CADDR2
+                        ,MEM_SEND_AC_HIST.CADDRGUBUN
+                           ,MEM_SEND_AC_HIST.PCHANNEL
+                          ,MEM_SEND_AC_HIST.BDATE
+                           ,MEM_SEND_AC_HIST.BCNT
+                           ,MEM_SEND_AC_HIST.JCODE
+                           ,MEM_SEND_AC_HIST.PCODE
+                           ,MEM_SEND_AC_HIST.MODELNAME
+                           ,MEM_SEND_AC_HIST.KMODELNAME
+                           ,nvl(MEM_SEND_AC_HIST.HAL_AMT,0) as HAL_AMT
+                           ,nvl(MEM_SEND_AC_HIST.HAL_CNT,0) as HAL_CNT
+                           ,MEM_SEND_AC_HIST.HAL_FDATE
+                           ,MEM_SEND_AC_HIST.HAL_EDATE
+                           ,MEM_SEND_AC_HIST.CDATE
+                           ,MEM_SEND_AC_HIST.HAEJI_DATE
+                           ,MEM_SEND_AC_HIST.HBIGO
+                           ,nvl(MEM_SEND_AC_HIST.HAL_SUSU,0) as HAL_SUSU
+                           ,MEM_SEND_AC_HIST.KDAY
+                           ,MEM_SEND_AC_HIST.KBANK
+                           ,nvl(MEM_SEND_AC_HIST.KBNO ,0)as   KBNO
+                           ,MEM_SEND_AC_HIST.M_YN
+                           ,MEM_SEND_AC_HIST.M_YN1
+                           ,MEM_SEND_AC_HIST.M_YN2
+                           ,MEM_SEND_AC_HIST.M_YN3
+                           ,MEM_SEND_AC_HIST.M_YN4
+                           ,MEM_SEND_AC_HIST.M_YN5
+                           ,MEM_SEND_AC_HIST.M_YN6
+                           ,MEM_SEND_AC_HIST.M_YN7
+                           ,MEM_SEND_AC_HIST.M_YN8
+                           ,MEM_SEND_AC_HIST.M_YN9
+                           ,MEM_SEND_AC_HIST.M_YN10
+                           ,MEM_SEND_AC_HIST.NICE_JDDATE
+                           ,MEM_SEND_AC_HIST.NICE_JGUBUN
+                           ,MEM_SEND_AC_HIST.NICE_JDATE
+                           ,MEM_SEND_AC_HIST.NICE_CB
+                          ,MEM_SEND_AC_HIST.NICE_SP
+                           ,MEM_SEND_AC_HIST.NICE_SAFEKEY
+                          ,nvl(MEM_SEND_AC_HIST.NICE_NCNT,0) as NICE_NCNT
+                           ,MEM_SEND_AC_HIST.NICE_YN
+                           ,MEM_SEND_AC_HIST.GS_YN1
+                           ,MEM_SEND_AC_HIST.GS_YN2
+                           ,MEM_SEND_AC_HIST.GS_YN3
+                           ,nvl(MEM_SEND_AC_HIST.NAPBU_GCNT,0) as NAPBU_GCNT
+                           ,MEM_SEND_AC_HIST.MEM_KDAY
+                           ,NVL(MEM_SEND_AC_HIST.MINAP,0) MINAP
+                           ,NVL(MEM_SEND_AC_HIST.YEOUNCHE,0) YEOUNCHE
+                           ,MEM_SEND_AC_HIST.HAL_SILAMT
+                           ,MEM_SEND_AC_HIST.HAL_GUBUN
+                           ,MEM_SEND_AC_HIST.HAL_REJECT
+                           ,REPLACE(MEMBER.MEM_NM,' ','')as MEM_NM
+                           ,MEMBER.MEM_NO
+                           ,substr(MEMBER.BRTH_MON_DAY,-6) || substr(SEX,-1)  AS BRTH_MON_DAY
+                           ,MEM_SEND_AC_HIST.NAI
+                           ,MEM_SEND_AC_HIST.SILNO
+                           ,MEM_SEND_AC_HIST.ACUONNO
+                           ,MEM_SEND_AC_HIST.HGUBUN
+
+                  FROM MEM_SEND_AC_HIST
+                        LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEM_SEND_AC_HIST.ACCNT_NO =MPA.ACCNT_NO
+                      LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+
+                 WHERE MEM_SEND_AC_HIST.JDATE = #{jdate}
+                  order by MEM_SEND_AC_HIST.HGUBUN
+
+    </select>
+
+
+
+
+<!-- [ [수납산출 탭] ] 검색결과 list  -->
+        <select id="AcnTranMap.getsuList" parameterType="map" resultType="resultMap" >
+                    select  /* AcnTranMap.getsuList */
+                          ROW_NUMBER() OVER(ORDER BY MEMBER_IPSEND_AC.ACCNT_NO  )SEQ ,
+                          MEMBER_IPSEND_AC.JDATE
+                             ,MEMBER_IPSEND_AC.GDATE
+                          ,MEMBER_IPSEND_AC.ACCNT_NO
+                            ,MEMBER_IPSEND_AC.GUBUN,MEMBER_IPSEND_AC.YYMM,MEMBER_IPSEND_AC.SDATE
+                            ,MEMBER_IPSEND_AC.MSDATE
+                            ,MEMBER_IPSEND_AC.CGUBUN,MEMBER_IPSEND_AC.CAMT,MEMBER_IPSEND_AC.SAMT
+                            ,MEMBER_IPSEND_AC.CSAMT
+                            ,MEMBER_IPSEND_AC.SNGUBUN,MEMBER_IPSEND_AC.MBIGO
+                            ,MEMBER_IPSEND_AC.HAL_REJECT
+                            ,CC.CD_NM
+                            ,CASE WHEN MEMBER_IPSEND_AC.HAL_REJECT ='Q720000'  THEN TO_NUMBER(MEMBER_IPSEND_AC.CAMT) ELSE 0 END YCAMT
+                            ,CASE WHEN MEMBER_IPSEND_AC.HAL_REJECT ='Q720000'  THEN 0 ELSE (CASE WHEN HAL_REJECT IS not NULL OR HAL_REJECT <![CDATA[<>]]>' ' THEN  TO_NUMBER(MEMBER_IPSEND_AC.CAMT) else 0 END ) END NCAMT
+                            ,CASE WHEN MEMBER_IPSEND_AC.HAL_REJECT ='Q720000'  THEN TO_NUMBER(MEMBER_IPSEND_AC.SAMT) ELSE 0 END YSAMT
+                            ,CASE WHEN MEMBER_IPSEND_AC.HAL_REJECT ='Q720000'  THEN 0 ELSE (CASE WHEN HAL_REJECT IS not NULL OR HAL_REJECT <![CDATA[<>]]>' ' THEN  TO_NUMBER(MEMBER_IPSEND_AC.SAMT) else 0 END ) END NSAMT
+                            ,SILCAMT
+                            ,BCAMT
+                  FROM MEMBER_IPSEND_AC
+                        LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEMBER_IPSEND_AC.ACCNT_NO =MPA.ACCNT_NO
+                      LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+                      LEFT OUTER JOIN  COM_CD CC  ON  CC.GRP_CD='S007' AND  SUBSTR(REPLACE(MEMBER_IPSEND_AC.HAL_REJECT,' ',''),-4) = CC.COM_CD
+                 WHERE JDATE = #{year_mon}
+                    <if test="j_gubun != null and j_gubun != ''">
+                        <if test='j_gubun == "Y"'>
+                             AND  replace(nvl(MEMBER_IPSEND_AC.HAL_REJECT,'99'),' ','') = 'Q720000'
+                        </if>
+                        <if test='j_gubun == "N"'>
+                             AND  replace(nvl(MEMBER_IPSEND_AC.HAL_REJECT,'99'),' ','') not in ('Q720000','99')
+                        </if>
+
+                    </if>
+                     <if test="j_ggubun != null and j_ggubun != ''">
+                         <if test='j_ggubun == "A4"'>
+                             AND  MEMBER_IPSEND_AC.accnt_no in ( select accnt_no  from mem_send_ac where jdate = #{year_mon} and ggubun = 'A4' )
+                        </if>
+                        <if test='j_ggubun == "A5"'>
+                             AND  MEMBER_IPSEND_AC.accnt_no  not in ( select accnt_no  from mem_send_ac where jdate = #{year_mon} and ggubun = 'A4' )
+                        </if>
+                    </if>
+
+        <!-- 설치일자 기준으로 나눠서 조회 (1~15일/16~말일)  -->
+
+
+    </select>
+
+
+
+
+
+        <!-- [ [수납산출탭] ] 검색결과 list  -->
+        <select id="AcnTranMap.sugetTranMonList" parameterType="map" resultType="resultMap" >
+
+
+
+                SELECT ROW_NUMBER() OVER(order by cnt ) AS SEQ
+                        ,MEMBER_IPSEND_AC.JDATE
+                        ,MEMBER_IPSEND_AC.GDATE
+                        ,MEMBER_IPSEND_AC.ACCNT_NO
+                        ,MEMBER_IPSEND_AC.GUBUN
+                        ,MEMBER_IPSEND_AC.YYMM
+                        ,MEMBER_IPSEND_AC.SDATE
+                        ,MEMBER_IPSEND_AC.MSDATE
+                        ,MEMBER_IPSEND_AC.CGUBUN
+                        ,MEMBER_IPSEND_AC.CAMT
+                        ,MEMBER_IPSEND_AC.SAMT
+                        ,MEMBER_IPSEND_AC.CSAMT
+                        ,MEMBER_IPSEND_AC.SNGUBUN
+                        ,MEMBER_IPSEND_AC.MBIGO
+                        ,MEMBER_IPSEND_AC.HAL_GUBUN
+                        ,MEMBER_IPSEND_AC.HAL_REJECT
+
+
+
+                  FROM MEMBER_IPSEND_AC
+                        LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEMBER_IPSEND_AC.ACCNT_NO =MPA.ACCNT_NO
+                      LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+
+                 WHERE JDATE = #{year_mon}
+
+
+    </select>
+
+
+    <parameterMap id="AcnTranMap.selectinsertAClistMap" type="resultMap"><!-- /*java.util.HashMap*/ -->
+    <parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="year_mon"/>
+    <parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="kydate"/>
+    </parameterMap>
+
+
+      <select id="AcnTranMap.insertAClist" statementType="CALLABLE" parameterMap="selectinsertAClistMap">
+           {call SINIT_ACUON_SEND(?, ?)}
+      </select>
+
+
+
+    <parameterMap id="AcnTranMap.suselectinsertAClistMap" type="resultMap"><!-- /*java.util.HashMap*/ -->
+    <parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="year_mon"/>
+    <parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="kydate"/>
+    </parameterMap>
+
+    <select id="AcnTranMap.suinsertAClist" statementType="CALLABLE" parameterMap="suselectinsertAClistMap">
+
+           {call SINIT_ACUON_IP_SEND(?, ?)}
+    </select>
+
+
+
+
+     <!-- 메인 변환 -->
+    <update id="AcnTranMap.updateconvertResult" parameterType="map">
+        UPDATE /* AcnTranResultMap.convertTranMonMainResult */
+               MEM_SEND_AC
+           SET  GUBUN = '2'  						/* 구분 */
+         WHERE JDATE	= #{year_mon}
+    </update>
+
+
+       <!--  수납 메인 변환 -->
+    <update id="AcnTranMap.updatesuconvertResult" parameterType="map">
+        UPDATE /* AcnTranResultMap.updatesuconvertResult */
+               MEMBER_IPSEND_AC
+           SET  GUBUN = '2'  						/* 구분 */
+         WHERE JDATE	= #{year_mon}
+    </update>
+
+
+     <!-- 메인 변환 -->
+    <update id="AcnTranMap.acuonupdate" parameterType="map">
+        UPDATE /* AcnTranMap.acuonupdate */
+               MEM_PROD_ACCNT
+
+           SET  ACO_REBIT = #{i_rebit}						/* 구분 */
+         WHERE 	ACCNT_NO = #{i_accnt_no}
+    </update>
+
+
+     <select id="AcnTranMap.getYHjList" parameterType="map" resultType="resultMap" >
+
+               SELECT   /* AcnTranMap.getYHjList */
+                         AC.jdate JDATE,
+                        CASE WHEN MAX(hal_reject) IS NULL THEN  '미처리' ELSE '처리' END GUBUN,
+                        count(*) TCNT ,
+                        sum( case when replace(hal_reject,' ','') ='Q720000' AND AC.ggubun='A1' then 1 else 0 end) A1TCNT  ,
+                        sum( case when replace(hal_reject,' ','') !='Q720000' AND AC.ggubun='A1' then 1 else 0 end) A1FCNT  ,
+                        sum( case when replace(hal_reject,' ','') ='Q720000' AND AC.ggubun='A1' then hal_amt else 0 end) A1TAMT,
+                        sum( case when replace(hal_reject,' ','') !='Q720000' AND AC.ggubun='A1' then hal_amt else 0 end) A1SAMT,
+                        nvl((select count(distinct(accnt_no))
+                          from memBER_IPsend_ac ac2
+                           where ac2.jdate=ac.jdate ),0) SUNAP_MEMCNT,
+                        nvl((select count(distinct(accnt_no))
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') ='Q720000'   AND
+                                ACCNT_NO NOT IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) SUNAP_TMEMCNT,
+                          nvl((select count(distinct(accnt_no))
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') !='Q720000'   AND
+                                ACCNT_NO NOT IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) SUNAP_FMEMCNT,
+                       nvl((select count(accnt_no)
+                          from memBER_IPsend_ac ac2
+                           where ac2.jdate=ac.jdate ),0) SUNAP_CNT,
+                       nvl((select count(accnt_no)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') ='Q720000'   AND
+                                ACCNT_NO NOT IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN( 'A4'))
+                                ),0) SUNAP_TCNT,
+                         nvl((select count(accnt_no)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') !='Q720000'   AND
+                                ACCNT_NO NOT IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN( 'A4'))
+                                ),0) SUNAP_FCNT,
+
+                        nvl((select sum(camt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') ='Q720000'   AND
+                                ACCNT_NO NOT IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) SUNAP_TAMT,
+                          nvl((select sum(camt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') !='Q720000'   AND
+                                ACCNT_NO NOT IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) SUNAP_FAMT,
+                        sum( case when  AC.ggubun='A4' then 1 else 0 end) JHAEJI ,
+                        sum( case when replace(hal_reject,' ','') ='Q720000' AND AC.ggubun='A4' then 1 else 0 end) JTHAEJI ,
+                        sum( case when replace(hal_reject,' ','') !='Q720000' AND AC.ggubun='A4' then 1 else 0 end) JFHAEJI ,
+                        nvl((select sum(silcamt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND  replace(hal_reject,' ','') ='Q720000' AND
+                                ACCNT_NO IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) HAEJITSAMT,
+                         nvl((select sum(silcamt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND  replace(hal_reject,' ','') !='Q720000' AND
+                                ACCNT_NO IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) HAEJIFSAMT,
+                        nvl((select sum(bcamt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND replace(hal_reject,' ','') ='Q720000' AND
+                                ACCNT_NO IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) HAEJITBAMT,
+                        nvl((select sum(bcamt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND replace(hal_reject,' ','') !='Q720000' AND
+                                ACCNT_NO IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) HAEJIFBAMT,
+                        nvl((select sum(camt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') ='Q720000'   AND
+                                ACCNT_NO IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) JTHAEGIAMT,
+                         nvl((select sum(camt)
+                         from memBER_IPsend_ac ac2
+                         where ac2.jdate=ac.jdate AND
+                                replace(hal_reject,' ','') !='Q720000'   AND
+                                ACCNT_NO IN ( SELECT ACCNT_NO FROM MEM_SEND_AC WHERE JDATE = ac.jdate AND GGUBUN IN('A4'))
+                                ),0) JFHAEGIAMT,
+                         sum( case when   AC.ggubun='B1' then 1 else 0 end) HALBU_END ,
+                        sum( case when  replace(hal_reject,' ','') ='Q720000' AND AC.ggubun='B1' then 1 else 0 end) HALBU_TEND ,
+                        sum( case when  replace(hal_reject,' ','') !='Q720000' AND AC.ggubun='B1' then 1 else 0 end) HALBU_FEND ,
+                         sum( case when  AC.ggubun='A3' then 1 else 0 end)   JJCNT ,
+                        sum( case when replace(hal_reject,' ','') ='Q720000' AND AC.ggubun='A3' then 1 else 0 end)   JTCNT ,
+                         sum( case when replace(hal_reject,' ','') !='Q720000' AND AC.ggubun='A3' then 1 else 0 end) JFCNT ,
+                        sum( case when  AC.ggubun='C1' then 1 else 0 end) YJCNT ,
+                        sum( case when replace(hal_reject,' ','') ='Q720000' AND AC.ggubun='C1' then 1 else 0 end) YHAEJITCNT ,
+                        sum( case when replace(hal_reject,' ','') !='Q720000' AND AC.ggubun='C1' then 1 else 0 end) YHAEJIFCNT ,
+                        sum( case when AC.ggubun='C1' then MINAP else 0 end) MINAP,
+                        (SELECT COUNT(ACCNT_NO) FROM  MEM_KWN_AC_YENCHE_HIST WHERE YENCHE_DATE =  AC.jdate AND YEN_CHE = 1  ) YENCHE1,
+                        (SELECT COUNT(ACCNT_NO) FROM  MEM_KWN_AC_YENCHE_HIST WHERE YENCHE_DATE = AC.jdate AND YEN_CHE = 2  ) YENCHE2,
+                        (SELECT COUNT(ACCNT_NO) FROM  MEM_KWN_AC_YENCHE_HIST WHERE YENCHE_DATE =  AC.jdate AND YEN_CHE = 3  ) YENCHE3,
+                        (SELECT COUNT(ACCNT_NO) FROM  MEM_KWN_AC_YENCHE_HIST WHERE YENCHE_DATE =  AC.jdate AND YEN_CHE = 4  ) YENCHE4
+                from mem_send_ac AC
+                group by AC.jdate
+                ORDER BY  AC.jdate DESC
+
+    </select>
+
+      <select id="AcnTranMap.getTranacuontCount" parameterType="map" resultType="int">
+
+          SELECT  /* AcnTranMap.getTranacuontCount */
+                      COUNT(*)
+          FROM MEM_PROD_ACCNT
+         WHERE  PROD_CD IN ( SELECT PROD_CD FROM PRODUCT WHERE ACUON_YN='Y')
+
+     </select>
+     <select id="AcnTranMap.getTranacuonsilCount" parameterType="map" resultType="int">
+
+          SELECT  /* AcnTranMap.getTranacuonsilCount */
+                COUNT(*)
+          from mem_kwn_Ac
+          where ggubun not  in ('A4','B1','C1')
+
+     </select>
+
+
+
+
+
+
+
+
+
+
+</mapper>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="NobdTypMap">
+
+    <sql id="NobdTypMap.selectCondition_fragment">
+        <where>
+            <if test="nobd_typ_expi != null and nobd_typ_expi != ''">
+                AND NOBD_TYP_EXPI LIKE '%' || #{nobd_typ_expi} || '%'
+            </if>
+            <if test="nobd_typ_nm != null and nobd_typ_nm != ''">
+                AND NOBD_TYP_NM LIKE '%' || #{nobd_typ_nm} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="file_atch_yn != null and file_atch_yn != ''">
+                AND FILE_ATCH_YN = #{file_atch_yn}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="nobd_typ_id != null and nobd_typ_id != ''">
+                AND NOBD_TYP_ID = #{nobd_typ_id}
+            </if>
+            <if test="nobd_typ_role_cd != null and nobd_typ_role_cd != ''">
+                AND NOBD_TYP_ROLE_CD = #{nobd_typ_role_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="NobdTypMap.getNobdTypCount" parameterType="map" resultType="int">
+        SELECT /* NobdTypMap.getNobdTypCount */
+               COUNT(*)
+          FROM TB_NOBD_TYP_ADMN
+        <include refid="NobdTypMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="NobdTypMap.getNobdTypList" parameterType="map" resultType="resultMap">
+        SELECT /* NobdTypMap.getNobdTypList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, NOBD_TYP_ID, NOBD_TYP_NM, NOBD_TYP_EXPI, FILE_ATCH_YN
+                       , USE_YN, WEB_EDIT_YN, ANSR_YN, RGSR_ID, RGSN_DTTM
+                       , AMND_ID, AMNT_DTTM, RGSR_NM, AMND_NM,CNTR_CD, NOBD_TYP_ROLE_CD
+                       , GETCODENM('KMS031', NOBD_TYP_ROLE_CD, CNTR_CD) AS NOBD_TYP_ROLE_NM
+                    FROM (SELECT NOBD_TYP_ID, NOBD_TYP_NM, NOBD_TYP_EXPI, FILE_ATCH_YN, USE_YN
+                               , WEB_EDIT_YN, ANSR_YN, RGSR_ID, RGSN_DTTM, AMND_ID
+                               , AMNT_DTTM, CNTR_CD, NOBD_TYP_ROLE_CD
+                               , (SELECT USER_NM
+                                    FROM TB_USER
+                                   WHERE USER_ID = A.RGSR_ID
+                                     AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                               , (SELECT USER_NM
+                                    FROM TB_USER
+                                   WHERE USER_ID = A.AMND_ID
+                                     AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                            FROM TB_NOBD_TYP_ADMN A
+        <include refid="NobdTypMap.selectCondition_fragment"/>
+        <if test="orderBy == null or orderBy == ''">
+              ORDER BY amnt_dttm DESC
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+              ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                        )
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="NobdTypMap.insertNobdTyp" parameterType="map">
+        INSERT  /* NobdTypMap.insertNobdTyp */
+          INTO TB_NOBD_TYP_ADMN
+               (NOBD_TYP_ID, NOBD_TYP_NM, NOBD_TYP_EXPI, FILE_ATCH_YN, USE_YN
+              , WEB_EDIT_YN, ANSR_YN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD, NOBD_TYP_ROLE_CD)
+          VALUES (#{nobd_typ_id}, #{nobd_typ_nm}, #{nobd_typ_expi}, 'Y', #{use_yn}
+              , 'Y', 'Y', #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+              , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{cntr_cd}, #{nobd_typ_role_cd})
+        <!-- VALUES (#{nobd_typ_id}, #{nobd_typ_nm}, #{nobd_typ_expi}, #{file_atch_yn}, #{use_yn}
+              , #{web_edit_yn}, #{ansr_yn}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+              , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{cntr_cd}, #{nobd_typ_role_cd}) -->
+    </insert>
+
+    <update id="NobdTypMap.updateNobdTyp" parameterType="map">
+        UPDATE  /* NobdTypMap.updateNobdTyp */
+               TB_NOBD_TYP_ADMN
+           SET NOBD_TYP_NM              = #{nobd_typ_nm},
+               NOBD_TYP_EXPI            = #{nobd_typ_expi},
+               USE_YN                   = #{use_yn},
+               NOBD_TYP_ROLE_CD         = #{nobd_typ_role_cd},
+               AMND_ID                  = #{amnd_id},
+               AMNT_DTTM                = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE NOBD_TYP_ID              = #{nobd_typ_id}
+        <!--  UPDATE  /* NobdTypMap.updateNobdTyp */
+               TB_NOBD_TYP_ADMN
+           SET NOBD_TYP_NM   = #{nobd_typ_nm},
+               NOBD_TYP_EXPI = #{nobd_typ_expi},
+               FILE_ATCH_YN        = #{file_atch_yn},
+               WEB_EDIT_YN      = #{web_edit_yn},
+               ANSR_YN       = #{ansr_yn},
+               USE_YN         = #{use_yn},
+               NOBD_TYP_ROLE_CD         = #{nobd_typ_role_cd},
+               AMND_ID     = #{amnd_id},
+               AMNT_DTTM         = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE NOBD_TYP_ID = #{nobd_typ_id} -->
+    </update>
+
+    <delete id="NobdTypMap.deleteNobdTyp" parameterType="map">
+        DELETE /* NobdTypMap.deleteNobdTyp */
+          FROM TB_NOBD_TYP_ADMN
+         WHERE NOBD_TYP_ID = #{nobd_typ_id}
+    </delete>
+
+    <select id="NobdTypMap.getChkFg" resultType="resultMap">
+         SELECT /* NobdTypMap.getChkFg */
+                *
+           FROM TB_NOBD_TYP_ADMN
+          WHERE USE_YN = 'Y'
+    </select>
+
+</mapper>

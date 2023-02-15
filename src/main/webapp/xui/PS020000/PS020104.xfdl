@@ -1,0 +1,200 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS020104" classname="팝업가이드" inheritanceid="" position="absolute 0 0 274 345" titletext="쪽지수신 열람정보" scrollbars="none" onload="PS020104_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_40" class="sta_popupBg1" enable="false" position="absolute 0 0 274 345"/>
+        <Static id="stc_41" text="쪽지수신 열람정보" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_onclick" class="btn_popupClose" position="absolute 249 8 269 27"/>
+        <Grid id="grd_recnNmsg" taborder="1" binddataset="ds_recnNmsg" useinputpanel="false" cellsizingtype="col" autofittype="col" treeuseline="false" treeusecheckbox="false" treeinitstatus="expand,all" position="absolute 11 45 263 334" class="grd_list" onvscrolllastover="grd_recnNmsg_onvscrolllastover" onheadclick="grd_recnNmsg_onheadclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="35"/>
+                <Column size="79"/>
+                <Column size="138"/>
+              </Columns>
+              <Rows>
+                <Row size="25" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="normal" edittype="none" text="NO"/>
+                <Cell col="1" text="수신자"/>
+                <Cell col="2" text="수신일시"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="normal" edittype="none" expr="currow+1"/>
+                <Cell col="1" style="align:center;" class="cel_Left" text="bind:recn_nm"/>
+                <Cell col="2" displaytype="expr:nmsg_recp_dttm!= null ?&quot;date&quot;:&quot;normal&quot;" text="bind:nmsg_recp_dttm" expr="expr:nmsg_recp_dttm!= null ?nmsg_recp_dttm:&quot;읽지않음&quot;" mask="expr:nmsg_recp_dttm!= null ?&quot;yyyy-MM-dd HH:mm&quot;:&quot;&quot;"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="nmsg_grop_id" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_recnNmsg" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" onrowposchanged="ds_onrowposchanged">
+        <ColumnInfo>
+          <Column id="_chk" type="INT" size="1"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+          <Column id="page_indx" type="STRING" size="256"/>
+          <Column id="nmsg_recp_dttm" type="STRING" size="256"/>
+          <Column id="recn_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" onrowposchanged="ds_onrowposchanged">
+        <ColumnInfo>
+          <Column id="_chk" type="INT" size="1"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+          <Column id="page_indx" type="STRING" size="256"/>
+          <Column id="nmsg_recp_dttm" type="STRING" size="256"/>
+          <Column id="recn_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/***************************************************************************
+ * Program ID    : PS020104.xfdl
+ * Program Name  : 쪽지 열람정보
+ * Author        : 정 훈
+ * Created On    : 2016.02.22
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자       내    용
+ * =========================================================================
+ * 2016.02.22    정   훈      최초작성
+ 
+ **************************************************************************/
+
+
+/********************************************************************************************/
+/* 1. Include Library include                                                               */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트,전역변수,초기화) 처리                         	*/
+/********************************************************************************************/
+
+//온로드
+function PS020104_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	if(nmsg_grop_id != null && nmsg_grop_id != "undefined"){
+		if(!gfn_isNull(nmsg_grop_id)){
+			fn_commSearch(gfn_getCommTypeInit(), nmsg_grop_id);
+		}
+	}
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) {
+    if (errcd != 0) {
+		trace(errcd);
+		return false;
+	} else {
+		switch (svcid) {
+			case "srchRecnNmsg" : 
+			gfn_appendSearchDs(ds_recnNmsg, ds_list_tmp);
+			fn_postSearch();
+			break;
+		}
+	}
+}
+
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+//조회전 조회 처리 조건
+function fn_preSearch(sType, nmsg_grop_id)
+{
+	if (sType == gfn_getCommTypeInit())
+	{
+		// 조회조건 및 default 정렬
+		ds_recnNmsg.keystring = ""; // 정렬컬럼 초기화
+		
+		ds_inqCndt.clearData();
+		ds_inqCndt.addRow();
+		ds_inqCndt.setColumn(0, "nmsg_grop_id", nmsg_grop_id);
+		ds_inqCndt.setColumn(0, "orderBy", "recn_id");
+		ds_inqCndt.setColumn(0, "orderDirection", "asc");
+	}
+	return true;
+}
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+function fn_commSearch(sType, nmsg_grop_id)
+{	
+    if (!fn_preSearch(sType, nmsg_grop_id)) return false;	
+	
+	var szSvcid       = "srchRecnNmsg";
+    var szController  = "/channel/nmsg-dtl/recn-list";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_list_tmp=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+//조회결과 처리 
+function fn_postSearch()
+{
+	if(ds_recnNmsg.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+	} else {
+		
+	}
+	return;
+}
+
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+//버튼클릭 이벤트 
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(obj.name =="btn_Close"){
+		close();
+	}
+}
+
+//정렬
+function grd_recnNmsg_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_grdHeadClick(obj, e);
+}
+]]></Script>
+  </Form>
+</FDL>

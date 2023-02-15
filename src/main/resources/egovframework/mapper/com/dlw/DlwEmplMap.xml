@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwEmplMap">
+
+    <sql id="DlwEmplMap.selectCondition_fragment">
+        <where>
+            <if test="emple_no != null and emple_no != ''">
+                AND (EMPLE_NO LIKE '%' || #{emple_no} || '%' OR GRP_EMPLE_NO = #{emple_no})
+            </if>
+            <if test="not_in_emple_no != null and not_in_emple_no != ''">
+                AND EMPLE_NO <![CDATA[<>]]> #{not_in_emple_no}
+            </if>
+            <if test="dept_cd != null and dept_cd != ''">
+                AND DEPT_CD = #{dept_cd}
+            </if>
+            <if test="emple_nm != null and emple_nm != ''">
+                AND EMPLE_NM LIKE '%'||#{emple_nm}||'%'
+            </if>
+            <if test="del_fg != null and del_fg != '' and del_fg.equalsIgnoreCase('N')">
+                AND DEL_FG = 'N'
+            </if>
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+            <if test='grpEmpYn == "N"'>
+             <![CDATA[   AND (EMP.GRP_EMPLE_NO IS NOT NULL
+                     AND REPLACE(EMP.GRP_EMPLE_NO, ' ', '') <> ' ')  ]]>
+            </if>
+        </where>
+    </sql>
+
+    <sql id="DlwEmplMap.selectCondition_fragment_empl">
+        <where>
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+            <if test="idn_no != null and idn_no != ''">
+                AND EMP.IDN_NO LIKE '%' || REPLACE(#{idn_no}, '-', '') || '%'
+            </if>
+            <if test="del_fg != 'ALL'">
+                AND DEL_FG = #{del_fg}
+            </if>
+            <if test="emple_no != null and emple_no != ''">
+                AND	EMP.EMPLE_NO LIKE #{emple_no} || '%'
+            </if>
+            <if test="emple_nm != null and emple_nm != ''">
+                AND	EMP.EMPLE_NM LIKE '%' || #{emple_nm} || '%'
+            </if>
+            <if test="notIn_emple_no != null and notIn_emple_no != ''">
+                AND	EMP.EMPLE_NO NOT IN (${notIn_emple_no})
+            </if>
+            <if test="home_phon != null and home_phon != ''">
+                AND	REPLACE(HOME_PHON, '-', '') LIKE '%' || #{home_phon} || '%'
+            </if>
+            <if test="cell != null and cell != ''">
+                AND	REPLACE(CELL, '-', '') LIKE '%' || #{cell}  || '%'
+            </if>
+            <if test="grp_emp_no != null and grp_emp_no != ''">
+                AND EMP.GRP_EMPLE_NO = #{grp_emp_no}
+            </if>
+            <if test="grp_emp_yn != null and grp_emp_yn != ''">
+                <if test='grp_emp_yn == "N"'>
+                    AND (EMP.GRP_EMPLE_NO IS NOT NULL
+                         AND REPLACE(EMP.GRP_EMPLE_NO, ' ', '') != ' ')
+                </if>
+            </if>
+        </where>
+    </sql>
+
+    <select id="DlwEmplMap.getDlwEmplCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwEmplMap.getDlwEmplCount */
+               COUNT(*)
+          FROM EMPLOYEE EMP
+        <include refid="DlwEmplMap.selectCondition_fragment" />
+    </select>
+
+    <select id="DlwEmplMap.getDlwEmplList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwEmplMap.getDlwEmplList */
+               B.*
+          FROM (SELECT 	<choose>
+                            <when test="orderBy != null and orderBy != ''">
+                                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                            </when>
+                            <otherwise>
+                                ROW_NUMBER() OVER(ORDER BY UPD_DM DESC) PAGE_INDX
+                            </otherwise>
+                        </choose>
+                     , A.*
+                  FROM (SELECT EMPLE_NO, DEPT_CD, EMPLE_NM
+                             , FN_DEPT_NM(DEPT_CD) AS DEPT_NM
+                             , CELL
+                             , UPD_DM
+                             , APPFORM_DAY
+                          FROM EMPLOYEE EMP
+                        <include refid="DlwEmplMap.selectCondition_fragment" />
+                        ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <select id="DlwEmplMap.getEmplCount" parameterType="map" resultType="int">
+
+
+        <if test="dept_cd != null and dept_cd != ''">
+            WITH CTE (DEPT_CD, DEPT_NM, HIGH_DEPT_CD)
+            AS (SELECT DEPT_CD, DEPT_NM, HIGH_DEPT_CD
+                  FROM DEPARTMENT
+                 WHERE DEPT_CD = #{dept_cd}
+             UNION ALL
+                SELECT A.DEPT_CD, A.DEPT_NM, A.HIGH_DEPT_CD
+                  FROM DEPARTMENT A, CTE B
+                 WHERE A.HIGH_DEPT_CD = B.DEPT_CD)
+        </if>
+
+        SELECT /* DlwEmplMap.getEmplCount */
+               COUNT(*)
+          FROM EMPLOYEE EMP
+        <if test="dept_cd != null and dept_cd != ''">
+         INNER JOIN CTE
+               ON CTE.DEPT_CD = EMP.DEPT_CD
+        </if>
+        <include refid="DlwEmplMap.selectCondition_fragment_empl" />
+    </select>
+
+    <!-- 사원 조회 -->
+    <select id="DlwEmplMap.getEmplList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-emp.selectEmpleList -->
+
+
+        <if test="dept_cd != null and dept_cd != ''">
+            WITH CTE (DEPT_CD, DEPT_NM, HIGH_DEPT_CD)
+            AS (SELECT DEPT_CD, DEPT_NM, HIGH_DEPT_CD
+                  FROM DEPARTMENT
+                 WHERE DEPT_CD = #{dept_cd}
+             UNION ALL
+                SELECT A.DEPT_CD, A.DEPT_NM, A.HIGH_DEPT_CD
+                  FROM DEPARTMENT A, CTE B
+                 WHERE A.HIGH_DEPT_CD = B.DEPT_CD)
+        </if>
+
+        SELECT /* DlwEmplMap.getEmplList */
+               B.*
+             , FN_DEPT_NM(B.DEPT_CD) AS DEPT_NM
+             , FN_COM_NM('06', POSN_CD) AS POSN_NM
+             , FN_COM_NM('10', JOBDUTY_CD) AS JOBDUTY_NM
+             , FN_ORDR_TURN('06', POSN_CD) AS ORDR_TURN
+             , FN_COM_NM('63',BANK_CD) AS BANK_NM
+             , FN_EMPLE_NM(RENF_MAN_ID) AS RENF_MAN_NM
+             , CASE WHEN NVL(OCP_CLUSTER,'') = '' THEN (SELECT FN_COM_NM('96',OCP_CLUSTER)
+                                                             FROM DEPARTMENT
+                                                            WHERE DEPT_CD = B.DEPT_CD)
+                    ELSE FN_COM_NM('96',OCP_CLUSTER)
+                END AS OCP_CLUSTER_NM
+          FROM (SELECT A.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY HIGH_DEPT_NM, LOW_DEPT_NM DESC) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                  FROM (SELECT EMP.EMPLE_NO, EMP.EMPLE_NM, EMP.CONF_NO, EMP.DEPT_CD
+                             , GRADE, CHG_RESON, POSN_CD, JOBDUTY_CD, BANK_CD
+                             , HOME_PHON, CELL, ZIP, ADDR, ADDR2
+                             , ALOW_GRADE, RENF_MAN_ID, NOTE, TMP_EID, IMG_NM
+                             , APPR_AUTH, EMAIL, EMP.REG_DM, EMP.REG_MAN, EMP.UPD_DM
+                             , EMP.UPD_MAN, EMP.DEL_FG, DEPR, LOC_CD, ALOW_YN
+                             , OCP_CLUSTER, INCOM_CL, GRP_EMPLE_NO AS GRP_EMP_NO, NO_SALE_ACCNT_EMP, EMP.DATA_AUTH
+                             , EMP.GRP_DATA_AUTH, EMP.CTI_ID CTIID, EMP.CTI_PWD CTIPW, EMP.WH_CD
+                             , SUBSTR(ENT_DAY,1,4)||'/'||SUBSTR(ENT_DAY,5,2)||'/'||SUBSTR(ENT_DAY,7,2) AS ENT_DAY
+                             , SUBSTR(RESIN_DAY,1,4)||'/'||SUBSTR(RESIN_DAY,5,2)||'/'||SUBSTR(RESIN_DAY,7,2) AS RESIN_DAY
+                             , BANK_ACCNT_NO BANK_ACCNT_NO
+                             , EMP.IDN_NO IDN_NO
+                             , CASE WHEN (BIRTH_MON_DAY = '19000101' OR BIRTH_MON_DAY IS NULL) THEN ''
+                                    ELSE BIRTH_MON_DAY
+                               END AS BIRTH_MON_DAY
+                             , NVL((SELECT MAX(APP_MM)
+                                     FROM HIST_DEPT_EMP
+                                     WHERE EMPLE_NO = EMP.EMPLE_NO
+                                    ), '') APPDT
+                             , NVL(EMP.CTI_FG, 'N') CTIFG
+                             , NVL(HSF_UPLOAD_AUTH_YN, 'N') HSF_UPLOAD_AUTH_YN
+                             , NVL(EMP.REPORT_AUTH, '') REPORT_AUTH
+                             , NVL(EMP.REPORT_ADMIN_AUTH, 'N') REPORT_ADMIN_AUTH
+                             , (SELECT DEPT_NM
+                                FROM DEPARTMENT
+                                WHERE DEPT_CD = (SELECT HIGH_DEPT_CD
+                                                 FROM DEPARTMENT
+                                                 WHERE DEPT_CD = EMP.DEPT_CD
+                                                 )
+                                ) HIGH_DEPT_NM
+                             , (SELECT DEPT_NM
+                                 FROM DEPARTMENT E
+                                 WHERE E.DEPT_CD = EMP.DEPT_CD
+                                 ) AS LOW_DEPT_NM
+                          FROM EMPLOYEE EMP
+                        <if test="dept_cd != null and dept_cd != ''">
+                            INNER JOIN CTE
+                                  ON CTE.DEPT_CD = EMP.DEPT_CD
+                        </if>
+                        <include refid="DlwEmplMap.selectCondition_fragment_empl" />
+                       ) A
+                 ) B
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+            ]]>
+            </if>
+    </select>
+
+    <insert id="DlwEmplMap.mergeEmpl" parameterType="map">
+    <!-- 4월 6일부로 사용자등록시 사원은 업데이트만 처리 -->
+
+          UPDATE /* DlwEmplMap.mergeEmpl */
+              EMPLOYEE
+              SET EMPLE_NM  = #{user_nm}
+              <if test="clph_no != null and clph_no != ''">
+                 , CELL = NVL(#{clph_no},' ')
+              </if>
+              <if test="zpcd != null and zpcd != ''">
+                 , ZIP = NVL(#{zpcd},' ')
+              </if>
+              <if test="home_addr != null and home_addr != ''">
+                 , ADDR = NVL(#{home_addr},' ')
+              </if>
+              <if test="home_dtpt_addr != null and home_dtpt_addr != ''">
+                 , ADDR2 = NVL(#{home_dtpt_addr},' ')
+              </if>
+              <if test="emil_addr != null and emil_addr != ''">
+                 , EMAIL = NVL(#{emil_addr},' ')
+              </if>
+                 , DEL_FG	= NVL(#{del_fg},' ')
+              <if test="cti_use_yn != null and cti_use_yn != ''">
+                 , CTI_FG	= #{cti_use_yn}
+              </if>
+              <if test="cti_id != null and cti_id != ''">
+                 , CTI_ID = NVL(#{cti_id},' ')
+              </if>
+              <if test="cti_pwd != null and cti_pwd != ''">
+                 , CTI_PWD = NVL(#{cti_pwd},' ')
+              </if>
+              <if test="empl_no != null and empl_no != ''">
+                 , GRP_EMPLE_NO = NVL(#{empl_no},' ')
+              </if>
+              <if test="enco_dt != null and enco_dt != ''">
+                  , ENT_DAY = REPLACE(#{enco_dt},'/','')
+              </if>
+              <if test="rtco_dt != null and rtco_dt != ''">
+                  , RESIN_DAY  =REPLACE(#{rtco_dt},'/','')
+              </if>
+                 , NOTE  = '(콜센터 프로그램에서 수정)'
+                 , UPD_MAN = NVL(#{amnd_id}, ' ')
+                 , UPD_DM = SYSDATE
+          WHERE EMPLE_NO = #{user_id}
+
+    </insert>
+
+    <select id="DlwEmplMap.getScdlEmplList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwEmplMap.getScdlEmplList */
+               EMPLE_NO, EMPLE_NM, CELL, ZIP, ADDR
+             , ADDR2, EMAIL, DEL_FG, ISNULL(CTI_FG, 'N'), CTI_ID
+             , CTI_PWD, GRP_EMPLE_NO
+             , CONVERT(VARCHAR, ENT_DAY, 112) AS ENT_DAY
+             , CONVERT(VARCHAR, RESIN_DAY, 112) AS RESIN_DAY
+          FROM EMPLOYEE
+         WHERE UPD_DM BETWEEN DATEADD(DAY, -3, GETDATE()) AND GETDATE()
+    </select>
+
+</mapper>

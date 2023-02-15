@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		1. [사용안함] 연체 정보현황 DIPLAY를 위한 월 1회 누적 데이터 
+    			- 매월 1일 새벽 3시 10분 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 재작업 필요 (삭제)
+        		- 대명 연체현황 데이터 입력 (월)   
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+     <bean id="dlwUserProdInfoMon" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwCondServiceImpl" />
+        <property name="targetMethod" value="insertUserProdInfoMonth" />
+        <property name="concurrent" value="false" />
+    </bean>
+    
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		2. [사용] 실적 데이터 DIPLAY를 위한 실적 데이터 TB_USER_PROD_INFO INSERT
+    			- 매일 새벽 3시 스케쥴링 작업
+    			- 매일 새벽 12시에 도는 LF_DMUSER.TB_MEMBER_BASIC_INFO_DAY 내용과 겹침 
+        		- 대명 실적현황 데이터 입력 (일)  
+    -->
+    <!-- *************************************************************************************************************************-->
+
+    <bean id="dlwUserProdInfo" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwCondServiceImpl" />
+        <property name="targetMethod" value="insertUserProdInfo" />
+        <property name="concurrent" value="false" />
+    </bean>
+    
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		3. [사용] 문자 전송 용 BACK DATA 생성을 위한 스케쥴링
+    			- 매일 새벽 3시 20분 스케쥴링 작업
+        		- 일일 청구 기준 데이터 (MBID파일추출 배치시스템) csv 파일 제작 start  
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <!-- 일일 청구 기준 데이터 (MBID파일추출 배치시스템) csv 파일 제작 start -->
+    <bean id="batchMbidCsvFileMakeJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwCondServiceImpl" />
+        <property name="targetMethod" value="insertMbidCsvFileMake" />
+        <property name="concurrent" value="false" />
+    </bean>
+    <!-- 일일 청구 기준 데이터 (MBID파일추출 배치시스템) csv 파일 제작 end -->
+       
+    
+    <!-- 일일 청구 기준 데이터를 사용하여 문자메시지를 전송 start -->
+    <bean id="batchMbidMsgSendJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwCondServiceImpl" />
+        <property name="targetMethod" value="sendMessageBatchAuto" />
+        <property name="concurrent" value="false" />
+    </bean>
+    <!-- 일일 청구 기준 데이터를 사용하여 문자메시지를 전송 end -->
+    
+    <!-- 고객연체 히스토리 데이터 적재 start -->
+    <bean id="batchMemberYencheHstrJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwCondServiceImpl" />
+        <property name="targetMethod" value="insertMemberYencheHstr" />
+        <property name="concurrent" value="false" />
+    </bean>
+    <!-- 고객연체 히스토리 데이터 적재 end -->
+    
+    <!-- 수당/수수료 산출 start -->
+    <bean id="batchInsertAlowBasicInfoJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwCondServiceImpl" />
+        <property name="targetMethod" value="insertAlowBasicInfo" />
+        <property name="concurrent" value="false" />
+    </bean>
+    <!-- 수당/수수료 산출 end -->
+
+    <!-- MethodInvokingJobDetailFactoryBean를 이용한 JobDetailBean 설정  -->
+    <!-- **** Cron Expression ****
+         Field Name          Allowed Values         Allowed Special Characters
+         seconds             0-59                   , - * /
+         Minutes             0-59                   , - * /
+         Hours               0-23                   , - * /
+         Day-of-month        1-31                   , - * ? / L W
+         Month               1-12 or JAN-DEC        , - * /
+         Day-of-Week         1-7 or SUN-SAT         , - * ? / L W
+         Year(Optional)      empty, 1970-2099       , - * /
+
+         ‘-’ 문자를 사용해서 범위를 표현하고 ‘,’ 문자를 사용해서 목록을 표현한다.
+                        예로 "MON-FRI" 는 "월요일 에서 금요일"을 의미하며, "MON, WED, FRI" 는 "월, 수, 금"을 의미한다.
+                        와일드카드 문자 '*' 는 필드에서 가능한 모든(every) 값을 의미한다.
+                        예로 Month 필드에서 사용되면 매월을 의미하고, Year 필드에서는 매년을 의미한다.
+         '/' 문자는 값 증분을 의미한다. 예를 들면, '0/15' 을 minute 필드에 기록하면 '0분에 시작해서 15분마다'를 의미한다.
+                        만약 동일한 필드에 '3/20'을 기록하면 '3, 23, 43'을 의미한다.
+         '?' 문자는 day-of-month and day-of-week 필드에서만 사용 된다. 특별한 설정을 하지 않겠다는 의미이다.
+
+         ** Sample **
+         0 0 12 ? * WED : 매 수요일 오후 12시
+         0 0/5 * * * ? : 매 5분 간격 0초에 (즉, 5분 0초, 10분 0초, 15분 0초, …)
+         10 0/5 * * * ? : 매 5분 간격 10초 (즉, 0분 10초, 5분 10초, 10분 10초, …)
+         0 30 10-12 ? * WED,FRI” : 매 수요일, 금요일의 10:30분, 11:30분, 12:30분
+     -->
+
+    <!-- 대명 연체현황 데이터 트리거 -->
+    <bean id="dlwUserProdInfoMonTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="dlwUserProdInfoMon" />
+        <property name="cronExpression" value="0 10 3 1 * ? *" />
+    </bean>
+    <!-- // 대명 연체현황 데이터 트리거 -->
+
+    <!-- 대명 실적현황 데이터 트리거 -->
+    <bean id="dlwUserProdInfoTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="dlwUserProdInfo" />
+        <property name="cronExpression" value="0 0 3 * * ? *" />
+    </bean>
+    <!-- // 대명 실적현황 데이터 트리거 -->
+    
+    <!-- 일일 청구 기준 데이터 (MBID파일추출 배치시스템) csv 파일 제작 start -->
+    <bean id="batchMbidCsvFileMakeTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="batchMbidCsvFileMakeJob" />
+        <property name="cronExpression" value="0 20 3 * * ?" />
+    </bean>
+    <!-- 일일 청구 기준 데이터 (MBID파일추출 배치시스템) csv 파일 제작 end -->
+    
+    <!-- 일일 청구 기준 데이터를 사용하여 문자메시지를 전송 start -->
+    <bean id="batchMbidMsgSendTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="batchMbidMsgSendJob" />
+        <property name="cronExpression" value="0 0 9 * * ?" />
+    </bean>
+    <!-- 일일 청구 기준 데이터를 사용하여 문자메시지를 전송 end -->
+    
+    <!-- 고객연체 히스토리 데이터 적재 start -->
+    <bean id="batchMemberYencheHstrTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="batchMemberYencheHstrJob" />
+        <property name="cronExpression" value="0 0 2 1 * ?" />
+    </bean>
+    <!-- 고객연체 히스토리 데이터 적재 end -->
+    
+    <!-- 수당/수수료 산출 start -->
+    <bean id="batchInsertAlowBasicInfoTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="batchInsertAlowBasicInfoJob" />
+        <property name="cronExpression" value="0 0 3 * * ?" />
+    </bean>
+    <!-- 수당/수수료 산출 end -->
+
+    <!-- 대명 현황정보 스케줄러 -->
+    <bean id="dlwCScheduler" class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <property name="triggers">
+            <list>
+                <!-- <ref bean="dlwUserProdInfoMonTrigger" /> -->
+                <!-- <ref bean="dlwUserProdInfoTrigger" /> -->
+                <!-- <ref bean="batchMbidCsvFileMakeTrigger" /> 이건 반영 -->
+                <!-- <ref bean="batchMbidMsgSendTrigger" /> 이건 제외 -->
+                <!-- <ref bean="batchMemberYencheHstrTrigger" /> 이건 반영 -->
+                <!-- <ref bean="batchInsertAlowBasicInfoTrigger" /> -->
+            </list>
+        </property>
+    </bean>
+    <!-- // 대명 현황정보 스케줄러 -->
+
+</beans>

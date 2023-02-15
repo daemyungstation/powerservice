@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WrkScdlDtlMap">
+
+    <sql id="WrkScdlDtlMap.selectCondition_fragment">
+        <choose>
+            <when test="user_id != null and user_id != ''">
+            AND USER_ID = #{user_id}
+            </when>
+            <when test="team2_cd != null and team2_cd != ''">
+            AND EXISTS (SELECT 'Y'
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.USER_ID
+                           AND B.CNTR_CD = A.CNTR_CD
+                           AND B.TEAM_CD = #{team2_cd})
+            </when>
+            <when test="team1_cd != null and team1_cd != ''">
+            AND EXISTS (SELECT 'Y'
+                          FROM TB_USER B
+                             , TB_CONS_TEAM C
+                         WHERE B.USER_ID = A.USER_ID
+                           AND B.CNTR_CD = A.CNTR_CD
+                           AND B.TEAM_CD = C.TEAM_CD
+                           AND B.CNTR_CD = C.CNTR_CD
+                           AND C.HGRN_TEAM_CD = #{team1_cd})
+            </when>
+        </choose>
+    </sql>
+
+    <select id="WrkScdlDtlMap.getWrkScdlDtlCount" parameterType="map" resultType="int">
+        SELECT /* WrkScdlDtlMap.getWrkScdlDtlCount */
+               COUNT(*)
+          FROM TB_WRK_SCDL_DTL
+         WHERE WRK_TYP_CD = #{wrk_typ_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="WrkScdlDtlMap.getWrkScdlDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* WrkScdlDtlMap.getWrkScdlDtlList */
+               #{srch_yrmn} AS WRK_SCDL_YRMN, B.CNTR_CD, B.USER_ID, B.LGN_ID, B.USER_NM
+             , C.TEAM_CD AS TEAM2_CD, C.TEAM_NM AS TEAM2_NM, D.TEAM_CD AS TEAM1_CD, D.TEAM_NM AS TEAM1_NM
+             , A.*
+          FROM (SELECT *
+                  FROM (SELECT USER_ID, CNTR_CD, WRK_SCDL_DY, WRK_TYP_CD
+                          FROM TB_WRK_SCDL_DTL A
+                         WHERE WRK_SCDL_YRMN = #{srch_yrmn}
+                           AND CNTR_CD = #{cntr_cd}
+
+                       )
+                 PIVOT (MAX(WRK_TYP_CD) FOR WRK_SCDL_DY IN ('01' AS D01, '02' AS D02, '03' AS D03, '04' AS D04, '05' AS D05
+                                                          , '06' AS D06, '07' AS D07, '08' AS D08, '09' AS D09, '10' AS D10
+                                                          , '11' AS D11, '12' AS D12, '13' AS D13, '14' AS D14, '15' AS D15
+                                                          , '16' AS D16, '17' AS D17, '18' AS D18, '19' AS D19, '20' AS D20
+                                                          , '21' AS D21, '22' AS D22, '23' AS D23, '24' AS D24, '25' AS D25
+                                                          , '26' AS D26, '27' AS D27, '28' AS D28, '29' AS D29, '30' AS D30, '31' AS D31)
+                       )
+               ) A
+             , TB_USER B
+             , TB_CONS_TEAM C
+             , TB_CONS_TEAM D
+         WHERE A.USER_ID(+) = B.USER_ID
+           AND B.CNTR_CD = #{cntr_cd}
+           AND B.USER_STAT_CD = '10'
+           AND B.USE_YN = 'Y'
+           AND B.TEAM_CD = C.TEAM_CD
+           AND B.CNTR_CD = C.CNTR_CD
+           AND C.USE_YN = 'Y'
+           AND C.HGRN_TEAM_CD = D.TEAM_CD
+           AND C.CNTR_CD = D.CNTR_CD
+           AND D.USE_YN = 'Y'
+        <choose>
+            <when test="user_id != null and user_id != ''">
+            AND B.USER_ID = #{user_id}
+            </when>
+            <when test="team2_cd != null and team2_cd != ''">
+            AND C.TEAM_CD = #{team2_cd}
+            </when>
+            <when test="team1_cd != null and team1_cd != ''">
+            AND D.TEAM_CD = #{team1_cd}
+            </when>
+        </choose>
+         ORDER BY D.TEAM_SQNC ASC, C.TEAM_SQNC ASC, B.USER_NM ASC
+    </select>
+
+    <select id="WrkScdlDtlMap.getDtList" parameterType="map" resultType="resultMap">
+    <![CDATA[
+        SELECT /* WrkScdlDtlMap.getDtList */
+               *
+          FROM (SELECT TO_CHAR(TO_DATE(#{stt_dt}, 'YYYYMMDD') + LEVEL - 1, 'YYYYMM') AS YRMN
+                     , TO_CHAR(TO_DATE(#{stt_dt}, 'YYYYMMDD') + LEVEL - 1, 'DD') AS DT
+                  FROM DUAL
+               CONNECT BY LEVEL <= TO_DATE(#{end_dt}, 'YYYYMMDD') - TO_DATE(#{stt_dt}, 'YYYYMMDD') + 1
+               ) A
+    ]]>
+        <if test="except_offday != null and except_offday">
+    <![CDATA[
+         WHERE TO_CHAR(TO_DATE(A.YRMN || A.DT, 'YYYYMMDD'), 'D') NOT IN (1, 7)
+           AND NOT EXISTS (SELECT 'Y'
+                             FROM TB_SCDL_DTL B
+                            WHERE B.CNTR_CD = #{cntr_cd}
+                              AND B.SCDL_TYP_CD = 'O'
+                              AND B.SCDL_END_DTTM >= #{stt_dt} || '000000'
+                              AND B.SCDL_STT_DTTM <= #{end_dt} || '235959'
+                              AND A.YRMN || A.DT || '000000' BETWEEN SCDL_STT_DTTM AND SCDL_END_DTTM
+                          )
+    ]]>
+        </if>
+    </select>
+
+    <insert id="WrkScdlDtlMap.insertWrkScdlDtl" parameterType="map">
+        <selectKey keyProperty="wrk_scdl_id" resultType="String" order="BEFORE">
+            SELECT 'WSD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* WrkScdlDtlMap.insertWrkScdlDtl */
+          INTO TB_WRK_SCDL_DTL
+               (WRK_SCDL_ID, USER_ID, WRK_SCDL_YRMN, WRK_SCDL_DY, WRK_TYP_CD
+        <if test="chng_yn != null and chng_yn != ''">
+             , CHNG_YN
+        </if>
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{wrk_scdl_id}, #{user_id}, #{wrk_scdl_yrmn}, #{wrk_scdl_dy}, #{wrk_typ_cd}
+        <if test="chng_yn != null and chng_yn != ''">
+             , #{chng_yn}
+        </if>
+             , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <delete id="WrkScdlDtlMap.deleteWrkScdlDtlPart" parameterType="map">
+        DELETE /* WrkScdlDtlMap.deleteWrkScdlDtlPart */
+          FROM TB_WRK_SCDL_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND USER_ID = #{user_id}
+           AND WRK_SCDL_YRMN = #{wrk_scdl_yrmn}
+    </delete>
+
+    <delete id="WrkScdlDtlMap.deleteWrkScdlDtlAll" parameterType="map">
+        DELETE /* WrkScdlDtlMap.deleteWrkScdlDtlAll */
+          FROM TB_WRK_SCDL_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND USER_ID
+        <foreach collection="userList" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+           AND WRK_SCDL_YRMN || WRK_SCDL_DY BETWEEN #{stt_dt} AND #{end_dt}
+    </delete>
+
+</mapper>

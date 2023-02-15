@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="RoleUserMap">
+
+    <sql id="RoleUserMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="role_cd != null and role_cd != ''">
+                AND A.ROLE_CD = #{role_cd}
+            </if>
+            <if test="role_trgt_typ_cd != null and role_trgt_typ_cd != ''">
+                AND A.ROLE_TRGT_TYP_CD = #{role_trgt_typ_cd}
+            </if>
+            <if test="role_trgt_id != null and role_trgt_id != ''">
+                AND A.ROLE_TRGT_ID = #{role_trgt_id}
+            </if>
+        </where>
+    </sql>
+
+    <select id="RoleUserMap.getRoleUserCount" parameterType="map" resultType="int">
+        SELECT /* RoleUserMap.getRoleUserCount */
+               COUNT(*)
+          FROM TB_ROLE_USER A
+        <include refid="RoleUserMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="RoleUserMap.getRoleUserList" parameterType="map" resultType="resultMap">
+        SELECT /* RoleUserMap.getRoleUserList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT A.*
+                             , (CASE WHEN A.TEAM1_CD IS NOT NULL
+                                     THEN (SELECT B.TEAM_NM
+                                             FROM TB_CONS_TEAM B
+                                            WHERE B.TEAM_CD = A.TEAM1_CD
+                                              AND B.CNTR_CD = A.CNTR_CD)
+                                     ELSE '전체'
+                                END) AS TEAM1_NM
+                             , (CASE WHEN A.TEAM2_CD IS NOT NULL
+                                     THEN (SELECT B.TEAM_NM
+                                             FROM TB_CONS_TEAM B
+                                            WHERE B.TEAM_CD = A.TEAM2_CD
+                                              AND B.CNTR_CD = A.CNTR_CD)
+                                     ELSE '전체'
+                                END) AS TEAM2_NM
+                             , (CASE WHEN A.USER_ID IS NOT NULL
+                                     THEN (SELECT B.USER_NM
+                                             FROM TB_USER B
+                                            WHERE B.USER_ID = A.USER_ID
+                                              AND B.CNTR_CD = A.CNTR_CD)
+                                     ELSE '전체'
+                                END) AS USER_NM
+                             , (CASE WHEN A.USER_ID IS NOT NULL
+                                     THEN (SELECT B.LGN_ID
+                                             FROM TB_USER B
+                                            WHERE B.USER_ID = A.USER_ID
+                                              AND B.CNTR_CD = A.CNTR_CD)
+                                      ELSE ''
+                                END) AS LGN_ID
+                          FROM (SELECT ROLE_CD, ROLE_TRGT_TYP_CD, ROLE_TRGT_ID, ROLE_ETC_ATRB1_VL, ROLE_ETC_ATRB2_VL
+                                     , ROLE_ETC_ATRB3_VL
+                                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                                     , (SELECT B.USER_NM
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.RGSR_ID
+                                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                                     , (SELECT B.USER_NM
+                                          FROM TB_USER B
+                                         WHERE B.USER_ID = A.AMND_ID
+                                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                                     , (CASE WHEN A.ROLE_TRGT_TYP_CD = '10'
+                                             THEN A.ROLE_TRGT_ID
+                                             ELSE NULL
+                                        END) AS USER_ID
+                                     , (CASE WHEN A.ROLE_TRGT_TYP_CD = '10'
+                                             THEN (SELECT B.TEAM_CD
+                                                     FROM TB_CONS_TEAM B
+                                                    WHERE B.TEAM_CD = (SELECT C.HGRN_TEAM_CD
+                                                                         FROM TB_CONS_TEAM C
+                                                                            , TB_USER D
+                                                                        WHERE C.TEAM_CD = D.TEAM_CD
+                                                                          AND D.USER_ID = A.ROLE_TRGT_ID)
+                                                  )
+                                             ELSE (SELECT B.TEAM_CD
+                                                     FROM TB_CONS_TEAM B
+                                                        , TB_CONS_TEAM C
+                                                    WHERE B.TEAM_CD = C.HGRN_TEAM_CD
+                                                      AND (B.TEAM_CD = A.ROLE_TRGT_ID
+                                                        OR C.TEAM_CD = A.ROLE_TRGT_ID)
+                                                      AND ROWNUM = 1)
+                                        END) AS TEAM1_CD
+                                     , (CASE WHEN A.ROLE_TRGT_TYP_CD = '10'
+                                             THEN (SELECT B.TEAM_CD
+                                                     FROM TB_USER B
+                                                    WHERE B.USER_ID = A.ROLE_TRGT_ID)
+                                             ELSE (SELECT C.TEAM_CD
+                                                     FROM TB_CONS_TEAM B
+                                                        , TB_CONS_TEAM C
+                                                    WHERE B.TEAM_CD = C.HGRN_TEAM_CD
+                                                      AND C.TEAM_CD = A.ROLE_TRGT_ID)
+                                        END) AS TEAM2_CD
+                                  FROM TB_ROLE_USER A
+        <include refid="RoleUserMap.selectCondition_fragment"/>
+                               ) A
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="RoleUserMap.insertRoleUser" parameterType="map">
+        INSERT /* RoleUserMap.insertRoleUser */
+          INTO TB_ROLE_USER
+               (ROLE_CD, ROLE_TRGT_TYP_CD, ROLE_TRGT_ID, ROLE_ETC_ATRB1_VL, ROLE_ETC_ATRB2_VL
+              , ROLE_ETC_ATRB3_VL
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{role_cd}, #{role_trgt_typ_cd}, #{role_trgt_id}, #{role_etc_atrb1_vl}, #{role_etc_atrb2_vl}
+              , #{role_etc_atrb3_vl}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="RoleUserMap.updateRoleUser" parameterType="map">
+        UPDATE /* RoleUserMap.updateRoleUser */
+               TB_ROLE_USER
+           SET ROLE_TRGT_TYP_CD = #{role_trgt_typ_cd}
+             , ROLE_TRGT_ID = #{role_trgt_id}
+             , ROLE_ETC_ATRB1_VL = #{role_etc_atrb1_vl}
+             , ROLE_ETC_ATRB2_VL = #{role_etc_atrb2_vl}
+             , ROLE_ETC_ATRB3_VL = #{role_etc_atrb3_vl}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE ROLE_CD = #{role_cd}
+          AND ROLE_TRGT_TYP_CD = #{role_trgt_typ_cd_old}
+          AND ROLE_TRGT_ID = #{role_trgt_id_old}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="RoleUserMap.deleteRoleUser" parameterType="map">
+        DELETE /* RoleUserMap.deleteRoleUser */
+          FROM TB_ROLE_USER
+         WHERE ROLE_CD = #{role_cd}
+           AND ROLE_TRGT_TYP_CD = #{role_trgt_typ_cd}
+           AND ROLE_TRGT_ID = #{role_trgt_id}
+           AND CNTR_CD = #{cntr_cd}
+    </delete>
+
+
+    <select id="RoleUserMap.getRoleUserExcelCount" resultType="int">
+        SELECT /* RoleUserMap.getRoleUserExcelCount */
+               COUNT(*)
+          FROM TB_ROLE A
+          JOIN TB_ROLE_USER B
+            ON A.ROLE_CD = B.ROLE_CD
+    </select>
+
+    <select id="RoleUserMap.getRoleUserExcelList" resultType="resultMap">
+        SELECT /* RoleMap.getRoleUserExcelList */
+               PAGE_INDX, ROLE_CD, ROLE_NM, ROLE_EXPI, ROLE_TRGT_TYP_CD
+             , ROLE_TRGT_TYP_NM, ROLE_TRGT_ID, ROLE_TRGT_NM, RGSR_ID, RGSN_DTTM
+             , AMND_ID, AMNT_DTTM, RGSR_NM, AMND_NM, ROLE_ETC_ATRB1_VL
+             , ROLE_ETC_ATRB2_VL, ROLE_ETC_ATRB3_VL
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT A.ROLE_CD, A.ROLE_NM, A.ROLE_EXPI, B.ROLE_TRGT_TYP_CD, B.ROLE_TRGT_ID
+                             , B.RGSR_ID, B.RGSN_DTTM, B.AMND_ID, B.AMNT_DTTM, B.ROLE_ETC_ATRB1_VL
+                             , B.ROLE_ETC_ATRB2_VL, B.ROLE_ETC_ATRB3_VL
+                             , GETCODENM('SYS030', B.ROLE_TRGT_TYP_CD, B.CNTR_CD) AS ROLE_TRGT_TYP_NM
+                             , (CASE WHEN B.ROLE_TRGT_TYP_CD = '10'
+                                     THEN (SELECT C.USER_NM
+                                             FROM TB_USER C
+                                            WHERE C.USER_ID = B.ROLE_TRGT_ID)
+                                     WHEN B.ROLE_TRGT_TYP_CD = '20'
+                                     THEN (SELECT C.TEAM_NM
+                                             FROM TB_CONS_TEAM C
+                                            WHERE C.TEAM_CD = B.ROLE_TRGT_ID)
+                                     ELSE ''
+                                END) ROLE_TRGT_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = B.RGSR_ID) AS RGSR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = B.AMND_ID) AS AMND_NM
+                        FROM TB_ROLE A
+                        JOIN TB_ROLE_USER B
+                          ON A.ROLE_CD = B.ROLE_CD
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+            </when>
+            <otherwise>
+                      ORDER BY A.ROLE_CD, B.ROLE_TRGT_ID
+            </otherwise>
+        </choose>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+</mapper>

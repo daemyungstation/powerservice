@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_Month_Popup" classname="Comm_DateBetween" inheritanceid="" position="absolute 0 0 165 185" titletext="분기 선택(1~4분기)" onload="Comm_Month_Popup_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static07" class="sta_calBg" position="absolute 0 0 165 185" style="shadow:drop 0,0 0 gray;"/>
+        <Static id="Static08" class="sta_calTopBg" position="absolute 1 1 165 26"/>
+        <Button id="btn_Post" taborder="1" class="btn_calPrev" position="absolute 10 7 16 19" onclick="btn_Post_onclick"/>
+        <Button id="btn_Next" taborder="1" class="btn_calNext" position="absolute 151 7 157 19" onclick="btn_Next_onclick"/>
+        <Calendar id="cal_Year" taborder="1" position="absolute 56 3 122 23" type="spin" dateformat="yyyy" editformat="yyyy" style="background:stretch 5,5;color:white;font:arial,12,bold;" value="20120101"/>
+        <Button id="btn_Quarter_1" taborder="1" class="btn_Month" position="absolute 11 36 82 104" style="image:URL('IMG::calNumq01_N.png');imagealign:center middle; :focused {image:URL('IMG::calNumq01_P.png');} :mouseover {image:URL('IMG::calNumq01_O.png');} :pushed {image:URL('IMG::calNumq01_P.png');} :selected {image:URL('IMG::calNumq01_P.png');}" onclick="Button_onclick"/>
+        <Button id="btn_Quarter_2" taborder="1" class="btn_Month" position="absolute 83 36 154 104" style="image:URL('IMG::calNumq02_N.png');imagealign:center middle; :focused {image:URL('IMG::calNumq02_P.png');} :mouseover {image:URL('IMG::calNumq02_O.png');} :pushed {image:URL('IMG::calNumq02_P.png');} :selected {image:URL('IMG::calNumq02_P.png');}" onclick="Button_onclick"/>
+        <Button id="btn_Quarter_3" taborder="1" class="btn_Month" position="absolute 11 105 82 173" style="image:URL('IMG::calNumq03_N.png');imagealign:center middle; :focused {image:URL('IMG::calNumq03_P.png');} :mouseover {image:URL('IMG::calNumq03_O.png');} :pushed {image:URL('IMG::calNumq03_P.png');} :selected {image:URL('IMG::calNumq03_P.png');}" onclick="Button_onclick"/>
+        <Button id="btn_Quarter_4" taborder="1" class="btn_Month" position="absolute 83 105 154 173" style="image:URL('IMG::calNumq04_N.png');imagealign:center middle; :focused {image:URL('IMG::calNumq04_P.png');} :mouseover {image:URL('IMG::calNumq04_O.png');} :pushed {image:URL('IMG::calNumq04_P.png');} :selected {image:URL('IMG::calNumq04_P.png');}" onclick="Button_onclick"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+function Comm_Month_Popup_onload(obj:Form, e:LoadEventInfo)
+{
+//  	this.cal_Year.value 	= gfn_getToday();
+//  	fn_setSelected(fn_getQuarter(cal_Year.getMonth()));
+}
+
+function fn_setValue(objDate)
+{
+	//trace("objDate::"+objDate.value);
+	if(!gfn_isNull(objDate.value)) {
+		this.cal_Year.value 	= String(objDate.value).substr(0, 4) + "0101";
+		fn_setSelected(String(objDate.value).substr(4, 1));	
+	} else {
+		this.cal_Year.value 	= gfn_getToday();
+		fn_setSelected(fn_getQuarter(cal_Year.getMonth()));	
+	}
+}
+
+function fn_setValueGrid(objGrid, e)
+{
+	var sValue = gfn_trim(objGrid.getCellValue(e.row, e.cell));
+	
+	if(!gfn_isNull(sValue)) {
+		this.cal_Year.value = String(sValue).substr(0, 4) + "0101";
+		fn_setSelected(parseInt(String(sValue).substr(4, 1)));	
+	} else {
+		this.cal_Year.value 	= gfn_getToday();
+		fn_setSelected(fn_getQuarter(cal_Year.getMonth()));
+	}
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function fn_getQuarter(nMonth)
+{
+	var nQuarter;
+	if(nMonth <= 3)
+		nQuarter = 1;
+	else if(nMonth >= 4 && nMonth <= 6)
+		nQuarter = 2;
+	else if(nMonth >= 7 && nMonth <= 9)
+		nQuarter = 3;
+	else if(nMonth >= 10)
+		nQuarter = 4;
+		
+	return nQuarter;
+}
+
+function fn_setSelected(nQuarter)
+{
+	for(var i=1;i<=4;i++)
+	{
+		var objBtn = eval("btn_Quarter_"+i);
+		
+		if(i == nQuarter)
+			objBtn.setSelectStatus(true);
+		else
+			objBtn.setSelectStatus(false);
+	}
+}
+
+function fn_getSelectedQuarter()
+{
+	for(var i=1;i<=4;i++)
+	{
+		var objBtn = eval("btn_Quarter_"+i);
+		if(objBtn.getSelectStatus()) {
+			return String(i);
+		}	
+	}
+}
+
+function Button_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var arr = obj.name.split("_");
+	fn_setSelected(arr[2]);
+	
+	closePopup(fn_getDate());
+	
+	//trace(this.name);
+	
+	//this.getOwnerFrame().closePopup();
+}
+
+function btn_Post_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_calcYear(-1);
+}
+
+function fn_calcYear(nVal)
+{
+	var nYear = parseInt(cal_Year.getYear());
+	nYear = nYear + nVal;
+	cal_Year.value = nYear + "0101";
+}
+
+function btn_Next_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_calcYear(1);
+}
+
+function fn_getDate()
+{
+	return cal_Year.getYear() + fn_getSelectedQuarter();
+}
+
+]]></Script>
+  </Form>
+</FDL>

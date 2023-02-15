@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwAlowProportCalcMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20210603
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당안분 조회수
+     * 대상 테이블 : LF_DMUSER.ALOW_DA_DTL
+     * ================================================================
+     * -->
+    <select id="DlwAlowProportCalcMap.getAlowProportAccntCount" parameterType="map" resultType="int">
+        SELECT
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY AD.ACCNT_NO) AS PAGE_INDX,
+                AD.ACCNT_NO,
+                SUM((CASE WHEN AD.ALOW_CD = 'T21' THEN AD.AMT ELSE  0 END )) AS T21_AMT,  --수당
+                SUM((CASE WHEN AD.ALOW_CD = 'T32' THEN AD.AMT ELSE  0 END )) AS T32_AMT,  --누진수당
+                SUM((CASE WHEN AD.ALOW_CD = 'F7' THEN AD.AMT ELSE  0 END  )) AS F07_AMT,  --수당환수
+                SUM((CASE WHEN AD.ALOW_CD = 'F11' THEN AD.AMT ELSE  0 END  )) AS F11_AMT, --누진환수
+                SUM((CASE WHEN AD.ALOW_CD = 'T33' THEN AD.AMT ELSE  0 END )) AS T33_AMT,  --수수료산출
+                SUM((CASE WHEN AD.ALOW_CD = 'F8' THEN AD.AMT ELSE  0 END )) AS F08_AMT,   --수수료환수
+                SUM((CASE WHEN AD.ALOW_CD = 'F10' THEN AD.AMT ELSE  0 END )) AS F10_AMT,  --연체환수
+                SUM((CASE WHEN AD.ALOW_CD = 'F12' THEN AD.AMT ELSE  0 END )) AS F12_AMT   --이월환수
+            FROM
+            (
+                SELECT
+                    ROW_NUMBER() OVER(PARTITION BY ACCNT_NO, ALOW_CD ORDER BY DTL_SEQ DESC) AS MAX_SEQ,
+                    A.*
+                FROM LF_DMUSER.ALOW_DA_DTL A
+                WHERE 1=1                     
+                AND A.ACCNT_NO IN (SELECT TPC.ACCNT_NO FROM LF_DMUSER.TMP_PROPORT_CALC TPC WHERE 1=1)
+            ) AD
+            WHERE 1=1
+            <if test="accnt_no != null and accnt_no != ''">
+                AND AD.ACCNT_NO = #{accnt_no}
+            </if>
+            GROUP BY AD.ACCNT_NO
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210603
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당안분 조회리스트
+     * 대상 테이블 : LF_DMUSER.ALOW_DA_DTL
+     * ================================================================
+     * -->
+    <select id="DlwAlowProportCalcMap.getAlowProportAccntList" parameterType="map" resultType="resultMap">
+        SELECT
+            MAIN_TBL.PAGE_INDX,
+            MAIN_TBL.ACCNT_NO,                    
+            (MAIN_TBL.T21_AMT + MAIN_TBL.T32_AMT + MAIN_TBL.T33_AMT) AS ALOW_AMT,
+            (MAIN_TBL.F07_AMT + MAIN_TBL.F08_AMT + MAIN_TBL.F11_AMT +  MAIN_TBL.F10_AMT + MAIN_TBL.F12_AMT) AS REDEP_AMT
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY AD.ACCNT_NO) AS PAGE_INDX,
+                AD.ACCNT_NO,
+                SUM((CASE WHEN AD.ALOW_CD = 'T21' THEN AD.AMT ELSE  0 END )) AS T21_AMT,  --수당
+                SUM((CASE WHEN AD.ALOW_CD = 'T32' THEN AD.AMT ELSE  0 END )) AS T32_AMT,  --누진수당
+                SUM((CASE WHEN AD.ALOW_CD = 'F7' THEN AD.AMT ELSE  0 END  )) AS F07_AMT,  --수당환수
+                SUM((CASE WHEN AD.ALOW_CD = 'F11' THEN AD.AMT ELSE  0 END  )) AS F11_AMT, --누진환수
+                SUM((CASE WHEN AD.ALOW_CD = 'T33' THEN AD.AMT ELSE  0 END )) AS T33_AMT,  --수수료산출
+                SUM((CASE WHEN AD.ALOW_CD = 'F8' THEN AD.AMT ELSE  0 END )) AS F08_AMT,   --수수료환수
+                SUM((CASE WHEN AD.ALOW_CD = 'F10' THEN AD.AMT ELSE  0 END )) AS F10_AMT,  --연체환수
+                SUM((CASE WHEN AD.ALOW_CD = 'F12' THEN AD.AMT ELSE  0 END )) AS F12_AMT   --이월환수
+            FROM
+            (
+                SELECT
+                    ROW_NUMBER() OVER(PARTITION BY ACCNT_NO, ALOW_CD ORDER BY DTL_SEQ DESC) AS MAX_SEQ,
+                    A.*
+                FROM LF_DMUSER.ALOW_DA_DTL A
+                WHERE 1=1                     
+                AND A.ACCNT_NO IN (SELECT TPC.ACCNT_NO FROM LF_DMUSER.TMP_PROPORT_CALC TPC WHERE 1=1)
+            ) AD
+            WHERE 1=1
+            <if test="accnt_no != null and accnt_no != ''">
+                AND AD.ACCNT_NO = #{accnt_no}
+            </if>
+            GROUP BY AD.ACCNT_NO
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+        ORDER BY MAIN_TBL.ACCNT_NO ASC
+    </select>
+    
+	<!-- ================================================================
+     * 날짜 : 20210603
+     * 이름 : 송준빈
+     * 추가내용 : 상품별수당안분 조회수
+     * 대상 테이블 : LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwAlowProportCalcMap.getAlowProportProdCount" parameterType="map" resultType="int">
+        SELECT
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT 
+                ROW_NUMBER() OVER(ORDER BY PD.PROD_CD ASC) AS PAGE_INDX,
+                PD.PROD_CD, 
+                PD.PROD_NM,
+                (SELECT SUM(PND.AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS TRUE_AMT,
+                (SELECT SUM(PND.REL_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS REL_AMT,
+                (SELECT SUM(PND.ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS ADD_AMT,
+                (SELECT SUM(PND.AMT) + SUM(PND.REL_AMT) + SUM(PND.ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS PROD_AMT
+            FROM LF_DMUSER.PRODUCT PD
+            WHERE 1=1
+            <if test="prod_cd != null and prod_cd != ''">
+                AND PD.PROD_CD = #{prod_cd}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1 
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210603
+     * 이름 : 송준빈
+     * 추가내용 : 상품별수당안분 조회리스트
+     * 대상 테이블 : LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwAlowProportCalcMap.getAlowProportProdList" parameterType="map" resultType="resultMap">
+        SELECT
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                ROW_NUMBER() OVER(ORDER BY PD.PROD_CD ASC) AS PAGE_INDX,
+                PD.PROD_CD, 
+                PD.PROD_NM,
+                (SELECT SUM(PND.AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS TRUE_AMT,
+                (SELECT SUM(PND.REL_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS REL_AMT,
+                (SELECT SUM(PND.ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS ADD_AMT,
+                (SELECT SUM(PND.AMT) + SUM(PND.REL_AMT) + SUM(PND.ADD_AMT) FROM LF_DMUSER.PRODUCT_NO_DATA PND WHERE PND.PROD_CD = PD.PROD_CD) AS PROD_AMT
+            FROM LF_DMUSER.PRODUCT PD
+            WHERE 1=1
+            <if test="prod_cd != null and prod_cd != ''">
+                AND PD.PROD_CD = #{prod_cd}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+        ORDER BY MAIN_TBL.PROD_CD ASC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210603
+     * 이름 : 송준빈
+     * 추가내용 : 수당안분계산대상 고객업로드(임시 테이블 삭제)
+     * 대상 테이블 : LF_DMUSER.TMP_PROPORT_CALC
+     * ================================================================
+     * -->
+    <delete id="DlwAlowProportCalcMap.deleteTmpProportCalc" parameterType="map">
+        DELETE FROM LF_DMUSER.TMP_PROPORT_CALC WHERE 1=1
+    </delete>
+    
+    <!-- ================================================================
+     * 날짜 : 20210603
+     * 이름 : 송준빈
+     * 추가내용 : 수당안분계산대상 고객업로드(대상 고객 업로드)
+     * 대상 테이블 : LF_DMUSER.TMP_PROPORT_CALC
+     * ================================================================
+     * -->
+    <insert id="DlwAlowProportCalcMap.insertAlowAccntExcel" parameterType="map">
+        INSERT INTO LF_DMUSER.TMP_PROPORT_CALC(ACCNT_NO) VALUES(#{accnt_no})
+    </insert>
+</mapper>

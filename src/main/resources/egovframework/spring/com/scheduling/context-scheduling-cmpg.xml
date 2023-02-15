@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		1. [사용중] 자동 대상목록 생성 
+    			- 매월 1일 새벽 2시 스케쥴링 작업
+        		- TM 서브타겟리스트 생성   
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <bean id="tmJoinSubTrgtCreateJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="insertSubTrgtList" />
+        <property name="concurrent" value="false" />
+    </bean>
+    
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		2. [사용중] 온라인 접수페이지 입력 회원 대상자 등록 (10분마다)
+    		    - 매일 10분마다 (6시-22시까지)
+        		- TM 온라인 고객 서브타겟리스트 저장   
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <bean id="insertTmJoinSubTrgtCustJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="insertB2QTmJoinCust" />
+        <property name="concurrent" value="false" />
+    </bean>
+	
+	<!-- *************************************************************************************************************************-->
+    <!-- 
+    		3. [사용안함] 장기연체 업체 미납관리 UnpyMngeMap INSERT
+    			- 매월 1일 새벽 1시 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 삭제
+        		- 캠페인 장기 업체관리 건수 ORACLE MST 테이블에 저장   
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <bean id="insertLntmBzptAdmnJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="insertLntmBzptAdmn" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		4. [사용안함] 장기연체 해약방어 미납관리 UnpyMngeMap INSERT
+    			- 매월 1일 새벽 1시 15분 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 삭제
+        		- 캠페인 장기 해약방어 건수 ORACLE MST 테이블에 저장  
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <bean id="insertLntmCnctPrtcJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="insertLntmCnctPrtc" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		5. [사용안함] 1회이상 연체 대상자 UnpyMngeMap INSERT
+    			- 매월 1일 새벽 1시 30분 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 삭제
+        		- 캠페인 장기 미납 건수 ORACLE MST 테이블에 저장
+    -->
+    <!-- *************************************************************************************************************************-->
+
+    <bean id="inserUnpyJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="insertUnpy" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		6. [사용안함] 입금된 연체회원(1회이상) 미납관리 UnpyMngeMap UPDATE
+    			- 전일 기준으로 입금된 회원 비교 후 미납관리에 입금 금액 반영 
+    			- 매일 새벽 5시 30분 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 삭제
+        		- 캠페인 실적(해약) ORACLE MST 테이블에 저장
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <bean id="updateCnctAcrsJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="updateCnctAcrs" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		7. [사용안함] 입금된 당월미납회원의 미납관리 UnpyMngeMap UPDATE
+    			- 전일 기준으로 입금된 회원 비교 후 미납관리에 입금 금액 반영 
+    			- 매일 새벽 5시 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 삭제
+        		- 캠페인 실적(미납) ORACLE MST 테이블에 저장
+    -->
+    <!-- *************************************************************************************************************************-->
+
+    <bean id="updateUnpyAcrsJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="updateUnpyAcrs" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+    <!-- *************************************************************************************************************************-->
+    <!-- 
+    		8. [사용안함] 미납관리 UnpyMngeMap 회원을 YENCHE_MNG로 INSERT
+    			- 미납 실적 관리를 위한 비교 할 회원데이터 구성 UnpyMngeMap 복사 개념의 데이터 입력
+    			- 매월 1일 새벽 4시 스케쥴링 작업
+    			- 20190116 신규 미납관리 로직으로 인한 삭제
+        		- 캠페인 미납 MS SQL 테이블에 저장
+    -->
+    <!-- *************************************************************************************************************************-->
+    
+    <!-- 캠페인 미납 MS SQL 테이블에 저장-->
+    <bean id="insertDlwYencheJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="extcTrgtServiceImpl" />
+        <property name="targetMethod" value="insertDlwYenche" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+
+    <!-- MethodInvokingJobDetailFactoryBean를 이용한 JobDetailBean 설정  -->
+    <!-- **** Cron Expression ****
+         Field Name          Allowed Values         Allowed Special Characters
+         seconds             0-59                   , - * /
+         Minutes             0-59                   , - * /
+         Hours               0-23                   , - * /
+         Day-of-month        1-31                   , - * ? / L W
+         Month               1-12 or JAN-DEC        , - * /
+         Day-of-Week         1-7 or SUN-SAT         , - * ? / L W
+         Year(Optional)      empty, 1970-2099       , - * /
+
+         ‘-’ 문자를 사용해서 범위를 표현하고 ‘,’ 문자를 사용해서 목록을 표현한다.
+                        예로 "MON-FRI" 는 "월요일 에서 금요일"을 의미하며, "MON, WED, FRI" 는 "월, 수, 금"을 의미한다.
+                        와일드카드 문자 '*' 는 필드에서 가능한 모든(every) 값을 의미한다.
+                        예로 Month 필드에서 사용되면 매월을 의미하고, Year 필드에서는 매년을 의미한다.
+         '/' 문자는 값 증분을 의미한다. 예를 들면, '0/15' 을 minute 필드에 기록하면 '0분에 시작해서 15분마다'를 의미한다.
+                        만약 동일한 필드에 '3/20'을 기록하면 '3, 23, 43'을 의미한다.
+         '?' 문자는 day-of-month and day-of-week 필드에서만 사용 된다. 특별한 설정을 하지 않겠다는 의미이다.
+
+         ** Sample **
+         0 0 12 ? * WED : 매 수요일 오후 12시
+         0 0/5 * * * ? : 매 5분 간격 0초에 (즉, 5분 0초, 10분 0초, 15분 0초, …)
+         10 0/5 * * * ? : 매 5분 간격 10초 (즉, 0분 10초, 5분 10초, 10분 10초, …)
+         0 30 10-12 ? * WED,FRI” : 매 수요일, 금요일의 10:30분, 11:30분, 12:30분
+     -->
+
+    <!--TM 서브타겟리스트 생성 트리거 -->
+    <bean id="tmJoinSubTrgtCreateTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="tmJoinSubTrgtCreateJob" />
+        <property name="cronExpression" value="0 0 2 1 * ? *" />
+    </bean>
+    <!-- // TM 서브타겟리스트 생성 트리거 -->
+
+    <!--TM 서브타겟고객 저장 트리거 -->
+    <bean id="insertTmJoinSubTrgtCustTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="insertTmJoinSubTrgtCustJob" />
+       <property name="cronExpression" value="0 0/10 6-22 * * ? *" />
+    </bean>
+    <!-- // TM 서브타겟고객 저장 트리거 -->
+
+    <!--캠페인 장기 업체관리 건수 ORACLE MST 테이블에 저장 -->
+    <bean id="insertLntmBzptAdmnTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="insertLntmBzptAdmnJob" />
+       <property name="cronExpression" value="0 0 1 1 * ? *" />
+    </bean>
+    <!-- // 캠페인 장기 업체관리 건수 ORACLE MST 테이블에 저장 -->
+
+    <!--캠페인 장기 해약방어 건수 ORACLE MST 테이블에 저장 -->
+    <bean id="insertLntmCnctPrtcTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="insertLntmCnctPrtcJob" />
+       <property name="cronExpression" value="0 15 1 1 * ? *" />
+    </bean>
+    <!-- // 캠페인 장기 해약방어 건수 ORACLE MST 테이블에 저장 -->
+
+    <!--캠페인 장기 단기 미납 건수 ORACLE MST 테이블에 저장 -->
+    <bean id="insertUnpyTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="inserUnpyJob" />
+       <property name="cronExpression" value="0 30 1 1 * ? *" />
+    </bean>
+    <!-- // 캠페인 장기 미납 건수 ORACLE MST 테이블에 저장 -->
+
+    <!--캠페인 실적(미납) ORACLE MST 테이블에 저장 -->
+    <bean id="updateUnpyAcrsTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="updateUnpyAcrsJob" />
+       <property name="cronExpression" value="0 0 5 * * ? *" />
+    </bean>
+    <!-- // 캠페인 실적(미납) ORACLE MST 테이블에 저장 -->
+
+    <!--캠페인 실적(해약) ORACLE MST 테이블에 저장 -->
+    <bean id="updateCnctAcrsTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="updateCnctAcrsJob" />
+       <property name="cronExpression" value="0 30 5 * * ? *" />
+    </bean>
+    <!-- //캠페인 실적(해약) ORACLE MST 테이블에 저장 -->
+
+    <!--캠페인 미납 MS SQL 테이블에 저장 -->
+    <bean id="insertDlwYencheTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+       <property name="jobDetail" ref="insertDlwYencheJob" />
+       <property name="cronExpression" value="0 0 4 1 * ? *" />
+       <!--  <property name="cronExpression" value="0 0 4 1,6,11,16,21,26 * ? *" /> -->
+    </bean>
+    <!-- //캠페인 미납 MS SQL 테이블에 저장 -->
+
+    <!-- TM 서브타겟리스트 스케줄러 -->
+    <bean id="tmJoinSubTrgtCreateScheduler" class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <property name="triggers">
+            <list>
+                <!-- <ref bean="tmJoinSubTrgtCreateTrigger" />
+                <ref bean="insertTmJoinSubTrgtCustTrigger" />
+                <ref bean="insertLntmBzptAdmnTrigger" />
+                <ref bean="insertLntmCnctPrtcTrigger" />
+                <ref bean="insertUnpyTrigger" />
+                <ref bean="updateCnctAcrsTrigger" />
+                <ref bean="updateUnpyAcrsTrigger" />
+                <ref bean="insertDlwYencheTrigger" /> -->
+            </list>
+        </property>
+    </bean>
+    <!-- // TM 서브타겟리스트 스케줄러 -->
+
+</beans>

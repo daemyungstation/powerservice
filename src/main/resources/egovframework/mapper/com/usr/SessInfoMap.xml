@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SessInfoMap">
+    <insert id="SessInfoMap.insertSessInfo" parameterType="map">
+        MERGE INTO /* SessInfoMap.insertSessInfo */
+              TB_SESS_INFO A
+        USING (SELECT #{user_id} USER_ID, #{cntr_cd} CNTR_CD FROM DUAL) B
+           ON (A.USER_ID   = B.USER_ID
+           AND A.CNTR_CD   = B.CNTR_CD)
+         WHEN MATCHED THEN
+              UPDATE SET A.WAS_SESS_CNTN = #{was_sess_cntn}
+                   <if test="lgn_typ_cd == 'LOGIN'">
+                       , A.SESS_LINK_DTTM = SYSTIMESTAMP
+                       , A.SESS_END_DTTM  = NULL
+                   </if>
+                   <if test="lgn_typ_cd == 'LOGOUT'">
+                       , A.SESS_END_DTTM  = SYSTIMESTAMP
+                   </if>
+                       , A.TRML_IP_ADDR   = #{trml_ip_addr}
+                       , A.TRML_INFO_CNTN = #{trml_info_cntn}
+                       , A.EXTN_NO        = #{extn_no}
+                       , A.CTI_ID      	  = #{cti_id}
+         WHEN NOT MATCHED THEN
+              INSERT ( A.CNTR_CD, A.USER_ID, A.WAS_SESS_CNTN, A.SESS_LINK_DTTM, A.SESS_END_DTTM, A.TRML_IP_ADDR
+                       , A.TRML_INFO_CNTN, A.EXTN_NO, A.CTI_ID)
+              VALUES ( #{cntr_cd}, #{user_id}, #{was_sess_cntn}, SYSTIMESTAMP, NULL, #{trml_ip_addr}
+                       , #{trml_info_cntn}, #{extn_no}, #{cti_id})
+    </insert>
+
+    <select id="SessInfoMap.getSessInfoList" parameterType="map" resultType="resultMap">
+        SELECT /* SessInfoMap.getSessInfoList */
+               USER_ID, WAS_SESS_CNTN, TRML_IP_ADDR, TRML_INFO_CNTN, EXTN_NO
+             , CTI_ID
+             , TO_CHAR(SESS_LINK_DTTM, 'YYYYMMDDHH24MISS') AS SESS_LINK_DTTM, TO_CHAR(SESS_END_DTTM, 'YYYYMMDDHH24MISS') AS SESS_END_DTTM
+          FROM TB_SESS_INFO
+         WHERE USER_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+           AND SESS_END_DTTM IS NULL
+    </select>
+
+
+    <select id="SessInfoMap.getAccessCheckInfo" parameterType="map" resultType="resultMap">
+        SELECT /* SessInfoMap.getAccessCheckInfo */
+               (CASE WHEN EXISTS (SELECT 'Y'
+                                    FROM TB_SESS_INFO
+                                   WHERE SESS_END_DTTM IS NULL
+                                     AND USER_ID = #{user_id}
+                                     AND CNTR_CD = #{cntr_cd}
+                                     AND WAS_SESS_CNTN != #{was_sess_cntn}
+                                     AND ROWNUM = 1
+                                 )
+                     THEN 'N'
+                     ELSE 'Y'
+                END) AS SESS_CHECK_YN
+             , (CASE WHEN EXISTS (SELECT 'Y'
+                                    FROM TB_PGM_ATHR A
+                                    JOIN TB_PGM B
+                                      ON A.GDS_CD = B.GDS_CD
+                                     AND A.PGM_CD = B.PGM_CD
+                                     AND B.FILE_NM IS NOT NULL
+                                   WHERE A.ATHR_CD = #{athr_cd}
+                                     AND #{req_url} LIKE B.FILE_NM || '%'
+                                     AND ROWNUM = 1
+                                )
+                     THEN 'Y'
+                     ELSE 'N'
+                END) AS REQ_CHECK_YN
+          FROM DUAL
+    </select>
+</mapper>

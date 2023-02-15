@@ -1,0 +1,278 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="MN030105" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 700 297" titletext="CMS 불능코드 등록" onload="prod_onload" scrollbars="none" onactivate="PS992200_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 700 297"/>
+        <Button id="btn_Close" taborder="5" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 671 8 691 27"/>
+        <Static id="stc_30" text="CMS 불능코드 등록" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Static id="stc_23" class="sta_workSrcBg" position="absolute 11 44 691 80"/>
+        <Static id="stc_00" text="불능 코드" class="sta_workSrcLabel1" position="absolute 24 53 101 73"/>
+        <Button id="btn_Init" taborder="3" onclick="btn_Init_onclick" class="btn_WF_Return" position="absolute 492 84 548 104" tooltiptext="초기화"/>
+        <Button id="btn_Search" taborder="2" onclick="btn_Search_onclick" class="btn_WF_Search" position="absolute 552 84 608 104" tooltiptext="조회" style="shadow:drop 0,0 0 #00000033;"/>
+        <Grid id="grd_prodList" taborder="4" binddataset="ds_list" useinputpanel="false" onvscrolllastover="grd_list_onvscrolllastover" position="absolute 10 109 691 286" scrollpixel="none" onheadclick="grd_list_onheadclick" cellsizingtype="col" autofittype="col" autosizingtype="none" selecttype="row" oncelldblclick="grd_list_oncelldblclick" oncellclick="grd_prodList_oncellclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="80"/>
+                <Column size="80"/>
+                <Column size="342"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="normal" text="순번"/>
+                <Cell col="1" displaytype="normal" text="불능코드"/>
+                <Cell col="2" displaytype="normal" text="불능사유"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="normal" text="bind:seq"/>
+                <Cell col="1" displaytype="normal" text="bind:com_cd"/>
+                <Cell col="2" displaytype="normal" text="bind:cd_nm"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_35" text="불능코드 목록" class="sta_workTitle2" position="absolute 13 89 310 109"/>
+        <Static id="stc_01" text="불능사유" class="sta_workSrcLabel1" position="absolute 202 53 263 73"/>
+        <Edit id="edt_cd_nm" taborder="1" imemode="hangul" onkeydown="srch_onkeydown" position="absolute 262 52 516 73"/>
+        <Button id="btn_insrt" taborder="6" text="저장" position="absolute 610 84 647 104" onclick="btn_insrt_onclick"/>
+        <Edit id="edt_com_cd" taborder="0" position="absolute 89 52 192 72" imemode="alpha"/>
+        <Button id="btn_delete" taborder="7" text="삭제" onclick="btn_delete_onclick" position="absolute 650 84 687 104"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="com_cd" type="STRING" size="50"/>
+          <Column id="cd_nm" type="STRING" size="50"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="6"/>
+          <Column id="com_cd" type="STRING" size="256"/>
+          <Column id="cd_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item0" compid="edt_com_cd" propid="value" datasetid="ds_inqCndt" columnid="com_cd"/>
+      <BindItem id="item1" compid="edt_cd_nm" propid="value" datasetid="ds_inqCndt" columnid="cd_nm"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+var gv_cd = "";
+
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var tc_prod = 0;
+
+/***************************************************************************
+ * 함  수  명		: prod_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function prod_onload(obj:Form, e:LoadEventInfo)
+{
+ds_inqCndt.addRow();
+	fn_commSearch("getImpsCdList"); // 조회
+	
+	
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_srch_onclick()
+ * 기      능 		: 조회버튼 클릭
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch("getImpsCdList"); // 조회
+}
+
+
+/***************************************************************************
+ * 함  수  명		: fn_preSearch()
+ * 기      능		: 조회 전 처리 조회조건 설정
+ * 수  정  일      : 2016.01.22 
+ ***************************************************************************/
+function fn_preSearch()
+{
+		if(gfn_isNull(edt_com_cd.value))
+			{
+				alert("불능코드를 입력하세요");
+				return false;
+			} else if(gfn_isNull(edt_cd_nm.value)){
+				alert("불능사유를 입력하세요");
+				return false;
+			}else{
+					//return true;
+			}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch()
+ * 기      능 		: 조회
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function fn_commSearch(svcid)
+{	
+   
+	//
+	// 호출 레코드 수
+	
+	if (svcid =='getImpsCdList')
+		{	
+			
+				var szSvcid       = "getImpsCdList";
+				var szController  = "/dlw/others/getImpsCdList";
+				var szInDs        = "ds_input=ds_inqCndt";
+				var szOutDs       = "ds_list=ds_output";
+				var szParam       = "";
+				var szRetCallback = "fn_srchCallBack";
+		 }
+		 
+	if (svcid =='insertImpsCd')
+		{	
+				fn_preSearch();
+				var szSvcid       = "insertImpsCd";
+				var szController  = "/dlw/others/insertImpsCd";
+				var szInDs        = "ds_input=ds_inqCndt";
+				var szOutDs       = "";
+				var szParam       = "";
+				var szRetCallback = "fn_srchCallBack";
+		 }
+		 
+		 if (svcid =='deleteImpsCd')
+		{	
+				
+				var szSvcid       = "deleteImpsCd";
+				var szController  = "/dlw/others/deleteImpsCd";
+				var szInDs        = "ds_input=ds_inqCndt";
+				var szOutDs       = "";
+				var szParam       = "";
+				var szRetCallback = "fn_srchCallBack";
+		 }
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_srchCallBack()
+ * 기      능		: 조회 콜백 처리
+ ***************************************************************************/
+function fn_srchCallBack(svcid, errcd, errmsg) {
+  
+  switch (svcid) {
+   			
+	   case "getImpsCdList":
+			fn_postSearch(); 		
+		break;
+		
+		case "insertImpsCd":
+			alert("등록되었습니다");
+		break;
+		
+		case "deleteImpsCd":
+			alert("삭제되었습니다");
+		
+		break;
+    }
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_postSearch()
+ * 기      능		: 처리결과
+ ***************************************************************************/
+function fn_postSearch()
+{
+	if (ds_list.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+			ds_inqCndt.clearData();
+		return;
+	}
+	trace(ds_inqCndt.saveXML());
+
+}
+
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_init_onclick()
+ * 기      능		: 초기화 버튼클릭시
+ * 수  정  일      : 2016.01.22
+ ***************************************************************************/
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	edt_com_cd.value = "";
+	edt_cd_nm.value = "";
+}
+
+
+
+
+/***************************************************************************
+ * 기      능		: (공통) 엔터 치면 조회실행
+ ***************************************************************************/
+function srch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		fn_commSearch("getImpsCdList");
+	}
+}
+
+//저장 버튼
+function btn_insrt_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch("insertImpsCd");
+}
+
+function grd_prodList_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+	trace(e.row);
+	gv_cd = ds_list.getColumn(e.row, "com_cd");
+	ds_inqCndt.setColumn(0, "com_cd", gv_cd);
+	trace(ds_inqCndt.saveXML());
+  }
+
+
+function btn_delete_onclick(obj:Button,  e:ClickEventInfo)
+{
+
+  if (gv_cd != null ) {
+  trace('삭제 버튼 == '+gv_cd);
+	 fn_commSearch("deleteImpsCd");
+   } else {
+     alert("조회후 삭제가 가능합니다.");
+     return;
+   }	 
+	
+}]]></Script>
+  </Form>
+</FDL>

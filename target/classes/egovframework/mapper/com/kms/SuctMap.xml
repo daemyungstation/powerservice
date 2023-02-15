@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SuctMap">
+
+    <sql id="SuctMap.selectCondition_fragment">
+          WHERE SUCT_SET_ID = #{suct_set_id}
+        <if test="suct_id != null and suct_id != ''">
+            AND SUCT_ID = #{suct_id}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="use_yn != null and use_yn != ''">
+            AND USE_YN = #{use_yn}
+        </if>
+    </sql>
+
+    <select id="SuctMap.getSuctList" parameterType="map" resultType="resultMap">
+        SELECT /* SuctMap.getSuctList */
+               ROWNUM AS PAGE_INDX, B.*
+             , GETCODENM('KMS060', SUCT_DIV_CD, B.CNTR_CD) AS SUCT_DIV_NM
+             , CASE WHEN SUCT_DIV_CD = '10' THEN (SELECT FAQ_QUST_CNTN
+                                                        FROM TB_FAQ_DTL
+                                                       WHERE FAQ_ID = B.SUCT_ADDR)
+                    ELSE SUCT_ADDR
+                END AS SUCT_ADDR_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = B.RGSR_ID
+                   AND CNTR_CD = B.CNTR_CD) AS RGSR_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = B.AMND_ID
+                   AND CNTR_CD = B.CNTR_CD) AS AMND_NM
+          FROM (SELECT SUCT_ID, SUCT_SET_ID, CNTR_CD, SUCT_DIV_CD, SUCT_SHRD_NM
+                     , SUCT_ADDR, SUCT_EXPI, EXPE_SQNC, USE_YN, RGSR_ID
+                     , RGSN_DTTM, AMND_ID, AMNT_DTTM
+                  FROM TB_SUCT_INFO A
+        <include refid="SuctMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+              ORDER BY ${orderBy} ${orderDirection}
+        </if>
+               ) B
+    </select>
+
+    <select id="SuctMap.getSuctMaxOrder" parameterType="map" resultType="int">
+        SELECT /* SuctMap.getSuctMaxOrder */
+               NVL(MAX(EXPE_SQNC), 0)
+          FROM TB_SUCT_INFO
+         WHERE SUCT_SET_ID = #{suct_set_id}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="SuctMap.getSuctUsedCount" parameterType="map" resultType="int">
+        SELECT /* SuctMap.getSuctUsedCount */
+               COUNT(*)
+          FROM TB_SUCT_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND SUCT_SET_ID = #{suct_set_id}
+           AND SUCT_ID != #{suct_id}
+           AND USE_YN = 'Y'
+    </select>
+
+    <select id="SuctMap.getSuctDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* SuctMap.getSuctDuplicateCount */
+               COUNT(*)
+          FROM TB_SUCT_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND SUCT_SET_ID = #{suct_set_id}
+           AND EXPE_SQNC = #{expe_sqnc}
+        <if test="suct_id != null">
+           AND SUCT_ID != #{suct_id}
+        </if>
+    </select>
+
+    <insert id="SuctMap.insertSuct" parameterType="map">
+        <selectKey keyProperty="suct_id" resultType="String" order="BEFORE">
+            SELECT 'SUC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* SuctMap.insertSuct */
+                    TB_SUCT_INFO
+                    (SUCT_ID, SUCT_SET_ID, CNTR_CD, SUCT_DIV_CD, SUCT_SHRD_NM
+                  , SUCT_ADDR, SUCT_EXPI, EXPE_SQNC, USE_YN, RGSR_ID
+                  , RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{suct_id}, #{suct_set_id}, #{cntr_cd}, #{suct_div_cd}, #{suct_shrd_nm}
+                  , #{suct_addr}, #{suct_expi}, #{expe_sqnc}, #{use_yn}, #{rgsr_id}
+                  , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="SuctMap.updateSuct" parameterType="map">
+        UPDATE /* SuctMap.updateSuct */
+               TB_SUCT_INFO
+           SET SUCT_DIV_CD = #{suct_div_cd}
+             , SUCT_SHRD_NM = #{suct_shrd_nm}
+             , SUCT_ADDR = #{suct_addr}
+             , SUCT_EXPI = #{suct_expi}
+             , EXPE_SQNC = #{expe_sqnc}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE SUCT_ID = #{suct_id}
+          AND SUCT_SET_ID = #{suct_set_id}
+    </update>
+
+    <update id="SuctMap.updateSuctUnused" parameterType="map">
+        UPDATE /* SuctMap.updateSuctUnused */
+               TB_SUCT_INFO
+           SET USE_YN = DECODE(SUCT_ID, #{suct_id}, 'Y', 'N')
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE SUCT_SET_ID = #{suct_set_id}
+    </update>
+
+    <update id="SuctMap.updateSuctOrder" parameterType="map">
+    <![CDATA[
+        UPDATE /* SuctMap.updateSuctOrder */
+               TB_SUCT_INFO
+           SET EXPE_SQNC = CASE SUCT_ID WHEN #{suct_id} THEN ${expe_sqnc}
+                                                   ELSE CASE SIGN(${old_expe_sqnc} - ${expe_sqnc}) WHEN -1 THEN EXPE_SQNC - 1
+                                                                                                            WHEN  1 THEN EXPE_SQNC + 1
+                                                         END
+                                 END
+         WHERE EXPE_SQNC <= CASE SIGN(${old_expe_sqnc} - ${expe_sqnc}) WHEN  1 THEN ${old_expe_sqnc}
+                                                                                     WHEN -1 THEN ${expe_sqnc}
+                                  END
+           AND EXPE_SQNC >= CASE SIGN(${old_expe_sqnc} - ${expe_sqnc}) WHEN  1 THEN ${expe_sqnc}
+                                                                                     WHEN -1 THEN ${old_expe_sqnc}
+                                  END
+           AND SUCT_SET_ID = #{suct_set_id}
+           AND CNTR_CD = #{cntr_cd}
+    ]]>
+    </update>
+
+    <delete id = "SuctMap.deleteSuct" parameterType="map">
+        DELETE /* SuctMap.deleteSuct */
+          FROM TB_SUCT_INFO
+         WHERE SUCT_SET_ID = #{suct_set_id}
+        <if test="suct_id != null and suct_id != ''">
+           AND SUCT_ID = #{suct_id}
+        </if>
+    </delete>
+
+</mapper>

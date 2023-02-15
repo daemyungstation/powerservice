@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="FcbkMap">
+
+    <sql id="FcbkMap.selectCondition_fragment">
+        <where>
+            <if test="fcbk_id != null and fcbk_id != ''">
+                AND FCBK_ID = #{fcbk_id}
+            </if>
+            <if test="cmmn_id != null and cmmn_id != ''">
+                AND CMMN_ID = #{cmmn_id}
+            </if>
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+            <if test="fcbk_rgsr_id != null and fcbk_rgsr_id != ''">
+                AND RGSR_ID = #{fcbk_rgsr_id}
+            </if>
+            <if test="fcbk_nm != null and fcbk_nm != ''">
+                AND RGSR_NM = #{fcbk_nm}
+            </if>
+            <if test="fcbk_cntn != null and fcbk_cntn != ''">
+                AND FCBK_CNTN LIKE '%' || #{fcbk_cntn} || '%'
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+            <![CDATA[
+                AND A.AMNT_DTTM >= #{stt_dt} || '000000'
+            ]]>
+            </if>
+            <if test="end_dt != null and end_dt != ''">
+            <![CDATA[
+                AND A.AMNT_DTTM <= #{end_dt} || '235959'
+            ]]>
+            </if>
+            <if test="cons_stat_cd != null and cons_stat_cd != ''">
+                AND CONS_STAT_CD = #{cons_stat_cd}
+            </if>
+            <if test="cons_dspsmddl_dtpt_cd != null and cons_dspsmddl_dtpt_cd != ''">
+                AND CONS_DSPSMDDL_DTPT_CD = #{cons_dspsmddl_dtpt_cd}
+            </if>
+
+            <if test="user_id != null and user_id != ''">
+              AND C.AMND_ID = #{user_id}
+            </if>
+            <if test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = C.AMND_ID
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+            </if>
+            <if test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM D
+                             WHERE B.USER_ID = C.AMND_ID
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND B.TEAM_CD = D.TEAM_CD
+                               AND B.CNTR_CD = D.CNTR_CD
+                               AND D.HGRN_TEAM_CD = #{team1_cd})
+            </if>
+        </where>
+    </sql>
+
+    <resultMap id="fcbkResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="fcbk_id" column="fcbk_id" />
+        <result property="consno" column="consno" />
+        <result property="fcbk_cntn" column="fcbk_cntn" javaType="String" jdbcType="CLOB" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="cons_stat_cd" column="cons_stat_cd" />
+        <result property="cons_stat_nm" column="cons_stat_nm" />
+        <result property="cons_dspsmddl_dtpt_cd" column="cons_dspsmddl_dtpt_cd" />
+        <result property="cons_dspsmddl_dtpt_nm" column="cons_dspsmddl_dtpt_nm" />
+        <result property="user_rgsr_id" column="user_rgsr_id" />
+        <result property="user_rgsr_nm" column="user_rgsr_nm" />
+    </resultMap>
+
+    <select id="FcbkMap.getFcbkCount" parameterType="map" resultType="int">
+        SELECT /* FcbkMap.getFcbkCount */
+               COUNT(*)
+          FROM TB_FCBK A LEFT OUTER JOIN
+               TB_CONS C ON A.CONSNO = C.CONSNO
+        <include refid="FcbkMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="FcbkMap.getFcbkList" parameterType="map" resultMap="fcbkResultMap">
+        SELECT /* FcbkMap.getFcbkList */
+               K.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, FCBK_ID, CONSNO, FCBK_CNTN
+                     , CNTR_CD, RGSR_ID, RGSR_NM, RGSN_DTTM, AMND_ID, AMND_NM, AMNT_DTTM
+                     , CONS_STAT_CD, CONS_DSPSMDDL_DTPT_CD
+                     , CONS_STAT_NM, CONS_DSPSMDDL_DTPT_NM, CNTS
+                  FROM (SELECT A.FCBK_ID, A.CONSNO, A.FCBK_CNTN
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSR_NM, A.RGSN_DTTM, A.AMND_ID, A.AMND_NM, A.AMNT_DTTM
+                             , C.CONS_STAT_CD, C.CONS_DSPSMDDL_DTPT_CD, C.RGSR_ID AS USER_RGSR_ID
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = C.RGSR_ID
+                                   AND B.CNTR_CD = C.CNTR_CD) AS USER_RGSR_NM
+                             , GETCODENM('CNS030', CONS_STAT_CD, C.CNTR_CD) AS CONS_STAT_NM
+                             , GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, C.CNTR_CD) AS CONS_DSPSMDDL_DTPT_NM
+                             , (SELECT COUNT(*) FROM TB_FCBK_CMMN N WHERE N.FCBK_ID = A.FCBK_ID) AS CNTS
+                         FROM TB_FCBK A LEFT OUTER JOIN
+                              TB_CONS C ON A.CONSNO = C.CONSNO
+        <include refid="FcbkMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       )J
+               )K
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="FcbkMap.mergeFcbk" parameterType="map">
+        MERGE INTO /* FcbkMap.mergeFcbk */
+              TB_FCBK A
+        USING (SELECT #{fcbk_id} FCBK_ID FROM DUAL) B
+           ON (A.FCBK_ID = B.FCBK_ID)
+         WHEN MATCHED THEN
+              UPDATE SET A.CONSNO 			= #{consno}
+                       , A.FCBK_CNTN  	= #{fcbk_cntn}
+                       , CNTR_CD = #{cntr_cd}
+                       , AMND_ID = #{amnd_id}
+                       , AMND_NM = #{amnd_nm}
+                       , AMNT_DTTM = #{amnt_dttm}
+         WHEN NOT MATCHED THEN
+              INSERT ( A.FCBK_ID, A.CONSNO, A.FCBK_CNTN, A.CNTR_CD, A.RGSR_ID
+                     , A.RGSR_NM, A.RGSN_DTTM, A.AMND_ID, A.AMND_NM, A.AMNT_DTTM)
+              VALUES ( #{fcbk_id}, #{consno}, #{fcbk_cntn}, #{cntr_cd}, #{rgsr_id}
+                     , #{rgsr_nm}, #{rgsn_dttm}, #{amnd_id}, #{amnd_nm}, #{amnt_dttm})
+    </insert>
+
+    <insert id="FcbkMap.mergeFaceCmmnbook" parameterType="map">
+        MERGE INTO /* FcbkMap.mergeFaceCmmnbook */
+              TB_FCBK_CMMN A
+        USING (SELECT #{cmmn_id} CMMN_ID FROM DUAL) B
+           ON (A.CMMN_ID = B.CMMN_ID)
+         WHEN MATCHED THEN
+              UPDATE SET A.CMMN_CNTN  	= #{cmmn_cntn}
+                       , CNTR_CD = #{cntr_cd}
+                       , AMND_ID = #{amnd_id}
+                       , AMND_NM = #{amnd_nm}
+                       , AMNT_DTTM = #{amnt_dttm}
+         WHEN NOT MATCHED THEN
+              INSERT ( A.CMMN_ID, A.FCBK_ID, A.CMMN_CNTN, A.CNTR_CD, A.RGSR_ID
+                     , A.RGSR_NM, A.RGSN_DTTM, A.AMND_ID, A.AMND_NM, A.AMNT_DTTM)
+              VALUES ( #{cmmn_id}, #{fcbk_id}, #{cmmn_cntn}, #{cntr_cd}, #{rgsr_id}
+                     , #{rgsr_nm}, #{rgsn_dttm}, #{amnd_id}, #{amnd_nm}, #{amnt_dttm})
+    </insert>
+
+    <insert id="FcbkMap.mergeFcbkPhto" parameterType="map">
+        MERGE INTO /* FcbkMap.mergeFcbkPhto */
+              TB_FCBK_PHTO A
+        USING (SELECT #{phto_id} PHTO_ID FROM DUAL) B
+           ON (A.PHTO_ID = B.PHTO_ID)
+         WHEN MATCHED THEN
+              UPDATE SET A.PHTO_URL  	= #{phto_url}
+                         , A.THUM_URL  	= #{thum_url}
+                       , CNTR_CD = #{cntr_cd}
+                       , AMND_ID = #{amnd_id}
+                       , AMND_NM = #{amnd_nm}
+                       , AMNT_DTTM = #{amnt_dttm}
+         WHEN NOT MATCHED THEN
+              INSERT ( A.PHTO_ID, A.FCBK_ID, A.PHTO_URL, A.THUM_URL, A.CNTR_CD, A.RGSR_ID
+                     , A.RGSR_NM, A.RGSN_DTTM, A.AMND_ID, A.AMND_NM, A.AMNT_DTTM)
+              VALUES ( #{phto_id}, #{fcbk_id}, #{phto_url}, #{thum_url}, #{cntr_cd}, #{rgsr_id}
+                     , #{rgsr_nm}, #{rgsn_dttm}, #{amnd_id}, #{amnd_nm}, #{amnt_dttm})
+    </insert>
+
+    <select id="FcbkMap.getFcbkPhtoCount" parameterType="map" resultType="int">
+        SELECT /* FcbkMap.getFcbkPhtoCount */
+               COUNT(*)
+          FROM TB_FCBK_PHTO A
+        <include refid="FcbkMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="FcbkMap.getFcbkPhtoList" parameterType="map" resultType="resultMap">
+        SELECT /* FcbkMap.getFcbkPhtoList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, PHTO_ID, FCBK_ID, PHTO_URL, THUM_URL
+                     , CNTR_CD, RGSR_ID, RGSR_NM, RGSN_DTTM, AMND_ID, AMND_NM, AMNT_DTTM
+                  FROM (SELECT PHTO_ID, FCBK_ID, PHTO_URL, THUM_URL
+                              , CNTR_CD, RGSR_ID, RGSR_NM, RGSN_DTTM, AMND_ID, AMND_NM, AMNT_DTTM
+                         FROM TB_FCBK_PHTO A
+        <include refid="FcbkMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       )
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <resultMap id="fcbkCmmnResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="cmmn_id" column="cmmn_id" />
+        <result property="fcbk_id" column="fcbk_id" />
+        <result property="cmmn_cntn" column="cmmn_cntn" javaType="String" jdbcType="CLOB" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_id" column="file_id" />
+    </resultMap>
+
+
+    <select id="FcbkMap.getFcbkCmmnCount" parameterType="map" resultType="int">
+        SELECT /* FcbkMap.getFcbkCmmnCount */
+               COUNT(*)
+          FROM TB_FCBK_CMMN A
+        <include refid="FcbkMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="FcbkMap.getFcbkCmmnList" parameterType="map" resultMap="fcbkCmmnResultMap">
+        SELECT /* FcbkMap.getFcbkCmmnList */
+             CMMN_ID, FCBK_ID, CMMN_CNTN, CNTR_CD
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMND_NM, AMNT_DTTM
+             , (SELECT FILE_ID
+                  FROM TB_FILE
+                 WHERE RLTN_ITEM_ID = C.RGSR_ID) AS FILE_ID
+            , CASE WHEN RGSR_NM IS NULL THEN (SELECT U.USER_NM FROM TB_USER U WHERE U.USER_ID = C.RGSR_ID) ELSE C.RGSR_NM END AS RGSR_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT CMMN_ID, FCBK_ID, CMMN_CNTN, CNTR_CD
+                             , RGSR_ID, RGSR_NM, RGSN_DTTM, AMND_ID, AMND_NM, AMNT_DTTM
+                          FROM TB_FCBK_CMMN A
+        <include refid="FcbkMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="FcbkMap.insertFcbkCmmn" parameterType="map">
+        INSERT INTO /* FcbkMap.insertFcbkCmmn */
+                    TB_FCBK_CMMN
+                    (CMMN_ID, FCBK_ID, CMMN_CNTN, CNTR_CD, RGSR_ID
+                  , RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{cmmn_id}, #{fcbk_id}, #{cmmn_cntn}, #{cntr_cd}, #{rgsr_id}
+                  , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="FcbkMap.updateFcbkCmmn" parameterType="map">
+        UPDATE /* FcbkMap.updateFcbkCmmn */
+               TB_FCBK_CMMN
+           SET cmmn_cntn = #{cmmn_cntn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE CMMN_ID = #{cmmn_id}
+    </update>
+
+</mapper>

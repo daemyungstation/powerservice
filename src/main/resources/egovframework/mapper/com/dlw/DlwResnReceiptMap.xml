@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwResnReceiptMap">
+    
+        <!-- 해약현황(전자서명) 조회 -->
+    <select id="DlwResnReceiptMap.getReceiptAccntInfo" parameterType="map" resultType="resultMap">
+		SELECT
+		 	/* DlwResnReceiptMap.getReceiptAccntInfo */
+		    ACCNT_NO,
+		    TRUE_CNT,
+		    REL_CNT,
+		    ADD_CNT, 
+		    NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MAIN.PROD_CD AND NO  <![CDATA[<=]]> TRUE_CNT),0) AS TRUE_AMT,
+		    NVL((SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MAIN.PROD_CD AND NO  <![CDATA[<=]]>  REL_CNT),0) AS REL_AMT,
+		    NVL((SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MAIN.PROD_CD AND NO  <![CDATA[<=]]>  ADD_CNT),0) AS ADD_AMT,
+		    NEW_CHAN_GUNSU,
+		    MAN_DAY, 
+		    MAN_STAT,
+		    REQ_DEL,   
+	        CASE WHEN NEW_CHAN_GUNSU <![CDATA[<=]]>  0 AND MAN_STAT IN ('VIPA02','VIPA04','VIPA08') THEN TO_NUMBER(PROD_AMT)
+                    WHEN NEW_CHAN_GUNSU <![CDATA[<=]]>  0 AND MAN_DAY   <![CDATA[<]]>    SYSDATE AND TRUE_CNT  >= EXPR_NO THEN TO_NUMBER(PROD_AMT)
+                    WHEN NEW_CHAN_GUNSU > 0 AND MAN_STAT IN ('VIPA02','VIPA04','VIPA08') THEN 
+                       (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MAIN.PROD_CD AND NO <![CDATA[<=]]>  TRUE_CNT)
+                    WHEN NEW_CHAN_GUNSU > 0 AND MAN_DAY   <![CDATA[<]]>    SYSDATE AND TRUE_CNT  >= EXPR_NO - NEW_CHAN_GUNSU  THEN
+                       (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MAIN.PROD_CD AND NO <![CDATA[<=]]>  TRUE_CNT)
+	        ELSE TO_NUMBER(FN_RESN_AMT_NEW(PROD_CD, TRUE_CNT, JOIN_DT))
+	        END AS RESN_AMT,
+		    READY_CASH,
+		    ALOW_AMT    
+		 FROM
+		 (
+		     SELECT 
+		        MPA.ACCNT_NO,
+		        MB.MEM_NM,
+		        MPA.JOIN_DT,
+		        MPA.PROD_CD,
+		        MPA.NEW_CHAN_GUNSU,
+		        PD.PROD_AMT,
+		        PD.EXPR_NO,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT,
+		        (SELECT COUNT(*) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS REL_CNT,
+		        (SELECT COUNT(*) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS ADD_CNT,
+		        FN_GET_MANDAY(MPA.ACCNT_NO, MPA.JOIN_DT, PD.EXPR_NO,MPA.NEW_CHAN_GUNSU,'NEW') AS MAN_DAY,  
+		        FN_GET_MANSTAT(MPA.ACCNT_NO, MPA.JOIN_DT, PD.EXPR_NO, MPA.NEW_CHAN_GUNSU) AS MAN_STAT,
+		        NVL((SELECT COUNT(*) FROM TB_MEMBER_WDRW_REQ WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG IN ('N','R')),0) AS REQ_DEL,
+		        --(SELECT MAX(USE_AMT) FROM MEMBER@DLWMALL WHERE GOODS_ID = MPA.ACCNT_NO) AS READY_CASH,
+		        '1500' AS READY_CASH, 
+		        ALOW_AMT
+		     FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		        RESCISSION RS ON RS.ACCNT_NO = MPA.ACCNT_NO AND RS.DEL_FG = 'N'	LEFT OUTER JOIN
+		        (
+		            SELECT 
+		                AD.ACCNT_NO,
+		                SUM(AMT) AS ALOW_AMT
+		            FROM ALOW_DA_DTL AD                             
+		            WHERE 1=1
+		              AND AD.DTL_SEQ = (
+		                                    SELECT MAX(DTL_SEQ) 
+		                                    FROM ALOW_DA_DTL 
+		                                    WHERE ACCNT_NO= AD.ACCNT_NO
+		                                     AND EMPLE_NO=AD.EMPLE_NO
+		                                     AND PAY_NO = AD.PAY_NO
+		                                     AND ALOW_DT=AD.ALOW_DT
+		                                     AND ALOW_CD=AD.ALOW_CD 
+		                               )
+		               AND ( AD.AMT > 0 OR AD.HIST_YN='Y')  
+		             GROUP BY AD.ACCNT_NO
+		         ) ALOW ON MPA.ACCNT_NO = ALOW.ACCNT_NO
+		         WHERE 1=1 
+		            AND MPA.ACCNT_NO = #{accnt_no}
+		            AND MPA.DEL_FG = 'N'
+		 ) MAIN 	
+    </select>       
+    
+    <!--     
+     /* ================================================================
+     * 날짜 : 20230118
+     * 이름 : 임동진
+     * 추가내용 : 해약접수리스트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getReceiptList" parameterType="map" resultType="resultMap">
+		SELECT 
+		    RECEIPT_NO,
+		    ACCNT_NO,
+		    MEM_NO,
+		    RECEIPT_DT,
+		    RECEIPT_MTHD,
+		    RESN_REL,
+		    RESN_NAME,
+		    RESN_CELL,
+		    PROC_DEPT,
+		    PROC_EMERGENCY,
+		    PROC_MTHD,
+		    RECEIPT_MEMO,
+		    REG_MAN,
+		    REG_DM,
+		    DEL_FG,
+		    ROW_NUMBER()OVER(PARTITION BY ACCNT_NO ORDER BY RECEIPT_NO DESC) AS RECEIPT_RANK
+		FROM LF_DMUSER.TB_RESN_RECEIPT
+        WHERE 1=1 
+        AND ACCNT_NO = #{accnt_no}
+    </select>   
+    
+    <!--     
+    /* ================================================================
+     * 날짜 : 20230118
+     * 이름 : 임동진
+     * 추가내용 : 해약접수히스토리 
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getResnProcHistory" parameterType="map" resultType="resultMap">
+		SELECT * FROM TB_RESN_PROC_HSTR
+		WHERE 1=1 
+        AND RECEIPT_NO = #{receipt_no} 
+        ORDER BY PROC_DT DESC
+    </select>
+    
+        <!--     
+     /* ================================================================
+     * 날짜 : 20230118
+     * 이름 : 임동진
+     * 추가내용 : 해약방어할당현황
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getReceiptProcList" parameterType="map" resultType="resultMap">
+		SELECT 
+			/* DlwResnReceiptMap.getReceiptProcList */
+		    TRR.RECEIPT_NO,
+		    TRR.ACCNT_NO,
+		    TRR.MEM_NO,
+		    TRR.RECEIPT_DT,
+		    TRR.RECEIPT_MTHD,
+		    TRR.RESN_REL,
+		    TRR.RESN_NAME,
+		    TRR.RESN_CELL,
+		    TRR.PROC_DEPT,
+		    TRR.PROC_EMERGENCY,
+		    TRR.PROC_MTHD,
+		    TRR.RECEIPT_MEMO,
+		    CASE WHEN NVL(TCA.CNSR_ID,'N') = 'N' THEN 'N'
+		    ELSE 'Y' 
+		    END AS CNSR_YN,
+		    TCA.CNSR_ID,
+		    TU.USER_NM,
+		    TCA.DPMS_STAT_CD, 
+    		TO_CHAR(TCA.DPMS_DTTM,'YYYY-MM-DD') AS DPMS_DTTM 
+		FROM TB_RESN_RECEIPT TRR LEFT OUTER JOIN
+		     PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON TCA.CMPG_ID = 'CMP201701024101470' AND TCA.SUB_TRGT_LIST_ID = 'STL202210036868053' AND TCA.TRGT_CUST_DTPT_ID = TRR.RECEIPT_NO LEFT OUTER JOIN
+		     PS_WILLVI.TB_USER TU ON TCA.CNSR_ID = TU.USER_ID 
+		WHERE 1=1
+		        AND TRR.DEL_FG = 'N'
+    </select>
+    
+    <!--     
+     /* ================================================================
+     * 날짜 : 20230118
+     * 이름 : 임동진
+     * 추가내용 : 해약접수리스트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getReceiptProcCount" parameterType="map" resultType="int">
+		SELECT 
+			COUNT(*) 
+		FROM TB_RESN_RECEIPT  
+        WHERE 1=1 
+    </select>
+    
+                   <!--     
+     /* ================================================================
+     * 날짜 : 20230120
+     * 이름 : 임동진
+     * 추가내용 : 해약방어상담원할당현황
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getReceiptProcCounsel" parameterType="map" resultType="resultMap">
+		  SELECT
+		        TEAM_CD,
+		        TEAM_NM,
+		        USER_ID,
+		        USER_NM,
+		        SUM(ST10) AS ST10,
+		        SUM(ST20) AS ST20,
+		        SUM(ST30) AS ST30,
+		        SUM(ST10+ST20+ST30) AS ASSIGNNUM
+		    FROM
+		    (
+		        SELECT 
+		            TU.USER_ID,
+		            TU.USER_NM,
+		            CT.TEAM_CD,
+		            CT.TEAM_NM, 
+		            CASE WHEN TCA.DPMS_STAT_CD='10' THEN 1 ELSE 0 END AS ST10,
+		            CASE WHEN TCA.DPMS_STAT_CD='20' THEN 1 ELSE 0 END AS ST20,
+		            CASE WHEN TCA.DPMS_STAT_CD='30' OR TCA.DPMS_STAT_CD='40' THEN 1 ELSE 0 END AS ST30        
+		        FROM PS_WILLVI.TB_USER TU LEFT OUTER JOIN
+		            PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON TU.USER_ID = TCA.CNSR_ID AND TCA.CMPG_ID = 'CMP201701024101470' AND TCA.SUB_TRGT_LIST_ID = 'STL202210036868053'   LEFT OUTER JOIN
+		            PS_WILLVI.TB_CONS_TEAM CT ON TU.TEAM_CD = CT.TEAM_CD
+		        WHERE 1=1
+		            AND TU.TEAM_CD = 'T10200' 
+		            AND TU.USE_YN = 'Y'
+		
+		    ) MAIN 
+		    GROUP BY USER_ID, USER_NM, TEAM_CD, TEAM_NM 
+		    ORDER BY USER_NM ASC
+    </select>
+    
+        <!--     
+     /* ================================================================
+     * 날짜 : 20230120
+     * 이름 : 임동진
+     * 추가내용 : 해약등록(처리)리스트 카운트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getResnProcCount" parameterType="map" resultType="int">
+			SELECT 
+				/* DlwResnReceiptMap.getResnProcCount */
+				COUNT(*)  
+			FROM RESCISSION RS INNER JOIN
+			    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+			    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO LEFT OUTER JOIN
+			    TB_RESN_RECEIPT TRR ON RS.PIC1 = TRR.RECEIPT_NO AND TRR.DEL_FG = 'N' INNER JOIN
+			    (
+			        SELECT 
+			            RECEIPT_NO,
+			            MAX(CASE WHEN PROC_GBN_D = '999' THEN PROC_USER ELSE '' END) AS RESN_P_USER,
+			            MAX(CASE WHEN PROC_GBN_D = '999' THEN PROC_DT ELSE NULL END) AS RESN_P_DT,
+			            MAX(CASE WHEN PROC_GBN_D = '014' THEN PROC_USER ELSE '' END) AS RESN_PR_USER,
+			            MAX(CASE WHEN PROC_GBN_D = '014' THEN PROC_DT ELSE NULL END) AS RESN_PR_DT
+			        FROM TB_RESN_PROC_HSTR
+			        GROUP BY RECEIPT_NO
+			    ) HSTR ON TRR.RECEIPT_NO = HSTR.RECEIPT_NO
+			WHERE 1=1
+			AND RS.RESN_ACPT_DAY BETWEEN '20230101' AND '20230228'
+			AND RS.DEL_FG = 'N'
+
+    </select>
+    
+        <!--     
+     /* ================================================================
+     * 날짜 : 20230120
+     * 이름 : 임동진
+     * 추가내용 : 해약등록(처리)리스트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getResnProcList" parameterType="map" resultType="resultMap">
+		SELECT 
+			/* DlwResnReceiptMap.getResnProcList */
+		    RS.SEQ,
+		    RS.ACCNT_NO,
+		    RS.RESN_CL,
+		    RS.RESN_ACPT_DAY,
+		    RS.RELTN,
+		    RS.RESN_MAN,
+		    RS.RESN_PROC_DAY,
+		    RS.RESN_PROC_YN,
+		    RS.REG_DM,
+		    RS.PIC1 AS RECEIPT_NO,
+		    RECEIPT_DT,
+		    PROC_EMERGENCY,
+		    HSTR.RESN_P_USER,
+		    PS_WILLVI.FN_GET_USER_INFO(HSTR.RESN_P_USER, 'USERNM') AS RESN_P_USERNM,    
+		    PS_WILLVI.FN_GET_USER_INFO(HSTR.RESN_P_USER, 'DEPTNM') AS RESN_P_DEPTNM,  
+		    HSTR.RESN_P_DT,
+		    HSTR.RESN_PR_USER,
+		    PS_WILLVI.FN_GET_USER_INFO(HSTR.RESN_PR_USER, 'USERNM') AS RESN_PR_USERNM,
+		    PS_WILLVI.FN_GET_USER_INFO(HSTR.RESN_PR_USER, 'DEPTNM') AS RESN_PR_DEPTNM,
+		    HSTR.RESN_PR_DT    
+		FROM RESCISSION RS INNER JOIN
+		    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+		    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO LEFT OUTER JOIN
+		    TB_RESN_RECEIPT TRR ON RS.PIC1 = TRR.RECEIPT_NO AND TRR.DEL_FG = 'N' INNER JOIN
+		    (
+		        SELECT 
+		            RECEIPT_NO,
+		            MAX(CASE WHEN PROC_GBN_D = '999' THEN PROC_USER ELSE '' END) AS RESN_P_USER,
+		            MAX(CASE WHEN PROC_GBN_D = '999' THEN PROC_DT ELSE NULL END) AS RESN_P_DT,
+		            MAX(CASE WHEN PROC_GBN_D = '014' THEN PROC_USER ELSE '' END) AS RESN_PR_USER,
+		            MAX(CASE WHEN PROC_GBN_D = '014' THEN PROC_DT ELSE NULL END) AS RESN_PR_DT
+		        FROM TB_RESN_PROC_HSTR
+		        GROUP BY RECEIPT_NO
+		    ) HSTR ON TRR.RECEIPT_NO = HSTR.RECEIPT_NO
+		WHERE 1=1
+		AND RS.RESN_ACPT_DAY BETWEEN '20230101' AND '20230228'
+		AND RS.DEL_FG = 'N'
+
+    </select>
+    
+        <!--     
+     /* ================================================================
+     * 날짜 : 20230120
+     * 이름 : 임동진
+     * 추가내용 : 해약방어회원리스트 카운트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getResnProtectCount" parameterType="map" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM LF_DMUSER.TB_RESN_PROTECT
+    </select>
+    
+        <!--     
+     /* ================================================================
+     * 날짜 : 20230120
+     * 이름 : 임동진
+     * 추가내용 : 해약방어회원리스트
+     * 대상 테이블 : LF_DMUSER.TB_RESN_RECEIPT
+     * ================================================================
+     * */ -->
+    <select id="DlwResnReceiptMap.getResnProtectList" parameterType="map" resultType="resultMap">
+		SELECT
+			*
+		FROM LF_DMUSER.TB_RESN_PROTECT 
+    </select>    
+</mapper>

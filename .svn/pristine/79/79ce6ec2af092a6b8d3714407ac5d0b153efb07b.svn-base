@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TblDtlMap">
+    <sql id="TblDtlMap.selectCondition_fragment">
+        <where>
+            <if test="tbl_enlt_nm != null and tbl_enlt_nm != ''">
+                AND UPPER(TBL_ENLT_NM) = UPPER(#{tbl_enlt_nm})
+            </if>
+
+            <if test="term_id != null and term_id != ''">
+                AND TERM_ID = #{term_id}
+            </if>
+
+            <if test="them_scp_cd != null and them_scp_cd != ''">
+                AND THEM_SCP_CD = #{them_scp_cd}
+            </if>
+        </where>
+    </sql>
+
+    <sql id="TblDtlMap.referTblDtl">
+        <where>
+            <if test="term_nm != null and term_nm != ''">
+                <if test="dateType == 'all'">
+                    AND UPPER(TERM_NM) LIKE '%' || UPPER(#{term_nm}) || '%'
+                </if>
+                <if test="dateType == 'back'">
+                    AND UPPER(TERM_NM) LIKE UPPER(#{term_nm}) || '%'
+                </if>
+                <if test="dateType == 'front'">
+                    AND UPPER(TERM_NM) LIKE '%' || UPPER(#{term_nm})
+                </if>
+                <if test="dateType == 'correct'">
+                    AND UPPER(TERM_NM) = UPPER(#{term_nm})
+                </if>
+            </if>
+
+            <if test="term_enlt_nm != null and term_enlt_nm != ''">
+                <if test="dateType2 == 'all'">
+                    AND UPPER(TERM_ENLT_NM) LIKE '%' || UPPER(#{term_enlt_nm}) || '%'
+                </if>
+                <if test="dateType2 == 'back'">
+                    AND UPPER(TERM_ENLT_NM) LIKE UPPER(#{term_enlt_nm}) || '%'
+                </if>
+                <if test="dateType2 == 'front'">
+                    AND UPPER(TERM_ENLT_NM) LIKE '%' || UPPER(#{term_enlt_nm})
+                </if>
+                <if test="dateType2 == 'correct'">
+                    AND UPPER(TERM_ENLT_NM) = UPPER(#{term_enlt_nm})
+                </if>
+            </if>
+        </where>
+    </sql>
+
+    <!-- 테이블 관리(테이블 상세정보) 건수 조회 (15.04.27)  -->
+    <select id="TblDtlMap.getTblDtlCount" parameterType="map" resultType="int">
+        SELECT /* TblDtlMap.getTblDtlCount */
+               COUNT(*)
+          FROM TB_TBL_DTL
+        <include refid="TblDtlMap.selectCondition_fragment"/>
+    </select>
+    <!-- 테이블 관리(테이블 상세정보) 건수 조회  -->
+
+    <!-- 테이블 관리(테이블 상세정보) 목록 조회 (15.04.27) -->
+    <select id="TblDtlMap.getTblDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* TblDtlMap.getTblDtlList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT TBL_ENLT_NM, TBL_HNGL_NM, THEM_SCP_CD, TBL_TYP_CD
+                      , TBL_EXPI, USE_YN
+                      , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                      , (SELECT B.USER_NM
+                            FROM TB_USER B
+                          WHERE B.USER_ID = A.RGSR_ID) AS RGSR_NM
+                      , (SELECT B.USER_NM
+                            FROM TB_USER B
+                          WHERE B.USER_ID = A.AMND_ID) AS AMND_NM
+                      , GETCODENM('PMS020', THEM_SCP_CD, #{cntr_cd}) AS THEM_SCP_NM
+                      , GETCODENM('PMS030', TBL_TYP_CD, #{cntr_cd}) AS TBL_TYP_NM
+                    FROM TB_TBL_DTL A
+          <include refid="TblDtlMap.selectCondition_fragment"/>
+          <if test="orderBy != null and orderBy != ''">
+               ORDER BY ${orderBy} ${orderDirection}
+          </if>
+              )B
+       </select>
+    <!-- // 테이블 관리(테이블 상세정보) 목록 조회 -->
+
+    <!-- 테이블 관리(테이블 상세정보) 등록 (15.04.28) -->
+    <insert id="TblDtlMap.insertTblDtl" parameterType="map">
+        INSERT /* TblDtlMap.insertTblDtl */
+          INTO TB_TBL_DTL
+               (TBL_ENLT_NM, TBL_HNGL_NM, THEM_SCP_CD, TBL_TYP_CD, TBL_EXPI, USE_YN
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+          VALUES ( UPPER(#{tbl_enlt_nm}), #{tbl_hngl_nm}, #{them_scp_cd}, #{tbl_typ_cd}, #{tbl_expi}, #{use_yn}
+                 , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // 테이블 관리(테이블 상세정보) 등록 -->
+
+    <!-- 테이블 관리(테이블 상세정보) 수정 (15.04.28) -->
+    <update id="TblDtlMap.updateTblDtl" parameterType="map">
+        UPDATE /* TblDtlMap.updateTblDtl */
+            TB_TBL_DTL
+           SET THEM_SCP_CD = #{them_scp_cd}
+             , TBL_TYP_CD = #{tbl_typ_cd}
+             , TBL_EXPI = #{tbl_expi}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE TBL_ENLT_NM = #{tbl_enlt_nm}
+    </update>
+    <!-- // 테이블 관리(테이블 상세정보) 수정 -->
+
+    <!-- 테이블 관리(테이블 상세정보) 삭제 (15.04.28) -->
+    <delete id="TblDtlMap.deleteTblDtl" parameterType="map">
+        DELETE /* TblDtlMap.deleteTblDtl */
+          FROM TB_TBL_DTL
+         WHERE TBL_ENLT_NM = #{tbl_enlt_nm}
+    </delete>
+    <!-- // 테이블 관리(테이블 상세정보) 삭제 -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 건수 조회 (15.04.27)  -->
+    <select id="TblDtlMap.getTclDtlCount" parameterType="map" resultType="int">
+        SELECT /* TblDtlMap.getTclDtlCount */
+               COUNT(*)
+          FROM TB_TBL_COLM_DTL
+        <include refid="TblDtlMap.selectCondition_fragment"/>
+    </select>
+    <!-- 테이블 관리(칼럼 상세정보) 건수 조회  -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 목록 조회 (15.04.27) -->
+    <select id="TblDtlMap.getTclDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* TblDtlMap.getTclDtlList */
+               ROWNUM AS PAGE_INDX, A.TBL_ENLT_NM, A.TERM_ID, A.DOMN_CD, A.COLM_PK_YN, A.COLM_NN_YN
+             , A.COLM_CD_SET_CD, A.COLM_BASI_VL_ID, A.COLM_EXPI, A.COLM_SQNC
+             , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+             , B.TERM_NM, B.TERM_ENLT_NM, B.AP_VRBL_NM
+             , C.DOMN_CD, C.DOMN_NM, C.DATA_TYPE_CNTN, D.COLM_BASI_VL
+             , E.CD_SET_CD, E.CD_SET_NM
+             , F.TBL_HNGL_NM, F.THEM_SCP_CD, F.TBL_TYP_CD
+             , E.CD_SET_NM || '(' || CD_SET_CD || ')' AS CODESET
+             , (SELECT G.USER_NM
+                    FROM TB_USER G
+                    WHERE G.USER_ID = A.RGSR_ID) AS RGSR_NM
+             , (SELECT G.USER_NM
+                     FROM TB_USER G
+                    WHERE G.USER_ID = A.AMND_ID) AS AMND_NM
+             , GETCODENM('PMS020', THEM_SCP_CD, #{cntr_cd}) AS THEM_SCP_NM
+             , GETCODENM('PMS030', TBL_TYP_CD, #{cntr_cd}) AS TBL_TYP_NM
+                , (SELECT MAX(COLM_SQNC) FROM TB_TBL_COLM_DTL WHERE TBL_ENLT_NM = #{tbl_enlt_nm}) AS MAXORD
+          FROM TB_TBL_COLM_DTL A
+          LEFT OUTER JOIN TB_TERM_DTL B ON A.TERM_ID = B.TERM_ID
+          LEFT OUTER JOIN TB_DOMN_INFO C ON A.DOMN_CD = C.DOMN_CD
+          LEFT OUTER JOIN TB_COLM_BASI_VL_INFO D ON A.COLM_BASI_VL_ID = D.COLM_BASI_VL_ID
+          LEFT OUTER JOIN TB_CD_SET E ON A.COLM_CD_SET_CD = E.CD_SET_CD
+          LEFT OUTER JOIN TB_TBL_DTL F ON A.TBL_ENLT_NM = F.TBL_ENLT_NM
+          WHERE A.TBL_ENLT_NM = #{tbl_enlt_nm}
+          <if test="term_id != null and term_id != ''">
+                AND A.TERM_ID = #{term_id}
+          </if>
+          <if test="orderBy != null and orderBy != ''">
+               ORDER BY ${orderBy} ${orderDirection}
+          </if>
+       </select>
+    <!-- // 테이블 관리(칼럼 상세정보) 목록 조회 -->
+
+    <!-- 칼럼 상세정보 순서 중복 확인 (15.05.07) -->
+    <select id="TblDtlMap.getTclDtlDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* TblDtlMap.getTclDtlDuplicateCount */
+               COUNT(*)
+          FROM TB_TBL_COLM_DTL
+         WHERE COLM_SQNC = #{colm_sqnc}
+           AND TBL_ENLT_NM = #{tbl_enlt_nm}
+           <choose>
+                   <when test = "update_nm != null and update_nm != ''">
+                       AND TERM_ID != (SELECT TERM_ID FROM TB_TERM_DTL WHERE TERM_ENLT_NM = #{update_nm})
+                   </when>
+                   <otherwise>
+                       AND TERM_ID != #{term_id}
+                   </otherwise>
+           </choose>
+    </select>
+    <!-- // 칼럼 상세정보 순서 중복 확인 -->
+
+    <!-- 칼럼 상세정보 순서 최댓값 (15.05.07) -->
+    <select id="TblDtlMap.getTclDtlMaxOrder" parameterType="map" resultType="int">
+        SELECT /* TblDtlMap.getTclDtlMaxOrder */
+               NVL(MAX(COLM_SQNC), 0)
+          FROM TB_TBL_COLM_DTL
+         WHERE TBL_ENLT_NM = #{tbl_enlt_nm}
+    </select>
+    <!-- // 칼럼 상세정보 순서 최댓값 -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 등록 (15.05.07) -->
+    <insert id="TblDtlMap.insertTclDtl" parameterType="map">
+        INSERT /* TblDtlMap.insertTclDtl */
+          INTO TB_TBL_COLM_DTL
+               (TBL_ENLT_NM, TERM_ID, DOMN_CD, COLM_PK_YN, COLM_NN_YN, COLM_CD_SET_CD
+              , COLM_BASI_VL_ID, COLM_EXPI, COLM_SQNC
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES ( #{tbl_enlt_nm}, #{term_id}
+               , (SELECT DOMN_CD FROM TB_DOMN_INFO WHERE DOMN_NM = #{domn_nm} AND HGRN_DOMN_CD IS NOT NULL), #{colm_pk_yn}, #{colm_nn_yn}
+               , #{colm_cd_set_cd}, #{colm_basi_vl_id}, #{colm_expi}, #{colm_sqnc}
+               , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // 테이블 관리(칼럼 상세정보) 등록 -->
+
+    <!-- 테이블 관리(테이블 상세정보) 수정 (15.05.07) -->
+    <update id="TblDtlMap.updateTclDtl" parameterType="map">
+        UPDATE /* TblDtlMap.updateTclDtl */
+            TB_TBL_COLM_DTL
+           SET TERM_ID = #{term_id}
+             , DOMN_CD = (SELECT DOMN_CD FROM TB_DOMN_INFO WHERE DOMN_NM = #{domn_nm})
+             , COLM_PK_YN = #{colm_pk_yn}
+             , COLM_NN_YN = #{colm_nn_yn}
+             , COLM_CD_SET_CD = #{colm_cd_set_cd}
+             , COLM_BASI_VL_ID = #{colm_basi_vl_id}
+             , COLM_EXPI = #{colm_expi}
+             , COLM_SQNC = #{colm_sqnc}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE TBL_ENLT_NM = #{tbl_enlt_nm}
+          AND TERM_ID = (SELECT TERM_ID FROM TB_TERM_DTL WHERE TERM_ENLT_NM = #{update_nm})
+    </update>
+    <!-- // 테이블 관리(테이블 상세정보) 수정 -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 삭제 (15.05.11) -->
+    <delete id="TblDtlMap.deleteTclDtl" parameterType="map">
+        DELETE /* TblDtlMap.deleteTclDtl */
+          FROM TB_TBL_COLM_DTL
+         WHERE
+         <choose>
+             <when test="term_id == null or term_id == ''">
+             TERM_ID
+             <foreach collection="selectcheck" item="item" open="IN (" separator="," close=")">
+                 #{item}
+             </foreach>
+            </when>
+            <otherwise>
+             TERM_ID = #{term_id}
+            </otherwise>
+         </choose>
+         AND TBL_ENLT_NM = #{tbl_enlt_nm}
+    </delete>
+    <!-- // 테이블 관리(칼럼 상세정보) 삭제 -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 순서 자동증가 (15.05.07) -->
+    <update id="TblDtlMap.updateTclDtlOrd" parameterType="map">
+        <![CDATA[
+        UPDATE /* TblDtlMap.updateTclDtlOrd */
+               TB_TBL_COLM_DTL
+           SET COLM_SQNC = CASE TERM_ID WHEN (SELECT TERM_ID FROM TB_TERM_DTL WHERE TERM_ENLT_NM = #{term_enlt_nm}) THEN ${colm_sqnc}
+                                             ELSE CASE SIGN(${oldcolmord} - ${colm_sqnc}) WHEN -1 THEN COLM_SQNC - 1
+                                                                                                WHEN  1 THEN COLM_SQNC + 1
+                                                   END
+                              END
+         WHERE COLM_SQNC <= CASE SIGN(${oldcolmord} - ${colm_sqnc}) WHEN  1 THEN ${oldcolmord}
+                                                                            WHEN -1 THEN ${colm_sqnc}
+                               END
+           AND COLM_SQNC >= CASE SIGN(${oldcolmord} - ${colm_sqnc}) WHEN  1 THEN ${colm_sqnc}
+                                                                            WHEN -1 THEN ${oldcolmord}
+                               END
+           AND TBL_ENLT_NM = #{tbl_enlt_nm}
+        ]]>
+    </update>
+    <!-- // 테이블 관리(칼럼 상세정보) 순서 자동증가 -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 용어 영문 명 중복체크 (15.05.07) -->
+    <select id="TblDtlMap.TclDtlCheck" parameterType="map" resultType="int">
+        SELECT /* TblDtlMap.TclDtlCheck */
+            COUNT(*)
+          FROM TB_TBL_COLM_DTL
+         WHERE TBL_ENLT_NM = #{tbl_enlt_nm}
+           AND TERM_ID = #{term_id}
+    </select>
+    <!-- // 테이블 관리(칼럼 상세정보) 용어 영문 명 중복체크 -->
+
+    <!-- 테이블 관리(칼럼 상세정보) 엑셀다운 (15.05.08) -->
+    <select id="TblDtlMap.getTblDtlExcelList" parameterType="map" resultType="resultMap">
+        SELECT /* TblDtlMap.getTblDtlExcelList */
+               TERM_ENLT_NM, TERM_NM, AP_VRBL_NM
+             , DATA_TYPE_CNTN, COLM_NN_YN, COLM_BASI_VL, COLM_CD_SET_CD
+          FROM TB_TBL_COLM_DTL A
+          LEFT OUTER JOIN TB_TERM_DTL B ON A.TERM_ID = B.TERM_ID
+          LEFT OUTER JOIN TB_DOMN_INFO C ON A.DOMN_CD = C.DOMN_CD
+          LEFT OUTER JOIN TB_COLM_BASI_VL_INFO D ON A.COLM_BASI_VL_ID = D.COLM_BASI_VL_ID
+          <include refid="TblDtlMap.selectCondition_fragment"/>
+          ORDER BY COLM_SQNC ASC
+    </select>
+    <!-- // 테이블 관리(칼럼 상세정보) 엑셀다운 -->
+
+    <!-- 용어 참조 테이블 내역 건수 조회 (15.05.13) -->
+    <select id="TblDtlMap.getReferTblDtlCount" parameterType="map" resultType="int">
+        SELECT /* TblDtlMap.getReferTblDtlCount */
+               COUNT(*)
+          FROM TB_TBL_COLM_DTL A
+         WHERE A.TERM_ID IN
+               (SELECT TERM_ID FROM TB_TERM_DTL <include refid="TblDtlMap.referTblDtl"/>)
+    </select>
+    <!-- // 용어 참조 테이블 내역 건수 조회 -->
+
+    <!-- 용어 참조 테이블 내역 (15.05.13) -->
+    <select id="TblDtlMap.getReferTblDtl" parameterType="map" resultType="resultMap">
+        SELECT /* TblDtlMap.getReferTblDtl */
+             Z.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, P.*
+                  FROM (SELECT GETCODENM('PMS020', THEM_SCP_CD, #{cntr_cd}) AS THEM_SCP_NM
+                            , A.TBL_ENLT_NM
+                            , B.TERM_ENLT_NM, B.TERM_NM
+                            , C.DATA_TYPE_CNTN
+                            , D.TBL_HNGL_NM
+                         FROM TB_TBL_COLM_DTL A
+                         LEFT OUTER JOIN TB_TERM_DTL B ON A.TERM_ID = B.TERM_ID
+                         LEFT OUTER JOIN TB_DOMN_INFO C ON A.DOMN_CD = C.DOMN_CD
+                         LEFT OUTER JOIN TB_TBL_DTL D ON A.TBL_ENLT_NM = D.TBL_ENLT_NM
+                        WHERE A.TERM_ID IN
+                         (SELECT TERM_ID FROM TB_TERM_DTL <include refid="TblDtlMap.referTblDtl"/>)
+                   <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                   </if>
+                        )P
+                )Z
+    </select>
+    <!-- // 용어 참조 테이블 내역 -->
+</mapper>

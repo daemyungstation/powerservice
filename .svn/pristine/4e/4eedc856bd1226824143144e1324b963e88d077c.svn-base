@@ -1,0 +1,1450 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwSlipMap">
+
+
+    <select id="DlwSlipMap.selectSlipResnList" parameterType="map" resultType="resultMap">
+
+        WITH TBL_MAIN
+		AS
+		(
+		    SELECT
+		        ACCNT_NO,
+		        RESN_PROC_DAY,
+		        CASE WHEN RESN_CL = '02' AND CMS_YN = 0 AND SECTION_THR IN ('0010','0008')THEN '99'
+		        ELSE RESN_CL
+		        END AS RESN_CL,
+		        (CASE WHEN RESN_CL = '01' THEN (TRUE_AMT - READY_CASH) ELSE 0 END)  AS RESN_01_1,
+		        (CASE WHEN RESN_CL = '01' THEN (TRUE_AMT - (READY_CASH + RESN_PAY_AMT)) ELSE 0 END ) AS RESN_01_2,          
+		        (CASE WHEN RESN_CL = '02' THEN TRUE_AMT ELSE 0 END) AS RESN_02_1,
+		        (CASE WHEN RESN_CL = '02' THEN (REL_AMT + ADD_AMT) ELSE 0 END) AS RESN_02_2,
+		        (CASE WHEN RESN_CL IN ('01','02') THEN RESN_PAY_AMT ELSE 0 END) AS RESN_01_3,
+		        (CASE WHEN RESN_CL = '03' THEN (TRUE_AMT - READY_CASH) ELSE 0 END)  AS RESN_03_1,
+		        (CASE WHEN RESN_CL = '03' THEN (TRUE_AMT - READY_CASH) ELSE 0 END ) AS RESN_03_2,   
+		        (CASE WHEN RESN_CL = '98' THEN (RESN_PAY_AMT * 0.85) ELSE 0 END ) AS RESN_98_1,   
+		        (CASE WHEN RESN_CL = '98' THEN (RESN_PAY_AMT * 0.15) ELSE 0 END ) AS RESN_98_2,  
+		        (CASE WHEN RESN_CL = '98' THEN (TRUE_AMT - READY_CASH) ELSE 0 END ) AS RESN_98_3
+		    FROM
+		    (
+		        SELECT 
+		            RS.ACCNT_NO,
+		            RS.RESN_PROC_DAY,
+		            CASE WHEN RS.RESON = '23' AND RESN_CL = '01' THEN '98'
+		                 WHEN RS.RESON != '23' AND RESN_CL = '01' THEN '01'
+		                 WHEN RS.RESN_CL = '04' THEN '01'
+		            ELSE RESN_CL
+		            END AS RESN_CL,
+		            PD.SECTION_THR,
+		            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = RS.ACCNT_NO AND DEL_FG = 'N' AND PAY_MTHD != '06') AS CMS_YN,
+		            NVL(RS.RESN_PAY_AMT,0) AS RESN_PAY_AMT, 
+		            NVL((SELECT SUM(USE_AMT) FROM TB_MEMBER_DLWMALL WHERE GOODS_ID = RS.ACCNT_NO),0) AS READY_CASH,
+		            NVL(TRUE_CNT,0) AS TRUE_CNT,
+		            NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> TRUE_CNT),0) AS TRUE_AMT,
+		            NVL((SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> REL_CNT),0) AS REL_AMT,
+		            NVL((SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> ADD_CNT),0) AS ADD_AMT
+		        FROM RESCISSION_DAMO  RS INNER JOIN
+		            TB_MEMBER_BASIC_INFO_DAY MPA ON RS.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+		            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD 
+		        WHERE RS.DEL_FG = 'N'
+		        AND RESN_PROC_DAY = #{resn_proc_day}
+		        AND ((RESN_CL != '02' AND NVL(RESN_PROC_YN,'N') = 'Y') OR RESN_CL = '02') 
+		    )
+		)
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		    MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_01_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '01'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '42010138001' AS ID,
+		    '부금해약관련수익' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_01_2) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '01'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		     MAIN_AMT AS CHA,
+		    0 AS DAE,
+		
+		    (RESN_PROC_DAY || ' 청약철회 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_02_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '02'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '21010103066' AS ID,
+		    '선수금(제휴결합)' AS ID_NM,
+		     MAIN_AMT AS CHA,
+		    0 AS DAE,
+		
+		    (RESN_PROC_DAY || ' 청약철회 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_02_2) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '02'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '21010105001' AS ID,
+		    '미지급금(일반)' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 해약 ' || CNT1 || '건/' || ' 청약철회 ' || CNT2 || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     SUM(CASE WHEN RESN_CL = '01' THEN 1 ELSE 0 END) AS CNT1,
+		     SUM(CASE WHEN RESN_CL = '02' THEN 1 ELSE 0 END) AS CNT2,
+		     SUM(RESN_01_3) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL IN ('01','02')
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		     MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 무환급해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_03_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '03'
+		)
+		
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '42010138001' AS ID,
+		    '부금해약관련수익' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 무환급해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_03_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '03'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		    MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 만기해약(85%) ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_98_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '98'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		    MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 만기해약(15%) ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_98_2) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '98'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '21010105001' AS ID,
+		    '미지급금(일반)' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 만기해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_98_3) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '98'
+		)
+
+    </select>
+    
+    <select id="DlwSlipMap.selectSlipResnCloseList" parameterType="map" resultType="resultMap">
+
+        WITH TBL_MAIN
+		AS
+		(
+		    SELECT
+		        ACCNT_NO,
+		        RESN_PROC_DAY,
+		        RESN_CL,
+		        RESN_01_1,
+		        RESN_01_2,          
+		        RESN_02_1,
+		        RESN_02_2,
+		        RESN_01_3,
+		        RESN_03_1,
+		        RESN_03_2,   
+		        RESN_98_1,   
+		        RESN_98_2,  
+		        RESN_98_3
+		    FROM TB_SLIP_RESCISSION
+            WHERE CLOSE_DM = #{resn_proc_day}
+		)
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		    MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_01_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '01'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '42010138001' AS ID,
+		    '부금해약관련수익' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_01_2) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '01'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		     MAIN_AMT AS CHA,
+		    0 AS DAE,
+		
+		    (RESN_PROC_DAY || ' 청약철회 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_02_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '02'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '21010103066' AS ID,
+		    '선수금(제휴결합)' AS ID_NM,
+		     MAIN_AMT AS CHA,
+		    0 AS DAE,
+		
+		    (RESN_PROC_DAY || ' 청약철회 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_02_2) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '02'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '21010105001' AS ID,
+		    '미지급금(일반)' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 해약 ' || CNT1 || '건/' || ' 청약철회 ' || CNT2 || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     SUM(CASE WHEN RESN_CL = '01' THEN 1 ELSE 0 END) AS CNT1,
+		     SUM(CASE WHEN RESN_CL = '02' THEN 1 ELSE 0 END) AS CNT2,
+		     SUM(RESN_01_3) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL IN ('01','02')
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		     MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 무환급해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_03_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '03'
+		)
+		
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '42010138001' AS ID,
+		    '부금해약관련수익' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 무환급해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_03_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '03'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		    MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 만기해약(85%) ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_98_1) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '98'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '22010111001' AS ID,
+		    '부금예수금' AS ID_NM,
+		    MAIN_AMT AS CHA,
+		    0 AS DAE,
+		    (RESN_PROC_DAY || ' 만기해약(15%) ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_98_2) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '98'
+		)
+		
+		UNION ALL 
+		
+		SELECT 
+		    '1100092533' AS CUST_ID,
+		    '21010105001' AS ID,
+		    '미지급금(일반)' AS ID_NM,
+		    0 AS CHA,
+		    MAIN_AMT AS DAE,
+		    (RESN_PROC_DAY || ' 만기해약 ' || CNT || '건') AS MEMO
+		FROM
+		(
+		SELECT
+		     COUNT(*) AS CNT,
+		     SUM(RESN_98_3) AS MAIN_AMT,
+		     MAX(RESN_PROC_DAY) AS RESN_PROC_DAY
+		FROM TBL_MAIN
+		WHERE RESN_CL = '98'
+		)
+
+    </select>
+    
+    <select id="DlwSlipMap.selectSlipResnDetailList" parameterType="map" resultType="resultMap">
+
+        SELECT
+        	/* DlwSlipMap.selectSlipResnDetailList */
+	        ACCNT_NO,
+	        MEM_NM,
+	        JOIN_DT,
+	        RESN_PROC_DAY,
+	        PROD_NM,
+	        (CASE WHEN RESN_CL='03' THEN '무환급해약' ELSE (BANK_NM||BANK_ACCNT_NO||DEPR) END) AS BANK_INFO,
+	        TRUE_CNT,
+	        TRUE_AMT,  
+	        READY_CASH,
+	        (REL_AMT + ADD_AMT) AS REL_AMT,
+	        (TRUE_AMT + REL_AMT + ADD_AMT) AS TOT_AMT,
+	        (TRUE_AMT + REL_AMT + ADD_AMT + READY_CASH) AS TOT_AMT2,
+	        RESN_CL,
+	        (CASE WHEN RESN_CL = '01' THEN RESN_PAY_AMT ELSE 0 END)  AS RESN_01_1,
+	        (CASE WHEN RESN_CL = '01' THEN (TRUE_AMT - (READY_CASH + RESN_PAY_AMT)) ELSE 0 END ) AS RESN_01_2,          
+	        (CASE WHEN RESN_CL = '02' THEN TRUE_AMT ELSE 0 END) AS RESN_02_1,
+	        (CASE WHEN RESN_CL = '02' THEN (REL_AMT + ADD_AMT) ELSE 0 END) AS RESN_02_2,
+	        (CASE WHEN RESN_CL IN ('01','02') THEN RESN_PAY_AMT ELSE 0 END) AS RESN_01_3,
+	        (CASE WHEN RESN_CL = '03' THEN (TRUE_AMT - READY_CASH) ELSE 0 END)  AS RESN_03_1,
+	        (CASE WHEN RESN_CL = '03' THEN (TRUE_AMT - READY_CASH) ELSE 0 END ) AS RESN_03_2,   
+	        (CASE WHEN RESN_CL = '98' THEN (RESN_PAY_AMT * 0.85) ELSE 0 END ) AS RESN_98_1,   
+	        (CASE WHEN RESN_CL = '98' THEN (RESN_PAY_AMT * 0.15) ELSE 0 END ) AS RESN_98_2,  
+	        (CASE WHEN RESN_CL = '98' THEN (TRUE_AMT - READY_CASH) ELSE 0 END ) AS RESN_98_3
+	    FROM
+	    (
+	        SELECT 
+	            RS.ACCNT_NO,
+	            RS.RESN_PROC_DAY,
+	            MB.MEM_NM,
+	            MPA.JOIN_DT,
+	            PD.PROD_NM,
+	            RS.BANK_NM,
+	            RS.DEPR,
+	            RS.SEC_BANK_ACCNT_NO AS BANK_ACCNT_NO,
+	            CASE WHEN RS.RESON = '23' AND RESN_CL = '01' THEN '98'
+	                 WHEN RS.RESON != '23' AND RESN_CL = '01' THEN '01'
+	                 WHEN RS.RESN_CL = '04' THEN '01'
+	            ELSE RESN_CL
+	            END AS RESN_CL,
+	            PD.SECTION_THR,
+	            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = RS.ACCNT_NO AND DEL_FG = 'N' AND PAY_MTHD != '06') AS CMS_YN,
+	            NVL(RS.RESN_PAY_AMT,0) AS RESN_PAY_AMT, 
+	            NVL((SELECT SUM(USE_AMT) FROM TB_MEMBER_DLWMALL WHERE GOODS_ID = RS.ACCNT_NO),0) AS READY_CASH,
+	            NVL(TRUE_CNT,0) AS TRUE_CNT,
+	            NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> TRUE_CNT),0) AS TRUE_AMT,
+	            NVL((SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> REL_CNT),0) AS REL_AMT,
+	            NVL((SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> ADD_CNT),0) AS ADD_AMT
+	        FROM RESCISSION_DAMO  RS INNER JOIN
+	            TB_MEMBER_BASIC_INFO_DAY MPA ON RS.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+	            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+	            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD 
+	        WHERE RS.DEL_FG = 'N'
+	        AND RESN_PROC_DAY = #{resn_proc_day}
+	        AND ((RESN_CL != '02' AND NVL(RESN_PROC_YN,'N') = 'Y') OR RESN_CL = '02') 
+	    )
+	    WHERE 1=1
+	    AND NOT (RESN_CL = '02' AND CMS_YN = 0 AND SECTION_THR IN ('0010','0008'))
+
+    </select>
+    
+    <select id="DlwSlipMap.selectSlipResnDetailCloseList" parameterType="map" resultType="resultMap">
+
+        SELECT
+	        CLOSE_DM,
+			ACCNT_NO,
+			MEM_NM,
+			JOIN_DT,
+			RESN_PROC_DAY,
+			PROD_NM,
+			BANK_INFO,
+			TRUE_CNT,
+			TRUE_AMT,
+			READY_CASH,
+			REL_AMT,
+			TOT_AMT,
+			TOT_AMT2,
+			RESN_CL,
+			RESN_01_1,
+			RESN_01_2,
+			RESN_02_1,
+			RESN_02_2,
+			RESN_01_3,
+			RESN_03_1,
+			RESN_03_2,
+			RESN_98_1,
+			RESN_98_2,
+			RESN_98_3,
+			REG_DM,
+			REG_MAN
+		FROM TB_SLIP_RESCISSION
+		WHERE CLOSE_DM = #{resn_proc_day}
+
+    </select>
+    
+    <!--  -->
+    <update id="DlwSlipMap.updateResnSlipClose" parameterType="map" >
+    
+        MERGE INTO LF_DMUSER.TB_SLIP_CLOSE SC
+            USING DUAL MMEB
+                  ON (SC.SLIP_CLOSE_DM = #{resn_proc_day})
+            WHEN MATCHED THEN
+                UPDATE
+                   SET
+                       RESN_CLOSE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                      ,RESN_CLOSE_MAN = #{upd_man}
+            WHEN NOT MATCHED THEN
+                INSERT(SLIP_CLOSE_DM
+                      ,RESN_CLOSE
+                      ,RESN_CLOSE_MAN)
+                VALUES(#{resn_proc_day}
+                      ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+                      ,#{upd_man})
+    </update>
+    
+    <!--  -->
+    <update id="DlwSlipMap.updateResnDetail" parameterType="map" >
+    	BEGIN
+    		DELETE FROM TB_SLIP_RESCISSION
+    		WHERE CLOSE_DM = #{resn_proc_day};
+    		
+	        INSERT INTO TB_SLIP_RESCISSION
+	        (
+		        CLOSE_DM,
+				ACCNT_NO,
+				MEM_NM,
+				JOIN_DT,
+				RESN_PROC_DAY,
+				PROD_NM,
+				BANK_INFO,
+				TRUE_CNT,
+				TRUE_AMT,
+				READY_CASH,
+				REL_AMT,
+				TOT_AMT,
+				TOT_AMT2,
+				RESN_CL,
+				RESN_01_1,
+				RESN_01_2,
+				RESN_02_1,
+				RESN_02_2,
+				RESN_01_3,
+				RESN_03_1,
+				RESN_03_2,
+				RESN_98_1,
+				RESN_98_2,
+				RESN_98_3,
+				REG_DM,
+				REG_MAN
+	        )
+	        SELECT
+	            #{resn_proc_day},
+		        ACCNT_NO,
+		        MEM_NM,
+		        JOIN_DT,
+		        RESN_PROC_DAY,
+		        PROD_NM,
+		        (CASE WHEN RESN_CL='03' THEN '무환급해약' ELSE (BANK_NM||BANK_ACCNT_NO||DEPR) END) AS BANK_INFO,
+		        TRUE_CNT,
+		        TRUE_AMT,
+		        READY_CASH,
+		        (REL_AMT + ADD_AMT) AS REL_AMT,
+		        (TRUE_AMT + REL_AMT + ADD_AMT) AS TOT_AMT,
+		        (TRUE_AMT + REL_AMT + ADD_AMT + READY_CASH) AS TOT_AMT2,
+		        RESN_CL,
+		        (CASE WHEN RESN_CL = '01' THEN RESN_PAY_AMT ELSE 0 END)  AS RESN_01_1,
+		        (CASE WHEN RESN_CL = '01' THEN (TRUE_AMT - (READY_CASH + RESN_PAY_AMT)) ELSE 0 END ) AS RESN_01_2,          
+		        (CASE WHEN RESN_CL = '02' THEN TRUE_AMT ELSE 0 END) AS RESN_02_1,
+		        (CASE WHEN RESN_CL = '02' THEN (REL_AMT + ADD_AMT) ELSE 0 END) AS RESN_02_2,
+		        (CASE WHEN RESN_CL IN ('01','02') THEN RESN_PAY_AMT ELSE 0 END) AS RESN_01_3,
+		        (CASE WHEN RESN_CL = '03' THEN (TRUE_AMT - READY_CASH) ELSE 0 END)  AS RESN_03_1,
+		        (CASE WHEN RESN_CL = '03' THEN (TRUE_AMT - READY_CASH) ELSE 0 END ) AS RESN_03_2,   
+		        (CASE WHEN RESN_CL = '98' THEN (RESN_PAY_AMT * 0.85) ELSE 0 END ) AS RESN_98_1,   
+		        (CASE WHEN RESN_CL = '98' THEN (RESN_PAY_AMT * 0.15) ELSE 0 END ) AS RESN_98_2,  
+		        (CASE WHEN RESN_CL = '98' THEN (TRUE_AMT - READY_CASH) ELSE 0 END ) AS RESN_98_3,
+		        SYSDATE,
+		        #{upd_man}
+		    FROM
+		    (
+		        SELECT 
+		            RS.ACCNT_NO,
+		            RS.RESN_PROC_DAY,
+		            MB.MEM_NM,
+		            MPA.JOIN_DT,
+		            PD.PROD_NM,
+		            RS.BANK_NM,
+		            RS.DEPR,
+		            RS.SEC_BANK_ACCNT_NO AS BANK_ACCNT_NO,
+		            CASE WHEN RS.RESON = '23' AND RESN_CL = '01' THEN '98'
+		                 WHEN RS.RESON != '23' AND RESN_CL = '01' THEN '01'
+		                 WHEN RS.RESN_CL = '04' THEN '01'
+		            ELSE RESN_CL
+		            END AS RESN_CL,
+		            PD.SECTION_THR,
+		            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = RS.ACCNT_NO AND DEL_FG = 'N' AND PAY_MTHD != '06') AS CMS_YN,
+		            NVL(RS.RESN_PAY_AMT,0) AS RESN_PAY_AMT, 
+		            NVL((SELECT SUM(USE_AMT) FROM TB_MEMBER_DLWMALL WHERE GOODS_ID = RS.ACCNT_NO),0) AS READY_CASH,
+		            NVL(TRUE_CNT,0) AS TRUE_CNT,
+		            NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> TRUE_CNT),0) AS TRUE_AMT,
+		            NVL((SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> REL_CNT),0) AS REL_AMT,
+		            NVL((SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND NO <![CDATA[<=]]> ADD_CNT),0) AS ADD_AMT
+		        FROM RESCISSION_DAMO  RS INNER JOIN
+		            TB_MEMBER_BASIC_INFO_DAY MPA ON RS.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+		            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+		            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD 
+		        WHERE RS.DEL_FG = 'N'
+		        AND RESN_PROC_DAY = #{resn_proc_day}
+		        AND ((RESN_CL != '02' AND NVL(RESN_PROC_YN,'N') = 'Y') OR RESN_CL = '02') 
+		    )
+		    WHERE 1=1
+		    AND NOT (RESN_CL = '02' AND CMS_YN = 0 AND SECTION_THR IN ('0010','0008'));
+		END;
+    </update>
+    
+    <!--  -->
+    <select id="DlwSlipMap.getSlipResnCloseChk" parameterType="map" resultType="int">
+    
+        SELECT /* DlwSlipMap.getSlipCloseChk */
+               COUNT(*)
+          FROM TB_SLIP_CLOSE
+         WHERE SLIP_CLOSE_DM = #{resn_proc_day}
+         AND RESN_CLOSE IS NOT NULL
+    </select>
+    
+    <select id="DlwSlipMap.selectSlipCardList" parameterType="map" resultType="resultMap">
+
+    WITH CARD_MAIN
+	AS 
+	(
+	    SELECT
+	        CLOSE_DM,
+			GUBUN,
+			ACCNT_NO,
+			CARD_CD,
+			CARD_NM,
+			AUTH_DT,
+			PUR_DT,    
+			PUR_AMT,
+			ETC_AMT,
+			PAID_AMT,
+			KSTBIT,
+			RESULT_KIND,
+			PAY_BIT,
+			REQ_PAY_NO,
+			TRUE_AMT,
+			REL_AMT,
+			ADD_AMT
+		FROM TB_SLIP_CARD
+		WHERE CLOSE_DM = #{card_proc_day}
+	)
+	
+	-- 1.1 나이스 카드 외상매출금
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '11010601014' AS ID,
+	    SUM(PUR_AMT) AS CHA,
+	    0 AS DAE,
+	    MAX(AUTH_DT) || ' 카드승인-' || CARD_NM AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_MAIN
+	WHERE GUBUN = 'NICE'
+	GROUP BY CARD_NM
+	
+	UNION ALL 
+	
+	-- 1.2 이니시스 카드 외상매출금
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '11010601014' AS ID,
+	    SUM(PUR_AMT) AS CHA,
+	    0 AS DAE,
+	    MAX(AUTH_DT) || ' 카드승인-이니시스'  AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_MAIN
+	WHERE 1=1 
+	AND GUBUN = 'INICIS'
+	AND (RESULT_KIND != '03' OR (KSTBIT != '04' AND RESULT_KIND = '03'))
+	
+	-- 1.3 무승인 카드 외상 매출금
+	UNION ALL
+	
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '11010601014' AS ID,
+	    SUM(PUR_AMT) AS CHA,
+	    0 AS DAE,
+	    MAX(AUTH_DT) || ' 카드무승인-' || FN_COM_NM('0165',CARD_CD) AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_MAIN
+	WHERE GUBUN = 'NOAUTH'
+	GROUP BY CARD_CD
+	
+	
+	
+	-- 2 카드 부금예수금
+	UNION ALL
+	
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '22010111001' AS ID,
+	    0 AS CHA,
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS DAE,
+	    MAX(AUTH_DT) || ' 카드승인' AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT, PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_MAIN
+	
+	-- 3 카드 선수금(제휴결합)
+	
+	UNION ALL
+	
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '21010103066' AS ID,
+	    0 AS CHA,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS DAE,
+	    MAX(AUTH_DT) || ' 카드승인' AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT, PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_MAIN
+	
+	-- 4 외상매출금(카드매출)
+	UNION ALL
+	
+	SELECT
+	    '1100092780' AS CUST_ID,
+	    '22010111001' AS ID,
+	    PUR_AMT AS CHA,
+	    0 AS DAE,
+	    '이니시스-의전행사매출 ' || MB.MEM_NM
+	FROM CARD_MAIN CM INNER JOIN
+	    MEM_PROD_ACCNT MPA ON CM.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+	    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO 
+	WHERE GUBUN = 'INICIS'
+	AND CM.KSTBIT = '04' 
+	AND CM.RESULT_KIND = '03'
+	    
+	-- 5 부금가수금
+	UNION ALL 
+	
+	SELECT
+	    '1100092780' AS CUST_ID,
+	    '21010106041' AS ID,
+	    0 AS CHA,
+	    PUR_AMT AS DAE,
+	    '이니시스-의전행사매출 ' || MB.MEM_NM
+	FROM CARD_MAIN CM INNER JOIN
+	    MEM_PROD_ACCNT MPA ON CM.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+	    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO 
+	WHERE GUBUN = 'INICIS'
+	AND CM.KSTBIT = '04' 
+	AND CM.RESULT_KIND = '03'
+
+    </select>
+    
+    <select id="DlwSlipMap.getSlipCardCloseChk" parameterType="map" resultType="int">
+    
+        SELECT /* DlwSlipMap.getSlipCardCloseChk */
+               COUNT(*)
+          FROM TB_SLIP_CLOSE
+         WHERE SLIP_CLOSE_DM = #{card_proc_day}
+         AND CARD_CLOSE IS NOT NULL
+    </select>
+    
+    
+     <select id="DlwSlipMap.SlipCardDetailCloseCnt"  parameterType="map" resultType="int">
+     		SELECT
+				/*DlwSlipMap.SlipCardDetailCloseCnt*/
+				COUNT(*)
+			FROM
+			(
+		        SELECT
+		        	ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) PAGE_INDX,
+			        CLOSE_DM,
+					GUBUN,
+					ACCNT_NO,
+					CARD_CD,
+					CARD_NM,
+					AUTH_DT,
+					PUR_DT,    
+					PUR_AMT,
+					ETC_AMT,
+					PAID_AMT,
+					KSTBIT,
+					RESULT_KIND,
+					PAY_BIT,
+					REQ_PAY_NO,
+					TRUE_AMT,
+					REL_AMT,
+					ADD_AMT
+				FROM TB_SLIP_CARD
+				WHERE CLOSE_DM = #{card_proc_day}
+			)	
+     
+     </select>
+     
+     <select id="DlwSlipMap.SlipCardDetailCnt"  parameterType="map" resultType="int">
+     		SELECT
+     			/* DlwSlipMap.SlipCardDetailCnt */
+				COUNT(*)
+			FROM
+			(
+		        SELECT 
+			        REQ.ACCNT_NO
+			    FROM TB_MEMBER_WDRW_REQ REQ INNER JOIN
+			        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY 
+			    WHERE REQ.REQ_DAY = #{card_proc_day}
+			    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+			    AND NVL(REQ.INI_YN,'N') = 'N'
+			    AND REQ.DEL_FG IN ('C', 'X')
+			    AND REQ.PAY_MTHD = '06'
+			    AND REQ.REQ_DAY <![CDATA[<]]> NVL((SELECT TO_CHAR(CANCEL_DT,'YYYYMMDD') FROM LF_DMUSER.TB_MEMBER_REQ_REFUND WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_DAY = REQ_DAY AND REQ.RESULT_KEY = RESULT_KEY AND  DEL_FG = 'N'),'99999999') 
+			
+			    UNION ALL
+			    -- 이니시스 데이터 
+			    SELECT 
+			        REQ.ACCNT_NO
+			    FROM TB_MEMBER_WDRW_REQ REQ INNER JOIN
+			        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY     
+			    AND REQ.REQ_DAY = #{card_proc_day}
+			    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+			    AND NVL(REQ.INI_YN,'N') = 'Y'
+			    AND REQ.DEL_FG IN ('C')
+			    AND REQ.PAY_MTHD = '06'
+			    AND REQ.REQ_DAY <![CDATA[<]]> NVL((SELECT TO_CHAR(CANCEL_DT,'YYYYMMDD') FROM LF_DMUSER.TB_MEMBER_REQ_REFUND WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_DAY = REQ_DAY AND REQ.RESULT_KEY = RESULT_KEY AND  DEL_FG = 'N'),'99999999') 
+			
+			    UNION ALL 
+			
+			    SELECT 
+			        DTL.ACCNT_NO
+			    FROM LF_DMUSER.TB_MEMBER_WDRW_RESULT DTL INNER JOIN
+			            TB_MEMBER_WDRW_REQ MST ON DTL.REQ_DAY = MST.REQ_DAY AND MST.ACCNT_NO = DTL.ACCNT_NO AND DTL.RESULT_KEY = MST.RESULT_KEY  
+			    WHERE DTL.REQ_DAY = (#{card_proc_day} -1)
+			    AND DTL.AUTH_YN = 'N'
+			    AND DTL.RESULT_CD = '00'
+		    ) TBL 
+     
+     </select>
+    
+    <select id="DlwSlipMap.selectSlipCardDetailCloseList" parameterType="map" resultType="resultMap">
+		
+		SELECT
+			/*DlwSlipMap.selectSlipCardDetailCloseList*/
+			*
+		FROM
+		(
+	        SELECT
+	        	ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) PAGE_INDX,
+		        CLOSE_DM,
+				GUBUN,
+				ACCNT_NO,
+				CARD_CD,
+				CARD_NM,
+				AUTH_DT,
+				PUR_DT,    
+				PUR_AMT,
+				ETC_AMT,
+				PAID_AMT,
+				KSTBIT,
+				RESULT_KIND,
+				PAY_BIT,
+				REQ_PAY_NO,
+				TRUE_AMT,
+				REL_AMT,
+				ADD_AMT
+			FROM TB_SLIP_CARD
+			WHERE CLOSE_DM = #{card_proc_day}
+		)		
+		 <if test="excel_fg == null or excel_fg == '' or !excel_fg.equalsIgnoreCase('Y')">
+	         <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+	             <![CDATA[
+	             WHERE PAGE_INDX >= #{startLine}
+	               AND PAGE_INDX < #{endLine}
+	             ]]>
+	         </if>
+     	</if>
+    </select> 
+    
+    <select id="DlwSlipMap.selectSlipCardDetailList" parameterType="map" resultType="resultMap">
+		SELECT
+			/* DlwSlipMap.selectSlipCardDetailList */
+			*
+		FROM
+		(
+			SELECT
+				TBL.*,
+				ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) PAGE_INDX  
+			FROM
+			(
+		        SELECT 
+			        'NICE' AS GUBUN,
+			        REQ.ACCNT_NO,
+			        RST.ICHAE_CD AS CARD_CD,
+			        CASE WHEN FN_IS_NUMBER(RST.ICHAE_CD) = 0 THEN DECODE(RST.ICHAE_CD,'KB국민','국민','NH채움','농협','하나(외환)','하나',RST.ICHAE_CD)
+			        ELSE FN_COM_NM('0120',RST.ICHAE_CD) END AS CARD_NM ,
+			        RST.AUTH_CD AS AUTH_DT,
+			        REQ.REQ_DAY AS PUR_DT,
+			        REQ.PAY_AMT AS PUR_AMT,
+			        0 AS ETC_ATM,
+			        0 AS PAID_AMT,
+			        REQ.KSTBIT,
+			        REQ.RESULT_KIND,
+			        REQ.PAY_BIT,
+			        REQ.REQ_PAY_NO,
+			        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+			        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+			        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+			    FROM TB_MEMBER_WDRW_REQ REQ INNER JOIN
+			        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY 
+			    WHERE REQ.REQ_DAY = #{card_proc_day}
+			    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+			    AND NVL(REQ.INI_YN,'N') = 'N'
+			    AND REQ.DEL_FG IN ('C', 'X')
+			    AND REQ.PAY_MTHD = '06'
+			    AND REQ.REQ_DAY <![CDATA[<]]> NVL((SELECT TO_CHAR(CANCEL_DT,'YYYYMMDD') FROM LF_DMUSER.TB_MEMBER_REQ_REFUND WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_DAY = REQ_DAY AND REQ.RESULT_KEY = RESULT_KEY AND  DEL_FG = 'N'),'99999999') 
+			
+			    UNION ALL
+			    -- 이니시스 데이터 
+			    SELECT 
+			        'INICIS' AS GUBUN,
+			        REQ.ACCNT_NO,
+			        RST.ICHAE_CD AS CARD_CD,
+			        FN_COM_NM('0196',RST.ICHAE_CD) AS CARD_NM,
+			        RST.AUTH_CD AS AUTH_DT,
+			        REQ.REQ_DAY AS PUR_DT,
+			        REQ.PAY_AMT AS PUR_AMT,
+			        0 AS ETC_ATM, 
+			        0 AS PAID_AMT,
+			        REQ.KSTBIT,
+			        REQ.RESULT_KIND,
+			        REQ.PAY_BIT,
+			        REQ.REQ_PAY_NO,
+			        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+			        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+			        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+			    FROM TB_MEMBER_WDRW_REQ REQ INNER JOIN
+			        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY     
+			    AND REQ.REQ_DAY = #{card_proc_day}
+			    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+			    AND NVL(REQ.INI_YN,'N') = 'Y'
+			    AND REQ.DEL_FG IN ('C')
+			    AND REQ.PAY_MTHD = '06'
+			    AND REQ.REQ_DAY <![CDATA[<]]> NVL((SELECT TO_CHAR(CANCEL_DT,'YYYYMMDD') FROM LF_DMUSER.TB_MEMBER_REQ_REFUND WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_DAY = REQ_DAY AND REQ.RESULT_KEY = RESULT_KEY AND  DEL_FG = 'N'),'99999999') 
+			
+			    UNION ALL 
+			
+			    SELECT 
+			        'NOAUTH' AS GUBUN,
+			        DTL.ACCNT_NO,
+			        '06' AS CARD_CD,
+			        '삼성' AS CARD_NM,
+			        DTL.AUTH_DT AS AUTH_DT,
+			        TO_CHAR(TO_DATE((DTL.AUTH_DT +1)),'YYYYMMDD') AS PUR_DT,    
+			        (DTL.BAS_CMIS_AMT + DTL.CUR_PAY_AMT) AS PUR_AMT,
+			        DTL.BAS_CMIS_AMT AS ETC_AMT,
+			        DTL.CUR_PAY_AMT AS PAID_AMT,
+			        MST.KSTBIT,
+			        MST.RESULT_KIND,
+			        MST.PAY_BIT,
+			        MST.REQ_PAY_NO,
+			        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MST.PROD_CD AND NO = MST.REQ_PAY_NO) AS TRUE_AMT,
+			        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MST.PROD_CD AND NO = MST.REQ_PAY_NO) AS REL_AMT,
+			        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MST.PROD_CD AND NO = MST.REQ_PAY_NO) AS ADD_AMT    
+			    FROM LF_DMUSER.TB_MEMBER_WDRW_RESULT DTL INNER JOIN
+			            TB_MEMBER_WDRW_REQ MST ON DTL.REQ_DAY = MST.REQ_DAY AND MST.ACCNT_NO = DTL.ACCNT_NO AND DTL.RESULT_KEY = MST.RESULT_KEY  
+			    WHERE DTL.REQ_DAY = (#{card_proc_day} -1)
+			    AND DTL.AUTH_YN = 'N'
+			    AND DTL.RESULT_CD = '00'
+		    ) TBL 
+	    )
+	    <if test="excel_fg == null or excel_fg == '' or !excel_fg.equalsIgnoreCase('Y')">
+	         <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+	             <![CDATA[
+	             WHERE PAGE_INDX >= #{startLine}
+	               AND PAGE_INDX < #{endLine}
+	             ]]>
+	         </if>
+     	</if>
+
+    </select>
+    
+    <select id="DlwSlipMap.selectSlipCardCancelList" parameterType="map" resultType="resultMap">
+
+	WITH CARD_CANCEL_MAIN
+	AS 
+	(
+	    -- 나이스 승인 취소 
+	    SELECT 
+	        'NICE' AS GUBUN,
+	        REQ.ACCNT_NO,
+	        AAA.DATA_PURC_CRCO AS CARD_CD,
+	        AAA.DATA_TRAD_DTTM AS AUTH_DT,
+	        TO_CHAR(RFD.CANCEL_DT,'YYYYMMDD') AS PUR_DT,
+	        TO_NUMBER(DATA_PURC_PAY) AS PUR_AMT,
+	        (DATA_FRAN_FEE + DATA_ETC_FEE) AS ETC_ATM,
+	        TO_NUMBER(DATA_AMOT_PAID) AS PAID_AMT,
+	        REQ.KSTBIT,
+	        REQ.RESULT_KIND,
+	        REQ.PAY_BIT,
+	        REQ.REQ_PAY_NO,
+	        'C' AS AUTH_BIT,
+	        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+	        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+	        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+	    FROM TB_MEMBER_REQ_REFUND RFD INNER JOIN
+	        TB_MEMBER_WDRW_REQ REQ ON RFD.ACCNT_NO = REQ.ACCNT_NO AND RFD.REQ_DAY = REQ.REQ_DAY AND RFD.RESULT_KEY = REQ.RESULT_KEY INNER JOIN
+	        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY LEFT OUTER JOIN
+	        TB_ACQU_RSLT_DTL AAA ON AAA.DATA_TID = RST.TID AND DATA_TRAD_GB = 2  
+	    WHERE 1=1
+	    AND TO_CHAR(RFD.CANCEL_DT,'YYYYMMDD') = #{card_proc_day}
+	    AND RFD.PAY_MTHD = '06'
+	    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+	    AND NVL(REQ.INI_YN,'N') = 'N'
+	
+	    UNION ALL 
+	
+	    -- 이니시스 승인 취소 
+	    SELECT 
+	        'INICIS' AS GUBUN,
+	        AAA.ACCNT_NO,
+	        AAA.CARD_CD,
+	        AAA.AUTH_DT,
+	        TO_CHAR(RFD.CANCEL_DT,'YYYYMMDD') AS PUR_DT,
+	        NVL(AAA.DATA_PUR_PAY,0) AS PUR_AMT,
+	        NVL(ABS(AAA.DATA_ETC_FEE),0) AS ETC_AMT,
+	        NVL(AAA.DATA_AMOT_PAID,0) AS PAID_AMT,
+	        REQ.KSTBIT,
+	        REQ.RESULT_KIND,
+	        REQ.PAY_BIT,
+	        REQ.REQ_PAY_NO,
+	        'C' AS AUTH_BIT,
+	        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+	        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+	        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+	    FROM TB_MEMBER_REQ_REFUND RFD INNER JOIN
+	        TB_MEMBER_WDRW_REQ REQ ON RFD.ACCNT_NO = REQ.ACCNT_NO AND RFD.REQ_DAY = REQ.REQ_DAY AND RFD.RESULT_KEY = REQ.RESULT_KEY INNER JOIN
+	        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY INNER JOIN
+	        TB_ACQU_INICIS_LIST AAA ON AAA.ACCNT_NO = RST.ACCNT_NO AND AAA.TID = RST.TID 
+	    WHERE TO_CHAR(RFD.CANCEL_DT,'YYYYMMDD') = #{card_proc_day}
+	    AND RFD.PAY_MTHD = '06'
+	    
+	    UNION ALL
+	    -- 무승인 승인 취소 
+	    SELECT 
+	        'NAUTH' AS GUBUN,
+	        RST.ACCNT_NO,
+	        '06' AS CARD_CD,
+	        RST.AUTH_DT AS AUTH_DT,
+	        TO_CHAR(RFD.CANCEL_DT,'YYYYMMDD') AS PUR_DT,    
+	        NVL((RST.BAS_CMIS_AMT + RST.CUR_PAY_AMT),0) AS PUR_AMT,
+	        NVL(RST.BAS_CMIS_AMT,0) AS ETC_AMT,
+	        NVL(RST.CUR_PAY_AMT,0) AS PAID_AMT,
+	        REQ.KSTBIT,
+	        REQ.RESULT_KIND,
+	        REQ.PAY_BIT,
+	        REQ.REQ_PAY_NO,
+	        'C' AS AUTH_BIT,
+	        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+	        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+	        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+	    FROM TB_MEMBER_REQ_REFUND RFD INNER JOIN
+	        TB_MEMBER_WDRW_REQ REQ ON RFD.ACCNT_NO = REQ.ACCNT_NO AND RFD.REQ_DAY = REQ.REQ_DAY AND RFD.RESULT_KEY = REQ.RESULT_KEY INNER JOIN
+	        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY
+	    WHERE TO_CHAR(RFD.CANCEL_DT,'YYYYMMDD') = #{card_proc_day}
+	    AND RFD.PAY_MTHD = '06'
+	    AND RFD.AUTH_YN = 'N'
+	)
+	
+	-- 1.1 나이스 카드 외상매출금(카드)후취소
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '11010601045' AS ID,
+	    0 AS CHA,
+	    SUM(PUR_AMT) AS DAE,    
+	    MAX(PUR_DT) || ' 카드후취소-' || FN_COM_NM('0165',CARD_CD) AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_CANCEL_MAIN
+	WHERE GUBUN = 'NICE'
+	AND AUTH_BIT = 'C'
+	GROUP BY CARD_CD
+	
+	UNION ALL 
+	
+	-- 1.2 이니시스 카드 외상매출금
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '11010601014' AS ID,
+	    0 AS CHA,
+	    SUM(PUR_AMT) AS DAE,    
+	    MAX(PUR_DT) || ' 카드후취소 이니시스'  AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_CANCEL_MAIN
+	WHERE 1=1 
+	    AND GUBUN = 'INICIS'
+	    AND AUTH_BIT = 'C'
+	    
+	UNION ALL 
+	
+	-- 1.3 삼성 무승인 카드 외상매출금
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '11010601014' AS ID,
+	    0 AS CHA,
+	    SUM(PUR_AMT) AS DAE,    
+	    MAX(PUR_DT) || ' 카드무승인 후취소'  AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_CANCEL_MAIN
+	WHERE 1=1 
+	    AND GUBUN = 'NAUTH'
+	    AND AUTH_BIT = 'C'    
+	
+	-- 2 카드 부금예수금 
+	UNION ALL
+	
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '22010111001' AS ID,
+	    0 AS CHA,
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS DAE,
+	    MAX(PUR_DT) || ' 라이프서비스 카드승인(후취소)' AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT, PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_CANCEL_MAIN
+	WHERE AUTH_BIT = 'C'    
+	
+	-- 3 카드 선수금(제휴결합)
+	
+	UNION ALL
+	
+	SELECT    
+	    '1100092780' AS CUST_ID,
+	    '21010103066' AS ID,
+	    0 AS CHA,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS DAE,
+	    MAX(PUR_DT) || ' 라이프서비스 카드승인(후취소)' AS MEMO
+	    /*
+	    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT,
+	    SUM(CASE WHEN PAY_BIT = 'NXX' THEN 0 
+	         WHEN    SUM(CASE WHEN SUBSTR(PAY_BIT,0,1) = 'N' THEN TRUE_AMT ELSE 0 END) AS TRUE_AMT, PAY_BIT = 'NRX' THEN REL_AMT 
+	         WHEN PAY_BIT = 'NRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRA' THEN REL_AMT + ADD_AMT
+	         WHEN PAY_BIT = 'XRX' THEN REL_AMT
+	         WHEN PAY_BIT = 'XXA' THEN ADD_AMT
+	    ELSE 0
+	    END) AS REL_AMT
+	    */
+	FROM CARD_CANCEL_MAIN
+	WHERE AUTH_BIT = 'C'
+
+    </select>
+    
+    <update id="DlwSlipMap.updateCardDetail" parameterType="map" >
+    	BEGIN
+    		DELETE FROM TB_SLIP_CARD
+    		WHERE CLOSE_DM = #{card_proc_day};
+    		
+	        INSERT INTO TB_SLIP_CARD
+	        (
+		        CLOSE_DM,
+				GUBUN,
+				ACCNT_NO,
+				CARD_CD,
+				CARD_NM,
+				AUTH_DT,
+				PUR_DT,    
+				PUR_AMT,
+				ETC_AMT,
+				PAID_AMT,
+				KSTBIT,
+				RESULT_KIND,
+				PAY_BIT,
+				REQ_PAY_NO,
+				TRUE_AMT,
+				REL_AMT,
+				ADD_AMT
+	        )
+	        SELECT 
+		        #{card_proc_day} AS CLOSE_DM,
+		        'NICE' AS GUBUN,
+		        REQ.ACCNT_NO,
+		        RST.ICHAE_CD AS CARD_CD,
+		        CASE WHEN FN_IS_NUMBER(RST.ICHAE_CD) = 0 THEN DECODE(RST.ICHAE_CD,'KB국민','국민','NH채움','농협','하나(외환)','하나',RST.ICHAE_CD)
+		        ELSE FN_COM_NM('0120',RST.ICHAE_CD) END AS CARD_NM ,
+		        RST.AUTH_CD AS AUTH_DT,
+		        REQ.REQ_DAY AS PUR_DT,
+		        REQ.PAY_AMT AS PUR_AMT,
+		        0 AS ETC_ATM,
+		        0 AS PAID_AMT,
+		        REQ.KSTBIT,
+		        REQ.RESULT_KIND,
+		        REQ.PAY_BIT,
+		        REQ.REQ_PAY_NO,
+		        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+		        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+		        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+		    FROM TB_MEMBER_WDRW_REQ REQ INNER JOIN
+		        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY 
+		    WHERE REQ.REQ_DAY = #{card_proc_day}
+		    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+		    AND NVL(REQ.INI_YN,'N') = 'N' 
+		    AND REQ.DEL_FG IN ('C', 'X')
+		    AND REQ.PAY_MTHD = '06'
+		    AND REQ.REQ_DAY <![CDATA[<]]> NVL((SELECT TO_CHAR(CANCEL_DT,'YYYYMMDD') FROM LF_DMUSER.TB_MEMBER_REQ_REFUND WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_DAY = REQ_DAY AND REQ.RESULT_KEY = RESULT_KEY AND  DEL_FG = 'N'),'99999999') 
+		    
+		    UNION ALL
+		    -- 이니시스 데이터 
+		    SELECT 
+		        #{card_proc_day} AS CLOSE_DM,
+		        'INICIS' AS GUBUN,
+		        REQ.ACCNT_NO,
+		        RST.ICHAE_CD AS CARD_CD,
+		        FN_COM_NM('0196',RST.ICHAE_CD) AS CARD_NM,
+		        RST.AUTH_CD AS AUTH_DT,
+		        REQ.REQ_DAY AS PUR_DT,
+		        REQ.PAY_AMT AS PUR_AMT,
+		        0 AS ETC_ATM,
+		        0 AS PAID_AMT,
+		        REQ.KSTBIT,
+		        REQ.RESULT_KIND,
+		        REQ.PAY_BIT,
+		        REQ.REQ_PAY_NO,
+		        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS TRUE_AMT,
+		        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS REL_AMT,
+		        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = REQ.PROD_CD AND NO = REQ.REQ_PAY_NO) AS ADD_AMT
+		    FROM TB_MEMBER_WDRW_REQ REQ INNER JOIN
+		        TB_MEMBER_WDRW_RESULT RST ON REQ.ACCNT_NO = RST.ACCNT_NO AND REQ.REQ_DAY = RST.REQ_DAY AND RST.RESULT_KEY = REQ.RESULT_KEY     
+		    AND REQ.REQ_DAY = #{card_proc_day}
+		    AND NVL(REQ.AUTH_YN,'Y') = 'Y'
+		    AND NVL(REQ.INI_YN,'N') = 'Y'
+		    AND REQ.DEL_FG IN ('C')
+		    AND REQ.PAY_MTHD = '06'
+		    AND REQ.REQ_DAY <![CDATA[<]]> NVL((SELECT TO_CHAR(CANCEL_DT,'YYYYMMDD') FROM LF_DMUSER.TB_MEMBER_REQ_REFUND WHERE ACCNT_NO = REQ.ACCNT_NO AND REQ.REQ_DAY = REQ_DAY AND REQ.RESULT_KEY = RESULT_KEY AND  DEL_FG = 'N'),'99999999') 
+		
+		    UNION ALL 
+		
+		    SELECT 
+		        #{card_proc_day} AS CLOSE_DM,
+		        'NOAUTH' AS GUBUN,
+		        DTL.ACCNT_NO,
+		        '06' AS CARD_CD,
+		        '삼성' AS CARD_NM,
+		        DTL.AUTH_DT AS AUTH_DT,
+		        TO_CHAR(TO_DATE((DTL.AUTH_DT +1)),'YYYYMMDD') AS PUR_DT,    
+		        (DTL.BAS_CMIS_AMT + DTL.CUR_PAY_AMT) AS PUR_AMT,
+		        DTL.BAS_CMIS_AMT AS ETC_AMT,
+		        DTL.CUR_PAY_AMT AS PAID_AMT,
+		        MST.KSTBIT,
+		        MST.RESULT_KIND,
+		        MST.PAY_BIT,
+		        MST.REQ_PAY_NO,
+		        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MST.PROD_CD AND NO = MST.REQ_PAY_NO) AS TRUE_AMT,
+		        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MST.PROD_CD AND NO = MST.REQ_PAY_NO) AS REL_AMT,
+		        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MST.PROD_CD AND NO = MST.REQ_PAY_NO) AS ADD_AMT    
+		    FROM LF_DMUSER.TB_MEMBER_WDRW_RESULT DTL INNER JOIN
+		            TB_MEMBER_WDRW_REQ MST ON DTL.REQ_DAY = MST.REQ_DAY AND MST.ACCNT_NO = DTL.ACCNT_NO AND DTL.RESULT_KEY = MST.RESULT_KEY  
+		    WHERE DTL.REQ_DAY = (#{card_proc_day} -1)
+		    AND DTL.AUTH_YN = 'N'
+		    AND DTL.RESULT_CD = '00';
+		END;
+    </update>
+    
+    <!--  -->
+    <update id="DlwSlipMap.updateCardSlipClose" parameterType="map" >
+    
+        MERGE INTO LF_DMUSER.TB_SLIP_CLOSE SC
+            USING DUAL MMEB
+                  ON (SC.SLIP_CLOSE_DM = #{card_proc_day})
+            WHEN MATCHED THEN
+                UPDATE
+                   SET
+                       CARD_CLOSE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                      ,CARD_CLOSE_MAN = #{upd_man}
+            WHEN NOT MATCHED THEN
+                INSERT(SLIP_CLOSE_DM
+                      ,CARD_CLOSE
+                      ,CARD_CLOSE_MAN)
+                VALUES(#{card_proc_day}
+                      ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+                      ,#{upd_man})
+    </update>
+</mapper>

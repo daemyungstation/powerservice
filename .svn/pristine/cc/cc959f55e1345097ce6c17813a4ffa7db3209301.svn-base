@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjeChngMap">
+
+    <select id="GongjeChngMap.getGongjeChngCount" parameterType="map" resultType="int">
+
+        SELECT /* "GongjeChngMap.getGongjeChngCount" */
+               COUNT(*)
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'U'
+
+    </select>
+
+   <select id="GongjeChngMap.getGongjeChngList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeChngMap.getGongjeChngList */
+               *
+          FROM (   SELECT '31' GUBUN,
+                           A.ACCNT_NO,
+                           B.DED_NO,
+                           C.MEM_NM,
+                           <![CDATA[CASE WHEN LENGTH(NVL(C.IDN_NO,' ')) <> 10 AND SUBSTR(C.BRTH_MON_DAY,1,2) = '19' AND C.SEX = '0001' THEN SUBSTR(C.BRTH_MON_DAY,3,6) || '1000000'
+                                WHEN LENGTH(NVL(C.IDN_NO,' ')) <> 10 AND SUBSTR(C.BRTH_MON_DAY,1,2) = '19' AND C.SEX = '0002' THEN SUBSTR(C.BRTH_MON_DAY,3,6) || '2000000'
+                                WHEN LENGTH(NVL(C.IDN_NO,' ')) <> 10 AND SUBSTR(C.BRTH_MON_DAY,1,2) = '20' AND C.SEX = '0001' THEN SUBSTR(C.BRTH_MON_DAY,3,6) || '3000000'
+                                WHEN LENGTH(NVL(C.IDN_NO,' ')) <> 10 AND SUBSTR(C.BRTH_MON_DAY,1,2) = '20' AND C.SEX = '0002' THEN SUBSTR(C.BRTH_MON_DAY,3,6) || '4000000'
+                                WHEN LENGTH(NVL(C.IDN_NO,' ')) = 10 THEN C.IDN_NO
+                           ELSE '' END BRTH_MON_DAY, ]]>/* 주민번호 */
+                           WORK_DM AS CHG_DT,
+                           <![CDATA[CASE WHEN NVL(C.HOME_ZIP,' ') <> ' ' THEN C.HOME_ZIP ELSE C.WRPL_ZIP END POST, ]]>        /* 우편번호 */
+                           <![CDATA[CASE WHEN NVL(C.HOME_ADDR,' ') <> ' ' THEN C.HOME_ADDR ELSE C.WRPL_ADDR END ADDR1, ]]>    /* 주소1 */
+                           <![CDATA[CASE WHEN NVL(C.HOME_ADDR2,' ') <> ' ' THEN C.HOME_ADDR2 ELSE C.WRPL_ADDR2 END ADDR2, ]]> /* 주소2 */
+                           <![CDATA[CASE WHEN NVL(C.CELL,' ') <> ' ' THEN C.CELL ELSE '010-0000-0000' END TEL, ]]>                 /* 연락처 */
+                           C.EMAIL
+                    FROM (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY MEM_NO,ACCNT_NO ORDER BY SEQ DESC) CNT, REG_UPD_DEL_INF.*
+                                         FROM REG_UPD_DEL_INF
+                                        WHERE NEW_YN = 'Y'
+                                          AND CL1 = 'U'
+                                          <if test="stt_dt != null and stt_dt != ''">
+                                              <![CDATA[AND WORK_DM >= #{stt_dt} ]]>
+                                          </if>
+                                          <if test="end_dt != null and end_dt != ''">
+                                              <![CDATA[AND WORK_DM <= #{end_dt} ]]>
+                                          </if>
+                                          AND DAT1 IN('자택우편번호','자택주소','생년월일','성명','휴대폰','주민번호','이메일')
+                                          AND ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N' AND NEW_YN = 'N')
+                                          AND ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N')
+                                         ) U
+                          WHERE CNT = 1) A
+                            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.MEM_NO = B.MEM_NO AND A.ACCNT_NO = B.ACCNT_NO
+                            LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+                    WHERE <![CDATA[NVL(B.DED_NO,' ') <> ' ' ]]>
+                      <![CDATA[AND NVL(A.ACCNT_NO,' ') <> ' ' ]]>
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N' AND NEW_YN = 'N')
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N')
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+                      AND A.ACCNT_NO IN(SELECT ACCNT_NO FROM GONGJE_HIST_TEMP WHERE ACCNT_NO = B.ACCNT_NO AND CL = 'U')
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM(SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO ORDER BY SEQ DESC) CNT, TRANSFER_BRKDN.* FROM TRANSFER_BRKDN) A WHERE CNT = 1 AND NEW_YN = 'Y')
+                ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <insert id="GongjeChngMap.getGongjeChngInsert" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* "GongjeChngMap.getGongjeChngInsert" */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT,SIDATE)
+        SELECT  GDATE, CL, ACCNT_NO, GBIT,SIDATE
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'U'
+    </insert>
+
+    <insert id="GongjeChngMap.getGongjeChngInsert_Temp" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* "GongjeChngMap.getGongjeChngInsert_Temp" */
+
+        INSERT INTO GONGJE_HIST_TEMP
+               (GDATE, CL, ACCNT_NO, GBIT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'U',
+                A.ACCNT_NO,
+                '00',
+                WORK_DM
+        FROM (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY MEM_NO,ACCNT_NO ORDER BY SEQ DESC) CNT, RUDI.* <!-- REG_UPD_DEL_INF.* -->
+                             FROM REG_UPD_DEL_INF RUDI
+                            WHERE NEW_YN = 'Y'
+                              AND CL1 = 'U'
+                              <if test="stt_dt != null and stt_dt != ''">
+                                  <![CDATA[AND WORK_DM >= #{stt_dt} ]]>
+                              </if>
+                              <if test="end_dt != null and end_dt != ''">
+                                  <![CDATA[AND WORK_DM <= #{end_dt} ]]>
+                              </if>
+                              AND DAT1 IN('자택우편번호','자택주소','생년월일','성명','휴대폰','주민번호','이메일')
+                              AND ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N' AND NEW_YN = 'N')
+                              AND ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N')
+
+                              /* 신규(D) 이전에 정보변경된 데이터는 이후에 추출되지 않도록
+                                 신규(D) 데이터전송시 정보가 이미 있음
+                                 정보변경(U) 데이터생성시 신규(D) 이전에 정보변경건 제외 - 2018.12.17 정승철 */
+                              AND WORK_DM > NVL(( SELECT SIDATE
+                                                    FROM GONGJE_HIST
+                                                   WHERE ACCNT_NO = RUDI.ACCNT_NO
+                                                     AND CL = 'D'
+                                                     AND RSLT = '0000'),'20010101')
+                             ) U
+              WHERE CNT = 1) A
+                LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.MEM_NO = B.MEM_NO AND A.ACCNT_NO = B.ACCNT_NO
+                LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+        WHERE <![CDATA[NVL(B.DED_NO,' ') <> ' ' ]]>
+          <![CDATA[AND NVL(A.ACCNT_NO,' ') <> ' ' ]]>
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N' AND NEW_YN = 'N')
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N')
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM(SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO ORDER BY SEQ DESC) CNT, TRANSFER_BRKDN.* FROM TRANSFER_BRKDN) A WHERE CNT = 1 AND NEW_YN = 'Y')
+    </insert>
+
+</mapper>

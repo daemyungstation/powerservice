@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CompChprDtlMap">
+
+    <sql id="CompChprDtlMap.selectCondition_fragment">
+        WHERE BIZ_ID = #{biz_id}
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="chpr_id != null and chpr_id != ''">
+            AND CHPR_ID = #{chpr_id}
+        </if>
+        <if test="old_chpr_id != null and old_chpr_id != ''">
+            AND CHPR_ID = #{old_chpr_id}
+        </if>
+    </sql>
+
+    <select id="CompChprDtlMap.getCompChprCount" parameterType="map" resultType="int">
+        SELECT /* CompChprDtlMap.getCompChprCount */
+               COUNT(*)
+          FROM (SELECT BIZ_ID, CHPR_ID, CHPR_ROLE_CNTN AS CHPR_ROLE_CNTN, 'C' AS COMP_TYPE
+                  FROM TB_CSCO_CHPR_DTL
+                <include refid="CompChprDtlMap.selectCondition_fragment"/>
+
+                UNION ALL
+
+                SELECT BIZ_ID,CHPR_ID, CPRT_COMP_CHPR_ROLE_CNTN  AS CHPR_ROLE_CNTN, 'R' AS COMP_TYPE
+                    FROM TB_CPRT_COMP_CHPR_DTL
+                <include refid="CompChprDtlMap.selectCondition_fragment"/>
+                )
+    </select>
+
+    <select id="CompChprDtlMap.getCompChprList" parameterType="map" resultType="resultMap">
+        SELECT /* CompChprDtlMap.getCompChprList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT *
+                    FROM (SELECT DTL.BIZ_ID
+                             , DTL.CHPR_ID
+                             , DTL.CHPR_ID AS OLD_CHPR_ID
+                             , DTL.CHPR_ROLE_CNTN
+                             , DTL.COMP_TYPE
+                             , BASI.CHPR_NM AS CHPR_NM
+                             , BASI.COMP_ID AS COMP_ID
+                             , (SELECT COMP_CONM_NM
+                                  FROM TB_COMP_BASI
+                                   WHERE COMP_ID = BASI.COMP_ID) AS COMP_NM
+                          FROM (SELECT BIZ_ID, CHPR_ID, CHPR_ROLE_CNTN AS CHPR_ROLE_CNTN, 'C' AS COMP_TYPE
+                                    FROM TB_CSCO_CHPR_DTL
+                                <include refid="CompChprDtlMap.selectCondition_fragment"/>
+
+                               UNION ALL
+
+                                SELECT BIZ_ID,CHPR_ID, CPRT_COMP_CHPR_ROLE_CNTN  AS CHPR_ROLE_CNTN, 'R' AS COMP_TYPE
+                                  FROM TB_CPRT_COMP_CHPR_DTL
+                                <include refid="CompChprDtlMap.selectCondition_fragment"/>
+                               ) DTL INNER JOIN TB_CHPR_BASI BASI
+                                     ON(DTL.CHPR_ID = BASI.CHPR_ID ) ) A
+            <if test="orderBy != null and orderBy != ''">
+                ORDER BY ${orderBy} ${orderDirection}
+            </if>
+            ) B
+    </select>
+
+    <insert id="CompChprDtlMap.insertCscoChprDtl" parameterType="map">
+        INSERT INTO /* CompChprDtlMap.insertCscoChprDtl */
+                    TB_CSCO_CHPR_DTL
+                    ( BIZ_ID, CHPR_ID, CHPR_ROLE_CNTN, CNTR_CD
+                    , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM )
+             VALUES (#{biz_id}, #{chpr_id}, #{chpr_role_cntn}, #{cntr_cd}
+                    , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            )
+    </insert>
+
+    <insert id="CompChprDtlMap.insertCprtCompChprDtl" parameterType="map">
+        INSERT INTO /* CompChprDtlMap.insertCprtCompChprDtl */
+                    TB_CPRT_COMP_CHPR_DTL
+                    ( BIZ_ID, CHPR_ID, CPRT_COMP_CHPR_ROLE_CNTN, CNTR_CD
+                    , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM )
+             VALUES (#{biz_id}, #{chpr_id}, #{chpr_role_cntn}, #{cntr_cd}
+                    , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            )
+    </insert>
+
+    <delete id="CompChprDtlMap.deleteCscoChprDtl" parameterType="map">
+        DELETE /* CompChprDtlMap.deleteCscoChprDtl */
+          FROM TB_CSCO_CHPR_DTL
+         WHERE BIZ_ID = #{biz_id}
+        <choose>
+            <when test="chpr_id == null or chpr_id == ''">
+                   AND CHPR_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                    #{item}
+                </foreach>
+            </when>
+            <otherwise>
+                AND CHPR_ID = #{old_chpr_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+    <delete id="CompChprDtlMap.deleteCprtCompChprDtl" parameterType="map">
+        DELETE /* CompChprDtlMap.deleteCprtCompChprDtl */
+          FROM TB_CPRT_COMP_CHPR_DTL
+         WHERE BIZ_ID = #{biz_id}
+        <choose>
+            <when test="chpr_id == null or chpr_id == ''">
+                   AND CHPR_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                    #{item}
+                </foreach>
+            </when>
+            <otherwise>
+                AND CHPR_ID = #{old_chpr_id}
+            </otherwise>
+        </choose>
+    </delete>
+</mapper>

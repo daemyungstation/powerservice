@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="FileMap">
+    <sql id="FileMap.selectCondition_fragment">
+        <where>
+            <if test="file_id != null and file_id != ''">
+               AND FILE_ID = #{file_id}
+            </if>
+
+            <if test="rltn_item_id != null and rltn_item_id != ''">
+               AND RLTN_ITEM_ID = #{rltn_item_id}
+            </if>
+
+            <if test="file_nm != null and file_nm != ''">
+               AND FILE_NM = #{file_nm}
+            </if>
+
+            <if test="rltn_tbl_nm != null and rltn_tbl_nm != ''">
+               AND RLTN_TBL_NM = #{rltn_tbl_nm}
+            </if>
+        </where>
+    </sql>
+
+
+    <select id="FileMap.getFileList" parameterType="string" resultType="resultMap">
+        SELECT /* FileMap.getFileList */
+               FILE_ID, RLTN_ITEM_ID, ATCH_TYP_CD, FILE_NM, FILE_SIZE_VL,'Y' AS FILE_DOWN
+          FROM TB_FILE
+         WHERE RLTN_ITEM_ID = #{relitemid}
+           AND ATCH_TYP_CD <![CDATA[<>]]> '30'
+    </select>
+
+    <select id="FileMap.getFileListByMap" parameterType="map" resultType="resultMap">
+        SELECT /* FileMap.getFileListByMap */
+               FILE_ID, RLTN_ITEM_ID, ATCH_TYP_CD, FILE_NM, FILE_SIZE_VL
+          FROM TB_FILE
+         WHERE ATCH_TYP_CD <![CDATA[<>]]> '30'
+        <if test="relitemid != '' and relitemid != null">
+            AND RLTN_ITEM_ID = #{relitemid}
+        </if>
+        <if test="rltn_item_id != '' and rltn_item_id != null">
+            AND RLTN_ITEM_ID = #{rltn_item_id}
+        </if>
+        <if test="rltn_tbl_nm != '' and rltn_tbl_nm != null">
+            AND RLTN_TBL_NM = #{rltn_tbl_nm}
+        </if>
+    </select>
+
+    <select id="FileMap.getFileListAllByMap" parameterType="map" resultType="resultMap">
+        SELECT /* FileMap.getFileListAllByMap */
+               FILE_ID, RLTN_ITEM_ID, ATCH_TYP_CD, FILE_NM, FILE_SIZE_VL
+          FROM TB_FILE
+        <where>
+        <if test="relitemid != '' and relitemid != null">
+            AND RLTN_ITEM_ID = #{relitemid}
+        </if>
+        <if test="rltn_item_id != '' and rltn_item_id != null">
+            AND RLTN_ITEM_ID = #{rltn_item_id}
+        </if>
+        <if test="rltn_tbl_nm != '' and rltn_tbl_nm != null">
+            AND RLTN_TBL_NM = #{rltn_tbl_nm}
+        </if>
+        </where>
+    </select>
+
+    <resultMap id="FileMap.resultFileContents" type="map">
+        <result property="file_id"    column="file_id"    jdbcType="VARCHAR" />
+        <result property="rltn_item_id" column="rltn_item_id" jdbcType="VARCHAR" />
+        <result property="atch_typ_cd" column="atch_typ_cd" jdbcType="VARCHAR" />
+        <result property="file_nm"    column="file_nm"    jdbcType="VARCHAR" />
+        <result property="file_cntn"  column="file_cntn"  javaType="[B" jdbcType="BLOB" />
+        <result property="file_size_vl"  column="file_size_vl"  jdbcType="VARCHAR" />
+    </resultMap>
+
+    <select id="FileMap.getFile" parameterType="map" resultMap="FileMap.resultFileContents">
+        SELECT /* FileMap.getFile */
+               FILE_ID, RLTN_ITEM_ID, ATCH_TYP_CD, FILE_NM, FILE_CNTN, FILE_SIZE_VL
+          FROM TB_FILE
+          <include refid="FileMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="FileMap.getFileListWithBLOB" parameterType="map" resultMap="FileMap.resultFileContents">
+        SELECT /* FileMap.getFileListWithBLOB */
+               FILE_ID, RLTN_ITEM_ID, RLTN_TBL_NM, ATCH_TYP_CD, FILE_NM
+             , FILE_CNTN, THUM_IMG, FILE_SIZE_VL
+          FROM TB_FILE
+        <where>
+            <if test="atch_typ_cd != null and atch_typ_cd != ''">
+                AND ATCH_TYP_CD = #{atch_typ_cd}
+            </if>
+            <choose>
+                <when test="rltn_item_id != null and rltn_item_id != '' and rltn_tbl_nm != null and rltn_tbl_nm != ''">
+                   AND RLTN_ITEM_ID = #{rltn_item_id}
+                   AND RLTN_TBL_NM = #{rltn_tbl_nm}
+                </when>
+                <when test="fileIds != null and fileIds.size() > 0">
+                    <foreach collection="fileIds" item="item" separator="," close=")" open="AND FILE_ID IN (">
+                            #{item}
+                    </foreach>
+                </when>
+                <otherwise>
+                    AND FILE_ID IS NULL
+                </otherwise>
+            </choose>
+        </where>
+    </select>
+
+    <insert id="FileMap.insertFile" parameterType="map">
+        <selectKey keyProperty="file_id" resultType="String" order="BEFORE">
+            SELECT 'FLE' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+            INSERT /* FileMap.insertFile */
+              INTO TB_FILE
+                   (FILE_ID, RLTN_ITEM_ID, ATCH_TYP_CD, FILE_NM, FILE_CNTN
+                 , FILE_SIZE_VL, CNTR_CD, RGSR_ID, RGSN_DTTM, RLTN_TBL_NM
+                 , AMND_ID, AMNT_DTTM)
+            VALUES (#{file_id}, #{rltn_item_id}, #{atch_typ_cd}, #{file_nm}, #{file_cntn}
+                 , #{file_size_vl}, #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{rltn_tbl_nm}
+                 , #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <insert id="FileMap.copyFile" parameterType="map">
+            INSERT /* FileMap.copyFile */
+              INTO TB_FILE
+                   (FILE_ID
+                  , RLTN_ITEM_ID, RLTN_TBL_NM, ATCH_TYP_CD, FILE_NM, FILE_CNTN
+                  , THUM_IMG, FILE_SIZE_VL, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+            SELECT ('FLE' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') )
+                 , #{new_rltn_item_id}, #{rltn_tbl_nm}, #{atch_typ_cd}, FILE_NM, FILE_CNTN
+                 , THUM_IMG, FILE_SIZE_VL, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+              FROM TB_FILE
+             WHERE RLTN_ITEM_ID = #{rltn_item_id}
+    </insert>
+
+    <update id="FileMap.updateFile" parameterType="map">
+        UPDATE /* FileMap.updateFile */
+               TB_FILE
+           SET RLTN_ITEM_ID = #{rltn_item_id}
+         WHERE FILE_ID IN
+        <foreach collection="fileIds" item="item" separator="," close=")" open="(">
+                #{item}
+        </foreach>
+        <if test="rltn_tbl_nm != '' and rltn_tbl_nm != null">
+            AND RLTN_TBL_NM = #{rltn_tbl_nm}
+        </if>
+    </update>
+
+    <delete id="FileMap.deleteFile" parameterType="map">
+        DELETE /* FileMap.deleteFile */
+               TB_FILE
+         WHERE
+        <choose>
+            <when test="rltn_item_id == null or rltn_item_id == ''">
+               RLTN_ITEM_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               RLTN_ITEM_ID = #{rltn_item_id}
+            </otherwise>
+        </choose>
+        <if test="fileIds != null and fileIds.size > 0">
+           AND FILE_ID NOT IN
+            <foreach collection="fileIds" item="item" separator="," close=")" open="(">
+                #{item}
+            </foreach>
+        </if>
+    </delete>
+
+    <delete id="FileMap.deleteFileByFileId" parameterType="string">
+        DELETE /* FileMap.deleteFileByFileId */
+               TB_FILE
+         WHERE FILE_ID = #{sFileId}
+    </delete>
+
+</mapper>

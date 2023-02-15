@@ -1,0 +1,254 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL411200_01" classname="DL460603_01" inheritanceid="" position="absolute 0 0 600 300" titletext="NICEPAYMENT답신파일목록" onload="DL411200_01_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 600 300"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 572 8 592 27"/>
+        <Static id="stc_30" text="Card 무승인 청구 결과파일 업로드" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 490 28"/>
+        <Grid id="grd_fileList" taborder="2" binddataset="ds_file_recv" useinputpanel="false" onvscrolllastover="grd_userList_onvscrolllastover" position="absolute 10 90 590 287" onheadclick="grd_fileList_onheadclick" oncellclick="grd_fileList_oncellclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="280"/>
+                <Column size="100"/>
+                <Column size="80"/>
+                <Column size="80"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="normal" style="align:center middle;" text="NO"/>
+                <Cell col="1" displaytype="normal" style="align:center middle;" text="전송파일명"/>
+                <Cell col="2" style="align:center middle;" text="데이터개수"/>
+                <Cell col="3" style="align:center middle;" text="파일작성일"/>
+                <Cell col="4" style="align:center middle;" text="결과반영여부"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="normal" style="align:center middle;" text="expr:currow+1"/>
+                <Cell col="1" displaytype="normal" style="align:center middle;" text="bind:file_name"/>
+                <Cell col="2" displaytype="number" style="align:right middle;" text="bind:count"/>
+                <Cell col="3" displaytype="date" style="align:center middle;" text="bind:date1" combodisplaynulltype="none" calendardisplaynulltype="none"/>
+                <Cell col="4" displaytype="expr:getColumn(currow, &quot;rslt_yn&quot;) == &quot;미반영&quot; ? &quot;button&quot; : &quot;text&quot;" edittype="none" style="align:center middle;" text="bind:rslt_yn"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_23" class="sta_workSrcBg" position2="absolute l:10 r:10 t:46 h:37" positiontype="position2"/>
+        <Static id="stc_22" text="송신월" class="sta_workSrcLabel1" position="absolute 26 57 87 75"/>
+        <Button id="btn_Search01" taborder="3" onclick="btn_Search_onclick" class="btn_WF_Search" position2="absolute r:95 w:72 t:53 h:20" positiontype="position2" tooltiptext="조회" style="shadow:drop 0,0 0 #00000033;"/>
+        <Button id="btn_Init" taborder="4" onclick="btn_Init_onclick" class="btn_WF_Return" position2="absolute r:21 w:72 t:53 h:20" positiontype="position2" tooltiptext="초기화"/>
+        <Div id="div_monthCal" taborder="6" url="COMM::Div_monthCal.xfdl" style="border:0 solid #385d8aff ;" position="absolute 73 56 148 79"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_file_recv" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="256"/>
+          <Column id="file_name" type="STRING" size="256"/>
+          <Column id="count" type="STRING" size="256"/>
+          <Column id="date1" type="STRING" size="256"/>
+          <Column id="rslt_yn" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+var psSttDt = "";
+var stt_month = "";
+var pSumarcnt = "";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function DL411200_01_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	psSttDt = parent.p_reqday;
+	pSumarcnt = parent.p_sumarcnt;
+	stt_month = new String(psSttDt).substring(0,6);
+	div_monthCal.setDate(stt_month);
+	
+	ds_file_recv.keystring = "S:-file_name";
+	if(gfn_IsNull(stt_month) == false)
+	{
+		fn_commSearch("recvCardNauthFileList",""); // 조회
+	}
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd < 0) 
+	{
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+			case "recvfilelist" :
+				if(ds_file_recv.getRowCount() <= 0)
+				{
+					alert("조회결과가 없습니다.");
+					return false;
+				}
+			break;
+			
+			case "insertCardNauthFileList" :
+				if(errcd == "2")
+				{
+					alert(errmsg);
+					fn_commSearch("recvCardNauthFileList",""); // 조회
+					return false;
+				}
+				else
+				{
+					alert("반영이 완료되었습니다.");
+					fn_commSearch("recvCardNauthFileList",""); // 조회
+				}
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//  조회
+function fn_commSearch(searchInfo, param) 
+{
+   	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(searchInfo) 
+    {
+		case "recvCardNauthFileList" :
+			if(gfn_IsNull(div_monthCal.getDate()) == false && div_monthCal.getDate().length == 6)
+			{
+				stt_dt = div_monthCal.getDate(); // 송신월 
+				
+				szSvcid       = "recvfilelist";
+				szController  = "/dlw/pay/recvCardNauthFileList";
+				szInDs        = "";
+				szOutDs       = "ds_file_recv=ds_output";
+				szParam       = "stt_month=" + stt_month + " stt_dt=" + psSttDt + " req_count=" +pSumarcnt;
+				szRetCallback = "fn_callBack";
+			}
+			else
+			{
+				alert("조회년/월을 정확하게 입력하여주십시오.");
+				return false;
+			}
+		break;
+	}
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+function fn_commSave(saveInfo, param)
+{
+	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(saveInfo) 
+    {
+		case "insertCardNauthFileList" :
+			if(gfn_IsNull(div_monthCal.getDate()) == false && div_monthCal.getDate().length == 6)
+			{
+				var sCalcFileName = ds_file_recv.getColumn(ds_file_recv.rowposition, "file_name");
+				var sAuthDt = ds_file_recv.getColumn(ds_file_recv.rowposition, "date1");
+				
+				szSvcid       = "insertCardNauthFileList";
+				szController  = "/dlw/pay/insertCardNauthFileList";
+				szInDs        = "";
+				szOutDs       = "ds_file_recv=ds_output";
+				szParam       = "file_name=" + sCalcFileName + " auth_dt=" + sAuthDt;
+				szRetCallback = "fn_callBack";
+			}
+		break;
+	}
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch("recvCardNauthFileList",""); // 조회
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close("1");
+}
+
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	div_monthCal.setDate("");
+	ds_file_recv.clearData();
+}
+
+function grd_fileList_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_grdHeadClick(obj, e);
+}
+
+function grd_fileList_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+	if(e.col == 4)
+	{
+		var sConfirmMsg = ds_file_recv.getColumn(ds_file_recv.rowposition, "file_name") + "데이터의 반영을 수행하시겠습니까?";
+		var sRsltYn = ds_file_recv.getColumn(ds_file_recv.rowposition, "rslt_yn");
+		if(sRsltYn == "미반영")		{
+			if(confirm(sConfirmMsg) == true){
+				fn_commSave("insertCardNauthFileList", "");
+			}
+		}
+		else
+		{
+			
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

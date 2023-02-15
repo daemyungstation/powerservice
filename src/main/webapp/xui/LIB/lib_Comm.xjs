@@ -1,0 +1,1702 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[
+
+/*****************************************************************************************
+* 함  수  명	: gfn_chkOpenMenu
+* 입      력	: 전화번호
+* 반      환	: 발신 전화번호  
+* 기      능	: 발신 전화번호 변환
+*****************************************************************************************/ 
+function gfn_makeCallTlno(psTlno, psPreFix) {
+    if (psTlno == null) {
+        return "";
+    }
+    psTlno = psTlno.replace(/\D/g, "");
+	
+	var sPreFix = "";
+	if (gfn_isNull(psPreFix)) {
+		sPreFix = typeof(gPreFix) == "string" ? gPreFix : "9";
+    } else {
+		sPreFix = psPreFix;
+    }
+
+    // 일반전화 앞에 PREFIX 붙여서 보내야 함
+    if (psTlno.length > 5) { // 외부발신
+        // 지역번호 제거
+        if (psTlno.substring(0, 2) == "02") {
+            psTlno = psTlno.substring(2);
+        }
+		
+		psTlno = sPreFix + psTlno;
+	}
+	
+    return psTlno;
+}
+
+/*****************************************************************************************
+* 함  수  명	: gfn_isHpno
+* 입      력	: 전화번호
+* 반      환	: 휴대전화 여부(-1)
+* 기      능	: 휴대폰 번호 체크
+*****************************************************************************************/ 
+function gfn_isHpno(psTlno) {
+    var nResult = -1;
+    if (typeof(psTlno) != "string") {
+        return nResult;
+    }
+
+    psTlno = psTlno.replace(/\D/g, "");
+
+    var sHpnoList = ["010", "011", "016", "017", "018", "019"];
+
+    if (psTlno.length == 10 || psTlno.length == 11) {
+        for (var i=0; i < sHpnoList.length; i++) {
+			nResult = psTlno.indexOf(sHpnoList[i]);
+			if (nResult > -1) break;
+        }
+    }
+    return nResult;
+}
+
+ /*****************************************************************************************
+ * 함  수  명	: gfn_chkOpenMenu
+ * 입      력	: 1. menuid: 메뉴 아이디
+				  2. oParameter : 화면 open시 파라미터
+				  3. 
+ * 반      환	:   
+ * 기      능	: 메뉴 아이디를 기준으로 신규 윈도우 화면을 생성하고 open 시키는 함수
+ *****************************************************************************************/ 
+function gfn_OpenMenu(menuid, oParameter, sFuncNm) {
+
+	ap_WorkMainFrame.visible = false;
+
+	var objDs = gds_Pgm;
+	var nRow = objDs.findRow("pgm_cd", menuid);	
+	
+	if(nRow == -1) {
+		if (GV_SYSTEMDIV == "DLMNG"){	
+			//ap_LeftFrame.form.fn_setMenuFilter(menuid);
+			//ap_LeftFrame.form.fn_setMenuFilter(_gfn_getPMenuNo(menuid));
+		}
+		nRow = objDs.findRow("pgm_cd", menuid);	
+	}
+	
+	if (gfn_isNull(menuid) == true) {
+		application.alert("Menu가 존재하지 않습니다.");
+		return;
+	}
+	
+// 	var strUseYn = objDs.getColumn(nRow, "rgsn_yn");
+// 	if(strUseYn != "Y"){
+// 		application.alert("사용 할 수 없는 메뉴입니다.");
+// 		return;
+// 	}
+	
+	var openUrl = objDs.getColumn(nRow, "file_nm");
+	var pgmNm = objDs.getColumn(nRow, "pgm_nm");
+	if(gfn_isNull(openUrl)==true)
+		return;
+
+	var winKey = gds_OpenList.lookup("FormCode", menuid, "WINKEY");
+
+
+	// 기존 열린창 포커싱 처리
+	if(!_gfn_setFocusOpenWorkArea(winKey, menuid)) return;
+
+	var nOpenPopPageCnt = _gfn_getWorkOpenCount();	// 업무화면 팝업오픈건수
+	var nTotOpenPage = nOpenPopPageCnt + parseInt(gds_OpenList.rowcount);
+
+	if(nTotOpenPage >= 8)
+	{
+		application.alert("메뉴는 8개이상 오픈할 수 없습니다.");
+		return;
+	}
+
+	if(gfn_isNull(objDs.getColumn(nRow, "pgm_cd")) == true) return; 
+
+	var objDate = new Date();
+	var strScrId = objDate.toFormatString("%H%M%S") + "_" + objDate.getMilliseconds();
+	var strChildID = openUrl.replace(".xfdl", "");	
+	winKey = strChildID +"_"+ strScrId;		//PS060000::PS060100_173439_185
+
+	var objNewFrame = new ChildFrame;
+	objNewFrame.init(winKey, 0, 0, ap_initWidth, ap_initHeight);
+	objNewFrame.formurl = "FRAME::WorkMain.xfdl";
+	
+	//열린화면 프레임 처리
+	gfn_arrangeWin();		//"maximize"
+
+	if (String(ap_WorkFrame.all[winKey]) == "null") 
+		ap_WorkFrame.addChild(winKey, objNewFrame);
+
+	objNewFrame.openalign   = "center middle";
+	objNewFrame.openstatus = "maximize";  // 최대화 
+	objNewFrame.resizable = true;
+	objNewFrame.dragmovetype = "none";    // 드래그속성
+	objNewFrame.showtitlebar = false;     // 제목표시줄 
+	objNewFrame.showstatusbar = false;    // 상태표시줄
+	objNewFrame.topmost = true;
+	objNewFrame.style.padding = "0 0 0 0";
+	objNewFrame.style.margin = "0 0 0 0";
+	objNewFrame.background = "('IMG::bg_workarea.png')";
+	/*
+	objNewFrame.openstatus	  = "maximize"; 
+	objNewFrame.openalign     = "center middle";
+	objNewFrame.resizable 	  = true;
+	objNewFrame.dragmovetype  = "all";
+	objNewFrame.showtitlebar  = false;
+	objNewFrame.showstatusbar = false;    // 상태표시줄
+
+	objNewFrame.topmost       = true;
+	objNewFrame.style.border.width 	= "0";
+	objNewFrame.background = "#ffffff";
+	*/
+	/*
+	objNewFrame.resizable    = true;	
+	objNewFrame.openstatus = "maximize";
+	objNewFrame.dragmovetype = "all";    // 드래그속성
+
+ 	objNewFrame.openalign = "center middle";	
+ 	objNewFrame.showtitlebar = false;     // 제목표시줄 
+ 	objNewFrame.showstatusbar = false;    // 상태표시줄	
+ 	objNewFrame.topmost      = true;
+  	objNewFrame.style.border.width 	= "0";
+  	objNewFrame.background = "#ffffff";
+	*/
+	objNewFrame.openType     = "M";			// 오픈타입 MDI(M), Popup(P)
+	objNewFrame.winKey       = winKey;			
+	objNewFrame.prgmChildId  = strChildID;	// PS030000::PS030200
+	objNewFrame.usrParameter = oParameter;
+	objNewFrame.prgmUrl      = openUrl;
+	objNewFrame.prgmCode     = menuid;
+	objNewFrame.srcTitle     = pgmNm;
+
+ 	objNewFrame.setFocus();
+	objNewFrame.show();	
+	ap_activeWinKey  = winKey;			//현재화면 ID	
+
+	if(!gfn_isNull(sFuncNm)){
+		gfn_popupSleep("",false,100);
+		var evalFunc = "ap_WorkFrame.frames['"+winKey+"'].form.id."+sFuncNm+"();";
+		eval(evalFunc);
+	}
+
+	// Global Dataset 에 추가	
+	var objGDs = gds_OpenList;
+	var idx = gds_OpenList.addRow();
+	objGDs.setColumn(idx, "WINKEY",    winKey);
+	objGDs.setColumn(idx, "FormUrl",   openUrl);
+	objGDs.setColumn(idx, "FormTitle", pgmNm);
+	objGDs.setColumn(idx, "FormCode",  menuid);
+	objGDs.setColumn(idx, "ChildID",   strChildID);
+
+	// Navigation에 탭생성하기
+	ap_MDITabFrame.form.lfn_setNaviAdd(winKey, pgmNm);
+ 	//ap_MDITabFrame.form.lfn_activeTabpage(winKey);
+
+	
+	///////////////////////////////////////////////////////////////////////////////////////////
+	// 프로그램 로그 추가 2017.11.07 김찬영
+	GV_LOGMENUID = menuid;
+    //////////////////////////////////////////////////////////////////////////////////////////
+ 	 	
+	//메뉴 선택시 로그 저장
+	//gfn_UpdateMenuLog(menuid);
+ 	
+ 	return winKey;
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	_gfn_setFocusOpenWorkArea
+ * 입      력	: 	
+ * 반      환	:   int
+ * 기      능	: 	기존 열린창 포커싱 처리
+ *****************************************************************************************/
+function _gfn_setFocusOpenWorkArea(winKey, menuCd)
+{
+	if(!gfn_isNull(winKey)) {
+		if(gfn_activeFrame(winKey))	{
+			ap_MDITabFrame.form.lfn_movePage(winKey);
+			ap_MDITabFrame.form.lfn_activeTabpage(winKey);
+			return false;
+		}
+	} else {
+		var frameSetList = ap_WorkFrame.frames;
+		for(var i in frameSetList)
+		{
+			var arrFsIdInfo = String(i).split("_");
+			if(String(arrFsIdInfo[0]).indexOf(menuCd) != -1) {
+				frameSetList[i].form.setFocus();
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	_gfn_getWorkOpenCount
+ * 입      력	: 	
+ * 반      환	:   int
+ * 기      능	: 	업무화면 팝업오픈건수 반환 함수
+ *****************************************************************************************/
+function _gfn_getWorkOpenCount()
+{
+	var arrPopup;
+	var nCount = 0;
+	
+	for(var i=0;i<application.popupframes.length;i++)
+	{
+		if(String(application.popupframes[i].name).indexOf("M0") != -1) {
+			nCount += 1;
+		}
+	}
+	
+	return nCount;
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_arrangeWin
+ * 입      력	: 	strType: 정렬 타입
+ * 반      환	:   
+ * 기      능	: 	열려있는 윈도우 화면을 정렬
+ *****************************************************************************************/
+function gfn_arrangeWin(strType) {
+	var strWinKey;
+	var strMenuNm;
+	
+	if (gds_OpenList.getRowCount() < 1) return;
+
+	if(strType == "maximize")
+	{
+		ap_WorkFrame.frames["WorkMain"].openstatus = "maximize";
+		for (var i=0; i<gds_OpenList.rowcount; i++) {
+
+			strWinKey = gds_OpenList.getColumn(i, "WINKEY");
+			strMenuNm = gds_OpenList.getColumn(i, "FormTitle");
+
+			//trace(strWinKey+","+strMenuNm + " : " + ap_WorkFrame.frames[strWinKey]);
+			ap_WorkFrame.frames[strWinKey].openstatus = "normal";
+			//ap_WorkFrame.frames[strWinKey].showtitlebar = false;
+			//ap_WorkFrame.frames[strWinKey].style.border = "0 solid #006666ff";
+			//ap_WorkFrame.frames[strWinKey].titletext = strMenuNm;
+			ap_WorkFrame.frames[strWinKey].topmost      = false;
+
+			if(ap_WorkFrame.frames[strWinKey].openstatus!="maximize")
+			{
+				ap_WorkFrame.frames[strWinKey].openstatus = strType;
+			}
+		}	
+	}else if (strType == "closeAll") {	
+		for (var i=gds_OpenList.rowcount-1; i>=0; i--) {			
+			strWinKey = gds_OpenList.getColumn(i, "WINKEY");
+			ap_WorkFrame.frames[strWinKey].showtitlebar = true;
+			if(gfn_tabOnClose(strWinKey) == false) return;
+		}
+		ap_WorkFrame.arrange(strType);
+	}else if (strType == "cascade" || strType == "horizontal" || strType == "vertical") {	
+	
+		ap_WorkFrame.frames["WorkMain"].openstatus = "minimize";
+	
+		var i;
+		for (i=0; i<gds_OpenList.rowcount; i++) {	
+			strWinKey = gds_OpenList.getColumn(i, "WINKEY");
+			strMenuNm = gds_OpenList.getColumn(i, "FormTitle");
+		    
+			ap_WorkFrame.frames[strWinKey].showtitlebar = true;
+			ap_WorkFrame.frames[strWinKey].style.border = "1 solid #006666ff";
+			ap_WorkFrame.frames[strWinKey].titletext = strMenuNm;
+			ap_WorkFrame.frames[strWinKey].openstatus = "maximize";
+		}
+		ap_WorkFrame.arrange(strType);
+	}else if (strType == "hidden") {	
+		ap_WorkFrame.frames["WorkMain"].openstatus = "minimize";
+	
+		var i;
+		for (i=0; i<gds_OpenList.rowcount; i++) {
+		
+			//trace(strWinKey+","+strMenuNm);		
+			strWinKey = gds_OpenList.getColumn(i, "WINKEY");
+			strMenuNm = gds_OpenList.getColumn(i, "FormTitle");
+			ap_WorkFrame.frames[strWinKey].showtitlebar = true;
+			ap_WorkFrame.frames[strWinKey].style.border = "1 solid #006666ff";
+			ap_WorkFrame.frames[strWinKey].titletext = strMenuNm;
+			ap_WorkFrame.frames[strWinKey].openstatus = "minimize";
+		}
+		ap_WorkFrame.arrange(strType);
+	}else{
+		//ap_WorkFrame.frames["WorkMain"].openstatus = "minimize";
+	
+		var i;
+		for (i=0; i<gds_OpenList.rowcount; i++) {
+			strWinKey = gds_OpenList.getColumn(i, "WINKEY");
+			strMenuNm = gds_OpenList.getColumn(i, "FormTitle");
+			//ap_WorkFrame.frames[strWinKey].showtitlebar = true;
+			//ap_WorkFrame.frames[strWinKey].style.border = "1 solid #006666ff";
+			ap_WorkFrame.frames[strWinKey].titletext = strMenuNm;
+			ap_WorkFrame.frames[strWinKey].openstatus = "minimize";
+			ap_WorkFrame.frames[strWinKey].topmost      = false;
+			
+		}
+		ap_WorkFrame.arrange(strType);
+	}
+}
+
+
+var gv_TreeParent = "";
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_activeFrame
+ * 입      력	: 	winKey: 윈도우 생성 키
+ * 반      환	:   true/false
+ * 기      능	: 	윈도우 키를 기준으로 열려있는 화면일 경우 focus, maximize 처리
+ *****************************************************************************************/
+function gfn_activeFrame(winKey) 
+{
+	//var arrWinNm 		= winKey.split("_");
+	var fs_activeMain 	= ap_WorkFrame.frames;
+
+	if(fs_activeMain[winKey]) {		
+		fs_activeMain[winKey].openstatus = "maximize";
+		fs_activeMain[winKey].topmost    = true;		
+		//fs_activeMain[winKey].resizable  = true;
+
+		ap_activeWinKey = winKey;
+		fs_activeMain[winKey].setFocus();
+		
+		// trace(' _gfn_activeFrame() 활성화된 현재 화면   %%%  ap_activeWinKey  %%%%  ['+ap_activeWinKey+']');
+
+		/*  @RHS 2016.02.02
+		// 선택된 메뉴의 상위메뉴 위치선택 처리------------------------------------------------
+		ap_TopFrame.form.fn_setMenuClass(winKey);
+		//trace(_gfn_getPMenuNo(_gfn_getPMenuNo(arrWinNm[0])));
+		ap_LeftFrame.form.fn_setMenuFilter(_gfn_getPMenuNo(_gfn_getPMenuNo(arrWinNm[0])));			//추후 확인
+		
+		// 선택된 메뉴위치로 이동
+		var objDs 		= ap_LeftFrame.form.ds_Menu;
+		var objGrd 		= ap_LeftFrame.form.divMenu.grdMenu;
+		//var arrWinNm 	= winKey.split("_");
+		var nRow 		= objDs.findRow("menuCd", arrWinNm[0]);
+		var sPMenuNo	= objDs.getColumn(nRow, "hgrnMenuCd");
+		
+		if(nRow != -1) {
+
+			gv_TreeParent = "";
+			_gfn_getTreeParentNo(objGrd, objDs, nRow);
+			
+			var arrParent = gv_TreeParent.split(",");
+			for(var i=arrParent.length-1;i>=0;i--)
+			{
+				var nFRow = objDs.findRow("menuCd", arrParent[i]);
+				if(nFRow != -1) {
+					ap_LeftFrame.form.fn_setTreeRowState(objDs, nFRow, "EXPAND");
+				}
+			}			
+			
+			objDs.rowposition = nRow;
+		}
+		// 선택된 메뉴의 상위메뉴 위치선택 처리 끝------------------------------------------------
+		
+		ap_MDITabFrame.form.fn_WorkMainShow("HOME");
+		*/
+		
+		return true;
+	}
+	return false;
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	_gfn_setTreeRowState
+ * 입      력	: 	
+ * 반      환	:   None
+ * 기      능	: 	트리메뉴 row 상태 처리
+ *****************************************************************************************/
+function _gfn_setTreeRowState(objDs, nRow, sDiv)
+{
+	if (!gfn_isNull(objDs.getColumnInfo("treeStat"))) {
+		if(sDiv == "EXPAND") {
+			objDs.setColumn(nRow, "treeStat", true);
+			return;
+		}
+		
+		if(objDs.getColumn(nRow, "treeStat") == true || objDs.getColumn(nRow, "treeStat") == "true") {
+			objDs.setColumn(nRow, "treeStat", false);
+		} else {
+			objDs.setColumn(nRow, "treeStat", true);
+		}
+	}
+}
+
+
+ /*****************************************************************************************
+ * 함  수  명	: 	gfn_tabOnClose
+ * 입      력	: 	winKey: 윈도우 생성키
+ * 반      환	:   true/false 정상닫힘/닫힘취소 
+ * 기      능	: 	윈도우 타이틀 탭 닫힘 처리
+ *****************************************************************************************/
+function gfn_tabOnClose(winKey)
+{
+ 	ap_WorkFrame.frames[winKey].form.f_close();
+}
+
+ /*****************************************************************************************
+ * 함  수  명	: 	gfn_frameOnClose
+ * 입      력	: 	winKey: 윈도우 생성키
+ * 반      환	:   
+ * 기      능	: 	윈도우 화면 닫힘 처리
+ *****************************************************************************************/
+function gfn_frameOnClose(winKey)
+{
+	ap_MDITabFrame.form.lfn_deleteTabpage(winKey);
+	gfn_delGblDSMenu(winKey);	
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getList
+ * 입      력	: 	1. listNm    	- 리스트이름 consTyp:상담유형 , cd:코드셋코드, teamCd:팀코드, hrchCd : 계층코드, cmpgId : 캠페인
+					2. srchPram  	- 조회값
+					3. callBackFun  - 콜백함수
+					4. bAsync       - 비동기 동기 
+                    5. szSvcId 	    - 서비스ID
+                    6. dsNm         - Output DataSet Name
+                    7. inDs         - Input DataSet Name
+                    8. AllFg        - 전체조회여부(USE_YN > N포함)
+ * 기      능	: 	각종 코드관련된 코드값들을 Ds형태로 가져오는 함수 
+ * 수  정  자  :   정훈 연구원
+ * 이      력	:	2016.01.26 생성 (상담유형 코드셋코드 팀코드)
+ *****************************************************************************************/
+function gfn_getList(listNm,srchPram,callBackFun,bAsync,szSvcId,dsNm,inDs,AllFg){
+	var success = 1 ;
+	//상담유형 srchPram: 상위코드
+	if(bAsync == null)bAsync = false
+	
+	if (callBackFun == null) callBackFun = "fn_callBack"
+	
+	if(listNm=="consTyp"){
+		// 공통코드(Default) 가져오기
+		if(szSvcId== null) {szSvcId ="selectConsTyp"};
+		if(dsNm == null) dsNm = "gds_ConsTyp";
+		var szSvcid       = szSvcId;
+		var szController  = "/knowledge/cons-typ/drop-down-list";
+		var szInDs        = "";
+		var szOutDs       = dsNm+"=datas";
+		var szParam       = "hgrn_cons_typ_cd=" + srchPram + " use_yn=Y";
+		var szRetCallback = callBackFun;
+	}
+	
+	//코드셋조회 srchPram: 코드ID(예 KMS020,KMS030,KMS040) 
+	else if(listNm=="cd"){
+		// 공통코드(Default) 가져오기
+		if(szSvcId== null) {szSvcId ="selectCode"};
+		if(dsNm == null) dsNm = "gds_Code";
+		var szSvcid       = szSvcId;
+		var szController  = "/syst/cd/srch-list";
+		var szInDs        = "";
+		var szOutDs       = dsNm +"=datas";
+		var szParam       = "cdSetCds=" + gfn_trim(srchPram);
+		var szRetCallback = callBackFun;
+	}
+	
+	//계층코드셋조회 srchPram: 코드ID
+	else if(listNm=="hrchCd"){
+		// 공통코드(Default) 가져오기
+		if(szSvcId== null) {szSvcId ="selectHrchCode"};
+		if(dsNm == null) dsNm = "gds_HrchCode";
+		var szSvcid       = szSvcId;
+		var szController  = "/syst/hrch-cd/drop-down-list";
+		var szInDs        = "";
+		var szOutDs       = dsNm +"=datas";
+		var szParam       = "hrch_typ_cd=" + srchPram;
+		var szRetCallback = callBackFun;
+	}
+	
+	else if(listNm=="teamCd"){
+		// 공통코드(Default) 가져오기
+		if(szSvcId== null) {szSvcId ="selectTeamCode"};
+		if(dsNm == null) dsNm = "gds_TeamCd";
+		var szSvcid       = szSvcId;
+		var szController  = "/user/team/drop-down-list";
+		var szInDs        = "";
+		var szOutDs       = dsNm+"=datas";
+		var szParam       = "hgrn_team_cd=" + srchPram + " use_yn=Y team_all_flag=Y";
+		var szRetCallback = callBackFun;
+	}
+	
+	else if(listNm=="userCd"){
+		// 공통코드(Default) 가져오기
+		if(szSvcId== null) {szSvcId ="selectUserCode"};
+		if(dsNm == null) dsNm = "gds_UserCd";
+		var szSvcid       = szSvcId;
+		var szController  = "/user/user/drop-down-list";
+		var szInDs        = "ds_input="+inDs;
+		var szOutDs       = dsNm+"=datas";
+		var szParam       = "";
+		var szRetCallback = callBackFun;
+	}
+	
+	//코드셋조회 srchPram: 코드ID(예 KMS020,KMS030,KMS040) 
+	else if(listNm=="dlwCd"){
+		if(szSvcId== null) {szSvcId ="selectDlwCode"};
+		if(dsNm == null) dsNm = "gds_DmlCd";
+		if(AllFg == null) AllFg = "";
+		var szSvcid       = szSvcId;
+        var szController  = "/dlw-syst/cd/srch-list";
+        var szInDs        = "";
+        var szOutDs       = dsNm+"=datas";
+        var szParam       = " all_fg=" + AllFg + " cdSetCds=" + gfn_trim(srchPram);
+        var szRetCallback = callBackFun;
+	}
+	
+	else if(listNm == "cmpgId"){
+		if(szSvcId== null) {szSvcId ="selectCmpgId"};
+		if(dsNm == null) dsNm = "gds_CmpgId";
+		if(AllFg == null) AllFg = "";
+		var szSvcid       = szSvcId;
+        var szController  = "/cmpg/cmpg-alct/main/list";
+        var szInDs        = "";
+        var szOutDs       = dsNm+"=datas";
+        var szParam       = "cmpg_prgr_stat_cd=20";
+        var szRetCallback = callBackFun;
+	}
+	
+	// 기준값 정보
+	else if(listNm=="basVl"){
+		// 공통코드(Default) 가져오기
+		if(szSvcId== null) {szSvcId ="selectBasVl"};
+		if(dsNm == null) dsNm = "gds_BasVl";
+		var szSvcid       = szSvcId;
+		var szController  = "/syst/bas-vl/srch-list";
+		var szInDs        = "";
+		var szOutDs       = dsNm +"=datas";
+		var szParam       = "basVlIds=" + gfn_trim(srchPram);
+		var szRetCallback = callBackFun;
+	}
+	
+	else if(listNm=="userFm"){
+		if(szSvcId== null) {szSvcId ="selectUserForm"};
+		if(dsNm == null) dsNm = "gds_UserFm";
+		var szSvcid       = szSvcId;
+		var szController  = "/user/user/srch-form-list";
+		var szInDs        = "";
+		var szOutDs       = "";
+		var szParam       = "file_nm=" + gfn_trim(srchPram);
+		var szRetCallback = callBackFun;
+	}
+	
+	else{
+		success = -1;
+	}
+	
+	if(success==true){
+		// 트랜젝션 공통함수 호출
+		if(bAsync == true){
+			gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback, true);
+		}else{
+			gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback, false);
+		}
+    }else{
+		alert("인자값을 확인해 주세요");
+    }
+}
+
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_createPagingDataset
+ * 입      력	: 	1. Form
+ * 반      환	: 	none
+ * 기      능	: 	시스템공통 - 페이징처리를 위한 공통데이타셋 생성하는 함수
+ *****************************************************************************************/
+function gfn_createPagingDataset(objForm)
+{
+	var objDataset 	= new Dataset();
+	objDataset.name = gfn_getRequestCompVariableDsNm(); 
+	this.addChild(gfn_getRequestCompVariableDsNm(), objDataset);
+	objDataset.addColumn(gfn_getPagingPageNo(),		"INT",	"255");
+	objDataset.addColumn(gfn_getPagingRequestCnt(),	"INT",	"255");
+	objDataset.addColumn(gfn_getPagingStartNum(),	"INT",	"255");
+	objDataset.addColumn(gfn_getPagingEndNum(),		"INT",	"255");
+}
+
+/****************************************************************************************************************
+ * 함  수  명	: 	gfn_diaLog
+ * 입      력	: 	1. dialog_id	- Dialog ID
+					2. nLeft		- Form Left Position
+					3. nTop			- Form TOP Position
+					4. nWidth		- Form Width
+					5. nHeight		- Form Height
+					6. stFormURL	- Form URL
+					7. bShowTitle	- Form Title 을 표시 할지 여부
+					8. strArgument	- Dialog 로 전달될 Argument - {strMessage1:'E'}
+					9. isModeless	- true 면 Dialog 를 Modeless로 띄운다.
+					10. isLayered	- true 면 Dialog 를 Layered로 띄운다.
+					11. bAutoSize
+					12. bBorder
+					13. bResize
+ * 반      환	: 	없음
+ * 기      능	: 	시스템공통 - Dialog Open
+ ****************************************************************************************************************/
+ function gfn_diaLog(dialog_id, nLeft, nTop, nWidth, nHeight, stFormURL, bShowTitle, strArgument, isModeless, isLayered, bAutoSize, bBorder, bResize, isSingle)
+ {
+	var bCenter = false;
+ 
+ 	if (bShowTitle == null)		bShowTitle	= true;
+	if (strArgument == null)	strArgument	= "";
+	if (isModeless == null)		isModeless	= false;
+	if (isLayered == null)		isLayered	= false;
+	if (bAutoSize == null)		bAutoSize 	= true;
+	if (bBorder == null)		bBorder 	= false;
+	if (bResize == null)		bResize 	= true;
+	if (isSingle == null)		isSingle 	= false;
+
+	if (isSingle) {
+		if (gfn_getPupupFrameFocus(dialog_id, strArgument)) {
+			return;
+		}
+	}
+
+	if(nLeft == -1 && nTop == -1 && nWidth == -1 && nHeight == -1) {
+		bCenter = true;
+	}
+
+	// 팝업위치 지정
+	if (nLeft == -1)
+	{
+		nLeft = application.mainframe.position.left 
+			+ (application.mainframe.position.width - nWidth)/2;
+	} else {
+		nLeft = application.mainframe.position.left + nLeft;
+	}
+
+	// 팝업위치 지정
+	if (nTop == -1)
+	{
+		nTop = application.mainframe.position.top
+		     + (application.mainframe.position.height - nHeight)/2;
+
+		//팝업의 top 좌표가 음수일 경우, 닫기 버튼이 화면 밖(위)으로 나가는것을 방지
+		if (nTop < 0) nTop = 0; 
+	} else {
+		nTop = application.mainframe.position.top + nTop;
+	}
+	
+	// 화면 밖으로 벗어나는 Dialog 방지
+	var nBottom = nTop + nHeight;
+	var nRight  = nLeft + nWidth;
+	var nMonitor = system.getMonitorIndex((nLeft+nRight)/2,(nTop+nBottom)/2);
+	var rectScreen = system.getScreenRect(nMonitor);
+	if (nBottom > rectScreen.bottom) {
+		nTop = rectScreen.bottom - (nBottom - nTop);
+		nBottom = rectScreen.bottom;
+	}
+	if (nTop < rectScreen.top) {
+		nBottom = rectScreen.top + (nBottom - nTop);
+		nTop = rectScreen.top;
+	}
+	if (nRight > rectScreen.right) {
+		nLeft = rectScreen.right - (nRight - nLeft);
+		nRight = rectScreen.right;
+	}
+	if (nLeft < rectScreen.left) {
+		nRight = rectScreen.left + (nRight - nLeft);
+		nLeft = rectScreen.left;
+	}
+	
+	var objParentFrame 	= this.getOwnerFrame();
+	/*if(gfn_isQuickView()) {	
+		var objParentFrame 	= this.getOwnerFrame();
+	} else {
+		var objParentFrame 	= ap_WorkFrame;
+	}*/
+	
+	//GV_UNIQUEIDX++;
+	//var dialogId 	= dialog_id + "_" + GV_UNIQUEIDX;
+	var dialogId = "";
+	if (isSingle) {
+		dialogId 	= dialog_id;
+	} else {
+		GV_UNIQUEIDX++;
+		dialogId 	= dialog_id + "_" + GV_UNIQUEIDX;
+	}
+	var newChild 	= new ChildFrame(dialogId,nLeft,nTop,nRight,nBottom,stFormURL);
+	
+	if( String(isLayered).valueOf() == "undefined" ) newChild.layered = true;
+	
+	if (isLayered == true) {
+		newChild.layered = true;
+	} else {
+		newChild.layered = false;
+	}
+	
+	if(bBorder == false) {
+		newChild.style.border.width = "0";
+	} else {
+		newChild.style.border = "1px solid black";
+	}
+	
+	newChild.showstatusbar = false;
+
+	if (bAutoSize == false) newChild.autosize = false;
+	else newChild.autosize = true;
+
+	if (!bShowTitle) { 
+		newChild.showtitlebar 	= false;
+	} else {
+		newChild.resizable 		= bResize;
+		newChild.style.border = "1px solid black";
+	}	
+	
+	if(bCenter == true) {
+		newChild.openalign = "center center";
+	}	
+	
+	// Form Id 처리
+	var sFormID = gfn_getFormIdByUrl(stFormURL);
+	if(gfn_isNull(strArgument)) {
+		strArgument = {pv_programId:sFormID,pv_formUrl:stFormURL};
+	} else {
+		strArgument.pv_programId 	= sFormID;
+		strArgument.pv_formUrl 		= stFormURL;
+	}
+	
+	if (isModeless == true) {
+		return newChild.showModeless(objParentFrame, strArgument);
+	} else {
+		return newChild.showModal(objParentFrame, strArgument);
+	}
+}
+ 
+//동일한 popup ID 가 있으면 해당 popup에 Focus 처리 
+function gfn_getPupupFrameFocus(chkPupupId, strArgument){
+	
+	var bFlag = false;
+    for (var i=application.popupframes.length-1 ; i>=0 ; i--) 
+    {
+        var strPopupId = String(application.popupframes[i].name);
+
+        if (strPopupId.indexOf(chkPupupId) != -1) {
+            var objChildFrame = application.popupframes[i];
+            
+			objChildFrame.form.userParam = strArgument;
+            objChildFrame.form.setFocus();
+            bFlag = true;
+            break;;
+        }
+    }
+	return bFlag;
+}
+
+//동일한 popup ID 가 있는지 체크 
+function gfn_getPupupFrameCheck(chkPupupId){
+	
+	var bFlag = false;
+    for (var i=application.popupframes.length-1 ; i>=0 ; i--) 
+    {
+        var strPopupId = application.popupframes[i].name;
+
+        if (strPopupId.indexOf(chkPupupId) != -1) {
+            var objChildFrame = application.popupframes[i];
+
+            bFlag = true;
+            break;;
+        }
+    }
+	return bFlag;
+}
+
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getCode
+ * 입      력	: 	1. sPCode 		: 공통코드
+					2. sDefault		: 공통코드 첫번째 Row 추가여부(ALL:전체, SELECT:선택)
+					3. objDs		: 공통코드 Binding 대상 데이타셋
+					4. objGds       : 전체 공통코드
+					5. excdCd       : 제외할 코드
+ * 반      환	:   
+ * 기      능	: 	공통코드 가져오는 함수
+ *****************************************************************************************/
+function gfn_getCode(sPCode, sDefault, objDs, objGds, excdCd)
+{
+	objDs.enableevent = false;
+	objDs.clearData();
+
+	var excdCds; // 제외할 코드
+	var excd_yn = "N"; // 제외 여부
+	if (!gfn_isNull(excdCd)) excdCds = String(excdCd).split(",");
+
+    // 필터 설정
+	var sFilter = "(cd_set_cd=='" + sPCode + "')";
+	if (objGds == null) objGds = gds_Code;
+	objGds.filter(sFilter);
+	
+	if(sDefault == "ALL") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "cd", "");
+		objDs.setColumn(nRow, "cd_nm", gfn_getAddRowTextAll());
+		objDs.setColumn(nRow, "adtl_cd", "");
+		objDs.setColumn(nRow, "adtl_cd_nm", "");
+	} else if(sDefault == "SELECT") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "cd", "");
+		objDs.setColumn(nRow, "cd_nm", gfn_getAddRowTextSelect());
+		objDs.setColumn(nRow, "adtl_cd", "");
+		objDs.setColumn(nRow, "adtl_cd_nm", "");
+	}
+	
+	for(var i=0; i < objGds.rowcount; i++)
+	{
+		excd_yn = "N";
+		if (!gfn_isNull(excdCd)) {
+			for (var j = 0; j < excdCds.length; j++) {
+				if (objGds.getColumn(i, "cd") == excdCds[j]) {
+					excd_yn = "Y";
+					break;
+				}
+			}
+		}
+		if (excd_yn == "N") {
+			var nRow = objDs.addRow();
+			objDs.setColumn(nRow, "cd", 		objGds.getColumn(i, "cd"));         // 코드값
+			objDs.setColumn(nRow, "cd_nm", 		objGds.getColumn(i, "cd_nm"));      // 코드명 
+			objDs.setColumn(nRow, "adtl_cd", 	objGds.getColumn(i, "adtl_cd"));    // 추가코드값
+			objDs.setColumn(nRow, "adtl_cd_nm", objGds.getColumn(i, "adtl_cd_nm")); // 추가코드명
+		}
+	}
+	
+	objDs.enableevent = true;
+	objGds.filter("");
+}
+
+ /*****************************************************************************************
+ * 함  수  명	: 	gfn_getUserInfo
+ * 입      력	: 	
+ * 반      환	:   objUserInfo Object(단, 정보가 없는경우에는 공백("") 반환
+ * 기      능	: 	사용자(User)정보를 Object로 반환하는 함수
+ *****************************************************************************************/
+function gfn_getUserInfo()
+{
+	//if(GV_wsoRvYn == "Y")	return;	// 현업리뷰용 예외처리
+
+	var objDs = gds_UserInfo;
+	if(objDs.rowcount > 0) {
+		var objUserInfo = new Object;
+		for(var i=0;i<objDs.getColCount();i++)
+		{
+			var sKey = objDs.getColID(i);
+			objUserInfo[sKey] = objDs.getColumn(0, sKey);
+		}
+	} else {
+		trace("사용자정보가 없습니다.");
+		return "";
+	}
+	
+	return objUserInfo;
+}
+
+ /*****************************************************************************************
+ * 함  수  명	: 	gfn_addGblDSMenu
+ * 입      력	: 	1. strID : 윈도우 생성키
+					2. nRow  : 메뉴데이터셋에서의 row position
+ * 반      환	:   
+ * 기      능	: 	신규 생성된 윈도우 화면을 gds_OpenList 에 등록하는 함수
+ *****************************************************************************************/
+function gfn_addGblDSMenu(strID, nRow, objDs) {
+	var objGDs = gds_OpenList;
+	var curRow = objGDs.addRow();
+
+	objGDs.setColumn(curRow, "WINKEY", strID);
+	objGDs.setColumn(curRow, "FormUrl", objDs.getColumn(nRow, "file_nm"));
+	objGDs.setColumn(curRow, "FormTitle", objDs.getColumn(nRow, "pgm_nm"));
+	objGDs.setColumn(curRow, "FormCode", objDs.getColumn(nRow, "pgm_cd"));
+	//objGDs.setColumn(curRow, "OpenType", strChildID);
+}
+
+
+ /*****************************************************************************************
+ * 함  수  명	: 	gfn_delGblDSMenu
+ * 입      력	: 	strID: 윈도우 생성키
+ * 반      환	:   
+ * 기      능	: 	생성된 윈도우 화면을 gds_OpenList 에서 삭제
+ *****************************************************************************************/
+function gfn_delGblDSMenu(strID) {
+	var objGDs = gds_OpenList;
+	var iRow = objGDs.findRow("WINKEY", strID);
+
+	objGDs.deleteRow(iRow);
+
+	if(objGDs.rowcount==0) {
+		var allobjects = ap_WorkFrame.all;
+
+		ap_WorkFrame.frames[strID].openstatus = "maximize";
+		//ap_WorkFrame.frames["WorkMain"].openstatus = "maximize";
+		//ap_MDITabFrame.form.fn_WorkMainShow("HOME");
+	} else {
+		objGDs.rowposition = iRow - 1;
+	}
+}
+
+
+ /*****************************************************************************************
+ * 함  수  명	: 	gfn_getUserInfo
+ * 입      력	: 	
+ * 반      환	:   objUserInfo Object(단, 정보가 없는경우에는 공백("") 반환
+ * 기      능	: 	사용자(User)정보를 Object로 반환하는 함수
+ *****************************************************************************************/
+function gfn_getUserInfo()
+{
+	//if(GV_wsoRvYn == "Y")	return;	// 현업리뷰용 예외처리
+
+	var objDs = gds_UserInfo;
+	if(objDs.rowcount > 0) {
+		var objUserInfo = new Object;
+		for(var i=0;i<objDs.getColCount();i++)
+		{
+			var sKey = objDs.getColID(i);
+			objUserInfo[sKey] = objDs.getColumn(0, sKey);
+		}
+	} else {
+		trace("사용자정보가 없습니다.");
+		return "";
+	}
+	return objUserInfo;
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getHrchCodeLoad
+ * 입      력	: 	1. sPCode 		: 상위코드
+					2. sDefault		: 공통코드 첫번째 Row 추가여부(ALL:전체, SELECT:선택)
+					3. objDs		: 공통코드 Binding 대상 데이타셋
+ * 반      환	:   
+ * 기      능	: 	계층유형코드 가져오는 함수
+ *****************************************************************************************/
+function gfn_getHrchCodeLoad(sPCode, sDefault, objDs, objGds, sLvl , sFg)
+{
+	objDs.enableevent = false;
+	objDs.clearData();
+
+	if (objGds == null) objGds = gds_HrchCode;
+	if(sFg == "" || sFg == null){
+		// 필터 설정
+		if(sPCode!="" && sPCode != null ){
+			var sFilter = "(hgrn_hrch_cd=='" + sPCode + "')";
+			objGds.filter(sFilter);
+		};
+		
+		if(sLvl!="" && sLvl != null ){
+			var sFilter = "(hrch_cd_lvl_cnt=='" + sLvl + "')";
+			objGds.filter(sFilter);
+		};
+    }else{
+		// 필터 설정
+		if(sPCode!="" && sPCode != null ){
+			var sFilter = "("+ sPCode +")";
+		
+			objGds.filter(sFilter);
+		};
+    }
+	
+	if(sDefault == "ALL") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "hrch_typ_cd", "");
+		objDs.setColumn(nRow, "hrch_cd_nm", gfn_getAddRowTextAll());
+		objDs.setColumn(nRow, "hrch_cd", "");
+		objDs.setColumn(nRow, "hgrn_hrch_cd", "");
+		objDs.setColumn(nRow, "hrch_cd_lvl_cnt", "");
+		objDs.setColumn(nRow, "hrch_adtl_cd", "");
+		objDs.setColumn(nRow, "hrch_adtl_cd_nm", "");
+	} else if(sDefault == "SELECT") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "hrch_typ_cd", "");
+		objDs.setColumn(nRow, "hrch_cd_nm", gfn_getAddRowTextSelect());
+		objDs.setColumn(nRow, "hrch_cd", "");
+		objDs.setColumn(nRow, "hgrn_hrch_cd", "");
+		objDs.setColumn(nRow, "hrch_cd_lvl_cnt", "");
+		objDs.setColumn(nRow, "hrch_adtl_cd", "");
+		objDs.setColumn(nRow, "hrch_adtl_cd_nm", "");
+	}
+	
+	for(var i=0; i < objGds.rowcount; i++)
+	{
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "hrch_typ_cd", 		objGds.getColumn(i, "hrch_typ_cd"));         
+		objDs.setColumn(nRow, "hrch_cd_nm", 		objGds.getColumn(i, "hrch_cd_nm"));       
+		objDs.setColumn(nRow, "hrch_cd", 	objGds.getColumn(i, "hrch_cd"));
+		objDs.setColumn(nRow, "hgrn_hrch_cd", 	objGds.getColumn(i, "hgrn_hrch_cd"));
+		objDs.setColumn(nRow, "hrch_cd_lvl_cnt", 	objGds.getColumn(i, "hrch_cd_lvl_cnt"));
+		objDs.setColumn(nRow, "hrch_adtl_cd", objGds.getColumn(i, "hrch_adtl_cd"));
+		objDs.setColumn(nRow, "hrch_adtl_cd_nm", objGds.getColumn(i, "hrch_adtl_cd_nm"));
+	}
+	
+	objDs.enableevent = true;
+	objGds.filter("");
+}
+
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getCmpgIdLoad
+ * 입      력	: 	1. sPCode 		: 상위코드
+					2. sDefault		: 공통코드 첫번째 Row 추가여부(ALL:전체, SELECT:선택)
+					3. objDs		: 공통코드 Binding 대상 데이타셋
+ * 반      환	:   
+ * 기      능	: 	계층유형코드 가져오는 함수
+ *****************************************************************************************/
+function gfn_getCmpgIdLoad(sPCode, sDefault, objDs, objGds)
+{
+	objDs.enableevent = false;
+	objDs.clearData();
+
+	if (objGds == null) objGds = gds_CmpgId;
+
+    // 필터 설정
+    if(sPCode!="" && sPCode != null ){
+		var sFilter = "(cmpg_typ_cd=='" + sPCode + "')";
+		objGds.filter(sFilter);
+    };
+	
+	
+	if(sDefault == "ALL") {
+		var nRow = objDs.addRow();
+		
+		objDs.setColumn(nRow, "cmpg_nm", gfn_getAddRowTextAll());
+		objDs.setColumn(nRow, "cmpg_id", "");
+		objDs.setColumn(nRow, "cmpg_typ_cd", "");
+		objDs.setColumn(nRow, "cmpg_div_cd", "");
+		objDs.setColumn(nRow, "trgt_list_id",	"");
+		objDs.setColumn(nRow, "setting_fg",	"");
+	
+	
+	} else if(sDefault == "SELECT") {
+		var nRow = objDs.addRow();
+		
+		objDs.setColumn(nRow, "cmpg_nm", gfn_getAddRowTextSelect());
+		objDs.setColumn(nRow, "cmpg_id", "");
+		objDs.setColumn(nRow, "cmpg_typ_cd", "");
+		objDs.setColumn(nRow, "cmpg_div_cd", "");
+// 		objDs.setColumn(nRow, "assignnum", "");
+// 		objDs.setColumn(nRow, "st30", ""); //처리완료
+// 		objDs.setColumn(nRow, "st20", ""); //진행중
+// 		objDs.setColumn(nRow, "st50", ""); //당일처리
+// 	
+// 		objDs.setColumn(nRow, "cmpg_stt_dt", ""); 
+// 		objDs.setColumn(nRow, "cmpg_end_dt", ""); 
+		objDs.setColumn(nRow, "trgt_list_id",	"");
+		objDs.setColumn(nRow, "setting_fg",	"");
+		
+
+	} else if(sDefault == "NULL") {
+		var nRow = objDs.addRow();
+		
+		objDs.setColumn(nRow, "cmpg_nm", "");
+		objDs.setColumn(nRow, "cmpg_id", "");
+		objDs.setColumn(nRow, "cmpg_typ_cd", "");
+		objDs.setColumn(nRow, "cmpg_div_cd", "");
+	/*	objDs.setColumn(nRow, "assignnum", "");*/
+// 		objDs.setColumn(nRow, "st30", ""); //처리완료
+// 		objDs.setColumn(nRow, "st20", ""); //진행중
+// 		objDs.setColumn(nRow, "st50", ""); //당일처리
+	
+// 		objDs.setColumn(nRow, "cmpg_stt_dt", ""); 
+// 		objDs.setColumn(nRow, "cmpg_end_dt", "");
+		objDs.setColumn(nRow, "trgt_list_id",	"");
+		objDs.setColumn(nRow, "setting_fg",	"");
+	
+	}
+	
+	for(var i=0; i < objGds.rowcount; i++)
+	{
+		var nRow = objDs.addRow();
+	
+		objDs.setColumn(nRow, "cmpg_nm", 		objGds.getColumn(i, "cmpg_nm"));       
+		objDs.setColumn(nRow, "cmpg_id", 	    objGds.getColumn(i, "cmpg_id"));
+		objDs.setColumn(nRow, "cmpg_typ_cd", objGds.getColumn(i, "cmpg_typ_cd"));
+		objDs.setColumn(nRow, "cmpg_div_cd", objGds.getColumn(i, "cmpg_div_cd"));
+// 		objDs.setColumn(nRow, "assignnum", 		objGds.getColumn(i, "assignnum"));
+// 		objDs.setColumn(nRow, "st30",   		objGds.getColumn(i, "st30")); //처리완료
+// 		objDs.setColumn(nRow, "st20", 			objGds.getColumn(i, "st20")); //진행중
+// 		objDs.setColumn(nRow, "st50", 			objGds.getColumn(i, "st50")); //당일처리
+// 	
+// 		objDs.setColumn(nRow, "cmpg_stt_dt", 	objGds.getColumn(i, "cmpg_stt_dt")); 
+// 		objDs.setColumn(nRow, "cmpg_end_dt",	objGds.getColumn(i, "cmpg_end_dt"));
+		objDs.setColumn(nRow, "trgt_list_id",	objGds.getColumn(i, "trgt_list_id"));
+		objDs.setColumn(nRow, "setting_fg",	objGds.getColumn(i, "setting_fg"));
+		
+	
+	}
+	
+	objDs.enableevent = true;
+	objGds.filter("");
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getTeamCodeLoad
+ * 입      력	: 	1. sPCode 		: 상위코드
+					2. sDefault		: 공통코드 첫번째 Row 추가여부(ALL:전체, SELECT:선택)
+					3. objDs		: 공통코드 Binding 대상 데이타셋
+ * 반      환	:   
+ * 기      능	: 	팀코드 가져오는 함수
+ *****************************************************************************************/
+function gfn_getTeamCodeLoad(sPCode, sDefault, objDs, objGds, sLvl, sFg)
+{
+	objDs.enableevent = false;
+	objDs.clearData();
+
+	if (objGds == null) objGds = gds_TeamCd;
+	if(sFg == "" || sFg == null){
+		// 필터 설정
+		if(sPCode!="" && sPCode != null ){
+			var sFilter = "(hgrn_team_cd=='" + sPCode + "')";
+			
+			objGds.filter(sFilter);
+		};
+    }else{
+		// 필터 설정
+		if(sPCode!="" && sPCode != null ){
+			var sFilter = "("+ sPCode +")";
+		
+			objGds.filter(sFilter);
+		};
+    }
+	if(sFg == "" || sFg == null){
+		if(sLvl!="" && sLvl != null ){
+			var sFilter = "(team_lvl_cnt=='" + sLvl + "')";
+			objGds.filter(sFilter);
+		};
+    }
+	
+	if(sDefault == "ALL") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "team_cd", "");
+		objDs.setColumn(nRow, "team_nm", gfn_getAddRowTextAll());
+		objDs.setColumn(nRow, "hgrn_team_cd", "");
+		objDs.setColumn(nRow, "team_lvl_cnt", "");
+	} else if(sDefault == "SELECT") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "team_cd", "");
+		objDs.setColumn(nRow, "team_nm", gfn_getAddRowTextSelect());
+		objDs.setColumn(nRow, "hgrn_team_cd", "");
+		objDs.setColumn(nRow, "team_lvl_cnt", "");
+	}
+	
+	for(var i=0; i < objGds.rowcount; i++)
+	{
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "team_cd", 		objGds.getColumn(i, "team_cd"));         
+		objDs.setColumn(nRow, "team_nm", 		objGds.getColumn(i, "team_nm"));       
+		objDs.setColumn(nRow, "hgrn_team_cd", 	objGds.getColumn(i, "hgrn_team_cd"));
+		objDs.setColumn(nRow, "team_lvl_cnt", 	objGds.getColumn(i, "team_lvl_cnt"));
+	}
+	
+	objDs.enableevent = true;
+	objGds.filter("");
+}
+
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getConsTypLoad
+ * 입      력	: 	1. sPCode 		: 상위코드
+					2. sDefault		: 공통코드 첫번째 Row 추가여부(ALL:전체, SELECT:선택)
+					3. objDs		: 공통코드 Binding 대상 데이타셋
+ * 반      환	:   
+ * 기      능	: 	공통코드 가져오는 함수
+ *****************************************************************************************/
+function gfn_getConsTypLoad(sPCode, sDefault, objDs, objGds)
+{
+	objDs.enableevent = false;
+	objDs.clearData();
+
+	if (objGds == null) objGds = gds_ConsTyp;
+
+    // 필터 설정
+    if(sPCode!="" && sPCode != null ){
+		var sFilter = "(hgrn_cons_typ_cd=='" + sPCode + "')";
+		objGds.filter(sFilter);
+    };
+	
+	if(sDefault == "ALL") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "cons_typ_cd", "");
+		objDs.setColumn(nRow, "cons_typ_nm", gfn_getAddRowTextAll());
+		objDs.setColumn(nRow, "hgrn_cons_typ_cd", "");
+	} else if(sDefault == "SELECT") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "cons_typ_cd", "");
+		objDs.setColumn(nRow, "cons_typ_nm", gfn_getAddRowTextSelect());
+		objDs.setColumn(nRow, "hgrn_cons_typ_cd", "");
+	}
+	
+	for(var i=0; i < objGds.rowcount; i++)
+	{
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "cons_typ_cd", 		objGds.getColumn(i, "cons_typ_cd"));         
+		objDs.setColumn(nRow, "cons_typ_nm", 		objGds.getColumn(i, "cons_typ_nm"));       
+		objDs.setColumn(nRow, "hgrn_cons_typ_cd", 	objGds.getColumn(i, "hgrn_cons_typ_cd"));    
+	}
+	
+	objDs.enableevent = true;
+	objGds.filter("");
+}
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_getConsTypLoad
+ * 입      력	: 	1. sVal 		: 검색값
+					2. sPCol        : 필터 컬럼
+					3. sDefault		: 공통코드 첫번째 Row 추가여부(ALL:전체, SELECT:선택)
+					4. objDs		: 공통코드 Binding 대상 데이타셋
+ * 반      환	:   
+ * 기      능	: 	공통코드 가져오는 함수
+ *****************************************************************************************/
+function gfn_getUserCdLoad(sVal, sPCol, sDefault, objDs, objGds)
+{
+	objDs.enableevent = false;
+	objDs.clearData();
+	
+	if (objGds == null) objGds = gds_UserCd;
+
+    // 필터 설정
+    if(sVal!="" && sVal != null && sPCol!="" && sPCol!= null){
+		var sFilter ="("+sPCol+"=='" + sVal + "')"
+		objGds.filter(sFilter);
+    }else if(sVal!="" && sVal != null){
+		var sFilter ="("+sVal+")"
+		objGds.filter(sFilter);
+    };
+	
+	if(sDefault == "ALL") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "user_id", "");
+		objDs.setColumn(nRow, "user_nm", gfn_getAddRowTextAll());
+		objDs.setColumn(nRow, "hgrn_team_cd", "");
+		objDs.setColumn(nRow, "athr_cd", "");
+		objDs.setColumn(nRow, "team_cd", "");
+	} else if(sDefault == "SELECT") {
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "user_id", "");
+		objDs.setColumn(nRow, "user_nm", gfn_getAddRowTextSelect());
+		objDs.setColumn(nRow, "hgrn_team_cd", "");
+		objDs.setColumn(nRow, "athr_cd", "");
+		objDs.setColumn(nRow, "team_cd", "");
+	}
+	
+	for(var i=0; i < objGds.rowcount; i++)
+	{
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, "user_id", 		objGds.getColumn(i, "user_id"));         
+		objDs.setColumn(nRow, "user_nm", 		objGds.getColumn(i, "user_nm")); 
+		objDs.setColumn(nRow, "hgrn_team_cd",   objGds.getColumn(i, "hgrn_team_cd"));
+		objDs.setColumn(nRow, "athr_cd",        objGds.getColumn(i, "athr_cd"));
+		objDs.setColumn(nRow, "team_cd",        objGds.getColumn(i, "team_cd"));
+	}
+	
+	objDs.enableevent = true;
+	objGds.filter("");
+}
+
+
+
+ /*****************************************************************************************
+ * 함  수  명	: gfn_setCompCheckbox
+ * 입      력	: compTarget - div 영역 obj
+				  arrParam - 생성할 checkbox 항목과 값 파라미터
+				  iPxGap - checkbox 항목간의 간격 픽셀 값
+				  objRstDs - checkbox 클릭하면 값이 들어갈 데이타셋 (데이타셋으로 리턴받으려면 설정한다.)
+				  eventOnclick - checkbox onclick 이벤트 함수명
+				  strPrbmId - QA, 설문지, 평가지 등 시험 문제일 경우 해당 질문번호
+ * 반      환	: 
+ * 기      능	: div 영역에 chkbox를 동적으로 생성하는 함수
+ *****************************************************************************************/ 
+function gfn_setCompCheckbox(compTarget, arrParam, iPxGap, objRstDs, eventOnclick, strPrbmId ){
+
+	if (gfn_isNull(arrParam)) return;
+	//var objForm = gfnGetForm(this);
+
+	var objParamCode;
+	var strText, strValue;
+	var nGap = 2;
+	var nLeft= 4;
+
+	var objDate = new Date();
+	var strDate = objDate.toFormatString("%H%M%S") + objDate.getMilliseconds();
+	if (!gfn_isNull(objRstDs))
+		objRstDs.clearData();
+
+	for (j=0; j<arrParam.length; j++) {
+	
+		objParamCode = arrParam[j];
+		strText = objParamCode.codeText;
+		strValue = objParamCode.codeValue;
+	
+		var objFont = gfn_getObjFont(9,"Dotum");
+		objFont.bold = false;
+		var objTextSize = gfn_getTextSize(strText, objFont);
+			
+		var oChkbox = new CheckBox();
+		oChkbox.init("chk_"+ strDate +"_"+j, nLeft, 2, nLeft + objTextSize.cx+iPxGap, 20);
+		compTarget.addChild(oChkbox.name, oChkbox);
+		//oChkbox.class 		= "btn_Sms";
+		oChkbox.text  		= objParamCode.codeText;
+		oChkbox.value  		= objParamCode.codeValue;
+		oChkbox.userRstDs   = objRstDs;
+		oChkbox.userCode    = objParamCode.code;
+		oChkbox.inquiryId   = strPrbmId;					// 평가지인 경우 해당 질문번호
+		oChkbox.onclick.addHandler(eval(eventOnclick));
+		oChkbox.show();
+		//trace('    '+ oChkbox.name + '  '+ objParamCode.codeText + '     '+ objParamCode.codeValue  );
+	
+		nLeft = nGap + oChkbox.position.right;
+
+		if (!gfn_isNull(objRstDs)) {
+			var nRow = objRstDs.addRow();
+			objRstDs.setColumn(nRow, 0, objParamCode.codeText);		//text
+			objRstDs.setColumn(nRow, 1, objParamCode.codeValue);	//value
+			objRstDs.setColumn(nRow, 2, objParamCode.code);			//code
+		}
+	}
+}
+
+
+/****************************************************************************************
+ * 함  수  명	: 	gfn_shortcutKey
+ * 입      력	: 	1. 키다운이 발생한 Form
+					2. 키다운 이벤트 e:KeyEventInfo
+ * 반      환	: 	none
+ * 기      능	: 	시스템공통 - 시스템 단축키 처리
+ *****************************************************************************************/
+function gfn_shortcutKey(obj, e)
+{
+	//네비게이션탭 컴포넌트 정의
+	//if(gds_OpenMenu.rowcount == 0) return;
+	
+	if(e.ctrlKey == true)
+	{
+	
+	}
+	else if(e.altKey == true)
+	{
+	
+	}
+	else if(e.shiftKey == true)
+	{
+	
+	}
+	else
+	{
+		if(e.keycode == "27") 			//ESC키 입력
+		{
+			gfn_closePopupDiv(this);
+		} 
+		else if(e.keycode == "112") 			//도움말(F1)
+		{
+			//application.alert("정보알림창입니다.");
+			ap_WorkFrame.getActiveFrame().form.div_Work.fn_Init();
+		}
+		else if(e.keycode == "113")		//조회(F2)
+		{
+
+		}
+		else if(e.keycode == "114")		//신규(F3)
+		{
+
+		}
+		else if(e.keycode == "115")		//삭제(F4)
+		{
+// 			if(application.confirm("프로그램을 종료하시겠습니까?", "프로그램 종료확인")) {
+// 				exit();
+// 			}
+			ap_WorkFrame.getActiveFrame().form.div_work.fn_Search();
+		}
+		else if(e.keycode == "116")		//저장(F5)
+		{
+
+		}
+		else if(e.keycode == "117")		//엑셀(F6)
+		{
+
+		}
+		else if(e.keycode == "118")		//출력(F7)
+		{
+
+		}
+		else if(e.keycode == "119")		//닫기(F8)
+		{
+
+		}
+		else if(e.keycode == "120")		//F9
+		{
+
+		}
+		else if(e.keycode == "121")		//F10
+		{
+			if(application.confirm("프로그램을 종료하시겠습니까?", "프로그램 종료확인")) {
+				exit();
+			}
+		}
+		else if(e.keycode == "122")		//F11
+		{
+		
+		}
+		else if(e.keycode == "123")		//F12
+		{
+		
+		}
+	}
+}	
+
+
+
+/*****************************************************************************************
+ * 함  수  명	: 	gfn_athrPgm
+ * 입      력	: 	1. sGdsCd 		: 제품코트
+ * 반      환	:   
+ * 기      능	: 	해당 페이지 권한 정보로드
+ *****************************************************************************************/
+function gfn_athrPgm(sGdsCd, sFormCd){
+	var pgmCd = "";
+	if (gfn_isNull(sFormCd)) {
+		pgmCd = gds_OpenList.getColumn(gds_OpenList.rowposition, 'FormCode');
+	} else {
+		pgmCd = sFormCd;
+	}
+	var athrCd = gds_UserInfo.getColumn(gds_UserInfo.rowposition, 'athr_cd');
+	
+	var ds_athrPgmFilter 	= new Dataset();
+	ds_athrPgmFilter.name = "ds_athrPgmTest";
+	this.addChild("ds_athrPgmFilter", ds_athrPgmFilter);
+	
+	ds_athrPgmFilter.assign(gds_Pgm);
+	
+	ds_athrPgmFilter.filter("athr_cd ==\'"+athrCd +"\'&& pgm_cd ==\'"+ pgmCd+"\' && gds_cd ==\'"+ sGdsCd+"\'");
+	
+	//개별기능 받는 데이터셋
+	var ds_indvFnctAthrPgmFilter = new Dataset();
+	this.addChild("ds_indvFnctAthrPgmFilter", ds_indvFnctAthrPgmFilter);
+	
+	if(ds_athrPgmFilter.getColumn(0, 'indv_fnct_athr_yn') == "Y"){
+		//개별기능 조회조건 데이터셋 
+		var ds_inqCndt_ = new Dataset();
+		this.addChild("ds_inqCndt_", ds_inqCndt_);
+		ds_inqCndt_.addColumn("athr_cd","string");
+		ds_inqCndt_.addColumn("pgm_cd","string");
+		ds_inqCndt_.addColumn("gds_cd","string");
+		ds_inqCndt_.addColumn("orderBy","string");
+		ds_inqCndt_.addColumn("orderDirection","string");
+		
+		ds_inqCndt_.clearData();
+		ds_inqCndt_.addRow();
+		ds_inqCndt_.setColumn(0, "athr_cd", athrCd);
+		ds_inqCndt_.setColumn(0, "pgm_cd", pgmCd);
+		ds_inqCndt_.setColumn(0, "gds_cd", sGdsCd);
+		ds_inqCndt_.setColumn(0, "orderBy", "pgm_indv_fnct_nm");
+		ds_inqCndt_.setColumn(0, "orderDirection", "asc");
+	
+		var szSvcid       = "indvFnctAthrPgmFilter";
+		var szController  = "/syst/pgm-indv-fnct-athr/list";
+		var szInDs        = "ds_input=ds_inqCndt_";
+		var szOutDs       = "ds_indvFnctAthrPgmFilter=ds_output";
+		var szParam       = "";
+		var szRetCallback = "fn_callBack";
+
+		// 트랜젝션 공통함수 호출
+		gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback, false);
+	}
+	
+	if (rgsnYn =! undefined) rgsnYn = ds_athrPgmFilter.getColumn(0, 'rgsn_yn');
+	if (inqYn =! undefined) inqYn = ds_athrPgmFilter.getColumn(0, 'inq_yn');
+	if (amntYn =! undefined) amntYn = ds_athrPgmFilter.getColumn(0, 'amnt_yn');
+	if (dltnYn =! undefined) dltnYn = ds_athrPgmFilter.getColumn(0, 'dltn_yn');
+	if (pritYn =! undefined) pritYn = ds_athrPgmFilter.getColumn(0, 'prit_yn');
+	if (xlsYn =! undefined) xlsYn = ds_athrPgmFilter.getColumn(0, 'xls_yn');
+	if (athrPpupYn =! undefined) athrPpupYn = ds_athrPgmFilter.getColumn(0, 'athr_ppup_yn');
+	if (xlsRrnoYn =! undefined) xlsRrnoYn = ds_athrPgmFilter.getColumn(0, 'xls_rrno_yn');
+}
+
+/*
+ * 엑셀 다운로드 요청
+ * gfn_excelDown(파일명, XLS아이디, 리스트쿼리ID, 건수쿼리ID, 파라미터데이터셋);
+ */
+function gfn_excelDown(psFileNm:String, psXlsId:String, psListQuery, psCountQuery, dsParam:Dataset, bBigGrid:Boolean, dsColumn:Dataset, bMsSqlYn:Boolean) {
+    bBigGrid = bBigGrid != undefined ? bBigGrid : false;
+    bMsSqlYn = bMsSqlYn != undefined ? bMsSqlYn : false;
+    if (bBigGrid && dsColumn == undefined) {
+		alert("대용량 다운로드의 경우 컬럼셋을 셋팅해 주셔야 합니다.");
+		return; 
+    }
+    
+    // 다운로드 엑셀 파일명 저장
+    _gsSaveExcelFileNm = psFileNm;
+	
+	// 엑셀 파일 생성 요청
+	var szSvcid       = "commonExcelDown";
+    var szController  = "/syst/xls/request";
+    var szInDs        = "ds_input=" + dsParam.name;
+    var szOutDs       = "";
+    var szParam       = "xls_id=" + psXlsId + " list_query=" + psListQuery + " cnt_query=" + psCountQuery + " bigGrid_yn=" + (bBigGrid ? "Y":"N") + " msSql_yn=" + (bMsSqlYn ? "Y":"N");
+    var szRetCallback = "gfn_ExcelDownCallBack";
+    
+    if (bBigGrid) {
+		szInDs += (" ds_column=" + dsColumn.name);
+    }
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback, true);
+}
+
+function gfn_excelPrepareExcelDS(grdNM:String) {
+	var colDS:Dataset = null;
+	if (this["ds_tempExcelDown"]) {
+		colDS = this["ds_tempExcelDown"];
+	} else {
+		colDS = new Dataset;
+		colDS.name = "ds_tempExcelDown";
+		this.addChild(colDS.name, colDS);
+	}
+	
+	colDS.addColumn("xls_colm_id", "string", 256);
+	colDS.addColumn("xls_colm_nm", "string", 256);
+	colDS.addColumn("xls_colm_type_cd", "string", 256);
+	
+	for (var i=0; i< this[grdNM].getCellCount("Head"); i++) {
+		var colId = this[grdNM].getCellProperty("Body", i, "text")
+		if (colId==null || colId.search("expr") > -1)
+			continue;
+			
+		colId = colId.replace("bind:", "");
+		colDS.addRow();
+		colDS.setColumn(colDS.rowposition, "xls_colm_id", colId);
+		colDS.setColumn(colDS.rowposition, "xls_colm_nm", this[grdNM].getCellProperty("Head", i, "text"));
+		colDS.setColumn(colDS.rowposition, "xls_colm_type_cd", "10");
+	}
+	
+	return colDS;
+}
+
+/*
+ * 엑셀 다운로드 요청 콜백
+ */
+var _gsSaveExcelFileNm = ""; // 다운로드 엑셀 파일명
+var _gsServerExcelFileNm = ""; // 서버 엑셀 파일명
+function gfn_ExcelDownCallBack(psSvcId, psErrCd, psErrMsg) {
+	if (psErrCd != 0) {
+	    return;
+	}
+	
+	// 반환 서버 엑셀 파일명이 없는 경우 종료
+	if (gfn_isNull(_gsServerExcelFileNm)) {
+	    return;
+	}
+	
+	var bZipFile = (_gsServerExcelFileNm.indexOf(".zip") > 0) ? true : false;
+	
+	// 다운로드 엑셀 파일명 시간 조합
+	_gsSaveExcelFileNm += "_" + gfn_getTodayFull() + (bZipFile ? ".zip" : ".xlsx");
+	
+	// HttpObject 컴포넌트 생성
+	var sDownloadUrl = gfn_getServiceUrl("fileUrl") + "syst/xls/download?file_path=" + _gsServerExcelFileNm;
+	var oHttpObject:HttpObject = objects["httpObject"] != null ? objects["httpObject"] : new HttpObject();
+	oHttpObject.timeout = 3600;
+	oHttpObject.onload.setHandler(function(obj:HttpObject, e:HttpObjLoadEventInfo) {
+		gfn_setWaitCursor(false);
+		if (e.errorcode < 0) {
+			alert("엑셀파일 다운로드가 실패 하였습니다.");
+		} else {
+			alert("엑셀파일 다운로드가 완료 되었습니다.");
+		}
+	});
+	
+	// 엑셀파일 다운로드
+	var sFileFilter = div_Comm.FileDialog.filter;
+	div_Comm.FileDialog.filter = bZipFile ? "Zip (*.zip)|*.zip|" : "Excel (*.xlsx)|*.xlsx|";
+	var oFileDialog = div_Comm.FileDialog.open("file download", FileDialog.SAVE, "%MYDOCUMENT%", _gsSaveExcelFileNm);
+	div_Comm.FileDialog.filter = sFileFilter; // 공통필터 복구
+	if (!gfn_isNull(oFileDialog)) {
+		gfn_setWaitCursor(true);
+		oHttpObject.download(sDownloadUrl, oFileDialog, false);
+	
+	    oFileDialog.close();
+	}
+}
+
+function gfn_templateDown(sFilenm:String) {
+	var strUrl = gfn_getServiceUrl("fileUrl") + "file/download-template?file_nm="+sFilenm;
+	var httpObjectInput:HttpObject = objects["httpObject"]!=null ? objects["httpObject"] : new HttpObject();
+	httpObjectInput.timeout = 300;
+	httpObjectInput.onload.setHandler(function(obj:HttpObject, e:HttpObjLoadEventInfo) {
+		gfn_setWaitCursor(false);
+		if (e.errorcode < 0) {
+			alert("템플릿 다운로드가 실패하였습니다.");
+		} else {
+			alert("템플릿 다운로드가 완료 되었습니다.");
+		}
+	});
+	
+	var vFile_down = div_Comm.FileDialog.open("file download", FileDialog.SAVE, "%MYDOCUMENT%", sFilenm);
+	if (vFile_down) {
+		gfn_setWaitCursor(true);
+		httpObjectInput.download(strUrl, vFile_down, true);
+	
+	    vFile_down.close();
+	}
+}
+
+
+// function gfn_athrPgm(sGdsCd){ //sGdsCd : 1=상담업무 2=관리업무
+// 	var pgmCd = gds_OpenList.getColumn(gds_OpenList.rowposition, 'FormCode');
+// 	var athrCd = gds_UserInfo.getColumn(gds_UserInfo.rowposition, 'athr_cd');
+// 	var rowCount  = gds_Pgm.findRow('pgm_cd',pgmCd);
+// 	var hgrnPgmCd = gds_Pgm.getColumn(rowCount, 'hgrn_pgm_cd');
+// 	
+// 	var objDataset 	= new Dataset();
+// 	objDataset.name = "ds_inqCndt_athrPgm";
+// 	this.addChild("ds_inqCndt_athrPgm", objDataset);
+// 	ds_inqCndt_athrPgm.addColumn("athr_cd","string");
+// 	ds_inqCndt_athrPgm.addColumn("hgrn_pgm_cd","string");
+// 	ds_inqCndt_athrPgm.addColumn("pgm_cd","string");
+// 	ds_inqCndt_athrPgm.addColumn("gds_cd","string");
+// 	
+// 	ds_inqCndt_athrPgm.clearData();
+// 	ds_inqCndt_athrPgm.addRow();
+// 
+// 	ds_inqCndt_athrPgm.setColumn(0, "athr_cd", athrCd);
+// 	ds_inqCndt_athrPgm.setColumn(0, "hgrn_pgm_cd", hgrnPgmCd);
+// 	ds_inqCndt_athrPgm.setColumn(0, "pgm_cd", pgmCd);
+// 	ds_inqCndt_athrPgm.setColumn(0, "gds_cd", sGdsCd);
+// 	
+// 	var szSvcid       = "srchPgmAthr";
+//     var szController  = "/syst/pgm-athr/list";
+//     var szInDs        = "ds_input=ds_inqCndt_athrPgm";
+//     var szOutDs       = "ds_athrPgm=ds_output";
+//     var szParam       = "";
+//     var szRetCallback = "fn_callBack";
+// 
+//     // 트랜젝션 공통함수 호출
+//     gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+// }
+
+// 데이터셋의 건수를 표시한다. - 그리드의 건수 표시
+function gfn_setTotCnt(ds, stt) {
+	stt.text = "검색결과   <fs v='9'><fc v='#f0850c'><b v='true'>" + ds.rowcount + "</b></fc></fs> <fc v='#a1a1a1'>건";
+}
+
+function gfn_getFirstVal(parentObj, sArr) {	
+	var sTmp;
+	for (var k in sArr) {
+		if (parentObj[sArr[k]]) {
+			sTmp = parentObj[sArr[k]].value;
+			if ( !gfn_isEmpty(sTmp) ) {
+				return sTmp;
+			}
+		}
+	}
+	return "";
+}
+
+// 거래처 조회 팝업 (관련테이블 : CUSTMR_MNG)
+function gfn_openCustomerPopup(custmr_cd, custmr_nm) {	
+    var sPrmr = {p_custmr_cd:custmr_cd, p_custmr_nm:custmr_nm};
+    var reVal = gfn_diaLog("거래처 조회", -1, -1, -1, -1, "COMM::CustomerPopup.xfdl", false, sPrmr, false, false, true, null, null, true);	
+    return reVal;
+}
+
+// 증서 조회 팝업
+function gfn_openCertfPopup(certf_seq) {
+    var sPrmr = {p_certf_seq:certf_seq};
+    var reVal = gfn_diaLog("증서관리", -1, -1, -1, -1, "DL450000::DL450303.xfdl", false, sPrmr, false, false, true, null, null, true);	
+    return reVal;
+}]]></Script>

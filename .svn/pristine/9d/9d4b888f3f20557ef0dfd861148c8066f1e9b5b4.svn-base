@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwConsMap">
+
+    <select id="DlwConsMap.getDlwConsCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwConsMap.getDlwConsCount */
+               COUNT(*)
+          FROM CNSL_MNG A
+          LEFT OUTER JOIN MEM_PROD_ACCNT ACCNT
+            ON A.ACCNT_NO = ACCNT.ACCNT_NO
+         WHERE A.MEM_NO = #{mem_no}
+           AND NVL(ACCNT.DEL_FG, 'N') = 'N'
+        <if test="accnt_no != null and accnt_no != ''">
+           AND A.ACCNT_NO = #{accnt_no}
+        </if>
+    </select>
+
+    <select id="DlwConsMap.getDlwConsList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwConsMap.getDlwConsList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(CNSL_DT DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+         FROM (SELECT A.SEQ
+                    , A.MEM_NO
+                    , A.ACCNT_NO
+                    , (CASE WHEN A.ACCNT_NO = '00000'
+                            THEN '기타문의'
+                            ELSE (FN_PROD_NM((SELECT PROD_CD FROM MEM_PROD_ACCNT WHERE MEM_PROD_ACCNT.ACCNT_NO = A.ACCNT_NO)))
+                       END) AS PROD_NM
+                    , A.CNSL_DT AS CNSL_DT
+                    , REPLACE(A.CNSL_CON, CHR(13), '') AS CNSL_CON
+                    , (SELECT (SELECT GRP_NM
+                                 FROM COM_CD_GRP
+                                WHERE GRP_CD = GUBN
+                                  AND CON LIKE '%상담구분%')
+                         FROM CNSL_DTL
+                        WHERE MEM_NO = A.MEM_NO
+                          AND SEQ = A.SEQ
+                          AND CNSL_SEQ = A.CNSL_SEQ
+                          AND ROWNUM = 1) AS GUBN_NM
+                    , A.CNSL_MAN
+                    , A.CALL_TEL
+                    , A.REC_PATH
+                    , A.REC_FILE
+                    , FN_EMPLE_NM(A.CNSL_MAN) AS CNSL_MAN_NM
+                    , (SELECT DEPT_NM
+                              FROM DEPARTMENT
+                             WHERE DEPT_CD = (SELECT DEPT_CD
+                                                FROM EMPLOYEE
+                                               WHERE EMPLOYEE.EMPLE_NO = CNSL_MAN)) AS CNSL_MAN_DEPT_NM
+                    , A.CNSL_SEQ
+                    , CASE WHEN REG_CL = '02' AND (CD.CNSL_CON NOT LIKE '%주소:%' AND
+                                                        CD.CNSL_CON NOT LIKE '%휴대폰:%' AND
+                                                        CD.CNSL_CON NOT LIKE '%전화:%' AND
+                                                        CD.CNSL_CON NOT LIKE '%비고:%')
+                         THEN A.CNSL_CON
+                           ELSE  CD.CNSL_CON
+                      END CNSL_CON_SHOW
+                 FROM CNSL_MNG A
+                 LEFT OUTER JOIN MEM_PROD_ACCNT ACCNT
+                   ON A.ACCNT_NO = ACCNT.ACCNT_NO
+                    left outer join CNSL_DTL cd on cd.MEM_NO = A.MEM_NO  AND cd.SEQ = A.SEQ AND cd.CNSL_SEQ = A.CNSL_SEQ
+                WHERE A.MEM_NO = #{mem_no}
+                  AND NVL(ACCNT.DEL_FG, 'N') = 'N'
+              <if test="accnt_no != null and accnt_no != ''">
+                  AND A.ACCNT_NO = #{accnt_no}
+              </if>
+               ) A
+    </select>
+
+    <insert id="DlwConsMap.insertCons" parameterType="map">
+        <!-- sql-life.xml insertConsulMng -->
+        <selectKey  keyProperty="skey" resultType="String" order="BEFORE">
+        SELECT TO_CHAR(A) || '|' || TO_CHAR(B) AS skey
+          FROM (SELECT (SELECT NVL(MAX(SEQ),0)+1 AS SEQ
+                                              FROM CNSL_MNG
+                                             WHERE MEM_NO = #{mem_no}) A
+                     , (SELECT NVL(MAX(CNSL_SEQ),0)+ 1 AS CNSLSEQ
+                                              FROM CNSL_MNG
+                                             WHERE MEM_NO = #{mem_no}
+                                               AND ACCNT_NO = #{accnt_no}) B /* 상품이 없을 경우 내부적으로 기타로 처리 */
+                  FROM DUAL)
+        </selectKey>
+
+        INSERT /* DlwConsMap.insertCons */
+          INTO CNSL_MNG
+          (
+               SEQ
+             , MEM_NO
+             , CNSL_SEQ
+             , ACCNT_NO
+             , CNSL_DT
+             , CNSL_CON
+             , REG_CL
+             , CNSL_MAN
+        <if test="call_tel != null and call_tel != ''">
+           , CALL_TEL
+        </if>
+        <if test="rec_file != null and rec_file != ''">
+           , REC_FILE
+        </if>
+        <if test="rec_path != null and rec_path != ''">
+           , REC_PATH
+        </if>
+        <if test="cti_id != null and cti_id != ''">
+           , CTI_ID
+        </if>
+           , REG_DM
+           , REG_MAN
+           , UPD_DM
+           , UPD_MAN
+           )
+        SELECT FN_SPLIT(#{skey},1,'|')
+             , #{mem_no}
+             , FN_SPLIT(#{skey},2,'|')
+             , #{accnt_no}
+             <!-- /* , SYSDATE */   /* 접수일자 */ -->
+             , NVL(TO_DATE(#{mst_reg_dm}, 'YYYY-MM-DD HH24:MI:SS'), SYSDATE)
+             , #{cons_memo_tit}
+             , CASE WHEN #{cons_memo_tit} = '행사취소 정보' OR
+                         #{cons_memo_tit} = '철회취소 정보' OR
+                         #{cons_memo_tit} = '해약등록 정보' OR
+                         #{cons_memo_tit} = 'SMS전송내역 정보' OR
+                         #{cons_memo_tit} = '담당자 변경' 	OR
+                         #{cons_memo_tit} = '행사등록 정보' OR
+                         #{cons_memo_tit} = '증서발급 정보' OR
+                         #{cons_memo_tit} = '양도양수 정보' OR
+                         #{cons_memo_tit} = 'CMS등록' 		OR
+                         #{cons_memo_tit} = 'CMS해지' 		OR
+                         #{cons_memo_tit} = '해약취소 정보' OR
+                         #{cons_memo_tit} = '회원정보수정 정보' OR
+                         #{cons_memo_tit} = '해약수정 정보' OR
+                         #{cons_memo_tit} = '철회수정 정보' OR
+                         #{cons_memo_tit} = '무환급해약수정 정보' OR
+                         #{cons_memo_tit} = '철회등록 정보'
+                         THEN '02'
+                     ELSE '01'
+                END REG_CL
+             , #{rgsr_id}   /* 접수자 */
+            <if test="call_tel != null and call_tel != ''">
+                , #{call_tel}
+            </if>
+            <if test="rec_file != null and rec_file != ''">
+                , #{rec_file}
+            </if>
+            <if test="rec_path != null and rec_path != ''">
+                , #{rec_path}
+            </if>
+            <if test="cti_id != null and cti_id != ''">
+                , #{cti_id}
+            </if>
+             <!-- , SYSDATE, #{rgsr_id}, SYSDATE, #{amnd_id} -->
+             , NVL(TO_DATE(#{mst_reg_dm}, 'YYYY-MM-DD HH24:MI:SS'), SYSDATE)
+             , #{rgsr_id}
+             , NVL(TO_DATE(#{mst_upd_dm}, 'YYYY-MM-DD HH24:MI:SS'), SYSDATE)
+             , #{amnd_id}
+          FROM DUAL
+    </insert>
+
+    <update id="DlwConsMap.updateCons" parameterType="map">
+        UPDATE /* DlwConsMap.updateCons */
+               CNSL_MNG
+           SET CNSL_CON = #{cons_memo_tit}
+             <!-- , CNSL_DT = getdate() -->     <!-- 접수일자 -->
+             <!-- , CNSL_MAN = #{cnsl_man} -->  <!-- 접수자 -->
+             , ACCNT_NO = #{accnt_no}
+        <if test="call_tel != null and call_tel != ''">
+            , CALL_TEL = #{call_tel}
+        </if>
+        <if test="rec_path != null and rec_path != ''">
+            , REC_PATH = #{rec_path}
+        </if>
+        <if test="rec_file != null and rec_file != ''">
+            , REC_FILE = #{rec_file}
+        </if>
+        <if test="cti_id != null and cti_id != ''">
+            , CTI_ID = #{cti_id}
+        </if>
+             , UPD_MAN = #{amnd_id}
+             , UPD_DM = SYSDATE
+             , REG_CL = CASE WHEN #{cons_memo_tit} = '행사취소 정보' OR
+                                  #{cons_memo_tit} = '철회취소 정보' OR
+                                  #{cons_memo_tit} = '해약등록 정보' OR
+                                  #{cons_memo_tit} = 'SMS전송내역 정보' OR
+                                  #{cons_memo_tit} = '담당자 변경' 	OR
+                                  #{cons_memo_tit} = '행사등록 정보' OR
+                                  #{cons_memo_tit} = '증서발급 정보' OR
+                                  #{cons_memo_tit} = '양도양수 정보' OR
+                                  #{cons_memo_tit} = 'CMS등록' 		OR
+                                  #{cons_memo_tit} = 'CMS해지' 		OR
+                                  #{cons_memo_tit} = '해약취소 정보' OR
+                                  #{cons_memo_tit} = '회원정보수정 정보' OR
+                                  #{cons_memo_tit} = '해약수정 정보' OR
+                                  #{cons_memo_tit} = '철회수정 정보' OR
+                                  #{cons_memo_tit} = '무환급해약수정 정보' OR
+                                  #{cons_memo_tit} = '철회등록 정보'
+                                  THEN '02'
+                                  ELSE '01'
+                             END
+            WHERE MEM_NO = #{mem_no}
+              AND SEQ = #{seq}
+              AND CNSL_SEQ = #{cnsl_seq}
+    </update>
+
+    <insert id="DlwConsMap.insertConsDtpt" parameterType="map">
+        <!-- sql-life.xml insertConsulDetail -->
+        INSERT /* DlwConsMap.insertConsDtpt */
+          INTO CNSL_DTL
+          (
+               SEQ
+             , MEM_NO
+             , CNSL_SEQ
+             , GUBN
+             , CNSL_CD
+             , CNSL_CON
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             )
+        SELECT #{seq}
+             , #{mem_no}
+             , #{cnsl_seq}
+             , #{gubn}
+             , #{cnsl_cd}
+             , #{cons_memo_cntn}
+             , NVL(TO_DATE(#{dtpt_reg_dm}, 'YYYY-MM-DD HH24:MI:SS'), SYSDATE)
+             , #{rgsr_id}
+             , NVL(TO_DATE(#{dtpt_upd_dm}, 'YYYY-MM-DD HH24:MI:SS'), SYSDATE)
+             , #{amnd_id}
+          FROM DUAL
+    </insert>
+
+    <update id="DlwConsMap.updateConsDtpt" parameterType="map">
+        UPDATE /* DlwConsMap.updateConsDtpt */
+               CNSL_DTL
+           SET CNSL_CD = #{cnsl_cd}
+             , CNSL_CON = #{cons_memo_cntn}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{amnd_id}
+             , GUBN = #{gubn}
+         WHERE SEQ = #{seq}
+           AND MEM_NO = #{mem_no}
+           AND CNSL_SEQ = #{cnsl_seq}
+    </update>
+
+    <delete id="DlwConsMap.deleteConsDtpt" parameterType="map">
+        DELETE /* DlwConsMap.deleteConsDtpt */
+          FROM CNSL_DTL
+         WHERE MEM_NO = #{old_mem_no}
+           AND SEQ = #{old_seq}
+           AND CNSL_SEQ = #{old_cnsl_seq}
+           AND GUBN = #{old_gubn}
+    </delete>
+
+    <delete id="DlwConsMap.deleteCons" parameterType="map">
+        DELETE /* DlwConsMap.deleteCons */
+          FROM CNSL_MNG
+         WHERE MEM_NO = #{old_mem_no}
+           AND SEQ = #{old_seq}
+           AND CNSL_SEQ = #{old_cnsl_seq}
+    </delete>
+
+    <!-- 그룹코드 조회(상담관리) -->
+    <select id="DlwConsMap.getConsGrpCd" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-system.selectConsulGrpCd -->
+
+
+        SELECT /* DlwConsMap.getConsGrpCd */
+               A.*
+          FROM (SELECT CASE WHEN GRP_CD = '79' THEN 1
+                            WHEN GRP_CD = '86' THEN 2
+                            WHEN GRP_CD = '76' THEN 3
+                            WHEN GRP_CD = '80' THEN 4
+                            WHEN GRP_CD = '70' THEN 5
+                            WHEN GRP_CD = '71' THEN 6
+                            WHEN GRP_CD = '75' THEN 7
+                            WHEN GRP_CD = '110' THEN 99
+                            ELSE 90
+                        END ORDER_TURN
+                     , GRP_CD, GRP_NM, CON, REG_DM, REG_MAN
+                  FROM COM_CD_GRP
+                 WHERE CON LIKE '%상담구분%'
+                ) A
+      ORDER BY ORDER_TURN, GRP_CD
+      
+    </select>
+    
+    
+    <!--대명 홈페이지 이력 건수 -->
+        <select id="DlwConsMap.getDlwlifeweyCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwConsMap.getDlwlifeweyCount */
+               COUNT(*)
+          from MB_MEM_CHNG_PTC@DMWEB A1
+    		 LEFT OUTER JOIN  MB_MEM_MST@DMWEB B1  ON A1.ID=B1.ID
+   
+  			where   B1.UNQ_NO='2012035263'
+        <if test="mem_no != null and mem_no != ''">
+           AND B1.UNQ_NO = #{mem_no}
+        </if>
+  	  </select>
+  	  
+        <!--대명 홈페이지 이력  -->
+      <select id="DlwConsMap.getDlwlifeweyList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwConsMap.getDlwlifeweyList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(A.REG_DM DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+         FROM ( select  UNQ_NO mem_no ,  A1.reg_id REG_man  ,A1.reg_dtm REG_DM,
+			           CASE WHEN BFR_NAME <![CDATA[<>  ]]>  AFT_NAME  THEN '[회원명]:' || BFR_NAME || '>' ||  AFT_NAME ELSE '' END  || 
+			           CASE WHEN BFR_EMAIL <![CDATA[<>  ]]>  AFT_EMAIL  THEN ' [E-MAIL]:' || BFR_EMAIL || '>' ||  AFT_EMAIL ELSE '' END ||
+			           CASE WHEN BFR_HP <![CDATA[<>  ]]>  AFT_HP  THEN ' [핸드폰]:' || BFR_HP || '>' ||  AFT_HP ELSE '' END ||
+			           CASE WHEN BFR_TEL <![CDATA[<>  ]]>  AFT_TEL  THEN ' [전화]:' || BFR_TEL || '>' ||  AFT_TEL ELSE '' END ||
+			           CASE WHEN BFR_ZIPCD <![CDATA[<>  ]]>  AFT_ZIPCD  THEN ' [우편번호]:' || BFR_ZIPCD || '>' ||  AFT_ZIPCD ELSE '' END ||
+			           CASE WHEN BFR_ADR <![CDATA[<>  ]]>  AFT_ADR  THEN ' [주소]:' || BFR_ADR || '>' ||  AFT_ADR ELSE '' END ||
+			           CASE WHEN BFR_ADR_DTL <![CDATA[<>  ]]>  AFT_ADR_DTL  THEN ' [상세주소]:' || BFR_ADR_DTL || '>' ||  AFT_ADR_DTL ELSE '' END  BIGO
+			            
+               from MB_MEM_CHNG_PTC@DMWEB A1
+  						 LEFT OUTER JOIN  MB_MEM_MST@DMWEB B1  ON A1.ID=B1.ID
+                WHERE  B1.UNQ_NO= #{mem_no}
+               ) A
+    </select>
+
+</mapper>

@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EmilFxfrMap">
+
+    <sql id="EmilFxfrMap.selectCondition_fragment">
+        <where>
+            <if test="emil_fxfr_id != null and emil_fxfr_id != ''">
+                AND EMIL_FXFR_ID = #{emil_fxfr_id}
+            </if>
+            <if test="emil_fxfr_typ_cd != null and emil_fxfr_typ_cd != ''">
+                AND EMIL_FXFR_TYP_CD = #{emil_fxfr_typ_cd}
+            </if>
+            <if test="open_stat_cd != null and open_stat_cd != ''">
+                AND OPEN_STAT_CD = #{open_stat_cd}
+            </if>
+            <!-- 발신구분코드 -->
+            <if test="emil_dpms_div_cd != null and emil_dpms_div_cd != ''">
+                AND EMIL_DPMS_DIV_CD = #{emil_dpms_div_cd}
+            </if>
+            <!-- 발신구분 제외코드 -->
+            <if test="emil_dpms_div_cd_exc != null and emil_dpms_div_cd_exc != ''">
+                AND EMIL_DPMS_DIV_CD != #{emil_dpms_div_cd_exc}
+            </if>
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'emil_titl'">
+                AND EMIL_TITL LIKE '%' || #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'emil_cntn'">
+                AND EMIL_CNTN LIKE '%' || #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'both'">
+                AND (EMIL_TITL LIKE '%' || #{searchValue} || '%'
+                 OR EMIL_CNTN LIKE '%' || #{searchValue} || '%')
+                </if>
+                <if test="searchType == 'all'">
+                AND (EMIL_TITL LIKE '%' || #{searchValue} || '%'
+                 OR EMIL_CNTN LIKE '%' || #{searchValue} || '%')
+                </if>
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <!-- 통합검색 -->
+            <if test="searchWord != null and searchWord != ''">
+                AND EMIL_TITL LIKE '%' || #{searchWord} || '%'
+            </if>
+            <!-- //통합검색 -->
+        </where>
+    </sql>
+
+    <resultMap id="emilFxfrResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="emil_fxfr_id" column="emil_fxfr_id" />
+        <result property="emil_titl" column="emil_titl" />
+        <result property="open_stat_cd" column="open_stat_cd" />
+        <result property="emil_fxfr_typ_cd" column="emil_fxfr_typ_cd" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="emil_fxfr_typ_nm" column="emil_fxfr_typ_nm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_fg" column="file_fg" />
+        <result property="emil_dpms_div_nm" column="emil_dpms_div_nm" />
+    </resultMap>
+
+    <resultMap id="emilFxfrResultMapView" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="emil_fxfr_id" column="emil_fxfr_id" />
+        <result property="emil_titl" column="emil_titl" />
+        <result property="open_stat_cd" column="open_stat_cd" />
+        <result property="emil_cntn" column="emil_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="emil_html_cntn" column="emil_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="emil_fxfr_typ_cd" column="emil_fxfr_typ_cd" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="emil_fxfr_typ_nm" column="emil_fxfr_typ_nm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_fg" column="file_fg" />
+        <result property="emil_dpms_div_nm" column="emil_dpms_div_nm" />
+    </resultMap>
+
+    <select id="EmilFxfrMap.getEmilFxfrCount" parameterType="map" resultType="int">
+        SELECT /* EmilFxfrMap.getEmilFxfrCount */
+               COUNT(*)
+          FROM (
+                SELECT A.*
+                  FROM (
+                        SELECT B.*
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.RGSR_ID
+                                   AND CNTR_CD = B.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.AMND_ID
+                                   AND CNTR_CD = B.CNTR_CD) AS AMND_NM
+                          FROM TB_EMIL_FXFR_ADMN B
+                       ) A
+                <include refid="EmilFxfrMap.selectCondition_fragment" />
+               ) C
+    </select>
+
+    <select id="EmilFxfrMap.getEmilFxfrList" parameterType="map" resultMap="emilFxfrResultMap">
+        SELECT /* EmilFxfrMap.getEmilFxfrList */
+               *
+          FROM (SELECT <choose>
+                             <when test="orderBy != null and orderBy != ''">
+                               ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                               ROW_NUMBER() OVER(ORDER BY AMNT_DTTM DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                     , EMIL_FXFR_ID, EMIL_TITL, OPEN_STAT_CD, EMIL_DPMS_DIV_CD
+                     , EMIL_FXFR_TYP_CD, CNTR_CD
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, EMIL_FXFR_TYP_NM
+                     , RGSR_NM, AMND_NM, FILE_FG, EMIL_DPMS_DIV_NM
+                  FROM (SELECT EMIL_FXFR_ID, EMIL_TITL, OPEN_STAT_CD, EMIL_DPMS_DIV_CD
+                             , EMIL_CNTN, EMIL_HTML_CNTN, EMIL_FXFR_TYP_CD, CNTR_CD
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('KMS100', EMIL_FXFR_TYP_CD, B.CNTR_CD) AS EMIL_FXFR_TYP_NM
+                             , GETCODENM('KMS110', EMIL_DPMS_DIV_CD, B.CNTR_CD) AS EMIL_DPMS_DIV_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.RGSR_ID
+                                   AND CNTR_CD = B.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.AMND_ID
+                                   AND CNTR_CD = B.CNTR_CD) AS AMND_NM
+                             , CASE WHEN EXISTS (SELECT *
+                                                   FROM TB_FILE
+                                                  WHERE RLTN_ITEM_ID = B.EMIL_FXFR_ID
+                                                    AND ATCH_TYP_CD != '30') THEN 'Y'
+                                    ELSE 'N'
+                                END AS FILE_FG
+                          FROM TB_EMIL_FXFR_ADMN B
+                       ) A
+                <include refid="EmilFxfrMap.selectCondition_fragment" />
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <select id="EmilFxfrMap.getEmilFxfrView" parameterType="map" resultMap="emilFxfrResultMapView">
+        SELECT /* EmilFxfrMap.getEmilFxfrList */
+               *
+          FROM (SELECT <choose>
+                             <when test="orderBy != null and orderBy != ''">
+                               ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                               ROW_NUMBER() OVER(ORDER BY AMNT_DTTM DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                     , EMIL_FXFR_ID, EMIL_TITL, OPEN_STAT_CD, EMIL_DPMS_DIV_CD
+                     , EMIL_CNTN, EMIL_HTML_CNTN, EMIL_FXFR_TYP_CD, CNTR_CD
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, EMIL_FXFR_TYP_NM
+                     , RGSR_NM, AMND_NM, FILE_FG, EMIL_DPMS_DIV_NM
+                  FROM (SELECT EMIL_FXFR_ID, EMIL_TITL, OPEN_STAT_CD, EMIL_DPMS_DIV_CD
+                             , EMIL_CNTN, EMIL_HTML_CNTN, EMIL_FXFR_TYP_CD, CNTR_CD
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('KMS100', EMIL_FXFR_TYP_CD, B.CNTR_CD) AS EMIL_FXFR_TYP_NM
+                             , GETCODENM('KMS110', EMIL_DPMS_DIV_CD, B.CNTR_CD) AS EMIL_DPMS_DIV_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.RGSR_ID
+                                   AND CNTR_CD = B.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.AMND_ID
+                                   AND CNTR_CD = B.CNTR_CD) AS AMND_NM
+                             , CASE WHEN EXISTS (SELECT *
+                                                   FROM TB_FILE
+                                                  WHERE RLTN_ITEM_ID = B.EMIL_FXFR_ID
+                                                    AND ATCH_TYP_CD != '30') THEN 'Y'
+                                    ELSE 'N'
+                                END AS FILE_FG
+                          FROM TB_EMIL_FXFR_ADMN B
+                       ) A
+                <include refid="EmilFxfrMap.selectCondition_fragment" />
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <insert id="EmilFxfrMap.insertEmilFxfr" parameterType="map">
+        <selectKey keyProperty="emil_fxfr_id" resultType="String" order="BEFORE">
+            SELECT 'EML' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* EmilFxfrMap.insertEmilFxfr */
+                    TB_EMIL_FXFR_ADMN
+                    (EMIL_FXFR_ID, EMIL_TITL, OPEN_STAT_CD, EMIL_FXFR_TYP_CD, EMIL_DPMS_DIV_CD
+                  , EMIL_CNTN, EMIL_HTML_CNTN
+                  , CNTR_CD, RGSR_ID
+                  , RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{emil_fxfr_id}, #{emil_titl}, #{open_stat_cd}, #{emil_fxfr_typ_cd}, #{emil_dpms_div_cd}
+                  , #{emil_cntn:CLOB}, #{emil_html_cntn:CLOB}
+                  , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="EmilFxfrMap.updateEmilFxfr" parameterType="map">
+        UPDATE /* EmilFxfrMap.updateEmilFxfr */
+               TB_EMIL_FXFR_ADMN
+           SET EMIL_TITL = #{emil_titl}
+             , OPEN_STAT_CD = #{open_stat_cd}
+             , EMIL_FXFR_TYP_CD = #{emil_fxfr_typ_cd}
+             , EMIL_DPMS_DIV_CD = #{emil_dpms_div_cd}
+             , EMIL_CNTN = #{emil_cntn:CLOB}
+             , EMIL_HTML_CNTN = #{emil_html_cntn:CLOB}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE EMIL_FXFR_ID = #{emil_fxfr_id}
+    </update>
+
+    <delete id="EmilFxfrMap.deleteEmilFxfr" parameterType="map">
+        DELETE /* EmilFxfrMap.deleteEmilFxfr */
+          FROM TB_EMIL_FXFR_ADMN
+         WHERE
+        <choose>
+            <when test="emil_fxfr_id == null or emil_fxfr_id == ''">
+               EMIL_FXFR_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               EMIL_FXFR_ID = #{emil_fxfr_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+    <select id="EmilFxfrMap.getEmilFxfrDpmsDivCount" parameterType="map" resultType="int">
+        SELECT /* EmilFxfrMap.getEmilFxfrDpmsDivCount */
+               COUNT(*)
+         FROM TB_EMIL_FXFR_ADMN
+        WHERE EMIL_DPMS_DIV_CD = '20'
+          AND EMIL_FXFR_ID = #{emil_fxfr_id}
+    </select>
+
+    <select id="EmilFxfrMap.getKey" resultType="String">
+        /* EmilFxfrMap.getKey */
+        SELECT TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+    </select>
+</mapper>

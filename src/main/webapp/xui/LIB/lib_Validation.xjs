@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0">
+<![CDATA[
+
+// ========================================================================================
+// 유효성(Validation) 체크 관련 공통함수
+// function 명은 gfn_ 을 Prefix로 사용함.
+// ========================================================================================
+
+// ========================================================================================
+// 컴포넌트(Component) 유효성체크 함수
+// ========================================================================================
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getValidateCompList
+ * 입      력 : vObj
+ * 반      환 : true/false
+ * 기      능 : Validation 체크
+ *****************************************************************************************/
+function gfn_getValidateCompList(vObj)
+{
+    var arrayCompList = new Array();
+    var propType;
+    var arrRtn;
+    var nRtnStr;
+    var bEnable = false;
+
+    //arrayCompList = gfn_SortByTabOrder(vObj);
+
+    if(vObj instanceof Form
+        || vObj instanceof Div
+        || vObj instanceof Tab) {
+        arrayCompList = gfn_SortByTabOrder(vObj);
+    } else {
+        arrayCompList[0] = vObj;
+    }
+
+    for (var i = 0; i < arrayCompList.length; i++) {
+
+        // 기능추가
+        if(arrayCompList[i] instanceof Div) {
+            if(!_gfn_getValidateCompList(arrayCompList[i])) return false;
+        } else if(arrayCompList[i] instanceof Tab) {
+            var Tabpagelist = arrayCompList[i].components;
+            for(var j=0;j<Tabpagelist.length;j++)
+            {
+                if(!_gfn_getValidateCompList(Tabpagelist[j])) return false;
+            }
+        }
+
+        if(gfn_isNull(arrayCompList[i].validate)) continue;
+
+        if(!gfn_isNull(arrayCompList[i].bEnable)) {
+            bEnable = arrayCompList[i].bEnable;
+            if (bEnable == "true" || bEnable == true) {
+                bEnable = true;
+            } else {
+                bEnable = false;
+            }
+        }
+
+        // Visible = false 또는 enable = false인 경우 예외 처리
+        if(arrayCompList[i].visible == false) continue;
+        if(bEnable == false && arrayCompList[i].enable == false) continue;
+
+        arrayCompList[i].validate;
+        propType = "value";
+
+        if(arrayCompList[i] instanceof Calendar) propType = "text";
+        if(arrayCompList[i] == "Comp_MultiSelCombo") propType = "getValue";
+
+        var arrValid = arrayCompList[i].validate;
+        arrRtn = _gfn_getValidItem(arrayCompList[i], arrValid, propType);
+
+        if (arrRtn == false) {
+            var cObj = arrayCompList[i];
+
+            cObj.setFocus();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_getValidateCompList
+ * 입      력 : vObj
+ * 반      환 : true/false
+ * 기      능 :
+ *****************************************************************************************/
+function _gfn_getValidateCompList(vObj)
+{
+    var arrayCompList = new Array();
+    var propType;
+    var arrRtn;
+    var nRtnStr;
+    var bEnable = false;
+
+    arrayCompList = gfn_SortByTabOrder(vObj);
+
+    for (var i = 0; i < arrayCompList.length; i++) {
+
+        if(arrayCompList[i] instanceof Div) {
+            if(!_gfn_getValidateCompList(arrayCompList[i])) return false;
+        } else if(arrayCompList[i] instanceof Tab) {
+            var Tabpagelist = arrayCompList[i].components;
+            for(var j=0;j<Tabpagelist.length;j++)
+            {
+                if(!_gfn_getValidateCompList(Tabpagelist[j])) return false;
+            }
+        }
+
+        if(gfn_isNull(arrayCompList[i].validate)) continue;
+
+        if(!gfn_isNull(arrayCompList[i].bEnable)) {
+            bEnable = arrayCompList[i].bEnable;
+            if (bEnable == "true" || bEnable == true) {
+                bEnable = true;
+            } else {
+                bEnable = false;
+            }
+        }
+
+        // Visible = false 또는 enable = false인 경우 예외 처리
+        if(arrayCompList[i].visible == false) continue;
+        if(bEnable == false && arrayCompList[i].enable == false) continue;
+
+        arrayCompList[i].validate;
+        propType = "value";
+
+        if(arrayCompList[i] instanceof Calendar) propType = "text";
+        if(arrayCompList[i] == "Comp_MultiSelCombo") propType = "getValue";
+
+        var arrValid = arrayCompList[i].validate;
+        arrRtn = _gfn_getValidItem(arrayCompList[i], arrValid, propType);
+
+        if (arrRtn == false) {
+            var cObj = arrayCompList[i];
+
+            cObj.setFocus();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_SortByTabOrder
+ * 입      력 : oComposite
+ * 반      환 :
+ * 기      능 : composite의 전체 object를 taborder순으로 sort하여 배열로 return
+ *****************************************************************************************/
+function gfn_SortByTabOrder(oComposite)
+{
+    var aryUnsorted = [];
+    _gfn_TravelComponents(oComposite, function(comp, nLvl, owner)
+    {
+        comp._sort;
+        owner._sort;
+        if(comp.taborder == undefined) return;
+        if(nLvl == 1){
+            owner._sort = 1;
+        }
+
+        comp._sort = (owner._sort) + ((comp.taborder+1) / Math.pow(10, nLvl));
+        aryUnsorted.push(comp);
+    });
+
+    _gfn_SortArray(aryUnsorted, function(a, b){
+        return a._sort > b._sort;
+    });
+
+    return aryUnsorted;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_TravelComponents
+ * 입      력 : oOwner
+                fncCallback
+                nLvl
+ * 반      환 : void
+ * 기      능 : oOwner에 해당하는 Component를 재귀적으로 호출한다.
+ *****************************************************************************************/
+function _gfn_TravelComponents(oOwner, fncCallback, nLvl)
+{
+    if(nLvl == undefined) nLvl = 1;
+    for(var i=0,size=oOwner.components.length; i<size; i++){
+        var oComp = oOwner.components[i];
+        fncCallback(oComp, nLvl, oOwner);
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_SortArray
+ * 입      력 : a          : Component Array
+                fncCompare : 정렬기준
+ * 반      환 : object array
+ * 기      능 : a에 해당하는 component들을 fncCompare 순으로 Sort 한다.
+ *****************************************************************************************/
+function _gfn_SortArray(a, fncCompare)
+{
+    for (var i = 1; i < a.length; i++) {
+        var j = i;
+        var tmp = a[i];
+
+        while ((j > 0) && fncCompare(a[j - 1], tmp)) {
+            a[j] = a[j - 1];
+            j--;
+        }
+
+        a[j] = tmp;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_getValidItem
+ * 입      력 : vObj    : 체크 대상 Object
+                strVal  : Check 항목(","로 구분)
+                strProp : Object 속성 확인(value/text)
+ * 반      환 : N/A
+ * 기      능 : Validation 체크 Component 추출.
+ *****************************************************************************************/
+function _gfn_getValidItem(vObj, strVal, strProp)
+{
+    var strObjVal;
+    var arrValid = strVal.split(",");
+    if(arrValid.length < 2) return;
+
+    var arrItem = arrValid[0].split(":");
+    var strItem = arrItem[1];
+
+    if (strProp == "value") {
+        strObjVal = vObj.value;
+    } else if(strProp == "getValue") {
+        strObjVal = vObj.getValue();
+    } else {
+        strObjVal = String(vObj.text).replace("-", "");
+        strObjVal = String(strObjVal).replace("-", "");
+    }
+
+    for (var j=1; j<arrValid.length; j++) {
+        rtnVal = _gfn_procValidationChk(strObjVal, arrValid[j], strItem, vObj);
+
+        if (rtnVal == "SKIP") {
+            vObj.value = null;
+            return true;
+        } else if (rtnVal != true) {
+            alert(rtnVal);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_procValidationChk
+ * 입      력 : strObjValue : Validation 체크 Value
+                strVal      : Validation 항목
+                strTitle    : Message 출력용 Object Name
+                strObj
+ * 반      환 : true/strin(Message)
+ * 기      능 : Check 항목에 대한 Object의 Value 확인.
+ *****************************************************************************************/
+function _gfn_procValidationChk(strObjValue, strVal, strTitle, strObj)
+{
+    var rtnVal = true;
+    var strMsg = "";
+    var arrValid = strVal.split(":");
+    var strCompareTitle;
+    var strObjVal = gfn_trim(strObjValue);
+
+    switch( arrValid[0] )
+    {
+        case "required" :
+            if (gfn_isNull(gfn_trim(strObjVal))) {
+                if (arrValid[1] == "false") {
+                    rtnVal = "SKIP";
+                } else {
+                    rtnVal = strTitle + "은(는) 필수입력 항목입니다";
+                }
+            }
+            break;
+
+        case "digits" :
+            if (! gfn_isNum(strObjVal)) {
+                rtnVal = strTitle + "은(는) 숫자 입력 항목입니다.";
+            }
+            break;
+
+         case "date":
+            if (!gfn_isNull(gfn_trim(strObjVal, ""))) {
+                if (!gfn_isDate(strObjVal)) {
+                    rtnVal = strTitle + "은(는) Date 입력 항목입니다.";
+                }
+            }
+            break;
+
+        case "dateym" :
+            if (!gfn_isNull(gfn_trim(strObjVal, ""))) {
+                if (!gfn_isDate(strObjVal + "01")) {
+                    rtnVal = strTitle + "은(는) 년월 입력 항목입니다.";
+                }
+            }
+            break;
+
+        case "jumin" :
+            if (! gfn_isSSN(strObjVal)) {
+                rtnVal = strTitle + " 형식이 잘못되었습니다.";
+            }
+            break;
+
+        case "max" :
+            if (parseInt(strObjVal) > parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 값의 최대값은 " + arrValid[1] + "입니다.";
+            }
+            break;
+
+        case "min" :
+            if (parseInt(strObjVal) < parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 값의 최소값은 " + arrValid[1] + "입니다.";
+            }
+            break;
+
+        case "maxlength" :
+            if (strObjVal.length > parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 최대 길이는 " + arrValid[1] + "입니다.";
+            }
+            break;
+
+        case "minlength" :
+            if (strObjVal.length < parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 최소 길이는 " + arrValid[1] + "입니다.";
+            }
+            break;
+
+        case "maxlengthB" :
+            if (gfn_lenB(strObjVal) > parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 최대 길이는 " + arrValid[1] + "입니다.\n(한글 3Byte, 영문/숫자 1Byte)";
+            }
+            break;
+
+        case "minlengthB" :
+            if (gfn_lenB(strObjVal) < parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 최소 길이는 " + arrValid[1] + "입니다.\n(한글 3Byte, 영문/숫자 1Byte)";
+            }
+            break;
+
+        case "equallen" :
+            if (strObjVal.length != parseInt(arrValid[1])) {
+                rtnVal = strTitle + " 길이는 " + arrValid[1] + "입니다.";
+            }
+            break;
+
+        case "comparemax" :
+            if (parseInt(String(strObjVal).replace("-", "")) < parseInt(eval(arrValid[1]).value)) {
+                rtnVal = strTitle + "이(가) " + arrValid[2] + " 보다 작습니다.";
+            }
+            break;
+
+        case "comparemin" :
+            if (parseInt(String(strObjVal).replace("-", "")) > parseInt(eval(arrValid[1]).value)) {
+                rtnVal = strTitle + "이(가) " + arrValid[2] + " 보다 큽니다.";
+            }
+            break;
+
+        case "equalto" :
+            if (strObjVal != eval(arrValid[1]).value) {
+                rtnVal = strTitle + "은(는) " + arrValid[2] + "와(과) 틀립니다.";
+            }
+            break;
+
+        case "range" :
+            if (parseInt(strObjVal) < parseInt(arrValid[1]) || parseInt(strObjVal) > parseInt(arrValid[2])) {
+                rtnVal = strTitle + "은(는) " + arrValid[1] + " ~ " + arrValid[2] + " 사이의 값입니다.";
+            }
+            break;
+
+         case "function" :
+
+            rtnVal = eval(arrValid[1] + "(strObj)");
+            break;
+
+         default :
+             rtnVal = strObj.name + " 컴포넌트의  Validation 구분이 명확하지 않습니다.";
+            break;
+    }
+
+    return rtnVal;
+}
+
+
+// ========================================================================================
+// 그리드 유효성체크 함수
+// ========================================================================================
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_dsValidCheck
+ * 입      력 : objGrd     : Validation 체크 대상 Grid
+                objDsValid : Validation 체크
+ * 반      환 : true/false
+ * 기      능 : Check 항목에 대한 Object의 Value 확인.
+ *****************************************************************************************/
+function gfn_dsValidCheck(objGrd, objDsValid)
+{
+    var dsObj = this.all[objGrd.binddataset];
+    var nRowCnt = dsObj.getRowCount();
+    var nColCnt = objDsValid.getColCount();
+    var nDsObjColIdx = -1;
+    var sFirstColID = String(objGrd.getCellProperty("body", 0, "text")).replace("bind:", "");
+
+    for (var i=0;i<nRowCnt;i++) {
+        for (var j=0;j<nColCnt;j++) {
+            // Row Type이 insert(2), update(4)일 경우에만
+            //if (dsObj.getRowType(i) == 2 || dsObj.getRowType(i) == 4) {
+            if (dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeInsert() || dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeUpdate()) {
+                // 필수입력항목이면
+
+                for (var k = 0; k < dsObj.getColCount(); k++) {
+                    if (objDsValid.getColID(j) == dsObj.getColID(k)) {
+                        nDsObjColIdx = k;
+                        break;
+                    }
+                }
+
+                var rtnVal = _gfn_itemCheck(i, nDsObjColIdx, objGrd, dsObj, objDsValid);
+
+                if (rtnVal != true) {
+                    alert(rtnVal);
+                    dsObj.rowposition = i;
+
+                    if (objDsValid.getColumn(0, dsObj.getColID(nDsObjColIdx)).indexOf("focus") == -1) {
+                        objGrd.setCellPos(objGrd.getBindCellIndex("Body",dsObj.getColID(nDsObjColIdx)));
+                        objGrd.setFocus();
+                    } else {
+                        var arrItem1 = objDsValid.getColumn(0,dsObj.getColID(nDsObjColIdx)).split(",");
+                        var arrItem2 = new Array();
+                        for (var i=0;i<arrItem1.length;i++) {
+                            arrItem2 = arrItem1[i].split(":");
+                            if (arrItem2[0] == "focus") {
+                                eval(arrItem2[1]).setFocus();
+                                return;
+                            }
+                        }
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_itemCheck
+ * 입      력 : rowPos     : Check Dataset의 Row Position
+                colIdx     : Check Dataset의 Row Column
+                objGrd     : Check 대상 Grid Object
+                dsObj      : Grid Binding Dataset
+                objDsValid : Check Info Dataset
+ * 반      환 : true/false
+ * 기      능 :
+ *****************************************************************************************/
+function _gfn_itemCheck(rowPos, colIdx, objGrd, dsObj, objDsValid) {
+    var arrItem = new Array();
+    var arrItem2 = new Array();
+    var strColNm = dsObj.getColID(colIdx);
+    var strCol = objDsValid.getColumn(0, strColNm);//dsGrid00.getColumn(0,j);
+
+    if (gfn_isNull(strCol)) {
+        return true;
+    }
+
+    arrItem = strCol.split(",");
+    var value = dsObj.getColumn(rowPos, colIdx);
+    var rtnVal;
+
+    for (var k=0;k<arrItem.length;k++) {
+        //trace("item value : "+arrItem[k]);
+        rtnVal = _gfn_ItemValueCheck(rowPos, arrItem[k], value, dsObj, colIdx, objGrd);
+        if ( rtnVal == true ) {
+            continue;
+        } else if (rtnVal == "SKIP") {
+            if (gfn_isNull(value)) {
+                return true;
+            } else {
+                continue;
+            }
+
+        } else {
+            return rtnVal;
+        }
+
+    }//end for
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_ItemValueCheck
+ * 입      력 : rowPos    : Check Dataset의 Row Position
+                Value     : Validation Check 항목
+                itemValue : 체크 대상 Vlaue
+                objDs     : Grid Binding Dataset
+                colIdx
+                objGrd
+ * 반      환 : true/false
+ * 기      능 :
+ *****************************************************************************************/
+function _gfn_ItemValueCheck(rowPos, Value, itemValue, objDs, colIdx, objGrd) {
+    var arrItem2 = new Array();
+    var rtnVal = true;
+    arrItem2 = Value.split(":");
+
+    switch (arrItem2[0]) {
+        case "title":
+            strTitle = arrItem2[1];
+        break;
+        case "required":
+            //필수입력항목 여부
+            if (arrItem2[1] == "true") {
+                if (gfn_isNull(gfn_trim(itemValue))) {
+                    rtnVal = strTitle + "은(는) 필수입력 항목입니다";
+                }
+            } else {
+                return "SKIP";
+            }
+        break;
+        case "digits":
+            if (!gfn_isNum(itemValue)) {
+                rtnVal = strTitle + "은(는) 숫자 입력 항목입니다.";
+            }
+        break;
+        case "date":
+            if (!gfn_isNull(gfn_trim(itemValue, ""))) {
+                if (!gfn_isDate(itemValue)) {
+                    rtnVal = strTitle + "은(는) Date 입력 항목입니다.";
+                }
+            }
+        break;
+        case "dateym" :
+            if (!gfn_isNull(gfn_trim(itemValue, ""))) {
+                if (!gfn_isDate(itemValue + "01")) {
+                    rtnVal = strTitle + "은(는) 년월 입력 항목입니다.";
+                }
+            }
+        break;
+        case "jumin" :
+            if (! gfn_isSSN(itemValue)) {
+                rtnVal = strTitle + " 형식이 잘못되었습니다.";
+            }
+        break;
+        case "max":
+            if (parseFloat(itemValue) > parseFloat(arrItem2[1])) {
+                rtnVal = strTitle + " 값의 최대값은 " + arrItem2[1] + "입니다.";
+            }
+        break;
+        case "min":
+            if (parseFloat(itemValue) < parseFloat(arrItem2[1])) {
+                rtnVal = strTitle + " 값의 최소값은 " + arrItem2[1] + "입니다.";
+            }
+        break;
+        case "maxlength":
+            if (!gfn_isNull(itemValue)) {
+                if (itemValue.length > parseInt(arrItem2[1])) {
+                    rtnVal = strTitle +  " 은(는) 최대 "+arrItem2[1]+"자리입니다";
+                }
+            }
+        break;
+        case "minlength":
+            if (!gfn_isNull(itemValue)) {
+                if (itemValue.length < parseInt(arrItem2[1])) {
+                    rtnVal = strTitle +  " 은(는) 최소 "+arrItem2[1]+"자리입니다";
+                }
+            }
+        break;
+        case "maxlengthB" :
+            if (gfn_lenB(itemValue) > parseInt(arrItem2[1])) {
+                rtnVal = strTitle + " 최대 길이는 " + arrItem2[1] + "입니다.\n(한글 3Byte, 영문/숫자 1Byte)";
+            }
+            break;
+
+        case "minlengthB" :
+            if (gfn_lenB(itemValue) < parseInt(arrItem2[1])) {
+                rtnVal = strTitle + " 최소 길이는 " + arrItem2[1] + "입니다.\n(한글 3Byte, 영문/숫자 1Byte)";
+            }
+            break;
+        case "equallen" :
+            if (itemValue.length != parseInt( arrItem2[1])) {
+                rtnVal = strTitle + " 길이는 " + arrItem2[1] + "자리로 구성되어야 합니다.";
+            }
+            break;
+         default:
+        case "comparemax":
+            if (parseFloat(itemValue) < parseFloat(objDs.getColumn(rowPos, arrItem2[1]))) {
+                rtnVal = strTitle + "이(가) " + arrItem2[2] + " 보다 작습니다.";
+            }
+        break;
+        case "comparemin" :
+            if (parseFloat(itemValue) > parseFloat(objDs.getColumn(rowPos, arrItem2[1]))) {
+                rtnVal = strTitle + "이(가) " + arrItem2[2] + " 보다 큽니다.";
+            }
+        break;
+        case "equalto" :
+            if (parseInt(itemValue) != parseInt(objDs.getColumn(rowPos, arrItem2[1]))) {
+                rtnVal = strTitle + "은(는) " + arrItem2[2] + "와(과) 틀립니다.";
+            }
+        break;
+        case "range" :
+            if (parseInt(itemValue) < parseInt(arrItem2[1]) || parseInt(itemValue) > parseInt(arrItem2[2])) {
+                rtnVal = strTitle + "은(는) " + arrItem2[1] + " ~ " + arrItem2[2] + " 사이의 값입니다.";
+            }
+        break;
+
+        return rtnVal;
+        break;
+    }//end switch
+
+    return rtnVal;
+}
+
+]]></Script>

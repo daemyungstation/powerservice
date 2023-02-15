@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CmpgAlctMap">
+
+    <sql id="CmpgAlctMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND CNSR_ID = #{user_id}
+            </if>
+            <if test="periodfg != null and periodfg.equalsIgnoreCase('Y')">
+                AND EXISTS (SELECT 'Y'
+                               FROM TB_CMPG_BASI
+                              WHERE CMPG_ID = A.CMPG_ID
+                                AND SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 1, 8) BETWEEN CMPG_STT_DT AND CMPG_END_DT
+                            )
+            </if>
+            <if test="cmpg_prgr_stat_cd != null and cmpg_prgr_stat_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                               FROM TB_CMPG_BASI
+                              WHERE CMPG_ID = A.CMPG_ID
+                                AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+                            )
+            </if>
+        </where>
+    </sql>
+
+    <select id="CmpgAlctMap.getChkAlct" parameterType="map" resultType="int">
+        SELECT /* CmpgAlctMap.getChkAlct */
+               COUNT(*)
+          FROM TB_CMPG_ALCT_DTL
+         WHERE CMPG_ID = #{cmpg_id}
+           AND SUB_TRGT_LIST_ID  = #{sub_trgt_list_id}
+           AND CNSR_ID = #{cnsr_id}
+    </select>
+
+       <select id="CmpgAlctMap.getMainCmpgAlctList" parameterType="map" resultType="resultMap">
+          SELECT /* cmpgmap.getMainCmpgAlctList */ DISTINCT A.CMPG_ID, A.CMPG_NM, A.TRGT_LIST_ID
+                , A.CMPG_TYP_CD , A.CMPG_DIV_CD
+                , CASE WHEN (SELECT COUNT(*)
+                               FROM TB_SUB_TRGT_LIST_DTL TS
+                          LEFT JOIN TB_CMPG_ALCT_DTL TC
+                                 ON TC.SUB_TRGT_LIST_ID = TS.SUB_TRGT_LIST_ID
+                              WHERE CNSR_ID = #{cnsr_id}
+                                AND TS.TRGT_LIST_ID = A.TRGT_LIST_ID ) = 1
+                       THEN 'Y' ELSE 'N' END AS SETTING_FG
+            FROM TB_CMPG_BASI A, TB_CMPG_ALCT_DTL B
+           WHERE A.CNTR_CD = #{cntr_cd}
+             AND B.CNSR_ID   = #{cnsr_id}
+             AND A.CMPG_ID = B.CMPG_ID
+      <![CDATA[
+             AND A.CMPG_STT_DT <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND A.CMPG_END_DT >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND A.CMPG_PRGR_STAT_CD = '20'
+          ]]>
+    </select>
+
+
+     <!-- 사용 -->
+    <select id="CmpgAlctMap.getCmpgAlctCount" parameterType="map" resultType="int">
+        SELECT /* CmpgAlctMap.getCmpgAlctCount */
+               COUNT(*)
+          FROM TB_CMPG_ALCT_DTL A
+        <include refid="CmpgAlctMap.selectCondition_fragment"/>
+    </select>
+
+    <!-- 사용 -->
+    <select id="CmpgAlctMap.getCmpgAlctList" parameterType="map" resultType="resultMap">
+        SELECT /* CmpgAlctMap.getCmpgAlctList */
+             C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, A.*
+                  FROM (SELECT A.CMPG_ID
+                             , (SELECT CMPG_NM FROM TB_CMPG_BASI WHERE CMPG_ID = A.CMPG_ID) AS CMPG_NM
+                             , (SELECT TRGT_LIST_ID FROM TB_CMPG_BASI WHERE CMPG_ID = A.CMPG_ID) AS TRGT_LIST_ID
+                             , (SELECT CMPG_STT_DT FROM TB_CMPG_BASI WHERE CMPG_ID = A.CMPG_ID) AS CMPG_STT_DT
+                             , (SELECT CMPG_END_DT FROM TB_CMPG_BASI WHERE CMPG_ID = A.CMPG_ID) AS CMPG_END_DT
+                             , A.CNSR_ID, A.CNTR_CD, SETTING_FG
+                             , NVL(B.ASSIGNNUM, 0) AS ASSIGNNUM
+                             , NVL(B.ST10, 0) AS ST10
+                             , NVL(B.ST20, 0) AS ST20
+                             , NVL(B.ST30, 0) AS ST30
+                             , NVL(B.ST50, 0) AS ST50
+                             , C.USER_NM, C.TEAM_CD, D.TEAM_NM
+                             , A.SUB_TRGT_LIST_ID
+                          FROM (SELECT *
+                                  FROM TB_CMPG_ALCT_DTL A
+                              <include refid="CmpgAlctMap.selectCondition_fragment"/>
+                               ) A LEFT JOIN
+                               (SELECT CMPG_ID, CNSR_ID, CNTR_CD, SUB_TRGT_LIST_ID, SETTING_FG
+                                     , SUM(ST10) AS ST10
+                                     , SUM(ST20) AS ST20
+                                     , SUM(ST30) AS ST30
+                                     , SUM(ST50) AS ST50
+                                     , SUM(ST10+ST20+ST30) AS ASSIGNNUM
+                                  FROM (SELECT A.CMPG_ID, A.CNSR_ID, A.CNTR_CD, A.SUB_TRGT_LIST_ID
+                                             , CASE WHEN DPMS_STAT_CD='10' THEN 1 ELSE 0 END AS ST10
+                                             , CASE WHEN DPMS_STAT_CD='20' THEN 1 ELSE 0 END AS ST20
+                                             , CASE WHEN DPMS_STAT_CD='30' OR DPMS_STAT_CD='40' THEN 1 ELSE 0 END AS ST30
+                                             , CASE WHEN (DPMS_STAT_CD='30' OR DPMS_STAT_CD='40') AND SUBSTR(TO_CHAR(A.DPMS_DTTM, 'YYYYMMDDHH24MISS'), 1, 8) = SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 1, 8) THEN 1 ELSE 0 END AS ST50
+                                             , CASE WHEN (SELECT COUNT(*) FROM TB_SUB_TRGT_LIST_DTL WHERE TRGT_LIST_ID  = A.TRGT_LIST_ID) = 1 THEN 'Y' ELSE 'N' END AS SETTING_FG
+                                          FROM (SELECT *
+                                                  FROM TB_TRGT_CUST_ALCT A
+                                              <include refid="CmpgAlctMap.selectCondition_fragment"/>
+                                               )A
+                                        ) B
+                                 GROUP BY CMPG_ID, CNSR_ID, CNTR_CD, SUB_TRGT_LIST_ID, SETTING_FG
+                               ) B
+                                       ON B.CMPG_ID = A.CMPG_ID AND B.CNSR_ID = A.CNSR_ID AND B.CNTR_CD = A.CNTR_CD
+                                LEFT JOIN TB_USER C ON C.USER_ID = A.CNSR_ID AND C.CNTR_CD = A.CNTR_CD
+                                LEFT JOIN TB_CONS_TEAM D ON D.TEAM_CD = C.TEAM_CD AND D.CNTR_CD = C.CNTR_CD
+                       ) A
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </when>
+                        <otherwise>
+                            ORDER BY TEAM_CD ASC, USER_NM ASC
+                        </otherwise>
+                    </choose>
+                ) C
+    </select>
+
+
+    <!-- <insert id="CmpgAlctMap.insertAlct" parameterType="map">
+        INSERT ALL /* CmpgAlctMap.insertAlct */
+              INTO TB_CMPG_ALCT_DTL
+                   (CMPG_ID, CNSR_ID, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+            VALUES (#{cmpg_id}, #{user_id}, #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+        SELECT * FROM DUAL
+    </insert> -->
+
+    <insert id="CmpgAlctMap.insertCmpgAlct" parameterType="map">
+        MERGE INTO /* CmpgAlctMap.insertCmpgAlct */
+         TB_CMPG_ALCT_DTL A
+                   USING (SELECT #{cmpg_id} AS CMPG_ID
+                                , #{cnsr_id} AS CNSR_ID
+                                , #{sub_trgt_list_id} AS SUB_TRGT_LIST_ID
+                          FROM DUAL) B
+                       ON (A.CMPG_ID = B.CMPG_ID
+                           AND A.CNSR_ID = B.CNSR_ID
+                           AND A.SUB_TRGT_LIST_ID = B.SUB_TRGT_LIST_ID)
+            WHEN MATCHED THEN
+                   UPDATE SET AMND_ID = #{amnd_id}
+                            , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             WHEN NOT MATCHED THEN
+                       INSERT (CNTR_CD, CMPG_ID, CNSR_ID, SUB_TRGT_LIST_ID, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+                       VALUES (#{cntr_cd}, #{cmpg_id}, #{cnsr_id}, #{sub_trgt_list_id}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <delete id="CmpgAlctMap.deleteCmpgAlct" parameterType="map">
+        DELETE /* CmpgAlctMap.deleteCmpgAlct */
+          FROM TB_CMPG_ALCT_DTL
+         WHERE CMPG_ID = #{cmpg_id}
+           AND CNSR_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+           AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+    </delete>
+
+    <delete id="CmpgAlctMap.deleteCmpgAlctbyCmpgId" parameterType="map">
+        DELETE /* CmpgAlctMap.deleteCmpgAlctbyCmpgId */
+          FROM TB_CMPG_ALCT_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND CMPG_ID = #{cmpg_id}
+    </delete>
+
+    <select id="CmpgAlctMap.getCmpgAlctUser" parameterType="map" resultType="resultMap">
+        SELECT /* CmpgAlctMap.getCmpgAlctUser */
+               CNSR_ID
+          FROM TB_CMPG_ALCT_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND CMPG_ID = #{cmpg_id}
+    </select>
+
+<!--
+    <update id="CmpgAlctMap.updateCmpgAlct" parameterType="map">
+        UPDATE /* CmpgAlctMap.updateCmpgAlct */
+               TB_CMPG_ALCT_DTL
+           SET ASSIGNNUM = #{assignnum}
+         WHERE CMPG_ID = #{cmpg_id}
+           AND CNSR_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+ -->
+</mapper>

@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="BizBasiMap">
+
+    <sql id="BizBasiMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="biz_id != null and biz_id != ''">
+                AND BIZ_ID = #{biz_id}
+            </if>
+            <if test="comp_id != null and comp_id != ''">
+                AND COMP_ID = #{comp_id}
+            </if>
+            <if test="biz_prgr_step_cd != null and biz_prgr_step_cd != ''">
+                AND BIZ_PRGR_STEP_CD = #{biz_prgr_step_cd}
+            </if>
+            <if test="biz_nm != null and biz_nm != ''">
+                AND BIZ_NM LIKE '%' || #{biz_nm} || '%'
+            </if>
+            <if test="mine_flag != null and mine_flag != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_CNCR_BIZ_DTL
+                             WHERE BIZ_ID = A.BIZ_ID
+                               AND USER_ID = #{user_id})
+            </if>
+
+
+        </where>
+    </sql>
+
+    <select id="BizBasiMap.getBizBasiCount" parameterType="map" resultType="int">
+        SELECT	/* BizBasiMap.getBizBasiCount */
+                COUNT(*)
+          FROM (SELECT B.*
+                        , (SELECT USER_NM FROM TB_USER WHERE USER_ID = B.SLOP_RPPR_ID ) AS SLOP_RPPR_NM
+                        , (SELECT MAX(SLOP_ACTV_DT) FROM TB_SLOP_ACTV_RPRG_DTL WHERE BIZ_ID = B.BIZ_ID) AS SLOP_ACTV_DT
+                  FROM (SELECT A.* ,(SELECT COMP_CONM_NM FROM TB_COMP_BASI WHERE COMP_ID = A.COMP_ID  ) AS COMP_NM
+                          FROM TB_BIZ_BASI A
+                          <include refid="BizBasiMap.selectCondition_fragment"/>
+                ) B
+                <where>
+                    <if test="comp_nm != null and comp_nm != ''">
+                        AND COMP_NM LIKE '%' || #{comp_nm} || '%'
+                    </if>
+                </where>
+            )C
+        <where>
+            <if test="slop_rppr_nm != null and slop_rppr_nm != ''">
+                AND SLOP_RPPR_NM LIKE '%' || #{slop_rppr_nm} || '%'
+            </if>
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+               AND SLOP_ACTV_DT BETWEEN REPLACE(#{startd}, '-', '') AND REPLACE(#{endd}, '-', '')
+            </if>
+        </where>
+    </select>
+
+    <select id="BizBasiMap.getBizBasiList" parameterType="map" resultType="resultMap">
+        SELECT /* BizBasiMap.getBizBasiList */ *
+          FROM ( SELECT ROWNUM AS PAGE_INDX , C.*
+                   FROM (SELECT BIZ_ID, COMP_ID, BIZ_NM, BIZ_PRGR_STEP_CD, BIZ_STT_DT
+                                , BIZ_END_DT, EXPC_OBOR_DT, EXPC_SLS_AMT, EXPC_PURC_AMT, BIZ_OBOR_PRBA
+                                , INSD_MNLY_INSR_NMPR_CNT, EXTL_MNLY_INSR_NMPR_CNT, BZDP_TEAM_CD, SLOP_RPPR_ID, BIZ_EXPI_CNTN
+                                , RAL_SLS_AMT, RAL_PURC_AMT, RAL_OBOR_DT, RGSR_ID, RGSN_DTTM
+                                , AMND_ID, AMNT_DTTM, CNTR_CD
+                              , (SELECT COMP_CONM_NM FROM TB_COMP_BASI WHERE COMP_ID = B.COMP_ID  ) AS COMP_NM
+                              , GETCODENM('PMS210', BIZ_PRGR_STEP_CD, CNTR_CD) AS BIZ_PRGR_STEP_NM
+                              , (SELECT TEAM_NM
+                                   FROM TB_CONS_TEAM
+                                  WHERE TEAM_CD = B.BZDP_TEAM_CD
+                                  AND CNTR_CD = B.CNTR_CD) AS BZDP_TEAM_NM
+                              , (SELECT USER_NM FROM TB_USER
+                                     WHERE USER_ID = B.SLOP_RPPR_ID ) AS SLOP_RPPR_NM
+                              , (SELECT MAX(SLOP_ACTV_DT) FROM TB_SLOP_ACTV_RPRG_DTL
+                                    WHERE BIZ_ID = B.BIZ_ID) AS SLOP_ACTV_DT
+                              , (SELECT USER_NM
+                                   FROM TB_USER
+                                  WHERE USER_ID = B.RGSR_ID
+                                    AND CNTR_CD = B.CNTR_CD) AS RGSR_NM
+                              , (SELECT USER_NM
+                                   FROM TB_USER
+                                  WHERE USER_ID = B.AMND_ID
+                                    AND CNTR_CD = B.CNTR_CD) AS AMND_NM
+                           FROM (SELECT BIZ_ID, COMP_ID, BIZ_NM, BIZ_PRGR_STEP_CD, BIZ_STT_DT
+                                      , BIZ_END_DT, EXPC_OBOR_DT, BIZ_OBOR_PRBA
+                                      , INSD_MNLY_INSR_NMPR_CNT, EXTL_MNLY_INSR_NMPR_CNT, BZDP_TEAM_CD, SLOP_RPPR_ID, BIZ_EXPI_CNTN
+                                      , RAL_OBOR_DT, RGSR_ID, RGSN_DTTM , AMND_ID, AMNT_DTTM, CNTR_CD
+                                      , TO_CHAR(A.RAL_SLS_AMT,'9,999,999,999') AS RAL_SLS_AMT
+                                      , TO_CHAR(A.RAL_PURC_AMT,'9,999,999,999') AS RAL_PURC_AMT
+                                      , TO_CHAR(A.EXPC_SLS_AMT,'9,999,999,999') AS EXPC_SLS_AMT
+                                      , TO_CHAR(A.EXPC_PURC_AMT,'9,999,999,999') AS EXPC_PURC_AMT
+
+                                   FROM TB_BIZ_BASI A
+                            <include refid="BizBasiMap.selectCondition_fragment"/>
+                                ) B
+                        <if test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                           ) C
+            <where>
+                <if test="comp_nm != null and comp_nm != ''">
+                    AND COMP_NM LIKE '%' || #{comp_nm} || '%'
+                </if>
+                <if test="slop_rppr_nm != null and slop_rppr_nm != ''">
+                    AND SLOP_RPPR_NM LIKE '%' || #{slop_rppr_nm} || '%'
+                </if>
+                <if test="startd != null and startd != '' and endd != null and endd != ''">
+                   AND SLOP_ACTV_DT BETWEEN REPLACE(#{startd}, '-', '') AND REPLACE(#{endd}, '-', '')
+                </if>
+            </where>
+                ) D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+            </if>
+    </select>
+
+    <insert id="BizBasiMap.insertBizBasi" parameterType="map">
+        <selectKey keyProperty="biz_id" resultType="String" order="BEFORE">
+            SELECT 'BIZ' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* BizBasiMap.insertBizBasi */
+                    TB_BIZ_BASI
+                    ( BIZ_ID, COMP_ID, BIZ_NM, BIZ_PRGR_STEP_CD, BIZ_STT_DT
+                    , BIZ_END_DT, EXPC_OBOR_DT, EXPC_SLS_AMT, EXPC_PURC_AMT, BIZ_OBOR_PRBA
+                    , INSD_MNLY_INSR_NMPR_CNT, EXTL_MNLY_INSR_NMPR_CNT, BZDP_TEAM_CD, SLOP_RPPR_ID, BIZ_EXPI_CNTN
+                    , RAL_SLS_AMT, RAL_PURC_AMT, RAL_OBOR_DT, RGSR_ID, RGSN_DTTM
+                    , AMND_ID, AMNT_DTTM, CNTR_CD)
+             VALUES ( #{biz_id}, #{comp_id}, #{biz_nm}, #{biz_prgr_step_cd}, #{biz_stt_dt}
+                    , #{biz_end_dt}, #{expc_obor_dt}, REPLACE(#{expc_sls_amt},',',''), REPLACE(#{expc_purc_amt},',',''), #{biz_obor_prba}
+                    , #{insd_mnly_insr_nmpr_cnt}, #{extl_mnly_insr_nmpr_cnt}, #{bzdp_team_cd}, #{slop_rppr_id}, #{biz_expi_cntn}
+                    , REPLACE(#{ral_sls_amt},',',''), REPLACE(#{ral_purc_amt},',',''), #{ral_obor_dt}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                    , #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cntr_cd})
+    </insert>
+
+    <update id="BizBasiMap.updateBizBasi" parameterType="map">
+        UPDATE /* BizBasiMap.updateBizBasi */
+               TB_BIZ_BASI
+           SET COMP_ID = #{comp_id}
+             , BIZ_NM = #{biz_nm}
+             , BIZ_PRGR_STEP_CD = #{biz_prgr_step_cd}
+             , BIZ_STT_DT = #{biz_stt_dt}
+             , BIZ_END_DT = #{biz_end_dt}
+             , EXPC_OBOR_DT = #{expc_obor_dt}
+             , EXPC_SLS_AMT = REPLACE(#{expc_sls_amt},',','')
+             , EXPC_PURC_AMT = REPLACE(#{expc_purc_amt},',','')
+             , BIZ_OBOR_PRBA = #{biz_obor_prba}
+             , INSD_MNLY_INSR_NMPR_CNT = #{insd_mnly_insr_nmpr_cnt}
+             , EXTL_MNLY_INSR_NMPR_CNT = #{extl_mnly_insr_nmpr_cnt}
+             , BZDP_TEAM_CD = #{bzdp_team_cd}
+             , SLOP_RPPR_ID = #{slop_rppr_id}
+             , BIZ_EXPI_CNTN = #{biz_expi_cntn}
+             , RAL_SLS_AMT = REPLACE(#{ral_sls_amt},',','')
+             , RAL_PURC_AMT = REPLACE(#{ral_purc_amt},',','')
+             , RAL_OBOR_DT = #{ral_obor_dt}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE BIZ_ID = #{biz_id}
+    </update>
+
+    <select id="BizBasiMap.checkInfoCnt" parameterType="map" resultType="int">
+        SELECT /* BizBasiMap.checkInfoCnt */
+                SUM(CNT) AS TOTAL
+          FROM (SELECT COUNT(*) AS CNT
+                  FROM TB_CPRT_COMP_CHPR_DTL
+                 WHERE BIZ_ID = #{biz_id}
+
+                UNION ALL
+
+                SELECT COUNT(*) AS CNT
+                 FROM TB_CSCO_CHPR_DTL
+                WHERE BIZ_ID = #{biz_id}
+
+                UNION ALL
+
+                SELECT COUNT(*) AS CNT
+                  FROM TB_SLOP_ISS_DTL
+                 WHERE BIZ_ID = #{biz_id}
+
+                UNION ALL
+
+                SELECT COUNT(*) AS CNT
+                  FROM TB_SLOP_ACTV_RPRG_DTL
+                 WHERE BIZ_ID = #{biz_id} )
+    </select>
+
+    <delete id="BizBasiMap.deleteBizBasi" parameterType="map">
+        DELETE /* BizBasiMap.deleteBizBasi */
+          FROM TB_BIZ_BASI
+         WHERE BIZ_ID = #{biz_id}
+    </delete>
+
+    <insert id="BizBasiMap.insertBizBasiHstr" parameterType="map">
+        INSERT /* BizBasiMap.insertBizBasiHstr */
+          INTO TB_BIZ_BASI_HSTR
+               (CHNG_DTTM
+             , BIZ_ID, COMP_ID, BIZ_NM, BIZ_PRGR_STEP_CD, BIZ_STT_DT
+             , BIZ_END_DT, EXPC_OBOR_DT, EXPC_SLS_AMT, EXPC_PURC_AMT, BIZ_OBOR_PRBA
+             , INSD_MNLY_INSR_NMPR_CNT, EXTL_MNLY_INSR_NMPR_CNT, BZDP_TEAM_CD, SLOP_RPPR_ID, BIZ_EXPI_CNTN
+             , RAL_SLS_AMT, RAL_PURC_AMT, RAL_OBOR_DT, RGSR_ID, RGSN_DTTM
+             , AMND_ID, AMNT_DTTM)
+        SELECT TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , BIZ_ID, COMP_ID, BIZ_NM, BIZ_PRGR_STEP_CD, BIZ_STT_DT
+             , BIZ_END_DT, EXPC_OBOR_DT, EXPC_SLS_AMT, EXPC_PURC_AMT, BIZ_OBOR_PRBA
+             , INSD_MNLY_INSR_NMPR_CNT, EXTL_MNLY_INSR_NMPR_CNT, BZDP_TEAM_CD, SLOP_RPPR_ID, BIZ_EXPI_CNTN
+             , RAL_SLS_AMT, RAL_PURC_AMT, RAL_OBOR_DT, RGSR_ID, RGSN_DTTM
+             , AMND_ID, AMNT_DTTM
+          FROM TB_BIZ_BASI
+         WHERE BIZ_ID = #{biz_id}
+    </insert>
+
+    <insert id="BizBasiMap.mergeCncrBizDtl" parameterType="map">
+        MERGE INTO /* BizBasiMap.mergeCncrBizDtl */
+              TB_CNCR_BIZ_DTL A
+        USING (SELECT #{biz_id} AS BIZ_ID
+                    , #{user_id} AS USER_ID
+                 FROM DUAL) B
+           ON (A.BIZ_ID = B.BIZ_ID
+               AND A.USER_ID = B.USER_ID)
+         WHEN MATCHED THEN
+                UPDATE SET AMND_ID = #{amnd_id}
+                         , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          WHEN NOT MATCHED THEN
+                      INSERT (BIZ_ID, USER_ID, CNTR_CD
+                              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+                      VALUES (#{biz_id}, #{user_id}, #{cntr_cd}
+                              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+
+    <select id="BizBasiMap.getCncrBizCount" parameterType="map" resultType="int">
+        SELECT	/* BizBasiMap.getCncrBizCount */
+                COUNT(*)
+          FROM (SELECT BIZ_ID , USER_ID , AMNT_DTTM
+                  FROM TB_CNCR_BIZ_DTL
+                 WHERE USER_ID = #{user_id}) CNCR INNER JOIN TB_BIZ_BASI BASI
+                                                  ON(CNCR.BIZ_ID = BASI.BIZ_ID )
+    </select>
+
+    <select id="BizBasiMap.getCncrBizList" parameterType="map" resultType="resultMap">
+        SELECT /* BizBasiMap.getCncrBizList */
+                *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                      , A.*
+                  FROM ( SELECT *
+                          FROM (SELECT CNCR.BIZ_ID
+                                     , CNCR.USER_ID
+                                     , BASI.COMP_ID
+                                     , (SELECT COMP_CONM_NM FROM TB_COMP_BASI WHERE COMP_ID = BASI.COMP_ID) AS COMP_NM
+                                     , BASI.BIZ_NM
+                                     , BASI.BIZ_PRGR_STEP_CD
+                                     , GETCODENM('PMS210', BASI.BIZ_PRGR_STEP_CD, BASI.CNTR_CD) AS BIZ_PRGR_STEP_NM
+                                     , BASI.SLOP_RPPR_ID
+                                     , (SELECT USER_NM FROM TB_USER WHERE USER_ID = BASI.SLOP_RPPR_ID) AS SLOP_RPPR_NM
+                                     , CNCR.AMNT_DTTM
+                                  FROM (SELECT BIZ_ID , USER_ID , AMNT_DTTM
+                                            FROM TB_CNCR_BIZ_DTL
+                                           WHERE USER_ID = #{user_id}) CNCR INNER JOIN TB_BIZ_BASI BASI
+                                                                          ON(CNCR.BIZ_ID = BASI.BIZ_ID )
+                                      )
+                    <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                    </if> ) A
+                )B
+    </select>
+
+    <delete id="BizBasiMap.deleteCncrBiz" parameterType="map">
+        DELETE /* BizBasiMap.deleteCncrBiz */
+          FROM TB_CNCR_BIZ_DTL
+         WHERE BIZ_ID
+         <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+    </delete>
+
+</mapper>

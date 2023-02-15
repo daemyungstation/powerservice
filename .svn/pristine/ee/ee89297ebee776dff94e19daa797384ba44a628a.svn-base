@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExtnNoAdmnMap">
+
+    <sql id="ExtnNoAdmnMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="user_id != null and user_id != ''"> 
+                AND A.USER_ID  = #{user_id}
+             </if> 
+            <if test="ip_addr != null and ip_addr != ''">
+                AND A.IP_ADDR LIKE '%' || #{ip_addr}
+            </if>
+            <if test="tlph_extn_no != null and tlph_extn_no != ''">
+                AND TLPH_EXTN_NO = #{tlph_extn_no}
+            </if> 
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+             </if>
+            <if test="extn_no_admn_id != null and extn_no_admn_id != ''"> 
+                AND EXTN_NO_ADMN_ID != #{extn_no_admn_id}
+             </if>            
+        </where>
+    </sql>
+
+    <select id="ExtnNoAdmnMap.getExtnNoCount" parameterType="map" resultType="int">
+        SELECT /* ExtnNoAdmnMap.getExtnNoCount */
+               COUNT(*)
+          FROM TB_EXTN_NO_ADMN  A
+        <include refid="ExtnNoAdmnMap.selectCondition_fragment"/>
+    </select>
+    
+    <select id="ExtnNoAdmnMap.getExtnNoList" parameterType="map" resultType="resultMap">
+    
+		  SELECT /* ExtnNoAdmnMap.getExtnNoList */
+		          *
+		  FROM (SELECT ROWNUM AS PAGE_INDX,
+		               EXTN_NO_ADMN_ID,
+		               USER_ID,
+		               USER_NM,               
+		               TLPH_EXTN_NO,
+		               IP_ADDR,
+		               TLPH_EXTN_EXPI ,
+		               USE_YN,
+		               CNTR_CD,
+		               RGSR_ID,
+		               RGSN_DTTM,
+		               AMND_ID ,
+		               AMNT_DTTM,
+		               RGSR_NM,
+		               AMND_NM
+		          FROM (SELECT 
+		          				EXTN_NO_ADMN_ID,
+		                       	B.USER_ID,
+		                        B.USER_NM,
+		                        TLPH_EXTN_NO,
+		                        A.IP_ADDR,
+		                        TLPH_EXTN_EXPI,
+		                        A.USE_YN ,
+		                        A.CNTR_CD,
+		                        A.RGSR_ID,
+		                        A.RGSN_DTTM,
+		                        A.AMND_ID,
+		                        A.AMNT_DTTM ,
+		                       (SELECT USER_NM
+		                        FROM TB_USER
+		                        WHERE USER_ID = A.RGSR_ID
+		                           AND CNTR_CD = A.CNTR_CD) AS RGSR_NM ,
+		                       (SELECT USER_NM
+		                          FROM TB_USER
+		                         WHERE USER_ID = A.AMND_ID
+		                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+		                  FROM TB_EXTN_NO_ADMN A LEFT OUTER JOIN
+		                    TB_USER B ON A.USER_ID = B.USER_ID  
+		                    <include refid="ExtnNoAdmnMap.selectCondition_fragment"/>
+		                  )
+		             )
+		             ORDER BY TLPH_EXTN_NO ASC
+    </select>
+    
+    <!-- 
+    	 - IP기준으로 내선번호 프로세스에서 사용자 ID기준으로 변경되면서 사용자 ID별 내선번호 관리가 필요 해짐
+    	 - 임동진 수정 20211221
+     -->
+	<!--  
+    <select id="ExtnNoAdmnMap.getExtnNoList" parameterType="map" resultType="resultMap">
+        SELECT /* ExtnNoAdmnMap.getExtnNoList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXTN_NO_ADMN_ID, TLPH_EXTN_NO, IP_ADDR, TLPH_EXTN_EXPI
+                     , USE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+                     , AMNT_DTTM, RGSR_NM, AMND_NM
+                  FROM (SELECT EXTN_NO_ADMN_ID, TLPH_EXTN_NO, IP_ADDR, TLPH_EXTN_EXPI, USE_YN
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EXTN_NO_ADMN A
+        <include refid="ExtnNoAdmnMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+        <if test="orderBy == null or orderBy == ''">
+                      ORDER BY AMNT_DTTM DESC
+        </if>
+                       ))
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+    
+     -->
+
+    <insert id="ExtnNoAdmnMap.insertExtnNo" parameterType="map">
+        <selectKey keyProperty="extn_no_admn_id" resultType="String" order="BEFORE">
+            SELECT 'ENA' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* ExtnNoAdmnMap.insertExtnNo */
+               TB_EXTN_NO_ADMN
+               (EXTN_NO_ADMN_ID, TLPH_EXTN_NO, IP_ADDR, TLPH_EXTN_EXPI, USE_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USER_ID)
+        VALUES (#{extn_no_admn_id}, #{tlph_extn_no}, #{ip_addr}, #{tlph_extn_expi}, #{use_yn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{user_id})
+    </insert>
+
+    <update id="ExtnNoAdmnMap.updateExtnNo" parameterType="map">
+        UPDATE /* ExtnNoAdmnMap.updateExtnNo */
+               TB_EXTN_NO_ADMN
+           SET TLPH_EXTN_NO = #{tlph_extn_no}
+             , IP_ADDR = #{ip_addr}
+             , USER_ID = #{user_id}
+             , TLPH_EXTN_EXPI = #{tlph_extn_expi} 
+             , USE_YN  = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE EXTN_NO_ADMN_ID = #{extn_no_admn_id}
+    </update>
+
+    <delete id="ExtnNoAdmnMap.deleteExtnNo" parameterType="map">
+        DELETE /* ExtnNoAdmnMap.deleteExtnNo */
+          FROM TB_EXTN_NO_ADMN
+         WHERE EXTN_NO_ADMN_ID
+         <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+    </delete>
+
+    <select id="ExtnNoAdmnMap.getExtnNoByIpAddr" parameterType="map" resultType="resultMap">
+        SELECT /* ExtnNoAdmnMap.getExtnNoByIpAddr */
+               EXTN_NO_ADMN_ID, TLPH_EXTN_NO, IP_ADDR, TLPH_EXTN_EXPI
+          FROM TB_EXTN_NO_ADMN A
+         WHERE 1=1
+           AND USER_ID = #{user_id}
+           AND USE_YN = 'Y'
+           AND ROWNUM = 1
+    </select>
+
+</mapper>

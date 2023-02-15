@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="JUSOAPI" classname="aaaaa" inheritanceid="" position="absolute 0 0 503 416" titletext="도로명주소찾기" onload="JUSOAPI_onload" style="background:transparent;">
+    <Layouts>
+      <Layout height="416" mobileorientation="landscape" width="503">
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 2 0 500 413"/>
+        <Edit id="edtSearch" taborder="0" autoselect="true" onkeydown="edtSearch_onkeydown" position="absolute 46 50 376 85"/>
+        <Button id="btnSearch" taborder="1" text="검색" position="absolute 381 50 461 85" font="normal 15pt/normal &quot;Arial&quot;" onclick="btnSearch_onclick"/>
+        <Grid id="grdList" taborder="2" position="absolute 20 114 485 400" binddataset="dsJuso" oncelldblclick="grdList_oncelldblclick" autofittype="col">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="65"/>
+                <Column size="220"/>
+                <Column size="240"/>
+              </Columns>
+              <Rows>
+                <Row size="36" band="head"/>
+                <Row size="36"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="우편번호"/>
+                <Cell col="1" text="도로명주소"/>
+                <Cell col="2" text="지번주소"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:postcode"/>
+                <Cell col="1" edittype="none" style="align:left;font:arial,8;" text="bind:roadaddress" wordwrap="word" autosizerow="none" wordWrap="char"/>
+                <Cell col="2" edittype="none" style="align:left;font:arial,8;" text="bind:jibunaddress" wordwrap="word" wordWrap="char"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="staTip" taborder="3" text="예시 : 도로명(반포대로 58), 건물명(독립기념관), 지번(삼성동 25)" position="absolute 70 79 500 119" left="70" top="80" width="430" height="33"/>
+        <Button id="btn_Close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 472 9 492 28"/>
+        <Static id="stc_30" text="도로명주소 검색" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="dsJuso">
+        <ColumnInfo>
+          <Column id="postcode" type="STRING" size="256"/>
+          <Column id="roadaddress" type="STRING" size="256"/>
+          <Column id="jibunaddress" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="srch_typ" type="STRING" size="256"/>
+          <Column id="srch_vl" type="STRING" size="50"/>
+          <Column id="option" type="STRING" size="256"/>
+          <Column id="ns_yn" type="STRING" size="256"/>
+          <Column id="ichae_stt_dt" type="STRING" size="256"/>
+          <Column id="ichae_end_dt" type="STRING" size="256"/>
+          <Column id="idly" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+          <Column id="user_athrCd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function JUSOAPI_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); 	// 페이징처리 위한 데이터셋 설정
+	gfn_athrPgm(gfn_gdsCd_admin()); // 권한
+		 
+}
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if(errcd < 0)
+	{
+		trace("sErrorCode :: " + errmsg);
+		return;
+	}
+	
+	if(svcid == "selectJuso")
+	{
+		//한 페이지에 최대 100 row 조회 가능 : 도로명 오픈 API 규정사항
+		//다량 데이터 필요시 페이징처리
+		if(this.dsJuso.getRowCount()>99)
+		{
+			alert("검색 결과가 너무 많습니다(100건 이상)\n검색어 예를 참조하여 검색하시기 바랍니다.");
+			this.edtSearch.setFocus();
+		}
+	}	
+}
+
+function FindDoroName()
+{
+	var szSvcid       = "";
+	var szController  = "";
+	var szInDs        = "";
+	var szOutDs       = "";
+	var szParam       = "";
+	var szRetCallback = "";
+    
+	var sText = "'"+this.edtSearch.value+"'";	
+	
+	szSvcid       = "selectJuso";
+
+	//var szController  = "/dlw/newTypeCons/memsave";
+	szController  = "/dlw/newTypeCons/jusoApi";
+	szInDs        = "ds_input=dsJuso";
+	szOutDs       = "dsJuso=ds_output";
+	szParam       = "keyword=" + sText;
+	szRetCallback = "fn_callBack";
+	
+	    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+
+	/*
+	var sText = "'"+this.edtSearch.value+"'";		
+	var strSvcID = "selectJuso";
+	var strURL = "http://localhost:8080/powerservice/jusoopenapisearch.jsp"
+	var strInDatasets = "";
+	var strOutDatasets = "dsJuso=dsjuso";
+	var strCallbackFunc = "fn_callback";
+	var strArgument = "currentPage=" + 1;
+		strArgument += " countPerPage=" + 100;
+		strArgument += " keyword=" + sText;
+	this.transaction(strSvcID,strURL,strInDatasets,strOutDatasets,strArgument,strCallbackFunc);
+	*/
+}
+
+function btnSearch_onclick(obj:Button,  e:ClickEventInfo)
+{
+	FindDoroName();
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function grdList_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	var sPostcode = this.dsJuso.getColumn(e.row,"postcode");
+	var sAddress = this.dsJuso.getColumn(e.row,"roadaddress");
+	
+	opener.home_zip.value = sPostcode;
+	opener.home_addr.value = sAddress;
+		
+	close();
+}
+
+function edtSearch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13){
+		FindDoroName();
+	}
+	
+}
+]]></Script>
+  </Form>
+</FDL>

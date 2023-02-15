@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TrgtCustMap">
+
+    <sql id="TrgtCustMap.selectCondition_fragment">
+        <where>
+            <if test= "trgt_list_id != null and trgt_list_id != ''">
+                AND TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+
+            <if test= "del_yn != null and del_yn.equalsIgnoreCase('Y')">
+                AND DELETE_FG = #{del_yn}
+            </if>
+
+            <if test= "sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+
+            <if test= "cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+
+            <if test= "trgt_cust_id != null and trgt_cust_id != ''">
+                AND TRGT_CUST_ID = #{trgt_cust_id}
+            </if>
+
+            <if test= "mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+
+            <if test= "trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+                AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+            </if>
+            <if test="cmpg_typ_cd == '2000' or cmpg_typ_cd == '3000'">
+                <if test="pay_mthd != null and pay_mthd != ''">
+                   AND USER_DEFN5_CNTN = #{pay_mthd}
+                </if>
+                <if test="ichae_dt != null and ichae_dt != ''">
+                   AND USER_DEFN3_CNTN = ${ichae_dt}
+                </if>
+                <if test="stt_month_cnt != null and stt_month_cnt != '' and end_month_cnt != null and end_month_cnt != ''">
+                   AND USER_DEFN1_CNTN >= TO_NUMBER(#{stt_month_cnt}) AND  USER_DEFN1_CNTN <![CDATA[<=]]> TO_NUMBER(#{end_month_cnt})
+                </if>
+                <if test="stt_true_cnt != null and stt_true_cnt != '' and end_true_cnt != null and end_true_cnt != ''">
+                   AND USER_DEFN2_CNTN >= TO_NUMBER(#{stt_true_cnt}) AND  USER_DEFN2_CNTN <![CDATA[<=]]> TO_NUMBER(#{end_true_cnt})
+                </if>
+                <if test="stt_pay_state != null and stt_pay_state != '' and end_pay_state != null and end_pay_state != ''">
+                   AND USER_DEFN6_CNTN >= TO_NUMBER(#{stt_pay_state}) AND  USER_DEFN6_CNTN <![CDATA[<=]]> TO_NUMBER(#{end_pay_state})
+                </if>
+            </if>
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'cust_nm'">
+                    AND CUST_NM LIKE  #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'mem_no'">
+                    AND MEM_NO LIKE  #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'accnt_no'">
+                    AND ACCNT_NO LIKE #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'home_tlno'">
+                    AND HOME_TLNO LIKE '%' || REPLACE(#{searchValue},'-','')
+                </if>
+                <if test="searchType == 'clph_tlno'">
+                    AND CLPH_TLNO LIKE '%' || REPLACE(#{searchValue},'-','')
+                </if>
+                <if test="searchType == 'comp_tlno'">
+                    AND COMP_TLNO LIKE '%' || REPLACE(#{searchValue},'-','')
+                </if>
+           </if>
+        </where>
+    </sql>
+
+    <sql id="TrgtCustMap.extractCounselCondition_fragment">
+        <if test= "cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+
+        <if test= "join_dt_stt != null and join_dt_stt != ''">
+            <![CDATA[
+                AND B.JOIN_DT >= REPLACE(#{join_dt_stt}, '-', '')
+            ]]>
+            </if>
+            <if test= "join_dt_end != null and join_dt_end != ''">
+            <![CDATA[
+                AND B.JOIN_DT <= REPLACE(#{join_dt_end}, '-', '')
+            ]]>
+        </if>
+
+        <if test="pordCdList != null and pordCdList.size > 0">
+            AND B.PROD_CD
+                <foreach collection="pordCdList" item="item" separator="," close=")" open="IN (">
+                    #{item}
+                </foreach>
+        </if>
+    </sql>
+
+    <sql id="TrgtCustMap.extractCustomerCondition_fragment">
+        <where>
+            <if test= "cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <!--  ExtcCndtItem 조건 -->
+
+            <!-- 고객 추출 조건 -->
+          <!--   <if test= "hometelfg != null and hometelfg != ''">
+                AND HOMETELFG != 'Y'
+            </if>
+            <if test= "smsfg != null and smsfg != ''">
+                AND SMSFG != 'Y'
+            </if> -->
+            <!-- <if test= "custclscdChk != null and custclscdChk != ''">
+                AND CUSTCLSCD = #{custclscd}
+            </if> -->
+
+            <if test= "mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+
+            <if test="trgt_list_typ_cd != null and trgt_list_typ_cd != ''">
+                <if test="trgt_list_typ_cd == '10'"> <!-- 전화 -->
+                <![CDATA[
+                    AND NOT (LENGTH(A.CELL) < 2  AND LENGTH(A.HOME_TEL) <2)
+                ]]>
+                </if>
+
+                <if test="trgt_list_typ_cd == '20'"> <!-- MO -->
+                    AND LENGTH(A.CELL) > 2
+                </if>
+
+                <if test="trgt_list_typ_cd == '30'"> <!-- 이메일 -->
+                    AND LENGTH(A.EMAIL) > 2
+                </if>
+            </if>
+
+            <if test= "searchItem != null and searchItem != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM MEM_PROD_ACCNT B
+                             WHERE B.MEM_NO = A.MEM_NO
+
+                          <include refid="TrgtCustMap.extractCounselCondition_fragment"/>
+                            )
+            </if>
+        </where>
+    </sql>
+
+    <select id="TrgtCustMap.getTrgtCustCount" parameterType="map" resultType="int">
+        SELECT /* TrgtCustMap.getTrgtCustCount */
+               COUNT(*)
+          FROM (SELECT TD.*
+                     , NVL((SELECT 'N'
+                              FROM TB_TRGT_CUST_ALCT TA
+                             WHERE TA.TRGT_CUST_DTPT_ID = TD.TRGT_CUST_DTPT_ID) , 'Y') AS DELETE_FG
+                  FROM TB_TRGT_CUST_DTPT TD) A
+        <include refid="TrgtCustMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="TrgtCustMap.onlineId" parameterType="map" resultType="resultMap">
+        SELECT  /* TrgtCustMap.onlineId */
+                PRMV_ID FROM TB_TRGT_CUST_ALCT A LEFT JOIN TB_TRGT_CUST_DTPT B
+            ON A.SUB_TRGT_LIST_ID = B.SUB_TRGT_LIST_ID
+           AND A.TRGT_LIST_ID = B.TRGT_LIST_ID
+           AND A.TRGT_CUST_DTPT_ID =B.TRGT_CUST_DTPT_ID
+         WHERE A.CMPG_ID = #{cmpg_id}
+         <if test = "cnsr_id != null and cnsr_id != ''">
+           AND A.CNSR_ID = #{cnsr_id}
+         </if>
+         <if test = "sub_trgt_list_id != null and sub_trgt_list_id != ''">
+           AND A.SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+         </if>
+         <if test = "trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+           AND A.TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+         </if>
+           AND A.DPMS_STAT_CD != '40' AND A.DPMS_STAT_CD != '30'
+    </select>
+
+    <select id="TrgtCustMap.getTrgtCustList" parameterType="map" resultType="resultMap">
+        SELECT /* TrgtCustMap.getTrgtCustList */
+               B.*
+             , CASE WHEN EXISTS (
+                    SELECT *
+                     FROM TB_TRGT_CUST_ALCT
+                    WHERE TRGT_LIST_ID = B.TRGT_LIST_ID
+                      AND MEM_NO = B.MEM_NO
+                      AND CNTR_CD = B.CNTR_CD) THEN 'Y'
+                    ELSE 'N'
+                END AS ALCT_YN
+          FROM (SELECT
+                      <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY AMNT_DTTM DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                     , A.*
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.RGSR_ID
+                           AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.AMND_ID
+                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                 FROM (SELECT CNTR_CD, TRGT_LIST_ID, SUB_TRGT_LIST_ID
+                        , NVL((SELECT 'N' FROM TB_TRGT_CUST_ALCT TA WHERE TA.TRGT_CUST_DTPT_ID = TD.TRGT_CUST_DTPT_ID) , 'Y') AS DELETE_FG
+                        , TRGT_CUST_DTPT_ID, CUST_NM, MEM_NO, PRMV_ID
+                        , ACCNT_NO, CLPH_TLNO, HOME_TLNO, COMP_TLNO, ETC_TLNO, UNTY_CASE_ADTL_YN
+                        , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN
+                        , USER_DEFN5_CNTN, USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN
+                        , USER_DEFN9_CNTN, USER_DEFN10_CNTN
+                        , USER_DEFN11_CNTN, USER_DEFN12_CNTN, USER_DEFN13_CNTN, USER_DEFN14_CNTN
+                        , USER_DEFN15_CNTN, USER_DEFN16_CNTN, USER_DEFN17_CNTN, USER_DEFN18_CNTN
+                        , USER_DEFN19_CNTN, USER_DEFN20_CNTN
+                        , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                         FROM TB_TRGT_CUST_DTPT TD
+                       ) A
+                    <include refid="TrgtCustMap.selectCondition_fragment"/>
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+             AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <!-- <insert id="TrgtCustMap.insertTrgtCustByExcel" parameterType="map">
+            INSERT /* TrgtCustMap.insertTrgtCustByExcel */
+              INTO TB_TRGT_CUST_DTPT
+                  (TRGT_CUST_DTPT_ID, TRGT_LIST_ID, TRGT_CUST_ID, MEM_NM
+                 , HOME_ZIP, HOME_ADDR, HOME_ADDR2, HOME_TEL, CELL
+                 , EMAIL , MEM_NO
+                 , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+                 , USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN, USER_DEFN9_CNTN, USER_DEFN10_CNTN
+                 , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+            VALUES ('TAR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0'), #{trgt_list_id},  #{mem_no}, #{mem_nm}
+                  , #{home_zip}, #{home_addr}, #{home_addr2}, #{home_tel}, #{cell}
+                  , #{email}, #{mem_no}
+                  , #{user_defn1_cntn}, #{user_defn2_cntn}, #{user_defn3_cntn}, #{user_defn4_cntn}, #{user_defn5_cntn}
+                  , #{user_defn6_cntn}, #{user_defn7_cntn}, #{user_defn8_cntn}, #{user_defn9_cntn}, #{user_defn10_cntn}
+                  , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                   )
+    </insert> -->
+
+    <delete id="TrgtCustMap.deleteTrgtCustByExcel" parameterType="map">
+        DELETE FROM TB_TRGT_CUST_DTPT A
+        WHERE NOT EXISTS (SELECT 'Y'
+                            FROM TB_CUST_BASI
+                           WHERE MEM_NO = A.MEM_NO)
+         AND A.MEM_NO IS NOT NULL
+         AND TRGT_LIST_ID = #{trgt_list_id}
+         AND CNTR_CD =  #{cntr_cd}
+    </delete>
+
+    <!-- <insert id="TrgtCustMap.insertTrgtCustByDB" parameterType="map" timeout="300">
+       INSERT /* TrgtCustMap.insertTrgtCustByDB */
+          INTO TB_TRGT_CUST_DTPT
+              (TRGT_CUST_DTPT_ID, TRGT_LIST_ID, TRGT_CUST_ID, MEM_NO, MEM_NM
+             , HOME_ZIP, HOME_ADDR, HOME_ADDR2, HOME_TEL, CELL
+             , EMAIL , CNTR_CD
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (('TAR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0')), #{trgt_list_id}, #{mem_no} , #{mem_no}, #{mem_nm}
+             , #{home_zip}, #{home_addr}, #{home_addr2}, #{home_tel}, #{cell}
+             , #{email}, #{cntr_cd}
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         )
+    </insert> -->
+
+    <delete id="TrgtCustMap.deleteTrgtCust" parameterType="map">
+        DELETE /* TrgtCustMap.deleteTrgtCust */
+          FROM TB_TRGT_CUST_DTPT
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+           AND CNTR_CD =  #{cntr_cd}
+           AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+           AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+    </delete>
+
+   <!--  <delete id="TrgtCustMap.deleteTrgtCustByTrgtList" parameterType="map">
+        DELETE /* TrgtCustMap.deleteTrgtCustByTrgtList */
+          FROM TB_TRGT_CUST_DTPT
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+           AND CNTR_CD =  #{cntr_cd}
+        DBCC checkident(TB_TRGT_CUST_DTPT, reseed, 0)
+    </delete> -->
+
+    <update id="TrgtCustMap.updateTrgtCustByCustId" parameterType="map">
+        UPDATE /* TrgtCustMap.updateTrgtCustByCustId */
+               TB_TRGT_CUST_DTPT
+           SET AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                , AMND_ID = #{amnd_id}
+                , MEM_NO = #{mem_no}
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+           AND TRGT_CUST_ID = #{trgt_cust_id}
+    </update>
+
+
+    <sql id="TrgtCustMap.selectTrgtCustHstrCondition_fragment">
+        <where>
+            <if test= "mem_no != null and mem_no != ''">
+                AND D.MEM_NO = #{mem_no}
+            </if>
+            <if test= "accnt_no != null and accnt_no != ''">
+                AND D.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test= "cust_nm != null and cust_nm != ''">
+                AND D.CUST_NM = #{cust_nm}
+            </if>
+            <if test= "tlno != null and tlno != ''">
+                AND (D.CLPH_TLNO = REPLACE(#{tlno}, '-', '')
+                  OR D.HOME_TLNO = REPLACE(#{tlno}, '-', '')
+                  OR D.COMP_TLNO = REPLACE(#{tlno}, '-', '')
+                  OR D.ETC_TLNO = REPLACE(#{tlno}, '-', ''))
+            </if>
+            <if test= "cmpg_prfm_team_cd != null and cmpg_prfm_team_cd != ''">
+                AND A.CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+                AND B.CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+                AND C.CMPG_PRFM_TEAM_CD = #{cmpg_prfm_team_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="TrgtCustMap.getTrgtCustHstrCount" parameterType="map" resultType="int">
+        SELECT /* TrgtCustMap.getTrgtCustHstrCount */
+               COUNT(*)
+          FROM TB_CMPG_BASI A
+          JOIN TB_TRGT_LIST_DTL B
+            ON A.TRGT_LIST_ID = B.TRGT_LIST_ID
+          JOIN TB_SUB_TRGT_LIST_DTL C
+            ON B.TRGT_LIST_ID = C.TRGT_LIST_ID
+          JOIN TB_TRGT_CUST_DTPT D
+            ON C.TRGT_LIST_ID = D.TRGT_LIST_ID
+           AND C.SUB_TRGT_LIST_ID = D.SUB_TRGT_LIST_ID
+    LEFT OUTER JOIN TB_TRGT_CUST_ALCT E
+            ON D.TRGT_LIST_ID = E.TRGT_LIST_ID
+           AND D.SUB_TRGT_LIST_ID = E.SUB_TRGT_LIST_ID
+           AND D.TRGT_CUST_DTPT_ID = E.TRGT_CUST_DTPT_ID
+        <include refid="TrgtCustMap.selectTrgtCustHstrCondition_fragment"/>
+    </select>
+
+    <select id="TrgtCustMap.getTrgtCustHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* TrgtCustMap.getTrgtCustHstrList */
+               B.*
+          FROM (SELECT
+                      <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY CUST_NM DESC) AS PAGE_INDX
+                        </otherwise>
+                      </choose>
+                     , A.*
+                     , FN_GETHRCHCDNM('CAM990', A.CMPG_DIV_CD, A.CNTR_CD) AS CMPG_DIV_NM
+                     , GETCODENM('CAM050', A.CMPG_PRGR_STAT_CD, A.CNTR_CD) AS CMPG_PRGR_STAT_NM
+                     , GETCODENM('CAM090', A.DPMS_RESL_CD, A.CNTR_CD) AS DPMS_RESL_NM
+                     , (SELECT B.TEAM_NM FROM TB_CONS_TEAM B WHERE B.TEAM_CD = A.CMPG_PRFM_TEAM_CD) AS CMPG_PRFM_TEAM_NM
+                  FROM (SELECT A.CMPG_ID, A.CMPG_DIV_CD, A.CMPG_NM, A.CMPG_STT_DT, A.CMPG_END_DT
+                             , A.CMPG_PRGR_STAT_CD, A.TRGT_LIST_ID, A.CNTR_CD
+                             , B.TRGT_LIST_NM, C.SUB_TRGT_LIST_ID, C.SUB_TRGT_LIST_NM, C.CMPG_PRFM_TEAM_CD
+                             , D.TRGT_CUST_DTPT_ID, D.CUST_NM, D.MEM_NO, D.ACCNT_NO
+                             , D.CLPH_TLNO, D.HOME_TLNO, D.COMP_TLNO, D.ETC_TLNO
+                             , E.CNSR_ID, E.DPMS_RESL_CD, E.DPMS_RESL_CNTN, TO_CHAR(E.DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, E.PROD_JOIN_YN
+                             , (SELECT F.USER_NM FROM TB_USER F WHERE F.USER_ID = E.CNSR_ID) AS CNSR_NM
+                          FROM TB_CMPG_BASI A
+                          JOIN TB_TRGT_LIST_DTL B
+                            ON A.TRGT_LIST_ID = B.TRGT_LIST_ID
+                          JOIN TB_SUB_TRGT_LIST_DTL C
+                            ON B.TRGT_LIST_ID = C.TRGT_LIST_ID
+                          JOIN TB_TRGT_CUST_DTPT D
+                            ON C.TRGT_LIST_ID = D.TRGT_LIST_ID
+                           AND C.SUB_TRGT_LIST_ID = D.SUB_TRGT_LIST_ID
+                    LEFT OUTER JOIN TB_TRGT_CUST_ALCT E
+                            ON D.TRGT_LIST_ID = E.TRGT_LIST_ID
+                           AND D.SUB_TRGT_LIST_ID = E.SUB_TRGT_LIST_ID
+                           AND D.TRGT_CUST_DTPT_ID = E.TRGT_CUST_DTPT_ID
+                    <include refid="TrgtCustMap.selectTrgtCustHstrCondition_fragment"/>
+                       ) A
+               ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+</mapper>

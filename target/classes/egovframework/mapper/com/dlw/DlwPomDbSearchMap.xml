@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwPomDbSearchMap">
+
+
+       <select id="DlwPomDbSearchMap.selectPomDbSearchList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : POM 대상회원 DB조회 -->
+            SELECT A1.*
+            FROM
+            (
+                 SELECT
+                         /*+ USL_NL(A) */
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY B.${orderBy} ${orderDirection}) AS PAGE_INDX,
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY B.ACCNT_NO DESC) AS PAGE_INDX,
+                      </otherwise>
+                  </choose>
+                        A.MEM_NO ,		/* 고유번호 */
+                        B.ACCNT_NO ,		/* 회원번호 */
+                        A.MEM_NM ,		/* 회원명 */
+                        A.CELL ,			/* 휴대전화 */
+                        B.PROD_CD ,		/* 가입상품코드 */
+                        C.PROD_NM ,		/* 가입상품명 */
+                        B.JOIN_DT ,		/* 가입일자 */
+                        TO_CHAR(B.REG_DM,'YYYYMMDD') AS  REG_DM,		/* 등록일 */
+                        CASE WHEN B.KSTBIT = '02' THEN '가입'
+                             WHEN B.KSTBIT = '03' THEN '해약'
+                             WHEN B.KSTBIT = '04' THEN '행사'
+                             WHEN B.KSTBIT = '08' THEN '만기' ELSE '대기' END AS KSTBIT , -- 가입상태
+                        D.PAY_NO,			/* 실 납입회차 */
+                        B.B2B_COMP_CD ,	/* B2B회사코드 */
+                        E.COM_NM AS B2B_NM,		/* B2B명 */
+                        A.BRTH_DAY, /* 연령대 */
+                        MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt,
+                        C.PROD_JOIN_PRT_NM,
+                        FN_YEN_CHE(B.ACCNT_NO) AS ACC_STAT,
+                        FN_COM_NM('01', B.PAY_MTHD) PAY_MTHD_NM
+                 FROM (
+                        SELECT A.MEM_NO , A.MEM_NM , A.CELL , A.BRTH_MON_DAY , A.CREDIT_RATING ,
+                               (TO_CHAR(SYSDATE,'YYYY')-SUBSTR(BRTH_MON_DAY,1,4)) AS BRTH_DAY
+                        FROM MEMBER A LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.MEM_NO = B.MEM_NO
+                                      LEFT OUTER JOIN PRODUCT C ON B.PROD_CD = C.PROD_CD
+                        WHERE NVL(A.CREDIT_RATING,'0000') IN ('0000','0001','0002','0003','0004','0005','0006','0007')  /* N OR 1~7등급 */
+                          AND C.PROD_CL = '03' /* 상조결합상품 */
+                        GROUP BY A.MEM_NO , A.MEM_NM , A.CELL , A.BRTH_MON_DAY , A.CREDIT_RATING
+                        HAVING COUNT(*) = 1    /* 1구좌 가입 */
+                     ) A
+                 LEFT OUTER JOIN MEM_PROD_ACCNT B
+                   ON A.MEM_NO = B.MEM_NO
+                 LEFT OUTER JOIN PRODUCT C ON B.PROD_CD = C.PROD_CD
+                 LEFT OUTER JOIN (SELECT ACCNT_NO , MAX(NO) PAY_NO
+                                    FROM PAY_MNG
+                                   WHERE DEL_FG = 'N'
+                                   GROUP BY ACCNT_NO ) D ON B.ACCNT_NO = D.ACCNT_NO
+                 LEFT OUTER JOIN B2BCOMCD E ON B.B2B_COMP_CD = E.COM_CD
+                WHERE 1=1
+                  AND B.KSTBIT IN ('02','04','08') /* 가입상태:정상,만기,행사 */
+                  AND D.PAY_NO > 2 /* 납입회차 :3회 이상 */
+                  AND NOT EXISTS (SELECT * FROM THREE_DL_YEC WHERE ACCNT_NO = B.ACCNT_NO) /* 3회 이상 연체 보유 회원 제외 */
+                  AND SUBSTR(FN_YEN_CHE(B.ACCNT_NO),-2) != '연체'
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                  AND B.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}	/* 가입일자 */
+                </if>
+
+                <if test="chk_sdp == 'Y'.toString()">
+                  AND E.SALE_TYPE != '0040'	/* 특수영업(SDP) 제외 */
+                </if>
+                <if test="chk_pom == 'Y'.toString()">
+                  AND E.SALE_TYPE != '0046'	/* 기타영업(POM) 제외 */
+                </if>
+
+                <if test="brth_stt_day != null and brth_stt_day != '' and brth_end_day != null and brth_end_day != ''">
+                  AND FN_AGE_LVL2(substr(A.BRTH_MON_DAY,1,4)) BETWEEN #{brth_stt_day} AND #{brth_end_day}	/* 연령대 */
+                </if>
+
+                <if test="prod_amt != null and prod_amt != ''"> /* 상품 가격대 */
+                    <if test="prod_amt == '01'"> /* 300만원대 */
+                        AND C.PROD_AMT BETWEEN 3000000 AND 3999999
+                    </if>
+                    <if test="prod_amt == '02'"> /* 400만원대 */
+                        AND C.PROD_AMT BETWEEN 4000000 AND 4999999
+                    </if>
+                    <if test="prod_amt == '03'"> /* 500만원대 */
+                        AND C.PROD_AMT BETWEEN 5000000 AND 5999999
+                    </if>
+                </if>
+
+                <if test="chk_resn_cl == 'Y'.toString()"> /* 청약철회 포함 */
+                  AND B.ACCNT_NO NOT IN (SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG = 'N' AND RESN_CL = '02')
+                </if>
+
+             ) A1
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+                ]]>
+            </if>
+
+    </select>
+
+</mapper>

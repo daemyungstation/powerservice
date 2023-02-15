@@ -1,0 +1,891 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EventMonitorMap">
+        <update id="insertMontrRptDtl" parameterType="map">
+        /* sql-task.xml [모니터링 결과 보고서 디테일 등록] ID : task."insertMontrRptDtl" 작성자 : 임병근 2014_01_11 */
+        INSERT INTO MONTR_RPT_DTL (
+           MST_SEQ
+          ,DTL_SEQ
+          ,MQM_SEQ
+          ,MONTR_QUESTN_CL
+          ,SATSFCTN
+          ,REG_MAN
+          ,REG_DM
+          ,UPD_MAN
+          ,UPD_DM
+          ,BADOPTION
+        ) SELECT
+           #{mst_seq}
+          ,NVL((SELECT MAX(DTL_SEQ) FROM MONTR_RPT_DTL WHERE MST_SEQ = #{mst_seq}), 0) + 1
+          ,#{seq}
+          ,#{montr_questn_cl}
+          ,#{satsfctn}
+          ,#{rgsr_id}
+          ,SYSDATE
+          ,#{rgsr_id}
+          ,SYSDATE
+          ,#{bad_option}
+          FROM DUAL
+    </update>
+
+    <!--
+    모니터링 질문지 조회
+    ASIS : selectMontrQuestnnrList
+    -->
+    <select id="EventMonitorMap.getMonitorQuestList" parameterType="map" resultType="resultMap">
+        SELECT MQM.SEQ
+             , MQM.MONTR_QUESTN_CL MONTR_QUESTNCL
+             , MQM.MONTR_QUESTN_CL
+             , NVL(MQM.MONTR_QUESTN_CON, '') MONTR_QUESTN_CON
+             , MQM.RPT_ORDR
+             , FN_EMPLE_NM(MQM.REG_MAN) REG_MAN
+             , TO_CHAR(MQM.REG_DM, 'YYYYMMDD') REG_DM
+             , FN_EMPLE_NM(MQM.UPD_MAN) UPD_MAN
+             , TO_CHAR(MQM.UPD_DM, 'YYYYMMDD') UPD_DM
+             , '' satsfctn
+             , '' satsfctn1
+             , '' satsfctn2
+             , '' satsfctn3
+             , '' satsfctn4
+             , '' badoption1
+             , '' badoption2
+             , '' badoption3
+          FROM MONTR_QUESTNNR_MNG MQM
+               INNER JOIN COM_CD CC ON CC.GRP_CD = '0163' AND CC.COM_CD = MQM.MONTR_QUESTN_CL
+         WHERE MQM.DEL_FG = 'N'
+           <if test="montr_questn_cl != null and montr_questn_cl != ''">
+           AND MQM.MONTR_QUESTN_CL = #{montr_questn_cl}
+           </if>
+           <if test="montr_questn_con != null and montr_questn_con != ''">
+           AND NVL(MQM.MONTR_QUESTN_CON, '') LIKE '%' || #{montr_questn_con} || '%'
+           </if>
+            <if test="seq != null and seq != ''">
+           AND MQM.SEQ = #{seq}
+           </if>
+        ORDER BY CC.ORDR_TURN, MQM.RPT_ORDR
+    </select>
+
+    <update id="EventMonitorMap.updateMonitorQuest" parameterType="map">
+        UPDATE /* EventMonitorMap.updateMonitorQuest */
+               MONTR_QUESTNNR_MNG
+           SET MONTR_QUESTN_CL 		= #{montr_questn_cl}
+             , MONTR_QUESTN_CON 	= #{montr_questn_con}
+             , RPT_ORDR 			= #{rpt_ordr}
+         WHERE SEQ = #{seq}
+    </update>
+
+    <update id="EventMonitorMap.deleteMonitorQuest" parameterType="map">
+        UPDATE /* EventMonitorMap.deleteMonitorQuest */
+               MONTR_QUESTNNR_MNG
+           SET DEL_FG = 'Y'
+         WHERE SEQ = #{seq}
+    </update>
+
+    <insert id="EventMonitorMap.insertMonitorQuest" parameterType="map">
+        INSERT /* EventMonitorMap.insertMonitorQuest */
+          INTO MONTR_QUESTNNR_MNG (
+               SEQ
+             , MONTR_QUESTN_CL
+             , MONTR_QUESTN_CON
+             , RPT_ORDR
+             , REG_MAN
+             , REG_DM
+             , UPD_MAN
+             , UPD_DM
+             , DEL_FG
+          ) VALUES (
+              (SELECT NVL(MAX(SEQ),0)+1 FROM MONTR_QUESTNNR_MNG)
+            , #{montr_questn_cl}
+            , #{montr_questn_con}
+            , #{rpt_ordr}
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , 'N'
+          )
+    </insert>
+
+    <!-- /* sql-task.xml [모니터링 결과 보고서 마스터 등록] ID : task."insertMontrRpt" 작성자 : 임병근 2014_01_11 */ -->
+    <insert id="EventMonitorMap.insertMontrRpt" parameterType="map">
+        <selectKey  keyProperty="rpt_seq" resultType="String" order="BEFORE">
+            SELECT TO_CHAR(NVL((SELECT MAX(SEQ) FROM MONTR_RPT_MST), 0) + 1) FROM DUAL
+        </selectKey>
+        INSERT /* EventMonitorMap.insertMontrRpt */
+          INTO MONTR_RPT_MST (
+           SEQ
+          ,ACCNT_NO
+          ,RESPNDNT_NM
+          ,RESPNDNT_TEL
+          ,RESPNDNT_REL
+          <if test="out == 'N'.toString()">
+          ,MONTR_COMP_DT
+          </if>
+          <if test="out == 'Y'.toString()">
+          ,PROC_DT1
+          ,PROC_NOTE1
+          </if>
+          ,NOTE
+          ,PROPSL
+          ,TOTAL_ASSESSMNT
+          ,REG_MAN
+          ,REG_DM
+          ,UPD_MAN
+          ,UPD_DM
+          ,DEL_FG
+          ,JOIN_YN
+          ,GOOD_CP
+          ,TOTAL_BADOPTION
+          ,STEP_BIT
+          ,STEP_BIGO
+        )
+        SELECT #{rpt_seq}
+               ,#{accnt_no}
+              ,#{respndnt_nm}
+              ,#{respndnt_tel}
+              ,#{respndnt_rel}
+              <if test="out == 'N'.toString()">
+              ,#{montr_comp_dt}
+              </if>
+              <if test="out == 'Y'.toString()">
+              ,#{montr_comp_dt}
+              ,#{out_note}
+              </if>
+              ,#{note}
+              ,#{propsl}
+              ,#{total_assessmnt}
+              ,#{rgsr_id}
+              ,SYSDATE
+              ,#{rgsr_id}
+              ,SYSDATE
+              ,'N'
+              ,#{join_yn}
+              ,#{good_cp}
+              ,#{total_badoption}
+              ,#{step_bit}
+              ,#{step_bigo}
+          FROM DUAL
+    </insert>
+
+    <!-- sql-task.xml [모니터링 결과 보고서 마스터 수정] ID : task."insertMontrRpt" 작성자 : 임병근 2014_01_11 -->
+    <update id="EventMonitorMap.updateMontrRpt" parameterType="map">
+        UPDATE /* EventMonitorMap.updateMontrRpt */
+               MONTR_RPT_MST
+           SET RESPNDNT_NM = #{respndnt_nm}
+              ,RESPNDNT_TEL = #{respndnt_tel}
+              ,RESPNDNT_REL = #{respndnt_rel}
+
+              <if test="out == 'N'.toString()">
+                <if test="out_cnt != 3">
+              ,MONTR_COMP_DT = #{montr_comp_dt}
+                  </if>
+              </if>
+
+              <if test="out == 'Y'.toString()">
+                    <if test="out_cnt == 0">
+                  ,PROC_DT1 = #{montr_comp_dt}
+                  ,PROC_NOTE1 = #{out_note}
+                    </if>
+
+                    <if test="out_cnt == 1">
+                  ,PROC_DT2 = #{montr_comp_dt}
+                  ,PROC_NOTE2 = #{out_note}
+                    </if>
+
+                    <if test="out_cnt == 2">
+                  ,PROC_DT3 = #{montr_comp_dt}
+                  ,PROC_NOTE3 = #{out_note}
+                    </if>
+              </if>
+
+              ,NOTE = #{note}
+              ,PROPSL = #{propsl}
+              ,TOTAL_ASSESSMNT = #{total_assessmnt}
+              ,UPD_MAN = #{rgsr_id}
+              ,UPD_DM = SYSDATE
+              ,DEL_FG = #{del_fg}
+              ,JOIN_YN = #{join_yn}
+              ,GOOD_CP = #{good_cp}
+              <if test="total_badoption != null and total_badoption != ''">
+              ,TOTAL_BADOPTION = #{total_badoption}
+              </if>
+
+              ,STEP_BIGO = #{step_bigo}
+
+              <if test="step_bit != null and step_bit != ''">
+              ,STEP_BIT = #{step_bit}
+              </if>
+        WHERE SEQ = #{seq}
+    </update>
+
+    <select id="EventMonitorMap.selectMontrRptDtl" parameterType="map" resultType="resultMap">
+        SELECT /* EventMonitorMap.selectMontrRptDtl */
+               MRD.MST_SEQ MST_SEQ
+             , MRD.DTL_SEQ DTL_SEQ
+             , MRD.MQM_SEQ seq
+             , MRD.MONTR_QUESTN_CL
+             , FN_COM_NM('0163', MRD.MONTR_QUESTN_CL) MONTR_QUESTN_NM
+             , (SELECT MONTR_QUESTN_CON
+                  FROM MONTR_QUESTNNR_MNG
+                 WHERE SEQ = MRD.MQM_SEQ) MONTR_QUESTN_CON
+             , MRD.SATSFCTN
+             , MRD.BADOPTION BAD_OPTION
+             , '' satsfctn1
+             , '' satsfctn2
+             , '' satsfctn3
+             , '' satsfctn4
+             , '' badoption1
+             , '' badoption2
+             , '' badoption3
+          FROM MONTR_RPT_DTL MRD
+         WHERE MST_SEQ = (SELECT SEQ FROM MONTR_RPT_MST WHERE DEL_FG = 'N' AND ACCNT_NO = #{accnt_no})
+    </select>
+
+    <delete id="EventMonitorMap.deleteMontrRptDtl">
+        DELETE /* EventMonitorMap.deleteMontrRptDtl */
+          FROM MONTR_RPT_DTL
+         WHERE MST_SEQ = #{seq}
+    </delete>
+
+    <select id="EventMonitorMap.selectMontrRptList" parameterType="map" resultType="resultMap">
+        SELECT /* EventMonitorMap.selectMontrRptList */
+               TBL.seq
+             , TBL.accnt_No
+             , TBL.MEM_NO
+             , TBL.CELL
+             , TBL.mem_Nm
+             , TBL.prod_Nm
+             , TBL.cp_Nm
+             , TBL.funrl_Hall
+             , TBL.emple_Nm
+             /* , TBL.event_Day 아래 2개를 가공해서 사용하게 변경 - JCY */
+             , TBL.EVENT_PROC_DAY
+             , TBL.EVENT_COMP_DAY
+             , TBL.respndnt_Nm
+             , TBL.respndnt_Rel
+             , TBL.respndnt_Tel
+             , TBL.respndnt_Rel_Nm
+             , TBL.montr_Comp_Dt
+             , TBL.propsl
+             , TBL.total_Assessmnt
+             , FN_COM_NM('0164', TBL.total_Assessmnt) total_Assessmnt_nm
+             , TBL.note
+             , TBL.branch
+             , TBL.branch_Cd
+             , TBL.pos_Nm
+             , NVL(TBL.join_Yn, 'N') AS join_Yn
+             , NVL(TBL.good_Cp, 'N') AS good_Cp
+             , TBL.total_Badoption
+             , TBL.cemetery
+             , TBL.emp_Gubun
+             , TBL.cncl_Stat
+             , TBL.proc_Dt1
+             , TBL.proc_Dt2
+             , TBL.proc_Dt3
+             , TBL.proc_Note1
+             , TBL.proc_Note2
+             , TBL.proc_Note3
+             , TBL.out_Cnt
+             , TBL.sangju_Nm
+             , TBL.sangju_Phone
+             , TBL.DEL_FG
+             , '' AS out
+             , '' AS out_note
+             , TBL.REG_NM
+             , TBL.STEP_BIT
+             , TBL.STEP_BIGO
+          FROM (
+                SELECT MRM.SEQ seq
+                     , EVT.ACCNT_NO accnt_No
+                     , MEM.MEM_NM mem_Nm
+                     , fn_prod_nm(ACCNT.PROD_CD) prod_Nm
+                     , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) cp_Nm
+                     , NVL(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                            THEN (SELECT FUNRL_NM
+                                    FROM FUNRL_HALL
+                                   WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                            ELSE CASE WHEN (EVT.ETC_ZIP IS NULL OR EVT.ETC_ZIP = '') AND (EVT.ETC_ADDR2 IS NULL OR EVT.ETC_ADDR2 = '')
+                                      THEN ''
+                                      WHEN (EVT.ETC_ZIP IS NULL OR EVT.ETC_ZIP = '') AND (EVT.ETC_ADDR2 IS NOT NULL AND EVT.ETC_ADDR2 != '')
+                                      THEN NVL(EVT.ETC_ADDR2, '')
+                                      ELSE NVL(EVT.ETC_ZIP, '') || ')' || NVL(EVT.ETC_ADDR1, '') || ' ' || NVL(EVT.ETC_ADDR2, '')
+                                 END
+                       END, '') funrl_Hall
+                     , FN_EMPLE_NM(ACCNT.EMPLE_NO) emple_Nm
+                     /*
+                     , CONVERT(VARCHAR, EVT.EVENT_PROC_DAY, 111) + '~' + CONVERT(VARCHAR, EVT.EVENT_COMP_DAY, 111) eventDay
+                     jcy expr 로 기간을 표시해야
+                     */
+                     , EVT.EVENT_PROC_DAY
+                     , EVT.EVENT_COMP_DAY
+                     , MRM.RESPNDNT_NM respndnt_Nm
+                     , MRM.RESPNDNT_REL respndnt_Rel
+                     , MRM.RESPNDNT_TEL respndnt_Tel
+                     , FN_COM_NM('07', MRM.RESPNDNT_REL) respndnt_Rel_Nm
+                     , NVL(MRM.MONTR_COMP_DT, '') montr_Comp_Dt
+                     , MRM.PROPSL propsl
+                     , MRM.NOTE note
+                     , MRM.TOTAL_ASSESSMNT total_Assessmnt
+                     , MRM.TOTAL_BADOPTION total_Badoption
+                     , MRM.GOOD_CP good_Cp
+                     , MRM.JOIN_YN join_Yn
+                     , NVL((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_Cd
+                     , NVL((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch
+                     , NVL((SELECT FN_COM_NM('0138', JOB_DUTY) FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD), '') pos_Nm
+                     , CASE WHEN (SELECT EMP_GUBUN FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) = '0001'
+                               THEN '직영'
+                               WHEN (SELECT EMP_GUBUN FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) = '0002'
+                               THEN '외주'
+                               ELSE ''
+                          END emp_Gubun
+                     , EVT.cemetery
+                     , CASE WHEN MRM.PROC_DT3 IS NOT NULL THEN '최종부재' || NVL('(' || PROC_NOTE3 || ')', '')
+                            WHEN MRM.PROC_DT2 IS NOT NULL THEN '부재2' || NVL('(' || PROC_NOTE2 || ')', '')
+                            WHEN MRM.PROC_DT1 IS NOT NULL THEN '부재1' || NVL('(' || PROC_NOTE1 || ')', '')
+                            ELSE CASE WHEN MRM.MONTR_COMP_DT IS NULL THEN ''
+                                      ELSE '완료'
+                                 END
+                       END cncl_Stat
+                     , CASE WHEN MRM.PROC_DT3 IS NOT NULL THEN 3
+                            WHEN MRM.PROC_DT2 IS NOT NULL THEN 2
+                            WHEN MRM.PROC_DT1 IS NOT NULL THEN 1
+                            ELSE 0
+                       END out_Cnt
+                     , NVL(MRM.PROC_DT1, '') proc_Dt1
+                     , NVL(MRM.PROC_DT2, '') proc_Dt2
+                     , NVL(MRM.PROC_DT3, '') proc_Dt3
+                     , NVL(PROC_NOTE1, '') proc_Note1
+                     , NVL(PROC_NOTE2, '') proc_Note2
+                     , NVL(PROC_NOTE3, '') proc_Note3
+                     , NVL(EVT.VAL2, '') sangju_Nm
+                     , NVL(EVT.VAL4, '') sangju_Phone
+                     , EVT.DEL_FG
+                     , FN_EMPLE_NM(MRM.REG_MAN) REG_NM
+                     , MRM.STEP_BIT
+                     , MRM.STEP_BIGO
+                     , ACCNT.MEM_NO
+                     , MEM.CELL
+                  FROM EVENT EVT
+                       INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO
+                       INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+                       LEFT OUTER JOIN MONTR_RPT_MST MRM ON MRM.ACCNT_NO = EVT.ACCNT_NO AND MRM.DEL_FG = 'N'
+                       LEFT OUTER JOIN(
+                           SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                             FROM EVENT_MNGR_REG
+                             WHERE DEL_FG = 'N'
+                               AND EVT_MNGR_GUBUN = '0001'
+                           GROUP BY EVT_SEQ
+                      ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                 WHERE EVT.DEL_FG = 'N'
+
+                   <if test="seq != null and seq != ''">
+                       <if test="accnt_no != null and accnt_no != ''">
+                       AND MRM.ACCNT_NO = #{accnt_no}
+                       </if>
+                   </if>
+                   <if test="seq == null or seq == ''">
+                       <if test="accnt_no != null and accnt_no != ''">
+                       AND ACCNT.ACCNT_NO = #{accnt_no}
+                       </if>
+                   </if>
+
+                   <if test="prod_cd != null and prod_cd != ''">
+                   AND SUBSTR(SUBSTR(MRM.ACCNT_NO, 1, 6), -2) = #{prod_cd}
+                   </if>
+
+                   <if test="satsfctn != null and satsfctn != ''">
+                   AND MRM.TOTAL_ASSESSMNT = #{satsfctn}
+                   </if>
+
+                   <if test="mem_nm != null and mem_nm != ''">
+                   AND MEM.MEM_NM LIKE '%' || #{mem_nm} || '%'
+                   </if>
+
+                   <if test="inq_cl != null and inq_cl != ''">
+
+                       <if test="inq_cl == '01'">
+                       AND EVT.EVENT_REG_DAY BETWEEN NVL(#{start_dt},'19000101') AND NVL(#{end_dt},'99991231')
+                       </if>
+
+                       <if test="inq_cl == '02'">
+                       AND EVT.EVENT_PROC_DAY BETWEEN NVL(#{start_dt},'19000101') AND NVL(#{end_dt},'99991231')
+                       </if>
+
+                       <if test="inq_cl == '03'">
+                       AND EVT.EVENT_COMP_DAY BETWEEN NVL(#{start_dt},'19000101') AND NVL(#{end_dt},'99991231')
+                       </if>
+                   </if>
+
+               ) TBL
+         WHERE 1 = 1
+           <if test="cp_nm != null and cp_nm != ''">
+           AND TBL.cp_Nm LIKE '%' || #{cp_nm} || '%'
+           </if>
+           <if test="branch != null and branch != ''">
+           AND TBL.branch_Cd = #{branch}
+           </if>
+
+        ORDER BY TBL.EVENT_PROC_DAY desc
+               , TBL.accnt_No
+    </select>
+
+    <!--
+    행사 회원여부 조회
+    ASIS : isEvtAccnt
+    -->
+    <select id="EventMonitorMap.getEventAccntYn" parameterType="map" resultType="string">
+        SELECT /* EventMonitorMap.getEventAccntYn */
+               CASE WHEN (NVL((SELECT COUNT(*) FROM EVENT WHERE DEL_FG = 'N' AND ACCNT_NO = #{accnt_no}), 0) > 0)
+                         AND
+                         (NVL((SELECT COUNT(*) FROM MONTR_RPT_MST WHERE DEL_FG = 'N' AND ACCNT_NO = #{accnt_no}), 0) &lt;= 0)
+                    THEN 'Y'
+                    ELSE 'N'
+               END
+          FROM DUAL
+    </select>
+
+    <!--
+    행사 조회
+    ASIS : selectEvtInfo
+    -->
+    <select id="EventMonitorMap.getEventInfo" parameterType="map" resultType="resultMap">
+        SELECT /* EventMonitorMap.selectEvtInfo */
+               NVL((SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD), '') CP_NM
+             , NVL(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                    THEN (SELECT FUNRL_NM
+                            FROM FUNRL_HALL
+                           WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                    ELSE CASE WHEN (EVT.ETC_ZIP IS NULL OR EVT.ETC_ZIP = '') AND (EVT.ETC_ADDR2 IS NULL OR EVT.ETC_ADDR2 = '')
+                              THEN ''
+                              WHEN (EVT.ETC_ZIP IS NULL OR EVT.ETC_ZIP = '') AND (EVT.ETC_ADDR2 IS NOT NULL AND EVT.ETC_ADDR2 != '')
+                              THEN NVL(EVT.ETC_ADDR2, '')
+                              ELSE NVL(EVT.ETC_ZIP, '') || ')' || NVL(EVT.ETC_ADDR1, '') || ' ' || NVL(EVT.ETC_ADDR2, '')
+                         END
+               END, '') FUNRL_HALL
+
+             , NVL(EVT.EVENT_PROC_DAY || '~' || EVT.EVENT_COMP_DAY, '') EVENT_DAY
+             , EVT.EVENT_PROC_DAY
+             , EVT.EVENT_COMP_DAY
+             , MEM.MEM_NM MEM_NM
+             , CASE
+                    WHEN MEM.CELL = '' OR MEM.CELL IS NULL
+                    THEN CASE
+                              WHEN MEM.HOME_TEL = '' OR MEM.HOME_TEL IS NULL
+                              THEN MEM.WRPL_TEL
+                              ELSE MEM.HOME_TEL
+                         END
+                    ELSE MEM.CELL
+               END TEL_NO
+              , fn_prod_nm(ACCNT.PROD_CD) PROD_NM
+          FROM EVENT EVT
+               INNER JOIN MEM_PROD_ACCNT ACCNT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO
+               INNER JOIN MEMBER MEM ON MEM.MEM_NO = ACCNT.MEM_NO
+               LEFT OUTER JOIN(
+                   SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                     FROM EVENT_MNGR_REG
+                     WHERE DEL_FG = 'N'
+                       AND EVT_MNGR_GUBUN = '0001'
+                   GROUP BY EVT_SEQ
+               ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+         WHERE EVT.DEL_FG = 'N'
+           AND EVT.ACCNT_NO = #{accnt_no}
+
+    </select>
+
+        <select id="EventMonitorMap.selectMontrRptAnalysisList" parameterType="map" resultType="resultMap">
+        SELECT /* EventMonitorMap.selectMontrRptAnalysisList */
+               TBL1.mqm_seq
+             , FN_COM_NM('0163', (SELECT MONTR_QUESTN_CL FROM MONTR_QUESTNNR_MNG WHERE SEQ = TBL1.mqm_seq)) montr_questn_nm
+             , (SELECT MONTR_QUESTN_CON FROM MONTR_QUESTNNR_MNG WHERE SEQ = TBL1.mqm_seq) montr_questn_con
+             , RTRIM(TO_CHAR(ROUND(SUM(TBL1.a) / COUNT(TBL1.dtl_seq) * 100, 2), 'FM9990D99')) || '%' a
+             , RTRIM(TO_CHAR(ROUND(SUM(TBL1.b) / COUNT(TBL1.dtl_seq) * 100, 2), 'FM9990D99')) || '%' b
+             , RTRIM(TO_CHAR(ROUND(SUM(TBL1.c) / COUNT(TBL1.dtl_seq) * 100, 2), 'FM9990D99')) || '%' c
+             , RTRIM(TO_CHAR(ROUND(SUM(TBL1.d) / COUNT(TBL1.dtl_seq) * 100, 2), 'FM9990D99')) || '%' d
+          FROM (
+                SELECT TBL.mqm_seq
+                    , TBL.dtl_seq
+                    , CASE WHEN satsfctn = '0001' THEN 1 ELSE 0 END a
+                    , CASE WHEN satsfctn = '0002' THEN 1 ELSE 0 END b
+                    , CASE WHEN satsfctn = '0003' THEN 1 ELSE 0 END c
+                    , CASE WHEN satsfctn = '0004' THEN 1 ELSE 0 END d
+                  FROM (
+                        SELECT (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) cp_nm
+                            , NVL((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_cd
+                            , MRD.MQM_SEQ mqm_seq
+                            , MRD.DTL_SEQ dtl_seq
+                            , MRD.SATSFCTN satsfctn
+                          FROM MONTR_RPT_MST MRM
+                              INNER JOIN MONTR_RPT_DTL MRD ON MRM.SEQ = MRD.MST_SEQ
+                              INNER JOIN EVENT EVT ON MRM.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+                              LEFT OUTER JOIN(
+                                  SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                    FROM EVENT_MNGR_REG
+                                    WHERE DEL_FG = 'N'
+                                      AND EVT_MNGR_GUBUN = '0001'
+                                  GROUP BY EVT_SEQ
+                              ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                        WHERE MRM.DEL_FG = 'N'
+                          <if test="satsfctn != null and satsfctn != ''">
+                          AND MRM.TOTAL_ASSESSMNT = #{satsfctn}
+                          </if>
+
+                          <if test="inq_cl != null and inq_cl != ''">
+
+                          <if test="inq_cl == '01'">
+                          AND EVT.EVENT_REG_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                          </if>
+
+                          <if test="inq_cl == '02'">
+                          AND EVT.EVENT_PROC_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                          </if>
+
+                          <if test="inq_cl == '03'">
+                          AND EVT.EVENT_COMP_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                          </if>
+
+                          </if>
+                      ) TBL
+                 WHERE 1 = 1
+                   <if test="cp_nm != null and cp_nm != ''">
+                   AND TBL.cp_nm LIKE '%' || #{cp_nm} || '%'
+                   </if>
+                   <if test="branch != null and branch != ''">
+                   AND TBL.branch_cd = #{branch}
+                   </if>
+               ) TBL1
+        GROUP BY TBL1.mqm_seq
+        ORDER BY (SELECT ORDR_TURN FROM COM_CD WHERE GRP_CD = '0163' AND COM_CD = (SELECT MONTR_QUESTN_CL FROM MONTR_QUESTNNR_MNG WHERE SEQ = TBL1.mqm_seq))
+               , TBL1.mqm_seq
+    </select>
+
+    <select id="EventMonitorMap.selectMontrRptAnalysisList1" parameterType="map" resultType="resultMap">
+        SELECT TBL1.branch_nm
+             , NVL(SUM(TBL1.a), 0) a_cnt
+             , NVL(SUM(TBL1.b), 0) b_cnt
+             , NVL(SUM(TBL1.c), 0) c_cnt
+             , NVL(SUM(TBL1.d), 0) d_cnt
+             , NVL(SUM(TBL1.b_a), 0) ba_cnt
+             , NVL(SUM(TBL1.b_b), 0) bb_cnt
+             , NVL(SUM(TBL1.b_c), 0) bc_cnt
+             , NVL(SUM(TBL1.b_a) + SUM(TBL1.b_b) + SUM(TBL1.b_c) , 0) b_tot_cnt
+             , NVL(SUM(TBL1.a) + SUM(TBL1.b) + SUM(TBL1.c) + SUM(TBL1.d), 0) tot_cnt
+             , NVL(SUM(TBL1.abs_cnt), 0) abs_cnt
+             , NVL(SUM(TBL1.join_cnt),0) join_cnt
+             , NVL(SUM(TBL1.cp_cnt),0) cp_cnt
+          FROM (
+                SELECT BM.CD_NM branch_nm
+                     , CASE WHEN satsfctn = '0001' THEN 1 ELSE 0 END a
+                     , CASE WHEN satsfctn = '0002' THEN 1 ELSE 0 END b
+                     , CASE WHEN satsfctn = '0003' THEN 1 ELSE 0 END c
+                     , CASE WHEN satsfctn = '0004' THEN 1 ELSE 0 END d
+                     , CASE WHEN satsfctn = '0005' THEN 1 ELSE 0 END abs_cnt
+                     , CASE WHEN badoption = '0001' THEN 1 ELSE 0 END b_a
+                     , CASE when badoption = '0002' THEN 1 ELSE 0 END b_b
+                     , CASE when badoption = '0003' THEN 1 ELSE 0 END b_c
+                     , CASE WHEN JOIN_YN ='Y' THEN 1 ELSE 0 END join_cnt
+                     , CASE WHEN GOOD_CP = 'Y' THEN 1 ELSE 0 END cp_cnt
+                  FROM (SELECT CASE WHEN DIR_OUT_GUBUN = '0001'
+                                    THEN BRANCH_NM || ' '
+                                    ELSE BRANCH_NM
+                               END CD_NM
+                             , BRANCH_CD COM_CD
+                          FROM BRANCH_MNG
+                         WHERE BRANCH_CD = '0012'
+
+                        UNION ALL
+
+                        SELECT CASE WHEN DIR_OUT_GUBUN = '0001'
+                                    THEN BRANCH_NM || ' '
+                                    ELSE BRANCH_NM
+                               END CD_NM
+                             , BRANCH_CD COM_CD
+                          FROM BRANCH_MNG A
+                                   INNER JOIN WAREHOUSE_MNG B ON A.BRANCH_CD = B.BRANCH
+                               AND B.WH_CD NOT IN ('0001', '0002', '0007', '0009', '0011')
+                               AND B.DEL_FG = 'N'
+                               AND (A.BRANCH_CD != '0012'
+                                    AND
+                                   (B.WH_USE_YN = 'Y' OR (B.WH_USE_YN = 'N' AND B.TERMINATE_DT BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231'))))
+                         WHERE A.DEL_FG = 'N'
+
+                        GROUP BY CASE WHEN DIR_OUT_GUBUN = '0001'
+                                      THEN BRANCH_NM || ' '
+                                      ELSE BRANCH_NM
+                                END
+                              , BRANCH_CD
+                           ) BM
+                       LEFT OUTER JOIN (
+                        SELECT (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) cp_nm
+                            , NVL((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_cd
+                            , NVL((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_nm
+                            , MRM.TOTAL_ASSESSMNT satsfctn
+                            , MRM.GOOD_CP
+                            , MRM.JOIN_YN
+                            , MRM.TOTAL_BADOPTION badoption
+                          FROM MONTR_RPT_MST MRM
+                              INNER JOIN EVENT EVT ON MRM.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+                              LEFT OUTER JOIN(
+                                  SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                    FROM EVENT_MNGR_REG
+                                    WHERE DEL_FG = 'N'
+                                      AND EVT_MNGR_GUBUN = '0001'
+                                  GROUP BY EVT_SEQ
+                              ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                        WHERE MRM.DEL_FG = 'N'
+                          <if test="satsfctn != null and satsfctn != ''">
+                          AND MRM.TOTAL_ASSESSMNT = #{satsfctn}
+                          </if>
+
+                          <if test="inq_cl != null and inq_cl != ''">
+
+                          <if test="inq_cl == '01'">
+                          AND EVT.EVENT_REG_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                          </if>
+                          <if test="inq_cl == '02'">
+                          AND EVT.EVENT_PROC_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                          </if>
+                          <if test="inq_cl == '03'">
+                          AND EVT.EVENT_COMP_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                          </if>
+                          </if>
+                      ) TBL ON BM.COM_CD = TBL.branch_cd
+                 WHERE 1 = 1
+                   <if test="cp_nm != null and cp_nm != ''">
+                   AND TBL.cp_nm LIKE '%' || #{cp_nm} || '%'
+                   </if>
+                   <if test="branch != null and branch != ''">
+                   AND BM.COM_CD = #{branch}
+                   </if>
+               ) TBL1
+        GROUP BY TBL1.branch_nm
+        ORDER BY TBL1.branch_nm
+    </select>
+
+    <!-- 모니터링 결과분석(행사자별) -->
+    <select id="EventMonitorMap.selectMontrRptAnalysisList2" parameterType="map" resultType="resultMap">
+        /* EventMonitorMap.selectMontrRptAnalysisList2 */
+        SELECT TBL.EVENT_PROC_DAY
+             , TBL.event_comp_day
+             , TBL.ACCNT_NO
+             , TBL.mem_nm
+             , TBL.val2
+             , TBL.prod_nm
+             , TBL.event_place
+             , TBL.branch_nm
+             , TBL.cp_nm
+             , TBL.total_assessmnt
+             , TBL.note_propsl
+             , TBL.GOOD_CP
+             , TBL.JOIN_YN
+             , TBL.STEP_BIT
+             , TBL.STEP_BIGO
+             <!-- 2018.01.03 정승철 - 영업형태 추가조회 (** 김기래 매니저 요청 -->
+             , TBL.SALE_TYPE_NM
+          FROM (
+                SELECT NVL((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_cd
+                     , EVT.EVENT_PROC_DAY
+                     , EVT.EVENT_COMP_DAY
+                     , MRM.ACCNT_NO
+                     , FN_MEM_NM(ACCNT.MEM_NO) mem_nm
+                     , EVT.VAL2 val2
+                     , PROD.PROD_NM prod_nm
+                     , NVL(CASE WHEN EVT.EVENT_PLACE_CL = '0001'
+                                   THEN (SELECT FUNRL_NM
+                                           FROM FUNRL_HALL
+                                          WHERE FUNRL_CD = EVT.FUNRL_HALL)
+                                   ELSE CASE WHEN (EVT.ETC_ZIP IS NULL OR EVT.ETC_ZIP = '') AND (EVT.ETC_ADDR2 IS NULL OR EVT.ETC_ADDR2 = '')
+                                             THEN ''
+                                             WHEN (EVT.ETC_ZIP IS NULL OR EVT.ETC_ZIP = '') AND (EVT.ETC_ADDR2 IS NOT NULL AND EVT.ETC_ADDR2 != '')
+                                             THEN NVL(EVT.ETC_ADDR2, '')
+                                             ELSE NVL(EVT.ETC_ZIP, '') || ')' || NVL(EVT.ETC_ADDR1, '') || ' ' || NVL(EVT.ETC_ADDR2, '')
+                                        END
+                              END, '') event_place
+                     , NVL((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_nm
+                     , (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) cp_nm
+                     , FN_COM_NM('0164', MRM.TOTAL_ASSESSMNT) total_assessmnt
+                     , CASE WHEN MRM.GOOD_CP ='Y' THEN '응답'
+                       ELSE ''
+                       END GOOD_CP
+                     , CASE WHEN MRM.JOIN_YN ='Y' THEN '가입'
+                       ELSE ''
+                       END JOIN_YN
+                     , MRM.NOTE || ' ' || MRM.PROPSL note_propsl
+                     , CASE WHEN MRM.STEP_BIT = '0001' THEN '진행중'
+                            WHEN MRM.STEP_BIT = '0002' THEN '완료'
+                            ELSE '' END STEP_BIT
+                     , MRM.STEP_BIGO
+                     <!-- 2018.01.03 정승철 - 영업형태 추가조회 (** 김기래 매니저 요청 -->
+                     , (SELECT CD_NM FROM COM_CD WHERE GRP_CD = '0125' AND COM_CD = B2B.SALE_TYPE) SALE_TYPE_NM
+                  FROM MONTR_RPT_MST MRM
+                      INNER JOIN EVENT EVT ON MRM.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+                      INNER JOIN MEM_PROD_ACCNT ACCNT ON ACCNT.ACCNT_NO = EVT.ACCNT_NO
+                      INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                      <!-- 2018.01.03 정승철 - 영업형태 조회를 위한 조인테이블 추가 (** 김기래 매니저 요청 -->
+                      LEFT OUTER JOIN B2BCOMCD B2B ON ACCNT.B2B_COMP_CD = B2B.COM_CD
+                      LEFT OUTER JOIN(
+                          SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                            FROM EVENT_MNGR_REG
+                            WHERE DEL_FG = 'N'
+                              AND EVT_MNGR_GUBUN = '0001'
+                          GROUP BY EVT_SEQ
+                      ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                WHERE MRM.DEL_FG = 'N'
+                  <if test="satsfctn != null and satsfctn != ''">
+                  AND MRM.TOTAL_ASSESSMNT = #{satsfctn}
+                  </if>
+
+                  <if test="inq_cl != null and inq_cl != ''">
+                  <if test="inq_cl == '01'">
+                  AND EVT.EVENT_REG_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                  </if>
+                  <if test="inq_cl == '02'">
+                  AND EVT.EVENT_PROC_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                  </if>
+                  <if test="inq_cl == '03'">
+                  AND EVT.EVENT_COMP_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                  </if>
+                  </if>
+              ) TBL
+         WHERE 1 = 1
+           <if test="cp_nm != null and cp_nm != ''">
+           AND TBL.cp_nm LIKE '%' || #{cp_nm} || '%'
+           </if>
+           <if test="branch != null and branch != ''">
+           AND TBL.branch_cd = #{branch}
+           </if>
+        ORDER BY TBL.mem_nm, TBL.branch_nm
+    </select>
+
+    <select id="EventMonitorMap.selectMontrRptAnalysisList3" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [모니터링 현황 - 상품분류별] ID : task.selectMontrRptAnalysisList3 작성자 : 임병근_20140425 */
+        SELECT FN_COM_NM('0130', TBL1.prodGubun) prodGubun
+             , NVL(SUM(TBL1.a), 0) a_cnt
+             , NVL(SUM(TBL1.b), 0) b_cnt
+             , NVL(SUM(TBL1.c), 0) c_cnt
+             , NVL(SUM(TBL1.d), 0) d_cnt
+             , NVL(SUM(TBL1.a) + SUM(TBL1.b) + SUM(TBL1.c) + SUM(TBL1.d), 0) tot_cnt
+             , NVL(SUM(TBL1.abs_cnt), 0) abs_cnt
+          FROM (
+                SELECT PROD.PROD_GUBUN prodGubun
+                     , CASE WHEN satsfctn = '0001' THEN 1 ELSE 0 END a
+                     , CASE WHEN satsfctn = '0002' THEN 1 ELSE 0 END b
+                     , CASE WHEN satsfctn = '0003' THEN 1 ELSE 0 END c
+                     , CASE WHEN satsfctn = '0004' THEN 1 ELSE 0 END d
+                     , CASE WHEN satsfctn = '0005' THEN 1 ELSE 0 END abs_cnt
+                  FROM (SELECT PROD_CD
+                             , PRODUCT.PROD_GUBUN
+                          FROM PRODUCT) PROD
+                       LEFT OUTER JOIN (
+                        SELECT (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) cp_nm
+                            , NVL((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_cd
+                            , NVL((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') branch_nm
+                            , MRM.TOTAL_ASSESSMNT satsfctn
+                            , SUBSTR(SUBSTR(EVT.ACCNT_NO, 1, 6), -2) AS PROD_CD
+                          FROM MONTR_RPT_MST MRM
+                              INNER JOIN EVENT EVT ON MRM.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+                              LEFT OUTER JOIN(
+                                  SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+                                    FROM EVENT_MNGR_REG
+                                    WHERE DEL_FG = 'N'
+                                      AND EVT_MNGR_GUBUN = '0001'
+                                  GROUP BY EVT_SEQ
+                              ) EMR ON EMR.EVT_SEQ = EVT.SEQ
+                        WHERE MRM.DEL_FG = 'N'
+                          <if test="satsfctn != null and satsfctn != ''">
+                          AND MRM.TOTAL_ASSESSMNT = #{satsfctn}
+                          </if>
+
+                          <if test="inq_cl != null and inq_cl != ''">
+                              <if test="inq_cl == '01'">
+                              AND EVT.EVENT_REG_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                              </if>
+                              <if test="inq_cl == '02'">
+                              AND EVT.EVENT_PROC_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                              </if>
+                              <if test="inq_cl == '03'">
+                              AND EVT.EVENT_COMP_DAY BETWEEN NVL(#{start_dt}, '19000101') AND NVL(#{end_dt}, '99991231')
+                              </if>
+                          </if>
+                      ) TBL ON TBL.PROD_CD = PROD.PROD_CD
+                      LEFT OUTER JOIN
+                       (SELECT CASE WHEN DIR_OUT_GUBUN = '0001'
+                                    THEN BRANCH_NM || ' '
+                                    ELSE BRANCH_NM
+                               END CD_NM
+                             , BRANCH_CD COM_CD
+                          FROM BRANCH_MNG
+                      ) BM ON BM.COM_CD = TBL.branch_cd
+                 WHERE 1 = 1
+                   <if test="cp_nm != null and cp_nm != ''">
+                   AND NVL(TBL.cp_nm, '') LIKE '%' || #{cp_nm} || '%'
+                   </if>
+                   <if test="branch != null and branch != ''">
+                   AND NVL(BM.COM_CD, '') = #{branch}
+                   </if>
+               ) TBL1
+        GROUP BY TBL1.prodGubun
+        ORDER BY TBL1.prodGubun
+    </select>
+
+    <!-- 의전행사 모니터링 상세 보고서 조회 -->
+    <select id="EventMonitorMap.getMontrRptDtlList" parameterType="map" resultType="resultMap">
+
+        SELECT /* EventMonitorMap.getMontrRptDtlList */
+              A.ACCNT_NO,
+              A.DIS_BIGO,
+              A.DE_BIGO,
+              A.CP_BIGO,
+              A.TAKE_BIGO
+        FROM MONTR_ALL_BIGO A
+        WHERE DEL_FG = 'N'
+          AND ACCNT_NO = #{accnt_no}
+
+    </select>
+
+    <!-- 의전행사 모니터링 상세 보고서 수정 -->
+    <update id="EventMonitorMap.updateMontrRptDtlBigo" parameterType="map">
+
+        UPDATE /* EventMonitorMap.updateMontrRptDtlBigo */
+         MONTR_ALL_BIGO
+        SET DIS_BIGO = #{dis_bigo},
+            DE_BIGO = #{de_bigo},
+            CP_BIGO = #{cp_bigo},
+            TAKE_BIGO = #{take_bigo},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{upd_man}
+        WHERE DEL_FG = 'N'
+          AND ACCNT_NO = #{accnt_no}
+
+    </update>
+
+    <!-- 의전행사 모니터링 상세 보고서 입력 -->
+    <insert id="EventMonitorMap.insertMontrRptDtlBigo" parameterType="map">
+
+        INSERT /* EventMonitorMap.insertMontrRptDtlBigo */
+            INTO MONTR_ALL_BIGO(ACCNT_NO, DIS_BIGO, DE_BIGO, CP_BIGO, TAKE_BIGO, DEL_FG, REG_DM, REG_MAN)
+        VALUES(#{accnt_no},
+               #{dis_bigo},
+               #{de_bigo},
+               #{cp_bigo},
+               #{take_bigo},
+               'N',
+               SYSDATE,
+               #{reg_man})
+
+    </insert>
+
+    <!-- 의전행사 모니터링 상세 보고서 입력 -->
+    <update id="EventMonitorMap.deleteMontrRptDtlBigo" parameterType="map">
+
+        UPDATE /* EventMonitorMap.deleteMontrRptDtlBigo */
+            MONTR_ALL_BIGO
+        SET DEL_FG = 'Y',
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{upd_man}
+        WHERE DEL_FG = 'N'
+          AND ACCNT_NO = #{accnt_no}
+
+    </update>
+
+</mapper>

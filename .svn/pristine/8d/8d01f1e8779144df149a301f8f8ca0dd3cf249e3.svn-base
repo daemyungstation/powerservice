@@ -1,0 +1,809 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CommonMap">
+
+    <!-- <resultMap id="getListByProcParamResult" type="resultMap">
+        <result property="icnt" column="ICNT"/>
+        <result property="req_seq" column="REQ_SEQ"/>
+        <result property="mem_no" column="MEM_NO"/>
+        <result property="mem_nm" column="MEM_NM"/>
+        <result property="cell" column="CELL"/>
+        <result property="brth_mon_day" column="BRTH_MON_DAY"/>
+        <result property="sex" column="SEX"/>
+        <result property="empl_no" column="EMPL_NO"/>
+    </resultMap>
+
+    <parameterMap id="getListByProcParamMap" type="map">
+        <parameter property="mem_nm" 	mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="rslt" 		mode="OUT" 	jdbcType="CURSOR" 	javaType="java.sql.ResultSet" resultMap="getListByProcParamResult"/>
+    </parameterMap>
+
+    프로시져를 이용한 목록 조회 샘플 쿼리
+    <select id="DlwCommonMap.getListByProc" statementType="CALLABLE" parameterMap="getListByProcParamMap">
+        {call SP_GET_LIST_BY_PROC(?, ?)}
+    </select>
+
+    <select id="DlwCommonMap.getProductList" parameterType="map" resultType="resultMap">
+        WITH W_TEMP AS (
+            SELECT LEVEL SEQ
+              FROM DUAL
+           CONNECT BY LEVEL &lt; 600
+        )
+        SELECT /* DlwProdMap.getProductList */
+               ROWNUM AS RNUM,
+               A.PROD_CD,
+               A.PROD_NM,
+               A.MON_PAY_AMT,
+               A.EXPR_NO,
+               A.PROD_AMT,
+               A.PROD_POINT,
+               TO_CHAR(A.REG_DM, 'YYYYMMDD') AS REG_DM,
+               A.REG_MAN,
+               A.DEL_FG,
+               A.PROD_CL,
+               A.SALE_CL,
+               A.SALE_CLOSE_DAY,
+               A.PROD_SAVE_POINT
+          FROM PRODUCT A
+             , W_TEMP B
+    </select> -->
+
+    <!--
+    지부 조회
+    ASIS : selectBranchList
+    -->
+    <select id="CommonMap.getBranchList" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [지부관리 조회] ID : task.selectBranchList 작성자 : 김은진 2013_11_05  */
+        SELECT /* CommonMap.getBranchList */
+          branch_cd BRANCH_CD
+          , branch_nm BRANCH_NM
+          , branch_mngr_nm branch_Mngr_Nm
+          , branch_mngr_tel branch_Mngr_Tel
+            , REPLACE(SUBSTR(branch_mngr_tel,1,3), '-','') as branch_Mngr_Tel1
+            , CASE WHEN branch_mngr_tel = '' THEN '' ELSE REPLACE(SUBSTR(SUBSTR(branch_mngr_tel, 1,LENGTH(branch_mngr_tel)-5),-4), '-', '') END as branch_Mngr_Tel2
+            , SUBSTR(branch_mngr_tel, -4) as branch_Mngr_Tel3
+          , branch_office_tel branch_Office_Tel
+          , REPLACE(SUBSTR(branch_office_tel,1,3), '-','') as branch_Office_Tel1
+            , CASE WHEN branch_office_tel = '' THEN '' ELSE REPLACE(SUBSTR(SUBSTR(branch_office_tel, 1,LENGTH(branch_office_tel)-5),-4), '-', '') END as branch_Office_Tel2
+            , SUBSTR(branch_office_tel, -4) as branch_Office_Tel3
+          , branch_fax_tel branch_Fax_Tel
+          , REPLACE(SUBSTR(branch_fax_tel,1,3), '-','') as branch_Fax_Tel1
+            , CASE WHEN branch_fax_tel = '' THEN '' ELSE REPLACE(SUBSTR(SUBSTR(branch_fax_tel, 1,LENGTH(branch_fax_tel)-5),-4), '-', '') END as branch_Fax_Tel2
+            , SUBSTR(branch_fax_tel, -4) as branch_Fax_Tel3
+          , branch_email branch_Email
+          , branch_zipcode branch_Zip_Code
+          , SUBSTR(branch_zipcode,1, 3) as branch_Zip_Code1
+          , SUBSTR(branch_zipcode, -3) as branch_Zip_Code2
+          , dir_out_gubun dir_Out_Gubun
+          , branch_addr1 || ' ' || NVL(branch_addr2, '') branch_Addr
+          , branch_addr1 branch_Addr1
+          , branch_addr2 branch_Addr2
+          , CASE WHEN dir_out_gubun = '0001' THEN '직영'
+                            WHEN dir_out_gubun = '0002' THEN '외주'
+                       END dir_Out_Gubun_Nm
+        FROM branch_mng
+        WHERE del_fg='N'
+        <if test="BRANCH_CD != null and BRANCH_CD != ''">
+            AND branch_cd =#branchCd#
+        </if>
+        <if test="dir_Out_Gubun != null and dir_Out_Gubun != ''">
+            AND dir_out_gubun =#dirOutGubun#
+        </if>
+        <if test="BRANCH_NM != null and BRANCH_NM != ''">
+            AND branch_nm like '%' || #branchNm# ||'%'
+        </if>
+    </select>
+
+    <!--
+    공통콤보 행사관리 창고조회
+    ASIS : selectComboWHList
+    -->
+    <select id="CommonMap.getWhCdList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.getWhCdList */
+               WH_CD AS COM_CD
+             , WH_NM AS CD_NM
+          FROM WAREHOUSE_MNG
+         WHERE NVL(DEL_FG,'N') = 'N'
+           AND WH_USE_YN = 'Y'
+        <if test="cd_nm != null and cd_nm != ''">
+           AND wh_nm = #{cd_nm}
+        </if>
+    </select>
+
+    <!--
+    거래처 조회
+    -->
+    <select id="CommonMap.getCustomerCdList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.getCustomerCdList */
+               CUSTMR_CD
+             , CUSTMR_NM
+             , CUSTMR_REG_NO
+             , CUSTMR_TEL
+             , CUSTMR_ZIP_CD
+             , CUSTMR_ADDR
+             , CUSTMR_ADDR2
+             , STAFF_NM
+             , STAFF_TEL
+             , STAFF_EMAIL
+             , CUSTMR_BANK_CD
+             , CUSTMR_BANK_DEPR
+             , CUSTMR_NOTE
+             , CUSTMR_FG
+        FROM CUSTMR_MNG
+        WHERE DEL_FG = 'N'
+        <if test="custmr_cd != null and custmr_cd != ''">
+           AND custmr_cd = #{custmr_cd}
+        </if>
+        <if test="custmr_nm != null and custmr_nm != ''">
+           AND custmr_nm LIKE '%' || #{custmr_nm} || '%'
+        </if>
+        ORDER BY CUSTMR_NM ASC
+    </select>
+
+    <select id="CommonMap.selectGoodsComList" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [품목팝업] ID : task.selectGoodsComList 작성자 : 김은진 2013_09_04  */
+        SELECT
+            mst.GDS_CD
+            , mst.real_gds_cd
+            , mst.GDS_NM
+            , mst.unit
+              , mst.standard
+              , nvl(sc.stock_qty,0) stock_qty
+              , nvl(bc.buying_cost,0) buying_cost
+              , case when mst.real_gds_cd = 'BD00001'
+                     then 0
+                   else nvl(bc.buying_cost,0)
+              end buying_cost
+              <!-- 도우미 인경우에만 사용하는 컬럼 -->
+              <if test="seq != null and seq != ''">
+              , case when mst.real_gds_cd = 'BD00001'
+                     then nvl((SELECT COUNT(*)
+                           FROM (
+                         SELECT EVT_MNGR_CD
+                           FROM EVENT_MNGR_REG
+                          WHERE DEL_FG = 'N'
+                            AND EVT_MNGR_GUBUN = '0003'
+                            AND EVT_SEQ = #{seq}
+                         GROUP BY EVT_MNGR_CD) TBL), 0)
+                   else 0
+              end qty
+            </if>
+            <if test="seq == null or seq == ''">
+            , 0 qty
+            </if>
+            <if test="seq != null and seq != ''">
+            , case when mst.real_gds_cd = 'BD00001'
+                     then nvl((SELECT SUM(PAY_AMT + PAY_ADD_AMT)
+                           FROM EVENT_MNGR_REG
+                          WHERE DEL_FG = 'N'
+                            AND EVT_MNGR_GUBUN = '0003'
+                            AND EVT_SEQ = #{seq}), 0)
+                   else 0
+              end amt
+            </if>
+            <if test="seq == null or seq == ''">
+            , 0 amt
+            </if>
+            , vat_yn
+            , '' AS CHK
+        FROM EVENT_GOODS_MNG_MST mst
+        LEFT JOIN(
+             SELECT  gds_cd FROM event_goods_mng_dtl WHERE del_fg='N' GROUP BY gds_cd
+        ) dtl on mst.GDS_CD = dtl.GDS_CD
+        LEFT JOIN
+        (
+            SELECT gds_cd
+                 , buying_cost
+                 , vat_yn
+             FROM event_goods_mng_dtl
+             WHERE del_fg='N'
+             <if test="chk_dt != null and chk_dt != ''">
+                AND #{chk_dt} between case when bis_start_dt is null then
+                                            '19000101'
+                                         else bis_start_dt end
+                                     and case when bis_end_dt is null then
+                                            '99991231'
+                                         else bis_end_dt end
+            </if>
+
+            <if test="chk_dt == null or chk_dt == ''">
+                AND to_char(SYSDATE, 'YYYYMMDD') between case when bis_start_dt is null then
+                                                '19000101'
+                                            else bis_start_dt end
+                                        and case when bis_end_dt is null then
+                                                 '99991231'
+                                             else bis_end_dt end
+            </if>
+
+            <if test="custmr_cd != null and custmr_cd != ''">
+                  AND buying_com = #{custmr_cd}
+              </if>
+
+        )bc on bc.gds_cd = mst.gds_cd
+          left join
+        (
+            SELECT
+               io.gds_cd
+              , (sum(carried_qty)+sum(in_qty) - sum(out_qty)) AS stock_qty
+            FROM
+            (
+             SELECT
+              wd.gds_cd
+                , sum(qty) in_qty
+                , 0 as out_qty
+                , 0 as carried_qty
+              FROM wh_in_dtl wd
+              join wh_in_mst wm on wd.WH_IN_NO = wm.WH_IN_NO
+              WHERE wm.del_fg='N'
+                <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND substr(wm.in_dt,1,6) = substr(replace(#{inspect_dt},'/',''),1,6)
+                </if>
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND substr(wm.in_dt,1,6)= TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+
+              GROUP BY wd.gds_cd
+
+              UNION ALL
+              SELECT
+                wd.gds_cd
+                , 0 as in_qty
+                , sum(qty) out_qty
+                , 0 as carried_qty
+              FROM wh_out_dtl wd
+              join wh_out_mst wm on wd.WH_out_NO = wm.WH_out_NO
+              WHERE wm.del_fg='N'
+                <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND substr(wm.out_dt,1,6)= substr(replace(#{inspect_dt},'/',''),1,6)
+                </if>
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND substr(wm.out_dt,1,6)= TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+              GROUP BY wd.gds_cd
+              UNION ALL
+              SELECT
+               sc.gds_cd
+                , 0 as in_qty
+                , 0 as out_qty
+                , sum(stock_qty) carried_qty
+              FROM stock_close sc
+              WHERE 1=1
+                  <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND sc.close_yymm = substr(replace(#{inspect_dt},'/',''),1,6)
+                </if>
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND sc.close_yymm= TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+
+              GROUP BY gds_cd
+            )io
+            GROUP BY io.gds_cd
+         )sc on mst.gds_cd=sc.gds_cd
+        WHERE mst.DEL_FG = 'N'
+        AND (SELECT count(*) FROM EVENT_GOODS_MNG_MST where del_fg='N' AND high_eg_cd=mst.gds_cd)>=0
+        AND mst.STOCK_MNG_YN='Y'
+        <if test="gds_cd != null and gds_cd != ''">
+            AND mst.real_gds_cd like '%'|| #{gds_cd} ||'%'
+        </if>
+        <if test="gds_nm != null and gds_nm != ''">
+            AND mst.gds_nm like '%'|| #{gds_nm} ||'%'
+        </if>
+        <if test="sch_cl != null and sch_cl != ''">
+            <if test="sch_cl == 'funrlHall'">
+            AND left(mst.real_gds_cd, 1) != 'A'
+            </if>
+        </if>
+    </select>
+
+    <select id="CommonMap.selectCpInfo" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectCpInfo */
+               EVT_MNGR_NM
+             , EMPLE_NO
+             , EVT_CELL
+             , REPLACE(REPLACE(EVT_CELL, '-', ''), ' ', '') CP_CELL
+             , BRANCH
+          FROM (SELECT (SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) EVT_MNGR_NM
+                     , nvl((SELECT EMPLE_NO FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD), '') EMPLE_NO
+                     , (SELECT CELL FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD) EVT_CELL
+                     , nvl((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMR.EVT_MNGR_CD)), '') BRANCH
+                 FROM EVENT_MNGR_REG EMR
+                WHERE DEL_FG = 'N'
+                  AND EVT_MNGR_GUBUN = '0001'
+                <if test="evt_seq != null and evt_seq != ''">
+                  AND EVT_SEQ = #{evt_seq}
+                </if>
+                <if test="evt_seq == null or evt_seq == ''">
+                  AND EXISTS (SELECT 'X' FROM EVENT WHERE SEQ = EMR.EVT_SEQ AND ACCNT_NO = #{accnt_no} AND DEL_FG = 'N')
+                </if>
+            )
+    </select>
+
+    <!-- 사내조직도 조회 -->
+    <select id="CommonMap.selectOrgChartMap" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectOrgChartMap */
+               dept_cd
+             , dept_nm
+             , high_dept_cd
+             , dept_kind
+             , use_yn
+             , LEVEL lvl
+          FROM DEPARTMENT
+         WHERE USE_YN = 'Y'
+        CONNECT BY PRIOR DEPT_CD = HIGH_DEPT_CD
+         START WITH dept_cd = #{dept_cd}
+         ORDER SIBLINGS BY DEPT_NM
+    </select>
+
+    <!-- 콤보 영업형태 분류 -->
+    <select id="CommonMap.selectStGrpCdList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectStGrpCdList */
+               ST_GRP_CD COM_CD
+             , ST_GRP_NM CD_NM
+          FROM B2B_SALE_TYPE_MST
+         WHERE use_yn ='Y'
+         <if test="alow_dt != null and alow_dt != ''">
+           AND ST_GRP_CD IN (SELECT distinct C.ST_GRP_CD
+                               FROM ALOW_DTL_T33 A
+                                       INNER JOIN
+                                    B2BCOMCD B ON A.ALOW_B2B_COMP_CD = B.COM_CD
+                                       INNER JOIN
+                                    B2B_SALE_TYPE_DTL C ON C.SALE_TYPE = B.SALE_TYPE
+                              WHERE A.ALOW_DT = #{alow_dt}
+                                AND A.ALOW_CD IN ('T33')
+                              UNION
+                             SELECT distinct G.ST_GRP_CD
+                               FROM ALOW_DTL_T33_REDMP E
+                                       INNER JOIN
+                                    B2BCOMCD F ON E.ALOW_B2B_COMP_CD = F.COM_CD
+                                       INNER JOIN
+                                    B2B_SALE_TYPE_DTL G ON G.SALE_TYPE = F.SALE_TYPE
+                              WHERE E.ALOW_DT = #{alow_dt}
+                                AND E.ALOW_CD IN ('F8', 'F10')
+                                AND E.ALOW_B2B_COMP_CD != ' ')
+         </if>
+    </select>
+
+    <!-- sql-common.xml [부가서비스 상세 조회] ID : common.selectOptSvcList 작성자 : 백인주 -->
+    <select id="CommonMap.selectOptSvcList" parameterType="map" resultType="resultMap">
+        SELECT	/* CommonMap.selectOptSvcList */
+            OS.seq	/* 부가서비스 코드 */
+            ,'['||fn_com_nm('107',OS.SVC_CL) ||']'|| OS.SVC_NM as svc_nm	/* 부가서비스 */
+            ,OS.svc_nm as svc_nm2	/* 부가서비스2 */
+            ,OS.svc_cl
+            ,OS.use_yn
+            ,OS.no_Crt_Yn
+            ,CASE WHEN OS.SEQ = '0014' THEN '' ELSE OS.crt_No_Fixed END crt_no_fixed
+            ,OS.prt_File_Nm
+            ,CASE WHEN OS.SEQ = '0001' OR OS.SEQ = '0002' THEN OS.crt_no
+              WHEN OS.SEQ = '0014' OR OS.SEQ = '0015' THEN CNMPD.isu_seq
+              ELSE CNM.ISU_SEQ
+         END crt_no
+        FROM OPT_SVC OS
+         LEFT OUTER JOIN (SELECT A.SVC_CD
+                               , A.ISU_YEAR
+                               , A.ISU_MONTH
+                               , A.ISU_SEQ
+                            FROM COUPON_NO_MNG A
+                           WHERE (A.ISU_YEAR||A.ISU_MONTH)
+                                   = (SELECT MAX(ISU_YEAR||ISU_MONTH)
+                                        FROM COUPON_NO_MNG
+                                       WHERE SVC_CD = A.SVC_CD)) CNM ON OS.SEQ = CNM.SVC_CD
+         LEFT OUTER JOIN (SELECT B.SVC_CD
+                               , B.ISU_DT
+                               , B.ISU_SEQ
+                            FROM COUPON_NO_MNG_PER_DAY B
+                           WHERE B.ISU_DT = (SELECT MAX(ISU_DT)
+                                               FROM COUPON_NO_MNG_PER_DAY
+                                              WHERE SVC_CD = B.SVC_CD)) CNMPD ON OS.SEQ = CNMPD.SVC_CD
+        WHERE 1=1
+          AND OS.USE_YN = 'Y'
+          AND OS.SVC_CL != '009'
+          ORDER BY SEQ
+    </select>
+
+    <!-- 엑셀다운로드 이력 생성 -->
+    <insert id="CommonMap.insertExcelDownHist" parameterType="map">
+          INTO EXCEL_HIST (
+        INSERT /* CommonMap.insertExcelDownHist */
+           EMPLE_NO
+          , MENU_NM
+          , IP_ADDRESS
+          , REG_DM
+          , LOG_GUBN
+          , MENU_NM_DETAIL
+        ) VALUES (
+           #{reg_man}
+          ,#{menu_nm}
+          ,#{ip}
+          ,SYSDATE
+          ,#{log_gubn}
+          ,#{menu_nm_detail}
+        )
+    </insert>
+
+    <sql id="CommonMap.headerPageSql">
+            SELECT * FROM (
+                SELECT PAGE_LIST.*,
+                       <if test="order_by != null and order_by != ''">
+                       ROW_NUMBER() OVER(ORDER BY ${order_by} ${order_direction}) RNUM
+                       </if>
+                       <if test="order_by == null or order_by == ''">
+                       ROWNUM AS RNUM
+                       </if>
+                  FROM (
+    </sql>
+
+    <!-- <sql id="CommonMap.footerPageSql">
+                ) PAGE_LIST
+            WHERE ROWNUM <![CDATA[<=]]>
+            <if test="curr_page_cnt != null and curr_page_cnt == '1'.toString()">
+                ((TRUNC((#{curr_page_cnt} - 1) / 1) + 1) * #{first_inq_cnt} * 1) + 1
+            </if>
+            <if test="curr_page_cnt == null or curr_page_cnt != '1'.toString()">
+                ((TRUNC((#{curr_page_cnt} - 1) / 1) + 1) * #{page_inq_cnt} * 1) - (#{page_inq_cnt} - #{first_inq_cnt}) + 1
+            </if>
+            <if test="curr_page_cnt != null and curr_page_cnt == '1'.toString()">
+             ) PAGE_LIST WHERE RNUM BETWEEN ((#{curr_page_cnt} - 1) * #{first_inq_cnt}) + 1
+                          AND #{curr_page_cnt} * #{first_inq_cnt}
+            </if>
+            <if test="curr_page_cnt == null or curr_page_cnt != '1'.toString()">
+             ) PAGE_LIST WHERE RNUM BETWEEN ((#{curr_page_cnt} - 1) * #{page_inq_cnt}) + 1 - (#{page_inq_cnt} - #{first_inq_cnt})
+                          AND (#{curr_page_cnt} * #{page_inq_cnt}) - (#{page_inq_cnt} - #{first_inq_cnt})
+            </if>
+    </sql> -->
+
+    <sql id="CommonMap.footerPageSql">
+                ) PAGE_LIST
+            <if test="curr_page_cnt != null and curr_page_cnt == '1'.toString()">
+             ) PAGE_LIST WHERE RNUM BETWEEN ((#{curr_page_cnt} - 1) * #{first_inq_cnt}) + 1
+                          AND #{curr_page_cnt} * #{first_inq_cnt}
+            </if>
+            <if test="curr_page_cnt == null or curr_page_cnt != '1'.toString()">
+             ) PAGE_LIST WHERE RNUM BETWEEN ((#{curr_page_cnt} - 1) * #{page_inq_cnt}) + 1 - (#{page_inq_cnt} - #{first_inq_cnt})
+                          AND (#{curr_page_cnt} * #{page_inq_cnt}) - (#{page_inq_cnt} - #{first_inq_cnt})
+            </if>
+    </sql>
+
+
+
+
+    <!-- sms_msg에 저장 -->
+    <insert id="CommonMap.insertSMS" parameterType="map">
+        <!-- selectKey keyProperty="msgKey" resultClass="java.lang.Integer">
+            SELECT MAX(msgkey) as mappingkey FROM SMS_MSG
+        </selectKey -->
+        /* sql-life.xml [SMS등록] ID : common.insertSMS 작성자 : 강주수   */
+        INSERT INTO SMS_MSG (
+                    msgkey
+            <if test="accnt_no != null and accnt_no != ''"> 	, accnt_no </if>
+            <if test="emple_no != null and emple_no != ''"> 	, emple_no </if>
+            <if test="phone != null and phone != ''"> 			, phone </if>
+            <if test="recv_name != null and recv_name != ''"> 	, recv_name </if>
+            <if test="callback != null and callback != ''"> 	, callback </if>
+            <if test="send_name != null and send_name != ''"> 	, send_name </if>
+            <if test="status != null and status != ''"> 		, status </if>
+            <if test="reqdate != null and reqdate != ''"> 		, reqdate </if>
+            <if test="rslt != null and rslt != ''"> 			, rslt </if>
+            <if test="msg != null and msg != ''"> 				, msg </if>
+            <if test="type != null and type != ''"> 			, type </if>
+            <if test="sendcnt != null and sendcnt != ''"> 		, sendcnt </if>
+            <if test="msg_cl != null and msg_cl != ''"> 		, msg_cl </if>
+            , reg_dm
+            , reg_man
+            ) VALUES (
+                 (SELECT NVL(max(msgkey),0)+1 FROM SMS_MSG)
+            <if test="accnt_no != null and accnt_no != ''"> 	,#{accnt_no} </if>
+            <if test="emple_no != null and emple_no != ''"> 	,#{emple_no} </if>
+            <if test="phone != null and phone != ''"> 			,#{phone} </if>
+            <if test="recv_name != null and recv_name != ''"> 	,#{recv_name} </if>
+            <if test="callBack != null and callBack != ''"> 	,#{callBack} </if>
+            <if test="send_name != null and send_name != ''"> 	,#{send_name} </if>
+            <if test="status != null and status != ''"> 		,#{status} </if>
+            <if test="reqdate != null and reqdate != ''"> 		,#{reqdate} </if>
+            <if test="rslt != null and rslt != ''"> 			,#{rslt} </if>
+            <if test="msg != null and msg != ''"> 				,#{msg} </if>
+            <if test="type != null and type != ''"> 			,#{type} </if>
+            <if test="sendcnt != null and sendcnt != ''"> 		,#{sendcnt} </if>
+            <if test="msg_cl != null and msg_cl != ''"> 		,#{msg_cl} </if>
+                , SYSDATE
+                , #{reg_man}
+            )
+
+    </insert>
+
+    <select id="selectCboCommCd" parameterType="String" resultType="resultMap">
+        /* sql-common.xml [공통코드 조회] ID : common.selectCommonList 작성자:김은진 */
+        SELECT com_cd
+              ,cd_nm
+        FROM COM_CD
+        WHERE grp_cd = #{grp_cd}
+          AND use_yn = 'Y'
+        ORDER BY ordr_turn
+    </select>
+
+
+    <select id="selectMemNo" parameterType="String" resultType="String">
+        /* sql-common.xml [공통코드 조회] ID : common.selectCommonList 작성자:이성호  */
+        SELECT MEM_NO
+          FROM MEM_PROD_ACCNT
+         WHERE ACCNT_NO = #{accnt_no}
+    </select>
+    <!-- sql-system.xml [자료권한 그룹 조회] ID : system.selectDataAuthGrpList 작성자 : 임병근 -->
+    <select id="CommonMap.selectDataAuthGrpList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectDataAuthGrpList */
+               DAG.AUTH_GRP_CD com_cd
+             , DAG.AUTH_GRP_NM cd_nm
+             , DAG.USE_YN
+          FROM DATA_AUTH_GRP DAG
+    </select>
+
+    <!-- 종합현황 조회 권한 -->
+    <select id="CommonMap.selectReportAuthGrpList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectReportAuthGrpList */
+               REPORT_GRP_CD com_cd
+             , REPORT_GRP_NM cd_nm
+             , USE_YN
+             , LVL
+          FROM REPORT_AUTH_GRP
+    </select>
+
+    <!-- 파일다운로드 키 등록 -->
+    <insert id="CommonMap.insertFileDown" parameterType="map">
+        <selectKey keyProperty="no" resultType="Integer" order="BEFORE">
+            SELECT nvl(max(NO),0) + 1 FROM FILE_DOWN
+        </selectKey>
+        INSERT /* DlwProdMap.insertFileDown */
+          INTO FILE_DOWN (
+                NO
+                , EMPLE_NO
+                , FILE_DIR
+                , FILE_NM
+                , USER_IP
+                , DOWNLOAD_KEY
+                , DOWNLOAD_DTHMS
+                , EXP_DT
+                , REG_MAN
+                , REG_DT
+            )
+         VALUES (
+              #{no}
+            , #{emple_no}
+            , #{file_dir}
+            , #{file_nm}
+            , #{user_ip}
+            , #{download_key}
+            , NULL
+            , SYSDATE + (1 / (24*6))
+            , #{rgsr_id}
+            , sysdate
+         )
+    </insert>
+
+    <!-- 파일다운로드 일시분초 변경 -->
+    <update id="CommonMap.updateFileDownDthms" parameterType="map">
+        UPDATE /* DlwProdMap.updateFileDownDthms */
+               FILE_DOWN
+           SET DOWNLOAD_DTHMS = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE NO = #{no}
+    </update>
+
+    <!-- 파일다운로드 키 조회 -->
+    <select id="CommonMap.selectFileDown" parameterType="map" resultType="resultMap">
+        SELECT /* DlwProdMap.selectFileDown */
+               NO
+             , EMPLE_NO
+             , FILE_DIR
+             , FILE_NM
+             , USER_IP
+             , DOWNLOAD_KEY
+             , DOWNLOAD_DTHMS
+             , EXP_DT
+             , REG_MAN
+             , REG_DT
+          FROM FILE_DOWN
+         WHERE 1=1
+           AND NO = #{no}
+           AND DOWNLOAD_KEY = #{download_key}
+           AND USER_IP = #{user_ip}
+           AND EXP_DT >= SYSDATE
+    </select>
+
+    <!-- sql-common.xml [콤보 분류에 따른 영업형태 ] -->
+    <select id="CommonMap.selectSaleTypeByStGrp" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectSaleTypeByStGrp */
+                c.com_cd cd
+             , c.cd_nm cd_nm
+             , sd.st_grp_cd
+          FROM com_cd c
+            LEFT outer JOIN B2B_SALE_TYPE_DTL sd ON sd.sale_type = c.com_cd
+         WHERE c.grp_cd ='0125'
+         <if test="st_grp_cd != null and st_grp_cd != ''">
+         AND sd.st_grp_cd = #{st_grp_cd}
+         </if>
+         AND c.use_yn ='Y'
+         order by ordr_turn
+    </select>
+
+    <!-- sql-std.xml [엑셀업로드 오류건 등록] ID : life.insertErrHist 작성자:이금례 -->
+    <insert id="CommonMap.insertErrHist" parameterType="map">
+        INSERT /* CommonMap.insertErrHist */
+          INTO ERR_HIST
+        (
+            seq
+          , Err_Cl
+          , Err_Val1
+          , Err_Val2
+          , Err_Val3
+          , Err_Val4
+          , Err_text
+          , reg_dt
+          , reg_man
+          , upd_dt
+          , upd_man
+        )
+        SELECT a.seq
+             , #{err_cl}
+             , #{err_val1}
+             , #{err_val2}
+             , #{err_val3}
+             , #{err_val4}
+             , #{err_text}
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{upd_man}
+          FROM (SELECT nvl(max(seq),0)+1 as seq
+                   FROM ERR_HIST
+                  WHERE err_cl = #{err_cl}) a
+    </insert>
+
+    <!--
+    sql-pay.xml [상품 조회] ID : pay.selectProdList 작성자 : 김아영
+    -->
+    <select id="CommonMap.selectProdCdList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.selectProdCdList */
+               prod_cd
+             , prod_nm
+             , prod_cd || ' / ' || prod_nm as prod_nm_str
+          FROM PRODUCT
+         WHERE 1=1
+        <if test="del_fg != null and del_fg != ''">
+           AND del_fg = #{del_fg}
+        </if>
+        ORDER BY prod_cd
+    </select>
+
+    <!--
+    B2B 코드 목록 조회
+    -->
+    <select id="CommonMap.getB2bList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.getB2bList */
+               COM_CD CD
+             , COM_NM CD_NM
+             , SALE_TYPE
+          FROM B2BCOMCD A
+         WHERE 1=1
+         <if test="ignore_use_yn != null and ignore_use_yn == 'Y'.toString()">
+           AND 1=1
+         </if>
+         <if test="ignore_use_yn == null or ignore_use_yn == '' or ignore_use_yn != 'Y'.toString()">
+           AND USE_YN = 'Y'
+         </if>
+         <if test="t33_alow_dt != null and t33_alow_dt != ''">
+           AND COM_CD IN (SELECT distinct ALOW_B2B_COMP_CD
+                            FROM ALOW_DTL_T33
+                           WHERE ALOW_DT = #{t33_alow_dt}
+                             AND ALOW_CD IN ('T33', 'F8', 'F10'))
+         </if>
+         <if test="b2b_comp_cd != null and b2b_comp_cd != ''">
+           AND COM_CD = #{b2b_comp_cd}
+         </if>
+         <if test="b2b_comp_nm != null and b2b_comp_nm != ''">
+           AND COM_NM = #{b2b_comp_nm}
+         </if>
+         <if test="sale_type != null and sale_type != ''">
+           AND SALE_TYPE = #{sale_type}
+         </if>
+         <if test="st_grp_cd != null and st_grp_cd != ''">
+           AND SALE_TYPE IN (SELECT c.com_cd
+                               FROM com_cd c LEFT OUTER JOIN B2B_SALE_TYPE_DTL sd ON sd.sale_type = c.com_cd
+                              WHERE c.grp_cd ='0125'
+                              AND sd.st_grp_cd = #{st_grp_cd}
+                              AND c.use_yn ='Y')
+         </if>
+         ORDER BY COM_NM ASC
+    </select>
+
+
+
+    <!-- 접속 로그 2017.11.30 -->
+    <insert id="CommonMap.insertLog" parameterType="map">
+
+        INSERT /* CommonMap.insertLog */
+        INTO MEM_MENU_LOG (
+           SEQ
+          , LOG_ID
+          , MENU_ID
+          , SATATE
+          , CREATE_DATE
+        ) VALUES (
+           MEM_MENU_LOG_SEQ.NEXTVAL
+          ,#{logId}
+          ,#{logMenuId}
+          ,#{logGubun}
+          ,SYSDATE
+        )
+    </insert>
+
+    <!-- 접속 로그 검색카운트 - 2017.12.08 정승철 -->
+    <select id="CommonMap.getLogCount" parameterType="map" resultType="int">
+        SELECT /* CommonMap.getLogCount */
+               COUNT(*)
+          FROM LF_DMUSER.MEM_MENU_LOG A
+          WHERE 1=1
+          <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+              AND A.CREATE_DATE BETWEEN TO_DATE(#{stt_dt} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_dt} || '235959', 'YYYYMMDDHH24MISS')
+          </if>
+          <if test="satate != null and satate != ''">
+              AND A.SATATE = #{satate}
+          </if>
+          <if test="counsel_yn != null and counsel_yn != '' and counsel_yn.equalsIgnoreCase('Y')">
+              AND A.MENU_ID IN ('MN02011', 'MN0202') 
+          </if>
+    </select>
+
+    <!-- 접속 로그 검색 - 2017.12.08 정승철 -->
+    <select id="CommonMap.getLogList" parameterType="map" resultType="resultMap">
+        SELECT /* CommonMap.getLogList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, Z.*
+              FROM (SELECT A.SEQ, A.LOG_ID, A.MENU_ID, A.CREATE_DATE, B.PGM_NM, A.SATATE, C.USER_NM, 
+                    (SELECT CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '114' AND CC.COM_CD = A.DOWNLOAD_REASON) AS DOWNLOAD_REASON
+                      FROM LF_DMUSER.MEM_MENU_LOG A
+                      LEFT OUTER JOIN PS_WILLVI.TB_PGM B ON A.MENU_ID = B.PGM_CD
+                      LEFT OUTER JOIN PS_WILLVI.TB_USER C ON A.LOG_ID = C.USER_ID
+                      WHERE A.CREATE_DATE BETWEEN TO_DATE(#{stt_dt} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_dt} || '235959', 'YYYYMMDDHH24MISS')
+                      <if test="satate != null and satate != ''">
+                          AND A.SATATE = #{satate}
+                      </if>
+                      <if test="counsel_yn != null and counsel_yn != '' and counsel_yn.equalsIgnoreCase('Y')">
+                          AND A.MENU_ID IN ('MN02011', 'MN0202') 
+                      </if>
+                        <!-- AND A.LOG_ID IS NOT NULL -->
+                        <!-- 로그조회 보완 - 2018.01.15 정승철 -->
+                        AND A.MENU_ID IS NOT NULL <!-- NULL 값은 조회 X -->
+                      ORDER BY A.SEQ DESC
+                   ) Z
+              )
+
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200616
+     * 이름 : 송준빈
+     * 추가내용 : 엑셀다운로드 사유기입
+     * 대상 테이블 : LF_DMUSER.MEM_MENU_LOG
+     * ================================================================
+     * -->
+    <insert id="CommonMap.insertExcelDownloadReason" parameterType="map">
+        INSERT /* CommonMap.insertExcelDownloadReason */
+        INTO MEM_MENU_LOG (SEQ, LOG_ID, MENU_ID, SATATE, CREATE_DATE, DOWNLOAD_REASON) 
+        VALUES (MEM_MENU_LOG_SEQ.NEXTVAL, #{rgsr_id}, #{menu_id}, 'E', SYSDATE, #{download_reason})
+    </insert>
+</mapper>

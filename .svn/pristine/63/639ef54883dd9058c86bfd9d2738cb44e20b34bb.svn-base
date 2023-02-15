@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwDoubleMap">
+
+
+    <select id="DlwDoubleMap.selectDoubleList" parameterType="map" resultType="resultMap">
+
+        SELECT
+               AD.ACCNT_NO,
+               AD.MEM_NO,
+               AD.ACCNT_NO_DBL,
+               EMP.EMPLE_NM,
+               PD.PROD_CD,
+               PD.PROD_NM,
+               PD.PROD_CD_DBL,
+               PD.PROD_DBL_CNT,
+               MPA.JOIN_DT
+        FROM TB_ACCNT_DOUBLE AD INNER JOIN
+             MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = AD.ACCNT_NO INNER JOIN
+		     PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+             EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO 
+        WHERE 1=1
+        AND MPA.DEL_FG = 'N'
+        AND AD.ACCNT_NO_DBL = (SELECT ACCNT_NO_DBL
+				  		       FROM TB_ACCNT_DOUBLE
+						       WHERE ACCNT_NO = #{accnt_no})
+
+    </select>
+    
+    <select id="DlwDoubleMap.selectDoubleSrchList" parameterType="map" resultType="resultMap">
+
+        SELECT ACCNT_NO,
+               EMP.EMPLE_NM,
+               PD.PROD_CD,
+               PD.PROD_NM,
+               PD.PROD_CD_DBL,
+               PD.PROD_DBL_CNT,
+               MPA.JOIN_DT
+		FROM MEM_PROD_ACCNT MPA INNER JOIN
+		     PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+             EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO 
+		WHERE (MPA.MEM_NO, MPA.PROD_CD, MPA.JOIN_DT) IN (SELECT MPA1.MEM_NO, PD1.PROD_CD_DBL, MPA1.JOIN_DT
+		                                                 FROM MEM_PROD_ACCNT MPA1 INNER JOIN
+		                                                      PRODUCT PD1 ON MPA1.PROD_CD = PD1.PROD_CD
+		                                                 WHERE MPA1.ACCNT_NO = #{accnt_no})
+		AND MPA.ACCNT_NO NOT IN (SELECT ACCNT_NO FROM TB_ACCNT_DOUBLE)
+
+    </select>
+    
+    <!--  -->
+    <update id="DlwDoubleMap.saveDouble" parameterType="map" >
+    
+        INSERT INTO TB_ACCNT_DOUBLE
+        (ACCNT_NO, MEM_NO, ACCNT_NO_DBL)
+        VALUES
+        (#{accnt_no}, (SELECT MEM_NO FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}), #{doubleKey})
+        
+    </update>
+    
+    <select id="DlwDoubleMap.getDlwDoubleKey" parameterType="map" resultType="resultMap">
+
+        SELECT 'M' || NVL(MAX(SUBSTR(ACCNT_NO_DBL, 2,11))+1, TO_CHAR(SYSDATE, 'YYYYMM') || '00001') AS doubleKey
+		FROM TB_ACCNT_DOUBLE
+		WHERE ACCNT_NO_DBL LIKE 'M' || TO_CHAR(SYSDATE, 'YYYYMM') || '%'
+
+    </select>
+    
+    <select id="DlwDoubleMap.getAccntNoDblCount" parameterType="map" resultType="int">
+
+        SELECT COUNT(*)
+          FROM (SELECT ROW_NUMBER() OVER(ORDER BY MEM_NO ASC) PAGE_INDX,
+		               ACCNT_NO,
+		               MEM_NO,
+		               ACCNT_NO_DBL
+		        FROM TB_ACCNT_DOUBLE
+		        WHERE 1=1
+		        <if test="accnt_no != null and accnt_no != ''">
+		           AND ACCNT_NO = #{accnt_no}
+		        </if>
+		        <if test="mem_no != null and mem_no != ''">
+		           AND MEM_NO = #{mem_no}
+		        </if>
+		 ) TBL
+         WHERE 1=1
+    </select>
+    
+    <select id="DlwDoubleMap.getAccntNoDbl" parameterType="map" resultType="resultMap">
+
+        SELECT TBL.*
+          FROM (SELECT ROW_NUMBER() OVER(ORDER BY MEM_NO ASC) PAGE_INDX,
+		               ACCNT_NO,
+		               MEM_NO,
+		               ACCNT_NO_DBL
+		        FROM TB_ACCNT_DOUBLE
+		        WHERE 1=1
+		        <if test="accnt_no != null and accnt_no != ''">
+		           AND ACCNT_NO = #{accnt_no}
+		        </if>
+		        <if test="mem_no != null and mem_no != ''">
+		           AND MEM_NO = #{mem_no}
+		        </if>
+		 ) TBL
+         WHERE 1=1
+		<if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+             AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+             AND PAGE_INDX <![CDATA[<]]> #{endLine}
+         </if>
+    </select>
+    
+    <select id="DlwDoubleMap.getDlwPayInfo" parameterType="map" resultType="resultMap">
+
+        SELECT AD.ACCNT_NO, AD.ACCNT_NO_DBL, CMS.ACCNT_NO AS CMS_ACCNT_NO, CARD.ACCNT_NO AS CARD_ACCNT_NO
+          FROM TB_ACCNT_DOUBLE AD LEFT OUTER JOIN
+		       CMS_MEM CMS ON AD.ACCNT_NO = CMS.ACCNT_NO AND CMS.DEL_FG = 'R' LEFT OUTER JOIN
+		       CARD_MEM CARD ON AD.ACCNT_NO = CARD.ACCNT_NO  AND CARD.DEL_FG = 'R'
+          WHERE 1=1
+          AND AD.ACCNT_NO = #{accnt_no}
+
+    </select>
+    
+    <!--  Card 변경 정보 업데이트  -->
+    <update id="DlwDoubleMap.updateCardAccnt" parameterType="map">
+        UPDATE CARD_MEM
+           SET ACCNT_NO = #{doubleKey}
+             , DEL_FG = 'N'
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+         WHERE 1=1
+           AND ACCNT_NO = #{accnt_no}
+           AND DEL_FG = 'R'
+    </update>
+    
+    <!--  Cms 변경 정보 업데이트  -->
+    <update id="DlwDoubleMap.updateCmsAccnt" parameterType="map">
+        UPDATE CMS_MEM
+           SET ACCNT_NO = #{doubleKey}
+             , DEL_FG = 'N'
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+         WHERE 1=1
+           AND ACCNT_NO = #{accnt_no}
+           AND DEL_FG = 'R'
+    </update>
+    
+    <select id="DlwDoubleMap.getDlwDoubleTripleChk" parameterType="map" resultType="resultMap">	
+
+        SELECT COUNT(PROD_CD) AS CNT 
+		FROM  MEM_PROD_ACCNT
+		WHERE PROD_CD IN ('XX', 'XY', 'XZ')
+		AND MEM_NO = #{mem_no}
+		GROUP BY PROD_CD
+
+    </select>
+    
+    <!--  -->
+    <update id="DlwDoubleMap.deleteDouble" parameterType="map" >
+    	DELETE FROM TB_ACCNT_DOUBLE
+    	WHERE ACCNT_NO_DBL = #{accnt_no_dbl} 
+    </update>
+</mapper>

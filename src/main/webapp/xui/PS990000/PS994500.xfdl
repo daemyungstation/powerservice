@@ -1,0 +1,747 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS994500" classname="PS994500" inheritanceid="" position="absolute 0 0 900 700" titletext="OZ레포팅팝업" onload="PS994500_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_popup" class="sta_popupBg1" enable="false" position2="absolute l:0 w:900 t:0 h:700" positiontype="position2"/>
+        <Button id="btn_close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position2="absolute l:873 w:20 t:8 h:19" positiontype="position2"/>
+        <Static id="stc_Title" text="OZ레포팅팝업" class="sta_popupTitle" transparenthittest="true" position2="absolute l:10 w:534 t:8 h:20" positiontype="position2"/>
+        <ActiveX id="ActiveX00" progid="{0DEF32F8-170F-46F8-B1FF-4BF7443F5F25}" useautobitmapcache="1" position2="absolute l:11 r:9 t:45 b:12" positiontype="position2" taborder="2"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_basVlInfo" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="bas_vl_id" type="STRING" size="256"/>
+          <Column id="bas_vl_nm" type="STRING" size="256"/>
+          <Column id="bas_vl" type="STRING" size="256"/>
+          <Column id="bas_vl_expi" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+var sOzServerIp = "";
+var sOzServerPort = "";
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS994500_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_getList("basVl", "oz_server_ip,oz_server_port,open_oz_server_ip,open_oz_server_port,domain_oz_server_ip,domain_oz_server_port", null, null, "BasVl", "ds_basVlInfo");  // 공통코드조회
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	}
+	
+	switch (svcid) {
+		case "BasVl":
+		    var sServiceUrl = application.services["SVC"].url;
+		    //2017.12.15 김찬영 SSL개발로 인한 수정
+		    //if (sServiceUrl.indexOf("61.39.175.220") >= 0) { // 외부
+		    if (sServiceUrl.indexOf("183.111.69.174") >= 0 )
+		    {
+				sOzServerIp = ds_basVlInfo.getColumn(ds_basVlInfo.findRow("bas_vl_nm", "open_oz_server_ip"), "bas_vl");
+				sOzServerPort = ds_basVlInfo.getColumn(ds_basVlInfo.findRow("bas_vl_nm", "open_oz_server_port"), "bas_vl");
+		    } 
+		    else if (sServiceUrl.indexOf("dmdlcc.com") >= 0 || sServiceUrl.indexOf("devdlcc.com") >= 0) 
+		    { // 2017.12.28 김찬영 SSL 추가
+				sOzServerIp = ds_basVlInfo.getColumn(ds_basVlInfo.findRow("bas_vl_nm", "domain_oz_server_ip"), "bas_vl");
+				sOzServerPort = ds_basVlInfo.getColumn(ds_basVlInfo.findRow("bas_vl_nm", "domain_oz_server_port"), "bas_vl");
+		    }
+		    else 
+		    { // 내부
+				sOzServerIp = ds_basVlInfo.getColumn(ds_basVlInfo.findRow("bas_vl_nm", "oz_server_ip"), "bas_vl");
+				sOzServerPort = ds_basVlInfo.getColumn(ds_basVlInfo.findRow("bas_vl_nm", "oz_server_port"), "bas_vl");
+			}
+		    trace("[OZ Report] ServiceUrl [" + sServiceUrl + "] ==> OzUrl [" + sOzServerIp + ":" + sOzServerPort + "]");
+			fn_commSearch();
+		break;
+	}
+}			
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//좌측조회
+function fn_commSearch()
+{
+	var ozSep = "^";
+	// 12.12 행사보고서 테스트로 인하여 url변경중
+	// 12.12 행사보고서 테스트로 인하여 url변경중
+	var sUrl = "connection.servlet=" + sOzServerIp + ":" + sOzServerPort + "/oz70/server" + ozSep; // 서버
+	//var sUrl = "connection.servlet=http://61.39.175.220:8080/oz70/server" + ozSep; // 로컬
+	sUrl += "information.debug=true" + ozSep;
+	sUrl += "viewer.isframe=false" + ozSep;
+	sUrl += "viewer.namespace=oz70\ozviewer" + ozSep;
+	sUrl += "export.largebundle=true" + ozSep;
+	sUrl += "excel.removeblank=true" + ozSep;
+	sUrl += "excel.numberformat=default" + ozSep;
+	sUrl += "excel.savenumbertype=true" + ozSep;
+	sUrl += "excel.insert_horizontal_pagebreaks=true" + ozSep;
+	
+	if (form_id == "PS100100_tab1") {
+		stc_Title.text = "상담유형별 현황(대분류)";
+		
+		sUrl += "connection.reportname=/ConsTypDspsStatListTyp1.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsTypDspsStatListTyp1" + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.pcount=7" + ozSep;
+
+		sUrl += "odi.ConsTypDspsStatListTyp1.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp1.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100100_tab2") {
+		stc_Title.text = "상담유형별 현황(중분류)";
+		
+		sUrl += "connection.reportname=/ConsTypDspsStatListTyp2.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsTypDspsStatListTyp2" + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.pcount=7" + ozSep;
+
+		sUrl += "odi.ConsTypDspsStatListTyp2.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp2.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100100_tab3") {
+		stc_Title.text = "상담유형별 현황(소분류)";
+		
+		sUrl += "connection.reportname=/ConsTypDspsStatListTyp3.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsTypDspsStatListTyp3" + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.pcount=7" + ozSep;
+
+		sUrl += "odi.ConsTypDspsStatListTyp3.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.ConsTypDspsStatListTyp3.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100200_tab1") {
+		stc_Title.text = "상담사별 처리현황(상담사별)";
+
+		sUrl += "connection.reportname=/UserDspsStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=UserDspsStatList" + ozSep;
+		sUrl += "odi.UserDspsStatList.pcount=7" + ozSep;
+		
+		sUrl += "odi.UserDspsStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.UserDspsStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.UserDspsStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.UserDspsStatList.args4=acpg_chnl_cd=" + (!gfn_isNull(acpg_chnl_cd) ? acpg_chnl_cd : "") + ozSep;
+		sUrl += "odi.UserDspsStatList.args5=cons_typ1_cd=" + (!gfn_isNull(cons_typ1_cd) ? cons_typ1_cd : "") + ozSep;
+		sUrl += "odi.UserDspsStatList.args6=cons_typ2_cd=" + (!gfn_isNull(cons_typ2_cd) ? cons_typ2_cd : "") + ozSep;
+		sUrl += "odi.UserDspsStatList.args7=cons_typ3_cd=" + (!gfn_isNull(cons_typ3_cd) ? cons_typ3_cd : "") + ozSep;
+	} else if (form_id == "PS100200_tab2") {
+		stc_Title.text = "상담사별 처리현황(처리방법별)";
+		 
+		sUrl += "connection.reportname=/DspsmddlDtptDspsStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=DspsmddlDtptDspsStatList" + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.pcount=7" + ozSep;
+		
+		sUrl += "odi.DspsmddlDtptDspsStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.args4=acpg_chnl_cd=" + (!gfn_isNull(acpg_chnl_cd) ? acpg_chnl_cd : "") + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.args5=cons_typ1_cd=" + (!gfn_isNull(cons_typ1_cd) ? cons_typ1_cd : "") + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.args6=cons_typ2_cd=" + (!gfn_isNull(cons_typ2_cd) ? cons_typ2_cd : "") + ozSep;
+		sUrl += "odi.DspsmddlDtptDspsStatList.args7=cons_typ3_cd=" + (!gfn_isNull(cons_typ3_cd) ? cons_typ3_cd : "") + ozSep;
+	} else if (form_id == "PS100200_tab3") {
+		stc_Title.text = "상담사별 처리현황(콜백)";
+			
+		sUrl += "connection.reportname=/CalbDspsStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=CalbDspsStatList" + ozSep;
+		sUrl += "odi.CalbDspsStatList.pcount=6" + ozSep;
+		
+		sUrl += "odi.CalbDspsStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.CalbDspsStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.CalbDspsStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.CalbDspsStatList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.CalbDspsStatList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.CalbDspsStatList.args6=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	  } else if (form_id == "PS100400_tab4") {
+		stc_Title.text = "VOC 유형별현황";
+		sUrl += "connection.reportname=/VocjList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=VocjList" + ozSep;
+		sUrl += "odi.VocjList.pcount=8" + ozSep;
+		
+		sUrl += "odi.VocjList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.VocjList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.VocjList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.VocjList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.VocjList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.VocjList.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.VocjList.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+		sUrl += "odi.VocjList.args8=voc_typ_cd=" + (!gfn_isNull(voc_typ_cd) ? voc_typ_cd : "") + ozSep;	
+			
+	} else if (form_id == "PS100400_tab5") {
+		stc_Title.text = "VOC 접수경로현황";
+		sUrl += "connection.reportname=/VocjList5.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=VocjList5" + ozSep;
+		sUrl += "odi.VocjList5.pcount=8" + ozSep;
+		
+		sUrl += "odi.VocjList5.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.VocjList5.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.VocjList5.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.VocjList5.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.VocjList5.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.VocjList5.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.VocjList5.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+		sUrl += "odi.VocjList5.args8=voc_typ_cd=" + (!gfn_isNull(voc_typ_cd) ? voc_typ_cd : "") + ozSep;		
+			
+	} else if (form_id == "PS100300_tab1") {
+		stc_Title.text = "시간대별 상담건수 현황";
+		
+		sUrl += "connection.reportname=/ConsCscntTimeList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsCscntTimeList" + ozSep;
+		sUrl += "odi.ConsCscntTimeList.pcount=7" + ozSep;
+		
+		sUrl += "odi.ConsCscntTimeList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntTimeList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.ConsCscntTimeList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.ConsCscntTimeList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntTimeList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntTimeList.args6=userType=" + (!gfn_isNull(userType) ? userType : "") + ozSep;
+		sUrl += "odi.ConsCscntTimeList.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100300_tab2") {
+		stc_Title.text = "요일별 상담건수 현황";
+
+		sUrl += "connection.reportname=/ConsCscntDayList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsCscntDayList" + ozSep;
+		sUrl += "odi.ConsCscntDayList.pcount=7" + ozSep;
+		sUrl += "odi.ConsCscntDayList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntDayList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.ConsCscntDayList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.ConsCscntDayList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntDayList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntDayList.args6=userType=" + (!gfn_isNull(userType) ? userType : "") + ozSep;
+		sUrl += "odi.ConsCscntDayList.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100300_tab3") {
+		stc_Title.text = "월별 상담건수 현황";
+		
+		sUrl += "connection.reportname=/ConsCscntMonthList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsCscntMonthList" + ozSep;
+		sUrl += "odi.ConsCscntMonthList.pcount=6" + ozSep;
+		
+		sUrl += "odi.ConsCscntMonthList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntMonthList.args2=searchyear=" + (!gfn_isNull(searchyear) ? searchyear.replace(/\D/g, "").substr(0, 4) : "") + ozSep;
+		sUrl += "odi.ConsCscntMonthList.args3=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntMonthList.args4=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntMonthList.args5=userType=" + (!gfn_isNull(userType) ? userType : "") + ozSep;
+		sUrl += "odi.ConsCscntMonthList.args6=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100300_tab4") {
+		stc_Title.text = "일별 상담건수 현황";
+
+		sUrl += "connection.reportname=/ConsCscntDateList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsCscntDateList" + ozSep;
+		sUrl += "odi.ConsCscntDateList.pcount=6" + ozSep;
+		
+		sUrl += "odi.ConsCscntDateList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntDateList.args2=searchym=" + (!gfn_isNull(searchym) ? searchym.replace(/\D/g, "").substr(0, 6) : "") + ozSep;
+		sUrl += "odi.ConsCscntDateList.args3=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntDateList.args4=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsCscntDateList.args5=userType=" + (!gfn_isNull(userType) ? userType : "") + ozSep;
+		sUrl += "odi.ConsCscntDateList.args6=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100400_tab1") {
+		stc_Title.text = "처리상태별 VOC현황";
+		
+		sUrl += "connection.reportname=/VocDspsStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=VocDspsStatList" + ozSep;
+		sUrl += "odi.VocDspsStatList.pcount=8" + ozSep;
+		
+		sUrl += "odi.VocDspsStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+		sUrl += "odi.VocDspsStatList.args8=voc_typ_cd=" + (!gfn_isNull(voc_typ_cd) ? voc_typ_cd : "") + ozSep;
+	} else if (form_id == "PS100400_tab2") {
+		stc_Title.text = "접수그룹별 VOC현황";
+		
+		sUrl += "connection.reportname=/VocAcrpTeamStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=VocAcrpTeamStatList" + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.pcount=8" + ozSep;
+		
+		sUrl += "odi.VocAcrpTeamStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+		sUrl += "odi.VocAcrpTeamStatList.args8=voc_typ_cd=" + (!gfn_isNull(voc_typ_cd) ? voc_typ_cd : "") + ozSep;
+	} else if (form_id == "PS100400_tab3") {
+		stc_Title.text = "유형별 VOC현황";
+		
+		sUrl += "connection.reportname=/VocTypStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=VocTypStatList" + ozSep;
+		sUrl += "odi.VocTypStatList.pcount=8" + ozSep;
+		
+		sUrl += "odi.VocTypStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args6=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args7=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+		sUrl += "odi.VocTypStatList.args8=voc_typ_cd=" + (!gfn_isNull(voc_typ_cd) ? voc_typ_cd : "") + ozSep;
+	} else if (form_id == "PS100500") {
+		stc_Title.text = "상담목록";
+		
+		sUrl += "connection.reportname=/ConsList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=ConsList" + ozSep;
+		sUrl += "odi.ConsList.pcount=10" + ozSep;
+		
+		sUrl += "odi.ConsList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.ConsList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.ConsList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.ConsList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.ConsList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.ConsList.args6=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+		sUrl += "odi.ConsList.args7=searchType=" + (!gfn_isNull(searchType) ? searchType : "") + ozSep;
+		sUrl += "odi.ConsList.args8=cons_typ1_cd=" + (!gfn_isNull(cons_typ1_cd) ? cons_typ1_cd : "") + ozSep;
+		sUrl += "odi.ConsList.args9=cons_typ2_cd=" + (!gfn_isNull(cons_typ2_cd) ? cons_typ2_cd : "") + ozSep;
+		sUrl += "odi.ConsList.args10=cons_typ3_cd=" + (!gfn_isNull(cons_typ3_cd) ? cons_typ3_cd : "") + ozSep;
+	} else if (form_id == "PS100600") {
+		stc_Title.text = "콜백상세처리현황";
+		
+		sUrl += "connection.reportname=/CalbDtptDspsStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=CalbDtptDspsStatList" + ozSep;
+		sUrl += "odi.CalbDtptDspsStatList.pcount=6" + ozSep;
+		
+		sUrl += "odi.CalbDtptDspsStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.CalbDtptDspsStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.CalbDtptDspsStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.CalbDtptDspsStatList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.CalbDtptDspsStatList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.CalbDtptDspsStatList.args6=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100700") {
+		stc_Title.text = "게시판사용현황"; 
+
+		sUrl += "connection.reportname=/NobdUseStatList.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=NobdUseStatList" + ozSep;
+		sUrl += "odi.NobdUseStatList.pcount=6" + ozSep;
+		
+		sUrl += "odi.NobdUseStatList.args1=cntr_cd=" + (!gfn_isNull(cntr_cd) ? cntr_cd : "") + ozSep;
+		sUrl += "odi.NobdUseStatList.args2=startd=" + (!gfn_isNull(startd) ? startd : "") + ozSep;
+		sUrl += "odi.NobdUseStatList.args3=endd=" + (!gfn_isNull(endd) ? endd : "") + ozSep;
+		sUrl += "odi.NobdUseStatList.args4=hgrn_team_cd=" + (!gfn_isNull(hgrn_team_cd) ? hgrn_team_cd : "") + ozSep;
+		sUrl += "odi.NobdUseStatList.args5=team_cd=" + (!gfn_isNull(team_cd) ? team_cd : "") + ozSep;
+		sUrl += "odi.NobdUseStatList.args6=user_id=" + (!gfn_isNull(user_id) ? user_id : "") + ozSep;
+	} else if (form_id == "PS100800") {
+		stc_Title.text = "인입호포기현황"; 
+
+		sUrl += "connection.reportname=/CtiIncoCallStat.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=CtiIncoCallStat" + ozSep;
+		sUrl += "odi.CtiIncoCallStat.pcount=3" + ozSep;
+		
+		sUrl += "odi.CtiIncoCallStat.args1=stt_dt=" + stt_dt + ozSep;
+		sUrl += "odi.CtiIncoCallStat.args2=end_dt=" + end_dt + ozSep;
+		var sPrevday = gfn_getToday();
+		var nDiffDay = gfn_getDayDiff(sPrevday, stt_dt);
+		//alert("sPrevday: " + sPrevday + ", stt_dt : " + stt_dt + ", nDiffDay : " + nDiffDay);
+		
+		if ( nDiffDay < -1) {
+			sUrl += "odi.CtiIncoCallStat.args3=day_chk=P";		// PREVDAY(-2)
+			trace("[PS994500] odi.CtiIncoCallStat.args3=day_chk=P");
+		} else if ((nDiffDay == -1) || (nDiffDay == 0)) {
+			sUrl += "odi.CtiIncoCallStat.args3=day_chk=T";		// TODAY
+			trace("[PS994500] odi.CtiIncoCallStat.args3=day_chk=T");
+		} else {
+			alert("금일(오늘) 이전 날짜로 선택하시기 바랍니다.");  // etc
+			return;
+		}
+	} else if (form_id == "MemberCrtf2014trans") {
+		stc_Title.text = "회원 확인증";
+		
+		sUrl += "connection.reportname=/MemberCrtf2014trans.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=MemberCrtf2014trans" + ozSep;
+		sUrl += "odi.MemberCrtf2014trans.pcount=1" + ozSep;
+		sUrl += "odi.MemberCrtf2014trans.args1=accnt_no=" + accnt_no + ""  + ozSep;
+	} else if (form_id == "CancelCrtf_sinit") {
+		stc_Title.text = "해약 접수 확인증";
+		//sUrl =""
+		//var sUrl = "connection.servlet=http://61.39.175.220:8080/oz70/server" + ozSep;
+		sUrl += "connection.reportname=/CancelCrtf_sinit.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=CancelCrtf_sinit" + ozSep;
+		sUrl += "odi.CancelCrtf_sinit.pcount=1" + ozSep;
+		sUrl += "odi.CancelCrtf_sinit.args1=accnt_no=" + accnt_no + ""  + ozSep;
+		
+		
+	} else if (form_id == "PayHistory") {
+		stc_Title.text = "납입 내역";
+		
+		sUrl += "connection.reportname=/PayHistory.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=PayHistory" + ozSep;
+		sUrl += "odi.PayHistory.pcount=5" + ozSep;
+		sUrl += "odi.PayHistory.args1=accnt_no=" + accnt_no + ""  + ozSep;
+		sUrl += "odi.PayHistory.args2=mem_no=" + mem_no + ""  + ozSep;
+		sUrl += "odi.PayHistory.args3=stt_dt=" + stt_dt + ""  + ozSep;
+		sUrl += "odi.PayHistory.args4=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.PayHistory.args5=gbn=" + gbn + ""  +  ozSep;
+	} else if (form_id == "DL450300") {
+		stc_Title.text = "증서 일괄출력";
+		sUrl = pUrl;
+    } else if (form_id == "DL450400") {
+		stc_Title.text = "증서 일괄출력(NEW)";
+		sUrl = pUrl;
+    } else if (form_id == "PS030120") {
+		stc_Title.text = "직권해지출력";
+		sUrl = pUrl;
+	} else if (form_id == "EvntInRpt") {
+		stc_Title.text = "행사직영보고서";
+
+		sUrl += "connection.reportname=/EvntInRpt.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntInRpt" + ozSep;
+		sUrl += "odi.EvntInRpt.pcount=11" + ozSep;
+		sUrl += "odi.EvntInRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args3=p_cnt1=" + p_cnt1 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args4=p_cnt2=" + p_cnt2 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args5=p_cnt3=" + p_cnt3 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args6=p_tot_amt1=" + p_tot_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args7=p_tot_amt2=" + p_tot_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args8=p_tot_amt3=" + p_tot_amt3 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args9=p_remain_amt1=" + p_remain_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args10=p_remain_amt2=" + p_remain_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args11=p_remain_amt3=" + p_remain_amt3 + ""  + ozSep;	
+	} else if (form_id == "EvntInRpt2") {
+		stc_Title.text = "행사직영보고서";
+
+		sUrl += "connection.reportname=/EvntInRpt2.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntInRpt" + ozSep;
+		sUrl += "odi.EvntInRpt.pcount=11" + ozSep;
+		sUrl += "odi.EvntInRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args3=p_cnt1=" + p_cnt1 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args4=p_cnt2=" + p_cnt2 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args5=p_cnt3=" + p_cnt3 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args6=p_tot_amt1=" + p_tot_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args7=p_tot_amt2=" + p_tot_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args8=p_tot_amt3=" + p_tot_amt3 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args9=p_remain_amt1=" + p_remain_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args10=p_remain_amt2=" + p_remain_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntInRpt.args11=p_remain_amt3=" + p_remain_amt3 + ""  + ozSep;	
+	} else if (form_id == "EvntUseRpt") {
+		stc_Title.text = "장의용품 사용내역서";
+		
+		sUrl += "connection.reportname=/EvntUseRpt.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=EvntUseRpt" + ozSep;
+		sUrl += "odi.EvntUseRpt.pcount=5" + ozSep;
+		sUrl += "odi.EvntUseRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntUseRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;	
+	} else if (form_id == "EvntAddRpt") {
+		stc_Title.text = "추가매출 발생보고서";
+		
+		sUrl += "connection.reportname=/EvntAddRpt.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=EvntAddRpt" + ozSep;
+		sUrl += "odi.EvntAddRpt.pcount=5" + ozSep;
+		sUrl += "odi.EvntAddRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntAddRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;	
+	} else if (form_id == "EvntOutRpt") {
+		stc_Title.text = "행사외주보고서";
+		
+		sUrl += "connection.reportname=/EvntOutRpt.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntOutRpt" + ozSep;
+		sUrl += "odi.EvntOutRpt.pcount=11" + ozSep;
+		sUrl += "odi.EvntOutRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;	
+		sUrl += "odi.EvntOutRpt.args3=p_cnt1=" + p_cnt1 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args4=p_cnt2=" + p_cnt2 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args5=p_cnt3=" + p_cnt3 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args6=p_tot_amt1=" + p_tot_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args7=p_tot_amt2=" + p_tot_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args8=p_tot_amt3=" + p_tot_amt3 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args9=p_remain_amt1=" + p_remain_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args10=p_remain_amt2=" + p_remain_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args11=p_remain_amt3=" + p_remain_amt3 + ""  + ozSep;			
+	} else if (form_id == "EvntOutRpt2") {
+		stc_Title.text = "행사외주보고서";
+		
+		sUrl += "connection.reportname=/EvntOutRpt2.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntOutRpt" + ozSep;
+		sUrl += "odi.EvntOutRpt.pcount=11" + ozSep;
+		sUrl += "odi.EvntOutRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;	
+		sUrl += "odi.EvntOutRpt.args3=p_cnt1=" + p_cnt1 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args4=p_cnt2=" + p_cnt2 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args5=p_cnt3=" + p_cnt3 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args6=p_tot_amt1=" + p_tot_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args7=p_tot_amt2=" + p_tot_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args8=p_tot_amt3=" + p_tot_amt3 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args9=p_remain_amt1=" + p_remain_amt1 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args10=p_remain_amt2=" + p_remain_amt2 + ""  + ozSep;
+		sUrl += "odi.EvntOutRpt.args11=p_remain_amt3=" + p_remain_amt3 + ""  + ozSep;			
+	} else if (form_id == "IpOutEvnt") {
+		stc_Title.text = "외부일용직 입금대장";
+		
+		sUrl += "connection.reportname=/IpOutEvnt.ozr" + ozSep;
+		sUrl += "odi.odinames=IpOutEvnt" + ozSep;
+		sUrl += "odi.IpOutEvnt.pcount=8" + ozSep;
+		sUrl += "odi.IpOutEvnt.args1=dt_typ=" + dt_typ + ""  + ozSep;
+		sUrl += "odi.IpOutEvnt.args2=stt_dt=" + stt_dt + ""  + ozSep;	
+		sUrl += "odi.IpOutEvnt.args3=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.IpOutEvnt.args4=mem_nm=" + mem_nm + ""  + ozSep;
+		sUrl += "odi.IpOutEvnt.args5=mngr_cd=" + mngr_cd + ""  + ozSep;
+		sUrl += "odi.IpOutEvnt.args6=ji_stt_dt=" + ji_stt_dt + ""  + ozSep;
+		sUrl += "odi.IpOutEvnt.args7=ji_end_dt=" + ji_end_dt + ""  + ozSep;
+		sUrl += "odi.IpOutEvnt.args8=job_duty=" + job_duty + ""  + ozSep;
+	} else if (form_id == "Srv_event1") {
+		
+		stc_Title.text = "물품 및 서비스 제공현황_상복";
+		
+		sUrl += "connection.reportname=/Srv_event1.ozr" + ozSep;
+		sUrl += "odi.odinames=Srv_event1" + ozSep;
+		sUrl += "odi.Srv_event1.pcount=8" + ozSep;
+		sUrl += "odi.Srv_event1.args1=dt_typ=" + dt_typ + ""  + ozSep;
+		sUrl += "odi.Srv_event1.args2=stt_dt=" + stt_dt + ""  + ozSep;	
+		sUrl += "odi.Srv_event1.args3=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.Srv_event1.args4=custmr_nm=" + custmr_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event1.args5=prod_cd=" + prod_cd + ""  + ozSep;
+		sUrl += "odi.Srv_event1.args6=accnt_no=" + accnt_no + ""  + ozSep;
+		sUrl += "odi.Srv_event1.args7=cp_nm=" + cp_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event1.args8=emp_gubun=" + emp_gubun + ""  + ozSep;
+	} else if (form_id == "Srv_event2") {
+		
+		stc_Title.text = "물품 및 서비스 제공현황_제단";
+		
+		sUrl += "connection.reportname=/Srv_event2.ozr" + ozSep;
+		sUrl += "odi.odinames=Srv_event2" + ozSep;
+		sUrl += "odi.Srv_event2.pcount=8" + ozSep;
+		sUrl += "odi.Srv_event2.args1=dt_typ=" + dt_typ + ""  + ozSep;
+		sUrl += "odi.Srv_event2.args2=stt_dt=" + stt_dt + ""  + ozSep;	
+		sUrl += "odi.Srv_event2.args3=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.Srv_event2.args4=custmr_nm=" + custmr_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event2.args5=prod_cd=" + prod_cd + ""  + ozSep;
+		sUrl += "odi.Srv_event2.args6=accnt_no=" + accnt_no + ""  + ozSep;
+		sUrl += "odi.Srv_event2.args7=cp_nm=" + cp_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event2.args8=emp_gubun=" + emp_gubun + ""  + ozSep;
+	} else if (form_id == "Srv_event3") {
+		
+		stc_Title.text = "물품 및 서비스 제공현황_장의차량";
+		
+		sUrl += "connection.reportname=/Srv_event3.ozr" + ozSep;
+		sUrl += "odi.odinames=Srv_event3" + ozSep;
+		sUrl += "odi.Srv_event3.pcount=8" + ozSep;
+		sUrl += "odi.Srv_event3.args1=dt_typ=" + dt_typ + ""  + ozSep;
+		sUrl += "odi.Srv_event3.args2=stt_dt=" + stt_dt + ""  + ozSep;	
+		sUrl += "odi.Srv_event3.args3=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.Srv_event3.args4=custmr_nm=" + custmr_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event3.args5=prod_cd=" + prod_cd + ""  + ozSep;
+		sUrl += "odi.Srv_event3.args6=accnt_no=" + accnt_no + ""  + ozSep;
+		sUrl += "odi.Srv_event3.args7=cp_nm=" + cp_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event3.args8=emp_gubun=" + emp_gubun + ""  + ozSep;
+	} else if (form_id == "Srv_event4") {
+		
+		stc_Title.text = "물품 및 서비스 제공현황_앰블런스";
+		
+		sUrl += "connection.reportname=/Srv_event4.ozr" + ozSep;
+		sUrl += "odi.odinames=Srv_event4" + ozSep;
+		sUrl += "odi.Srv_event4.pcount=8" + ozSep;
+		sUrl += "odi.Srv_event4.args1=dt_typ=" + dt_typ + ""  + ozSep;
+		sUrl += "odi.Srv_event4.args2=stt_dt=" + stt_dt + ""  + ozSep;	
+		sUrl += "odi.Srv_event4.args3=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.Srv_event4.args4=custmr_nm=" + custmr_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event4.args5=prod_cd=" + prod_cd + ""  + ozSep;
+		sUrl += "odi.Srv_event4.args6=accnt_no=" + accnt_no + ""  + ozSep;
+		sUrl += "odi.Srv_event4.args7=cp_nm=" + cp_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event4.args8=emp_gubun=" + emp_gubun + ""  + ozSep;
+	} else if (form_id == "Srv_event5") {
+		
+		stc_Title.text = "물품 및 서비스 제공현황_유골함";
+		
+		sUrl += "connection.reportname=/Srv_event5.ozr" + ozSep;
+		sUrl += "odi.odinames=Srv_event5" + ozSep;
+		sUrl += "odi.Srv_event5.pcount=8" + ozSep;
+		sUrl += "odi.Srv_event5.args1=dt_typ=" + dt_typ + ""  + ozSep;
+		sUrl += "odi.Srv_event5.args2=stt_dt=" + stt_dt + ""  + ozSep;	
+		sUrl += "odi.Srv_event5.args3=end_dt=" + end_dt + ""  + ozSep;
+		sUrl += "odi.Srv_event5.args4=custmr_nm=" + custmr_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event5.args5=prod_cd=" + prod_cd + ""  + ozSep;
+		sUrl += "odi.Srv_event5.args6=accnt_no=" + accnt_no + ""  + ozSep;
+		sUrl += "odi.Srv_event5.args7=cp_nm=" + cp_nm + ""  + ozSep;
+		sUrl += "odi.Srv_event5.args8=emp_gubun=" + emp_gubun + ""  + ozSep;
+	} else if (form_id == "DL420703_print") {
+	
+		stc_Title.text = "부가서비스 출력";
+
+		sUrl += "connection.reportname=/DL420703_print.ozr" + ozSep;
+		sUrl += "odi.odinames=DL420703_print" + ozSep;
+		sUrl += "odi.DL420703_print.pcount=1" + ozSep;		
+		sUrl += "odi.DL420703_print.args1=ACCNT_NO_ARR=" + ACCNT_NO_ARR + ""  + ozSep;
+	} else if (form_id == "EvntBenefit") {
+		
+		stc_Title.text = "손익분석집계표";
+		
+		sUrl += "connection.reportname=/EvntBenefit.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntBenefit" + ozSep;
+		sUrl += "odi.EvntBenefit.pcount=10" + ozSep;
+		sUrl += "odi.EvntBenefit.args1=stt_dt=" + stt_dt + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args2=end_dt=" + end_dt + ""  + ozSep;	
+		sUrl += "odi.EvntBenefit.args3=prod_cd=" + prod_cd + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args4=evt_gubun=" + evt_gubun + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args5=iogbn=" + iogbn + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args6=mem_nm=" + mem_nm + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args7=mngr_nm=" + mngr_nm + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args8=custmr_nm=" + custmr_nm + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args9=j_stt_dt=" + j_stt_dt + ""  + ozSep;
+		sUrl += "odi.EvntBenefit.args10=j_end_dt=" + j_end_dt + ""  + ozSep;			
+	} else if (form_id == "EvntStock") {
+		
+		stc_Title.text = "장의용품 재고현황(외주)";
+		
+		sUrl += "connection.reportname=/EvntStock.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntStock" + ozSep;
+		sUrl += "odi.EvntStock.pcount=4" + ozSep;
+		sUrl += "odi.EvntStock.args1=stt_dt=" + stt_dt + ""  + ozSep;
+		sUrl += "odi.EvntStock.args2=end_dt=" + end_dt + ""  + ozSep;	
+		sUrl += "odi.EvntStock.args3=whcd=" + whcd + ""  + ozSep;
+		sUrl += "odi.EvntStock.args4=whnm=" + whnm + ""  + ozSep;
+	} else if (form_id == "Gongje_Rpt") {
+		
+		stc_Title.text = "공제 월별 보고서";
+		
+		sUrl += "connection.reportname=/Gongje_Rpt.ozr" + ozSep;
+		sUrl += "odi.odinames=Gongje_Rpt" + ozSep;
+		sUrl += "odi.Gongje_Rpt.pcount=1" + ozSep;
+		sUrl += "odi.Gongje_Rpt.args1=p_yymm=" + stt_dt + ""  + ozSep;
+	} else if (form_id == "EvntMntrBigoRpt") {
+		
+		stc_Title.text = "의전 행사 모니터링 보고서";
+		
+		sUrl += "connection.reportname=/EvntMntrBigoRpt.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntMntrBigoRpt" + ozSep;
+		sUrl += "odi.EvntMntrBigoRpt.pcount=1" + ozSep;
+		sUrl += "odi.EvntMntrBigoRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+	} else if (form_id == "EvntStock_Jik") {
+		
+		stc_Title.text = "장의용품 재고현황(직영)";
+		
+		sUrl += "connection.reportname=/EvntStock_Jik.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntStock_Jik" + ozSep;
+		sUrl += "odi.EvntStock_Jik.pcount=4" + ozSep;
+		sUrl += "odi.EvntStock_Jik.args1=stt_dt=" + stt_dt + ""  + ozSep;
+		sUrl += "odi.EvntStock_Jik.args2=end_dt=" + end_dt + ""  + ozSep;	
+		sUrl += "odi.EvntStock_Jik.args3=whcd=" + whcd + ""  + ozSep;
+		sUrl += "odi.EvntStock_Jik.args4=whnm=" + whnm + ""  + ozSep;
+	} else if (form_id == "EvntFuneralList") {
+		
+		stc_Title.text = "추가매출 장지현황";
+		
+		sUrl += "connection.reportname=/EvntFuneralList.ozr" + ozSep;
+		sUrl += "odi.odinames=EvntFuneralList" + ozSep;
+		sUrl += "odi.EvntFuneralList.pcount=20" + ozSep;
+		sUrl += "odi.EvntFuneralList.args1=sStartDt=" + pStartDt + ""  + ozSep;
+		sUrl += "odi.EvntFuneralList.args2=sEndDt=" + pEndDt + ""  + ozSep;	
+		sUrl += "odi.EvntFuneralList.args3=sProdCd=" + pProdCd + ""  + ozSep;
+		sUrl += "odi.EvntFuneralList.args4=sCpNm=" + pCpNm + ""  + ozSep;
+		sUrl += "odi.EvntFuneralList.args5=sBranchNm=" + pBranchNm + ""  + ozSep;
+		sUrl += "odi.EvntFuneralList.args6=sGubun=" + pGubun + ""  + ozSep;
+	} else if (form_id == "DL570009_1") {
+		stc_Title.text = "행사직영보고서";
+		sUrl = pUrl;
+	} else if (form_id == "DL570009_2") {
+		stc_Title.text = "장의용품 사용내역서";
+		sUrl = pUrl;
+	} else if (form_id == "DL570009_3") {
+		stc_Title.text = "추가매출 발생보고서";
+		sUrl = pUrl;
+	} else if (form_id == "DL570009_4") {
+		stc_Title.text = "행사외주보고서";
+		sUrl = pUrl;
+	} else if (form_id == "EvntAddApnRpt") {
+		stc_Title.text = "추가매출 발생보고서";
+		
+		sUrl += "connection.reportname=/EvntAddApnRpt.ozr" + ozSep;
+		sUrl += "connection.pcount=1" + ozSep;
+		sUrl += "connection.args1=formparam=1234567890" + ozSep;
+		sUrl += "odi.odinames=EvntAddApnRpt" + ozSep;
+		sUrl += "odi.EvntAddApnRpt.pcount=5" + ozSep;
+		sUrl += "odi.EvntAddApnRpt.args1=p_accnt_no=" + p_accnt_no + ""  + ozSep;
+		sUrl += "odi.EvntAddApnRpt.args2=p_rpt_no=" + p_rpt_no + ""  + ozSep;	
+	}
+	
+	trace("sUrl::" + sUrl);
+	this.ActiveX00.CreateReportEx(sUrl,ozSep);
+}
+			
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,656 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwEvtTranMap">
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품,모델,패키지등록시 상품코드를 채번 (P:상품, M:상품모델, K:패키지)
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT, LF_DMUSER.TB_EVT_TRAN_MODEL, LF_DMUSER.TB_EVT_TRAN_PKG
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranCd" parameterType="map" resultType="String">
+        SELECT /* DlwEvtTranMap.getEvtTranCd */
+        	LF_DMUSER.FN_CREATE_EVT_TRAN_CODE(#{create_tran_cd}) AS MAIN_CD 
+        FROM DUAL 
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 등록
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <insert id="DlwEvtTranMap.insertEvtTranExt" parameterType="map">
+        /* DlwEvtTranMap.insertEvtTranExt */
+        INSERT INTO LF_DMUSER.TB_EVT_TRAN_EXT(PROD_CD, PROD_NM, PROD_AMOT_CD, REG_MAN, REG_DM, DEL_FG)
+        VALUES (#{prod_cd}, #{prod_nm}, #{prod_amot_cd}, #{reg_man}, SYSDATE, 'N')
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 수정
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.updateEvtTranExt" parameterType="map">
+        /* DlwEvtTranMap.updateEvtTranExt */
+        UPDATE LF_DMUSER.TB_EVT_TRAN_EXT
+        SET PROD_NM = #{prod_nm},
+            REG_MAN = #{reg_man},
+            REG_DM = SYSDATE
+        WHERE 1=1
+        AND DEL_FG = 'N' 
+        AND PROD_CD = #{prod_cd}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 삭제
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.deleteEvtTranExt" parameterType="map">
+        /* DlwEvtTranMap.deleteEvtTranExt */
+        BEGIN
+            UPDATE LF_DMUSER.TB_EVT_TRAN_EXT
+            SET DEL_FG = 'Y'
+            WHERE 1=1 
+            AND DEL_FG = 'N'
+            AND PROD_CD = #{prod_cd};
+        
+            UPDATE LF_DMUSER.TB_EVT_TRAN_PKG
+            SET DEL_FG = 'Y'
+            WHERE 1=1
+            AND DEL_FG = 'N'
+            AND (FST_PROD_CD = #{prod_cd} OR SEC_PROD_CD = #{prod_cd});
+        END;
+    </update>
+    
+	<!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 조회수
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranExtCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvtTranMap.getEvtTranExtCount */
+            COUNT(*) AS ICNT
+        FROM TB_EVT_TRAN_EXT ETE
+        WHERE 1=1
+        AND ETE.DEL_FG = 'N'
+        <if test="prod_nm != null and prod_nm != ''">
+            AND ETE.PROD_NM LIKE '%' || #{prod_nm} || '%'
+        </if>
+        <if test="prod_amot_cd != null and prod_amot_cd != ''">
+	        AND ETE.PROD_AMOT_CD = #{prod_amot_cd}
+	    </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranExtList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvtTranMap.getEvtTranExtList */
+        	MAIN_TBL.*
+        FROM 
+        (
+        	SELECT
+        		<choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ETE.PROD_CD DESC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+	            ETE.PROD_CD,
+	            ETE.PROD_NM,
+	            ETE.PROD_AMOT_CD,
+	            ETE.REG_MAN,
+	            ETE.REG_DM,
+	            ETE.DEL_FG
+	        FROM TB_EVT_TRAN_EXT ETE
+	        WHERE 1=1
+	        AND ETE.DEL_FG = 'N'
+	        <if test="prod_nm != null and prod_nm != ''">
+	            AND ETE.PROD_NM LIKE '%' || #{prod_nm} || '%'
+	        </if>
+	        <if test="prod_amot_cd != null and prod_amot_cd != ''">
+	            AND ETE.PROD_AMOT_CD = #{prod_amot_cd}
+	        </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품모델 등록
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_MODEL
+     * ================================================================
+     * -->
+    <insert id="DlwEvtTranMap.insertEvtTranModel" parameterType="map">
+        /* DlwEvtTranMap.insertEvtTranModel */
+        INSERT INTO LF_DMUSER.TB_EVT_TRAN_MODEL(PROD_CD, MODEL_CD, MODEL_NM, SALE_VENDER, EXTINCT_DM, REG_MAN, REG_DM, DEL_FG)
+        VALUES (#{prod_cd}, #{model_cd}, #{model_nm}, #{sale_vender}, '', #{reg_man}, SYSDATE, 'N')
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품모델 수정
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_MODEL
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.updateEvtTranModel" parameterType="map">
+        /* DlwEvtTranMap.updateEvtTranModel */
+        UPDATE LF_DMUSER.TB_EVT_TRAN_MODEL
+        SET MODEL_NM = #{model_nm},
+        	SALE_VENDER = #{sale_vender},
+        	EXTINCT_DM = #{extinct_dm}
+        WHERE 1=1
+        AND DEL_FG = 'N' 
+        AND PROD_CD = #{prod_cd}
+        AND MODEL_CD = #{model_cd}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품모델 삭제
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_MODEL
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.deleteEvtTranModel" parameterType="map">
+        /* DlwEvtTranMap.deleteEvtTranModel */
+        UPDATE LF_DMUSER.TB_EVT_TRAN_MODEL
+        SET DEL_FG = 'Y'
+        WHERE 1=1
+        AND DEL_FG = 'N' 
+        AND PROD_CD = #{prod_cd}
+        AND MODEL_CD = #{model_cd}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품모델 조회수
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_MODEL
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranModelCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvtTranMap.getEvtTranModelCount */
+            COUNT(*) AS ICNT
+        FROM TB_EVT_TRAN_MODEL ETM
+        WHERE 1=1
+        AND ETM.DEL_FG = 'N'
+        <if test="prod_cd != null and prod_cd != ''">
+            AND ETM.PROD_CD = #{prod_cd}
+        </if>
+        <if test="model_cd != null and model_cd != ''">
+            AND ETM.MODEL_CD = #{model_cd}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품모델 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_MODEL
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranModelList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvtTranMap.getEvtTranModelList */
+        	MAIN_TBL.*
+        FROM 
+        (
+        	SELECT
+        		<choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ETM.MODEL_CD DESC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+	            ETM.PROD_CD,
+	            ETM.MODEL_CD,
+	            ETM.MODEL_NM,
+	            ETM.SALE_VENDER,
+	            ETM.EXTINCT_DM,
+	            ETM.REG_MAN,
+	            ETM.REG_DM,
+	            ETM.DEL_FG
+	        FROM TB_EVT_TRAN_MODEL ETM
+	        WHERE 1=1
+	        AND ETM.DEL_FG = 'N'
+	        <if test="prod_cd != null and prod_cd != ''">
+                AND ETM.PROD_CD = #{prod_cd}
+            </if>
+            <if test="model_cd != null and model_cd != ''">
+                AND ETM.MODEL_CD = #{model_cd}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환패키지 등록
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_PKG
+     * ================================================================
+     * -->
+    <insert id="DlwEvtTranMap.insertEvtTranPackage" parameterType="map">
+        /* DlwEvtTranMap.insertEvtTranPackage */
+        INSERT INTO LF_DMUSER.TB_EVT_TRAN_PKG(PKG_CD, PKG_NM, PROD_AMOT_CD, FST_PROD_CD, SEC_PROD_CD, REG_MAN, REG_DM, DEL_FG)
+        VALUES (#{pkg_cd}, #{pkg_nm}, #{prod_amot_cd}, #{fst_prod_cd}, #{sec_prod_cd}, #{reg_man}, SYSDATE, 'N')
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20200617
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환패키지 수정
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_PKG
+     * ================================================================
+     * -->
+    <insert id="DlwEvtTranMap.updateEvtTranPackage" parameterType="map">
+        UPDATE LF_DMUSER.TB_EVT_TRAN_PKG
+        SET PKG_NM = #{pkg_nm},
+            PROD_AMOT_CD = #{prod_amot_cd},
+            FST_PROD_CD = #{fst_prod_cd},
+            SEC_PROD_CD = #{sec_prod_cd},
+            REG_MAN = #{reg_man},
+            REG_DM = SYSDATE
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND PKG_CD = #{pkg_cd}
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환패키지 삭제
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_PKG
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.deleteEvtTranPackage" parameterType="map">
+        /* DlwEvtTranMap.deleteEvtTranPackage */
+        UPDATE LF_DMUSER.TB_EVT_TRAN_PKG
+        SET DEL_FG = 'Y'
+        WHERE 1=1
+        AND DEL_FG = 'N' 
+        AND PKG_CD = #{pkg_cd}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환패키지 조회수
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_PKG
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranPackageCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvtTranMap.getEvtTranPackageCount */
+            COUNT(*) AS ICNT
+        FROM TB_EVT_TRAN_PKG ETP
+        WHERE 1=1
+        AND ETP.DEL_FG = 'N'
+        <if test="pkg_cd != null and pkg_cd != ''">
+	        AND ETP.PKG_CD = #{pkg_cd}
+	    </if>
+	    <if test="pkg_nm != null and pkg_nm != ''">
+	        AND ETP.PKG_NM LIKE '%' || #{pkg_nm} || '%'
+	    </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환패키지 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_PKG
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranPackageList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvtTranMap.getEvtTranPackageList */
+        	MAIN_TBL.*
+        FROM 
+        (
+        	SELECT 
+        		<choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ETP.PKG_CD DESC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                ETP.PKG_CD,
+                ETP.PKG_NM,
+                ETP.PROD_AMOT_CD,
+                ETP.FST_PROD_CD,
+                ETP.SEC_PROD_CD,
+                (SELECT NVL(ETE.PROD_NM, '상품삭제(존재하지않는상품)') AS PROD_NM FROM TB_EVT_TRAN_EXT ETE WHERE 1=1 AND ETE.DEL_FG = 'N' AND ETE.PROD_CD = ETP.FST_PROD_CD) AS FST_PROD_NM,
+                (SELECT NVL(ETE.PROD_NM, '상품삭제(존재하지않는상품)') AS PROD_NM FROM TB_EVT_TRAN_EXT ETE WHERE 1=1 AND ETE.DEL_FG = 'N' AND ETE.PROD_CD = ETP.SEC_PROD_CD) AS SEC_PROD_NM,
+                ETP.REG_MAN,
+                ETP.REG_DM,
+                ETP.DEL_FG
+            FROM TB_EVT_TRAN_PKG ETP
+            WHERE 1=1
+            AND ETP.DEL_FG = 'N'
+            <if test="pkg_cd != null and pkg_cd != ''">
+	            AND ETP.PKG_CD = #{pkg_cd}
+	        </if>
+	        <if test="pkg_nm != null and pkg_nm != ''">
+	            AND ETP.PKG_NM LIKE '%' || #{pkg_nm} || '%'
+	        </if>
+	        <if test="prod_amot_cd != null and prod_amot_cd != ''">
+	            AND ETP.PROD_AMOT_CD = #{prod_amot_cd}
+	        </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환고객 등록
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN
+     * ================================================================
+     * -->
+    <insert id="DlwEvtTranMap.insertEvtTranList" parameterType="map">
+        /* DlwEvtTranMap.insertEvtTranList */
+        INSERT INTO LF_DMUSER.TB_EVT_TRAN
+            (
+                ACCNT_NO, ET_APPY_YN, ET_APPY_DM, PKG_CD, INPUT_DIV, PROD_AMOT_CD,
+                FST_PROD_CD, FST_RECV_NM, FST_RECV_CELL, FST_RECV_ZIP, FST_RECV_ADDR, FST_ORDER_DM, FST_INVOCE_NO, FST_COUR_CD, FST_COUR_NM, FST_REMARK,
+                SEC_PROD_CD, SEC_RECV_NM, SEC_RECV_CELL, SEC_RECV_ZIP, SEC_RECV_ADDR, SEC_ORDER_DM, SEC_INVOCE_NO, SEC_COUR_CD, SEC_COUR_NM, SEC_REMARK,
+                CANCEL_DM, REG_MAN, REG_DM, UPD_MAN, UPD_DM, DEL_FG
+            )
+        VALUES
+            (
+                #{accnt_no}, #{et_appy_yn}, (SELECT CASE WHEN #{et_appy_yn} = 'Y' THEN TO_CHAR(SYSDATE, 'YYYYMMDD') ELSE '' END FROM DUAL), #{pkg_cd}, #{input_div}, #{prod_amot_cd},
+                #{fst_prod_cd}, #{fst_recv_nm}, #{fst_recv_cell}, #{fst_recv_zip}, #{fst_recv_addr}, #{fst_order_dm}, #{fst_invoce_no}, #{fst_cour_cd}, #{fst_cour_nm}, #{fst_remark},
+                #{sec_prod_cd}, #{sec_recv_nm}, #{sec_recv_cell}, #{sec_recv_zip}, #{sec_recv_addr}, #{sec_order_dm}, #{sec_invoce_no}, #{sec_cour_cd}, #{sec_cour_nm}, #{sec_remark},
+                '', #{reg_man}, SYSDATE, '', '', 'N'
+            )
+    </insert>
+     
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환고객 수정
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.updateEvtTranList" parameterType="map">
+        /* DlwEvtTranMap.updateEvtTranList */
+        UPDATE LF_DMUSER.TB_EVT_TRAN
+        SET ET_APPY_YN = #{et_appy_yn},
+            ET_APPY_DM = (SELECT CASE WHEN #{et_appy_yn} = 'Y' THEN TO_CHAR(SYSDATE, 'YYYYMMDD') ELSE '' END FROM DUAL),
+            PKG_CD = #{pkg_cd},
+            INPUT_DIV = #{input_div},
+            PROD_AMOT_CD = #{prod_amot_cd},
+            FST_PROD_CD = #{fst_prod_cd},
+            FST_RECV_NM = #{fst_recv_nm},
+            FST_RECV_CELL = #{fst_recv_cell},
+            FST_RECV_ZIP = #{fst_recv_zip},
+            FST_RECV_ADDR = #{fst_recv_addr},
+            FST_ORDER_DM = #{fst_order_dm},
+            FST_INVOCE_NO = #{fst_invoce_no},
+            FST_COUR_CD = #{fst_cour_cd},
+            FST_COUR_NM = #{fst_cour_nm},
+            FST_REMARK = #{fst_remark},
+            SEC_PROD_CD = #{sec_prod_cd},
+            SEC_RECV_NM = #{sec_recv_nm},
+            SEC_RECV_CELL = #{sec_recv_cell},
+            SEC_RECV_ZIP = #{sec_recv_zip},
+            SEC_RECV_ADDR = #{sec_recv_addr},
+            SEC_ORDER_DM = #{sec_order_dm},
+            SEC_INVOCE_NO = #{sec_invoce_no},
+            SEC_COUR_CD = #{sec_cour_cd},
+            SEC_COUR_NM = #{sec_cour_nm},
+            SEC_REMARK = #{sec_remark},
+            CANCEL_DM = #{cancel_dm},
+            UPD_MAN = #{upd_man},
+            UPD_DM = SYSDATE
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND ACCNT_NO = #{accnt_no}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환고객 삭제
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN
+     * ================================================================
+     * -->
+    <update id="DlwEvtTranMap.deleteEvtTranList" parameterType="map">
+        /* DlwEvtTranMap.deleteEvtTranList */
+        UPDATE LF_DMUSER.TB_EVT_TRAN
+        SET DEL_FG = 'Y',
+            UPD_MAN = #{upd_man},
+            UPD_DM = SYSDATE
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND ACCNT_NO = #{accnt_no}
+    </update>
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환고객 조회(단일)
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvtTranMap.getEvtTranList */
+            ET.ACCNT_NO,
+            ET.ET_APPY_YN,
+            ET.ET_APPY_DM,
+            ET.PKG_CD,
+            (SELECT ETP.PKG_NM FROM TB_EVT_TRAN_PKG ETP WHERE 1=1 AND ETP.PKG_CD = ET.PKG_CD) AS PKG_NM,
+            ET.INPUT_DIV,
+            ET.PROD_AMOT_CD,
+            ET.FST_PROD_CD,
+            (SELECT NVL(ETE.PROD_NM, '상품삭제(존재하지않는상품)') AS PROD_NM FROM TB_EVT_TRAN_EXT ETE WHERE 1=1 AND ETE.PROD_CD = ET.FST_PROD_CD) AS FST_PROD_NM,
+            ET.FST_RECV_NM,
+            ET.FST_RECV_CELL,
+            ET.FST_RECV_ZIP,
+            ET.FST_RECV_ADDR,
+            ET.FST_ORDER_DM,
+            ET.FST_INVOCE_NO,
+            ET.FST_COUR_CD,
+            ET.FST_COUR_NM,
+            ET.FST_REMARK,
+            ET.SEC_PROD_CD,
+            (SELECT NVL(ETE.PROD_NM, '상품삭제(존재하지않는상품)') AS PROD_NM FROM TB_EVT_TRAN_EXT ETE WHERE 1=1 AND ETE.PROD_CD = ET.SEC_PROD_CD) AS SEC_PROD_NM,			
+            ET.SEC_RECV_NM,
+            ET.SEC_RECV_CELL,
+            ET.SEC_RECV_ZIP,
+            ET.SEC_RECV_ADDR,
+            ET.SEC_ORDER_DM,
+            ET.SEC_INVOCE_NO,
+            ET.SEC_COUR_CD,
+            ET.SEC_COUR_NM,
+            ET.SEC_REMARK,
+            ET.CANCEL_DM,
+            ET.REG_MAN,
+            ET.REG_DM,
+            ET.UPD_MAN,
+            ET.UPD_DM,
+            ET.DEL_FG
+        FROM LF_DMUSER.TB_EVT_TRAN ET
+        WHERE 1=1
+        AND ET.DEL_FG = 'N'
+        AND ET.ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환회원 조회수(종합)
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranMembersCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvtTranMap.getEvtTranMembersCount */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_EVT_TRAN ET INNER JOIN
+            LF_DMUSER.MEM_PROD_ACCNT MPA ON ET.ACCNT_NO = MPA.ACCNT_NO AND ET.DEL_FG = 'N' AND MPA.DEL_FG = 'N' INNER JOIN
+            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        WHERE 1=1
+        <if test="accnt_no != null and accnt_no != ''">
+	        AND ET.ACCNT_NO = #{accnt_no}
+	    </if>
+	    <if test="cell != null and cell != ''">
+	        AND MB.CELL = #{cell}
+	    </if>
+	    <if test="input_div != null and input_div != ''">
+	        AND ET.INPUT_DIV = #{input_div}
+	    </if>
+	    <if test="pkg_cd != null and pkg_cd != ''">
+	        AND ET.PKG_CD = #{pkg_cd}
+	    </if>
+	    <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+            <if test="dt_div == '01'">
+                AND TO_CHAR(ET.REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+            <if test="dt_div == '02'">
+                AND ET.ET_APPY_DM BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+            <if test="dt_div == '03'">
+                AND ET.CANCEL_DM BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환회원 조회리스트(종합)
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN
+     * ================================================================
+     * -->
+    <select id="DlwEvtTranMap.getEvtTranMembersList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvtTranMap.getEvtTranMembersList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ET.PKG_CD ASC, ET.ACCNT_NO DESC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                ET.ACCNT_NO,
+                MB.MEM_NO,
+                MB.CELL,
+                MB.MEM_NM,
+                CASE WHEN MB.SEX = '0001' THEN '남' 
+                     WHEN MB.SEX = '0002' THEN '여'
+                     ELSE '구분불가'
+                END AS SEX,
+                TO_CHAR(SYSDATE,'YYYY') - SUBSTR(MB.BRTH_MON_DAY,1,4) AS AGE,
+                LF_DMUSER.FN_AGE_LVL2(MB.BRTH_MON_DAY) AS AGE_RANGE,
+                PD.PROD_CD,
+                PD.PROD_NM,
+                MPA.JOIN_DT,
+                (SELECT PTIV.TRUE_CNT FROM LF_DMUSER.PAY_TOT_INFO_VIEW PTIV WHERE 1=1 AND PTIV.ACCNT_NO = MPA.ACCNT_NO) AS TRUE_COUNT,
+                (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = 'S014' AND CC.COM_CD = MPA.KSTBIT) AS KSTBIT,
+                MB.HOME_ZIP AS INSPL_ZIP,
+                MB.HOME_ADDR || ' ' || MB.HOME_ADDR2 AS INSPL_ADDR,
+                ET.ET_APPY_YN,
+                ET.ET_APPY_DM,
+                ET.PKG_CD,
+                (SELECT ETP.PKG_NM FROM TB_EVT_TRAN_PKG ETP WHERE 1=1 AND ETP.PKG_CD = ET.PKG_CD) AS PKG_NM,
+                ET.INPUT_DIV,
+                ET.FST_PROD_CD,
+                (SELECT NVL(ETE.PROD_NM, '상품삭제(존재하지않는상품)') AS PROD_NM FROM TB_EVT_TRAN_EXT ETE WHERE 1=1 AND ETE.PROD_CD = ET.FST_PROD_CD) AS FST_PROD_NM,
+                ET.FST_RECV_NM,
+                ET.FST_RECV_CELL,
+                ET.FST_RECV_ZIP,
+                ET.FST_RECV_ADDR,
+                ET.FST_ORDER_DM,
+                ET.FST_INVOCE_NO,
+                ET.FST_COUR_CD,
+                ET.FST_COUR_NM,
+                ET.FST_REMARK,
+                ET.SEC_PROD_CD,
+                (SELECT NVL(ETE.PROD_NM, '상품삭제(존재하지않는상품)') AS PROD_NM FROM TB_EVT_TRAN_EXT ETE WHERE 1=1 AND ETE.PROD_CD = ET.SEC_PROD_CD) AS SEC_PROD_NM,
+                ET.SEC_RECV_NM,
+                ET.SEC_RECV_CELL,
+                ET.SEC_RECV_ZIP,
+                ET.SEC_RECV_ADDR,
+                ET.SEC_ORDER_DM,
+                ET.SEC_INVOCE_NO,
+                ET.SEC_COUR_CD,
+                ET.SEC_COUR_NM,
+                ET.SEC_REMARK,
+                ET.CANCEL_DM,
+                ET.REG_MAN,
+                ET.REG_DM,
+                ET.DEL_FG
+            FROM LF_DMUSER.TB_EVT_TRAN ET INNER JOIN
+                LF_DMUSER.MEM_PROD_ACCNT MPA ON ET.ACCNT_NO = MPA.ACCNT_NO AND ET.DEL_FG = 'N' AND MPA.DEL_FG = 'N' INNER JOIN
+                LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+            WHERE 1=1
+            <if test="accnt_no != null and accnt_no != ''">
+	            AND ET.ACCNT_NO = #{accnt_no}
+	        </if>
+	        <if test="cell != null and cell != ''">
+	            AND MB.CELL = #{cell}
+	        </if>
+	        <if test="input_div != null and input_div != ''">
+	            AND ET.INPUT_DIV = #{input_div}
+	        </if>
+	        <if test="pkg_cd != null and pkg_cd != ''">
+	            AND ET.PKG_CD = #{pkg_cd}
+	        </if>
+	        <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                <if test="dt_div == '01'">
+                    AND TO_CHAR(ET.REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                </if>
+                <if test="dt_div == '02'">
+                    AND ET.ET_APPY_DM BETWEEN #{stt_dt} AND #{end_dt}
+                </if>
+                <if test="dt_div == '03'">
+                    AND ET.CANCEL_DM BETWEEN #{stt_dt} AND #{end_dt}
+                </if>
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+</mapper>

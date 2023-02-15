@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS010200_03" classname="상담화면메인" inheritanceid="" position="absolute 0 0 373 293" titletext="게시판" onload="PS010200_03_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static04" onclick="Div04_Static04_onclick" class="div_BoxBg" position2="absolute l:3 r:1 t:0 b:4" positiontype="position2"/>
+        <Tab id="tab_nobd" taborder="1" position2="absolute l:12 r:10 t:9 b:12" positiontype="position2" tabindex="0" scrollbars="autoboth" onchanged="tab_nobd_onchanged">
+          <Tabpages>
+            <Tabpage id="tpg1" text="전체" url="PS010000::PS010200_03_01.xfdl">
+              <Layouts/>
+            </Tabpage>
+            <Tabpage id="tpg2" text="교육자료" url="PS010000::PS010200_03_01.xfdl"/>
+            <Tabpage id="tpg3" text="업무지시" url="PS010000::PS010200_03_01.xfdl"/>
+            <Tabpage id="tpg4" text="기타자료" url="PS010000::PS010200_03_01.xfdl"/>
+          </Tabpages>
+        </Tab>
+        <Button id="btn_addView" taborder="2" text="더보기" position2="absolute r:10 w:39 t:13 h:20" positiontype="position2" style="background:no-repeat 0,0;color:#fa855aff;" onclick="btn_onclick"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Style url="CSS::main.css"/>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="athr_cd" type="STRING" size="256"/>
+          <Column id="team_cd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ancm_mtr" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="_chk" type="INT" size="1"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+          <Column id="ancm_mtr_id" type="STRING" size="24"/>
+          <Column id="ancm_mtr_titl" type="STRING" size="100"/>
+          <Column id="ancm_typ_nm" type="STRING" size="100"/>
+          <Column id="ancm_end_dt" type="STRING" size="8"/>
+          <Column id="ancm_chpr_nm" type="STRING" size="100"/>
+          <Column id="use_yn" type="STRING" size="1"/>
+          <Column id="inq_cnt" type="STRING" size="5"/>
+          <Column id="amnd_nm" type="STRING" size="100"/>
+          <Column id="amnt_dttm" type="STRING" size="14"/>
+          <Column id="file_flag" type="STRING" size="1"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/***************************************************************************
+ * Program ID    : PS010200_03.xfdl
+ * Program Name  : 게시판관리
+ * Author        : 정 훈
+ * Created On    : 2016.04.15
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자       내    용
+ * =========================================================================
+ * 2016.04.15    정   훈      최초작성
+ 
+ **************************************************************************/
+
+/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리,  
+  전역변수, 초기화                    
+/********************************************************************************************/
+//전역변수
+var total_count = 0;
+
+//폼 온로드
+function PS010200_03_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); 	
+}
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+//콜백
+function fn_callBack(svcid, errcd, errmsg) {    
+	if (errcd < 0) {
+		
+	} else {
+		switch(svcid){
+			case "srchAncmMtr" :
+
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+//조회전 처리 조회조건셋팅
+function fn_preSearch(sType)
+{
+	if (sType == gfn_getCommTypeInit())
+	{
+		ds_inqCndt.clearData();
+		ds_inqCndt.addRow();
+		
+		ds_inqCndt.setColumn(0, "athr_cd", gds_UserInfo.getColumn(0,'athr_cd'));
+		ds_inqCndt.setColumn(0, "team_cd", gds_UserInfo.getColumn(0,'team_cd'));
+	}
+	return true;
+}
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)조회,수정,삭제                                   	*/
+/********************************************************************************************/
+//조회
+function fn_commSearch(sType)
+{	
+	if (!fn_preSearch(sType)) return false;
+	
+	var szSvcid       = "srchAncmMtr";
+    var szController  = "/knowledge/ancm-mtr-dtl/list/usr-top10";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_ancm_mtr=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+//처리결과
+function fn_postSearch()
+{
+	if(ds_ancm_mtr.rowcount < 1) {
+	
+	} else {
+	
+	}
+	return;
+}
+
+function fn_nobdSrch(){
+	if(tab_nobd.tabindex == 0){ //전체
+		tab_nobd.tpg1.fn_commSearch(gfn_getCommTypeInit(),'all',''); // 조회
+	}else if(tab_nobd.tabindex == 1){ //교육자료
+		tab_nobd.tpg2.fn_commSearch(gfn_getCommTypeInit(),'all','10'); // 조회
+	}else if(tab_nobd.tabindex == 2){ //업무지시
+		tab_nobd.tpg3.fn_commSearch(gfn_getCommTypeInit(),'all','20'); // 조회
+	}else if(tab_nobd.tabindex == 3){ //기타자료
+		tab_nobd.tpg4.fn_commSearch(gfn_getCommTypeInit(),'all','30'); // 조회
+	}
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+
+
+//버튼클릭이벤트
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var sPrmr = "";
+	gfn_openSelectNobdPop(sPrmr,true);
+}
+
+
+//탭변경 이벤트
+function tab_nobd_onchanged(obj:Tab, e:TabIndexChangeEventInfo)
+{
+	if(tab_nobd.tabindex == 0){ //전체
+		tab_nobd.tpg1.fn_commSearch(gfn_getCommTypeInit(),'all',''); // 조회
+	}else if(tab_nobd.tabindex == 1){ //교육자료
+		tab_nobd.tpg2.fn_commSearch(gfn_getCommTypeInit(),'all','10'); // 조회
+	}else if(tab_nobd.tabindex == 2){ //업무지시
+		tab_nobd.tpg3.fn_commSearch(gfn_getCommTypeInit(),'all','20'); // 조회
+	}else if(tab_nobd.tabindex == 3){ //기타자료
+		tab_nobd.tpg4.fn_commSearch(gfn_getCommTypeInit(),'all','30'); // 조회
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,227 @@
+package powerservice.business.dlw.service;
+
+import java.util.List;
+import java.util.Map;
+
+public interface DlwNewTypeMainPopService {
+	
+	/** ================================================================
+     * 날짜 : 20190730
+     * 이름 : 김주용
+     * 추가내용 : 회원 필드 검색
+     * 대상 테이블 : LF_DMUSER.TB_USER_OPTION_DATA
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUserOption(Map<String, ?> pmParam) throws Exception; //getUserOption
+    
+    
+    /** ================================================================
+     * 날짜 : 20190730
+     * 이름 : 김주용
+     * 추가내용 : 회원 필드 등록
+     * 대상 테이블 : LF_DMUSER.TB_USER_OPTION_DATA
+     * ================================================================
+     * */
+    public int mergeUserOption(Map<String, Object> pmParam);
+    
+    public int deleteUserOption(Map<String, Object> pmParam);
+    
+    public List<Map<String, Object>> getDlwCustPrdtList(Map<String, ?> pmParam) throws Exception;
+    
+    public int getDlwCmsAplcDtlCount(Map<String, ?> pmParam) throws Exception;
+
+    public List<Map<String, Object>> getDlwCmsAplcDtl(Map<String, ?> pmParam) throws Exception;
+    
+    public List<Map<String, Object>> getDlwCmsWdrwChk(Map<String, Object> pmParam) throws Exception;
+    
+    public List<Map<String, Object>> getCMSInfoByAccnt(Map<String, ?> pmParam) throws Exception;
+    
+    public String insertDlwCmsAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+    
+    public String insertDlwCardAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+    
+    public String insertDlwInicisCardAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+
+    public Map<String, Object> getDlwInicisLongtermCardCheck(Map<String, Object> pmParam) throws Exception;
+    
+    public String deleteDlwCmsAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+    
+    public String deleteDlwCardAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+    
+    public void insertDlwCmsHistoryLogs(Map<String, ?> pmParam) throws Exception;
+    
+    public Map<String, Object> getCustBasiConsInfo(Map<String, ?> pmParam) throws Exception;
+    
+    public String insertCons(Map<String, Object> pmParam) throws Exception;
+    
+    public List<Map<String, Object>> getDlwOnlineMemberCardInfo(Map<String, ?> pmParam) throws Exception;
+    
+    public List<Map<String, Object>> getDlwOnlineMemberCmsInfo(Map<String, ?> pmParam) throws Exception;
+    
+    public String getNcaIdnNo(Map<String, ?> pmParam) throws Exception;
+    
+    public int getDlwCustAcntCount(Map<String, ?> pmParam) throws Exception;
+
+    public List<Map<String, Object>> getDlwCustAcntList(Map<String, ?> pmParam) throws Exception;
+    
+    public List<Map<String, Object>> getDlwCustLongTermList(Map<String, ?> pmParam) throws Exception;
+    
+    public Map<String, Object> getDlwEmplDtpt(String psParam) throws Exception;
+    
+    public int getDlwCdCount(Map<String, ?> pmParam) throws Exception;
+
+    public List<Map<String, Object>> getDlwCdList(Map<String, ?> pmParam) throws Exception;
+    
+    /**
+     * 특수회원 카운트조회
+     * 정승철
+     * 20181019
+    */
+    public int getCntSpecialAcntList(Map<String, ?> pmParam) throws Exception;
+
+    /**
+     * 특수회원 조회
+     * 정승철
+     * 20181018
+    */
+    public List<Map<String, Object>> getSpecialAcntList(Map<String, ?> pmParam) throws Exception;
+    
+    /**
+     * 특수회원 입력체크
+     * 정승철
+     * 20181113
+    */
+    public int getChkSpecialAcntList(Map<String, ?> pmParam) throws Exception;
+
+    /**
+     * 특수회원 입력
+     * 정승철
+     * 20181019
+    */
+    public void insertExtSpecial(Map<String, ?> pmParam) throws Exception;
+
+    /**
+     * 특수회원 수정
+     * 정승철
+     * 20181019
+    */
+    public void updateExtSpecial(Map<String, ?> pmParam) throws Exception;
+
+    /**
+     * 특수회원 삭제
+     * 정승철
+     * 20181019
+    */
+    public void deleteExtSpecial(Map<String, ?> pmParam) throws Exception;
+    
+    /**
+     * CMS 변경 정보 업데이트 
+     * 임동진
+     * 20190903
+    */
+    public void updateCmsInfo(Map<String, ?> pmParam) throws Exception;
+    
+    /**
+     * CARD 변경 정보 업데이트 
+     * 임동진
+     * 20190903
+    */
+    public void updateCardInfo(Map<String, ?> pmParam) throws Exception;    
+    
+    /** ================================================================
+     * 날짜 : 20190924
+     * 이름 : 송준빈
+     * 추가내용 : 고객 자유결제 NICE 전문 발송시 필요한 기타 데이터 조회
+     * 대상 테이블 : LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getNiceProtocolMemberInfo(Map<String, Object> pmParam);
+	
+	/** ================================================================
+     * 날짜 : 20190924
+     * 이름 : 송준빈
+     * 추가내용 : 자유결제 카드 요청, 결과데이터 INSERT
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT
+     * ================================================================
+     * */
+    public int insertFreeRealTimeCardResult(Map<String, ?> pmParam) throws Exception;
+    
+    /** ================================================================
+     * 날짜 : 20190924
+     * 이름 : 송준빈
+     * 추가내용 : 전환결제 취소
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * */
+	public int sendCancelNicePayment(Map<String, Object> pmParam) throws Exception;
+	
+	/** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객 조회수
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+	public int getSendCertfAccntAddrCount(Map<String, ?> pmParam) throws Exception;
+    
+	/** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception;
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송 고객 기본정보 불러오기 
+     * 대상 테이블 : LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberAccntDtlInfo(Map<String, ?> pmParam) throws Exception;
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객정보 수정
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public int updateSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception;
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객정보 입력
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public int insertSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception;
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객정보 삭제
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public int deleteSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception;
+    
+    
+    public List<Map<String, Object>> getDlwNewTypeCustLongTermList(Map<String, ?> pmParam) throws Exception;
+    
+    /**
+     * CARD 변경 정보 업데이트 (복사_20220822)
+     * 임동진
+     * 20190903
+    */
+    public void updateNewTypeCardInfo(Map<String, ?> pmParam) throws Exception;
+    
+    public String deleteDlwNewTypeCardAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+    
+    public String insertDlwNewTypeInicisCardAnxtSrvc(Map<String, Object> pmParam) throws Exception;
+    
+    public Map<String, Object> getDlwNewTypeInicisLongtermCardCheck(Map<String, Object> pmParam) throws Exception;
+}

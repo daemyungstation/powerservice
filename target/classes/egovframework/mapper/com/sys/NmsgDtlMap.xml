@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="NmsgDtlMap">
+    <sql id="NmsgDtlMap.selectCondition_fragment">
+        <if test="nmsg_typ_cd == 'recp'">
+            AND NMSG_TYP_CD = '10' AND RECN_ID = #{user_id} AND KPNG_YN = 'N'
+        </if>
+        <if test="nmsg_typ_cd == 'trms'">
+            AND NMSG_TYP_CD = '20' AND SNDR_ID = #{user_id} AND KPNG_YN = 'N'
+        </if>
+        <if test="nmsg_typ_cd == 'kpng'">
+            AND KPNG_YN = 'Y' AND ((RECN_ID = #{user_id} AND NMSG_TYP_CD = '10') OR (SNDR_ID = #{user_id} AND NMSG_TYP_CD = '20'))
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="word != null and word != ''">
+            <if test="searchWord == 'all'">
+                AND (SNDR_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM = #{word})
+                     OR RECN_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM = #{word})
+                     OR NMSG_TITL LIKE '%' || #{word} || '%'
+                     OR NMSG_CNTN LIKE  '%' || #{word} || '%')
+            </if>
+            <if test="searchWord == 'sndr'">
+                AND SNDR_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM = #{word})
+            </if>
+            <if test="searchWord == 'recn'">
+                AND RECN_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM = #{word})
+            </if>
+            <if test="searchWord == 'titl'">
+                AND NMSG_TITL LIKE '%' || #{word} || '%'
+            </if>
+            <if test="searchWord == 'cntn'">
+                AND NMSG_CNTN LIKE '%' || #{word} || '%'
+            </if>
+        </if>
+        <if test="nmsg_id != null and nmsg_id != ''">
+            AND NMSG_ID = #{nmsg_id}
+        </if>
+    </sql>
+
+    <select id="NmsgDtlMap.getNmsgDtlCount" parameterType="map" resultType="int">
+        SELECT /* NmsgDtlMap.getNmsgDtlCount */
+               COUNT(*)
+          FROM TB_NMSG_DTL
+         WHERE DLTN_YN = 'N'
+        <include refid="NmsgDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="NmsgDtlMap.getNmsgDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* NmsgDtlMap.getNmsgDtlList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , NMSG_ID, NMSG_GROP_ID, NMSG_TYP_CD, RECN_ID, SNDR_ID
+                     , NMSG_TITL, NMSG_CNTN, NMSG_TRMS_DTTM, NMSG_RECP_DTTM
+                     , KPNG_YN, NOTI_YN, CNTR_CD, RGSR_ID
+                     , RGSN_DTTM, AMND_ID, AMNT_DTTM, DLTN_YN, IMPN_YN
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = SNDR_ID) AS SNDR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = RECN_ID) AS RECN_NM
+                     , (SELECT COUNT(*)
+                          FROM TB_NMSG_DTL
+                         WHERE NMSG_GROP_ID = A.NMSG_GROP_ID
+                           AND NMSG_TYP_CD = '10') AS RECN_CNT
+                     , CASE WHEN EXISTS (SELECT *
+                                   FROM TB_FILE
+                                  WHERE RLTN_ITEM_ID = A.NMSG_ID) THEN 'Y'
+                            ELSE 'N'
+                        END AS FILE_YN
+                     , (SELECT FILE_ID
+                           FROM TB_FILE
+                          WHERE RLTN_ITEM_ID = A.NMSG_ID) AS FILE_ID
+                     , (SELECT FILE_NM
+                           FROM TB_FILE
+                          WHERE RLTN_ITEM_ID = A.NMSG_ID) AS FILE_NM
+                  FROM (SELECT NMSG_ID, NMSG_GROP_ID, NMSG_TYP_CD, RECN_ID, SNDR_ID
+                             , NMSG_TITL, NMSG_CNTN, TO_CHAR(NMSG_TRMS_DTTM, 'YYYYMMDDHH24MI') AS NMSG_TRMS_DTTM
+                             , KPNG_YN, NOTI_YN, CNTR_CD, RGSR_ID
+                             , RGSN_DTTM, AMND_ID, AMNT_DTTM, DLTN_YN, IMPN_YN
+                            <choose>
+                                <when test="nmsg_typ_cd == 'recp'">
+                             , NMSG_RECP_DTTM
+                                </when>
+                                <otherwise>
+                             , (SELECT TO_CHAR(NMSG_RECP_DTTM, 'YYYYMMDDHH24MI') AS NMSG_RECP_DTTM
+                                  FROM TB_NMSG_DTL
+                                 WHERE NMSG_GROP_ID = M.NMSG_GROP_ID
+                                   AND NMSG_TYP_CD = '10'
+                                   AND NMSG_RECP_DTTM IS NOT NULL
+                                   AND ROWNUM = 1) AS NMSG_RECP_DTTM
+                                </otherwise>
+                            </choose>
+                          FROM TB_NMSG_DTL M
+                         WHERE DLTN_YN = 'N'
+        <include refid="NmsgDtlMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) A
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="NmsgDtlMap.insertNmsgDtl" parameterType="map">
+        <selectKey keyProperty="nmsg_id" resultType="String" order="BEFORE">
+            SELECT 'MSG' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO/* NmsgDtlMap.insertNmsgDtl */
+               TB_NMSG_DTL
+             ( NMSG_ID, NMSG_GROP_ID, NMSG_TYP_CD, RECN_ID, SNDR_ID
+             , NMSG_TITL, NMSG_CNTN, NMSG_TRMS_DTTM, NMSG_RECP_DTTM
+             , KPNG_YN, NOTI_YN, CNTR_CD, RGSR_ID
+             , RGSN_DTTM, AMND_ID, AMNT_DTTM, DLTN_YN, IMPN_YN)
+        VALUES
+             ( #{nmsg_id}, <if test="nmsg_grop_id != null and nmsg_grop_id != ''">#{nmsg_grop_id}</if><if test="nmsg_grop_id == null or nmsg_grop_id == ''">#{nmsg_id}</if>, #{nmsg_typ_cd}, #{recn_id}, #{sndr_id}
+             , #{nmsg_titl}, #{nmsg_cntn}, SYSTIMESTAMP, TO_TIMESTAMP(#{nmsg_recp_dttm}, 'YYYYMMDDHH24MISS')
+             , 'N', 'N', #{cntr_cd}, #{rgsr_id}
+             , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 'N', 'N')
+    </insert>
+
+    <delete id="NmsgDtlMap.deleteNmsgDtl" parameterType="map">
+        UPDATE /* NmsgDtlMap.deleteNmsgDtl */
+               TB_NMSG_DTL
+           SET DLTN_YN = 'Y'
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE
+        <choose>
+            <when test="nmsg_id == null or nmsg_id == ''">
+               NMSG_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               NMSG_ID = #{nmsg_id}
+            </otherwise>
+        </choose>
+
+    </delete>
+
+    <update id="NmsgDtlMap.updateNmsgDtlKpngYn" parameterType="map">
+        UPDATE /* NmsgDtlMap.updateNmsgDtlKpngYn */
+               TB_NMSG_DTL
+           SET KPNG_YN = 'Y'
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE NMSG_ID
+               <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                       #{item}
+               </foreach>
+    </update>
+
+
+    <update id="NmsgDtlMap.updateNmsgRecpDttm" parameterType="map">
+        UPDATE /* NmsgDtlMap.updateNmsgRecpDttm */
+               TB_NMSG_DTL
+           SET NMSG_RECP_DTTM = SYSTIMESTAMP
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE NMSG_ID = #{nmsg_id}
+    </update>
+
+    <update id="NmsgDtlMap.updateNmsgImpnYn" parameterType="map">
+        UPDATE /* NmsgDtlMap.updateNmsgImpnYn */
+               TB_NMSG_DTL
+           SET <if test="impn_yn.equalsIgnoreCase('Y')">IMPN_YN='Y'</if>
+               <if test="impn_yn.equalsIgnoreCase('N')">IMPN_YN='N'</if>
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE NMSG_ID = #{nmsg_id}
+    </update>
+
+    <select id="NmsgDtlMap.getRecnList" parameterType="map" resultType="resultMap">
+        SELECT /* NmsgDtlMap.getRecnList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.RECN_ID) AS RECN_NM
+                     , TO_CHAR(NMSG_RECP_DTTM, 'YYYYMMDDHH24MI') AS NMSG_RECP_DTTM
+                  FROM TB_NMSG_DTL A
+                 WHERE NMSG_GROP_ID = #{nmsg_grop_id}
+                   AND NMSG_TYP_CD = '10'
+                <if test="orderBy != null and orderBy != ''">
+                    ORDER BY ${orderBy} ${orderDirection}
+                </if>
+               ) B
+    </select>
+
+    <select id="NmsgDtlMap.getNewNmsgDtlCount"  parameterType="map"  resultType="resultMap">
+        SELECT /* NmsgDtlMap.getNewNmsgDtlCount */
+               CNTR_CD, RECN_ID AS USER_ID, COUNT(*) AS CNT
+          FROM TB_NMSG_DTL
+         WHERE NMSG_TYP_CD = '10'
+           AND NMSG_RECP_DTTM IS NULL
+           AND DLTN_YN = 'N'
+      GROUP BY CNTR_CD, RECN_ID
+    </select>
+</mapper>

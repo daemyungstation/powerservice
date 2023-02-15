@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ConsScrtDtlMap">
+
+    <sql id="ConsScrtDtlMap.selectCondition_fragment">
+        <where>
+            <if test="cons_scrt_id != null and cons_scrt_id != ''">
+                AND CONS_SCRT_ID = #{cons_scrt_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                AND CONS_TYP1_CD = #{cons_typ1_cd}
+            </if>
+            <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                AND CONS_TYP2_CD = #{cons_typ2_cd}
+            </if>
+            <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                AND CONS_TYP3_CD = #{cons_typ3_cd}
+            </if>
+            <if test="word != null and word != ''">
+                <if test="searchWord == 'cons_scrt_titl'">
+                    AND CONS_SCRT_TITL LIKE '%' || #{word} || '%'
+                </if>
+                <if test="searchWord == 'cons_scrt_cntn'">
+                    AND CONS_SCRT_CNTN LIKE '%' || #{word} || '%'
+                </if>
+                <if test="searchWord == 'both'">
+                    AND (CONS_SCRT_TITL LIKE '%' || #{word} || '%' OR CONS_SCRT_CNTN LIKE '%' || #{word} || '%')
+                </if>
+                <if test="searchWord == 'titleandscriptcnts'">
+                    AND (CONS_SCRT_TITL LIKE '%' || #{word} || '%' OR CONS_SCRT_CNTN LIKE '%' || #{word} || '%')
+                </if>
+            </if>
+            <if test ="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="bzpt_divs != null and bzpt_divs != ''">
+                AND BZPT_DIV IN (${bzpt_divs})
+            </if>
+        </where>
+    </sql>
+
+    <select id="ConsScrtDtlMap.getConsScrtCount" parameterType="map" resultType="int">
+        SELECT /* ConsScrtDtlMap.getConsScrtCount */
+               COUNT(*)
+          FROM TB_CONS_SCRT_DTL
+        <include refid="ConsScrtDtlMap.selectCondition_fragment" />
+    </select>
+
+    <resultMap id="ConsScrtDtlMap.resultConsScrt" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="cons_scrt_id" column="cons_scrt_id" />
+        <result property="cons_typ1_cd" column="cons_typ1_cd" />
+        <result property="cons_typ2_cd" column="cons_typ2_cd" />
+        <result property="cons_typ3_cd" column="cons_typ3_cd" />
+        <result property="use_yn" column="use_yn" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="cons_typ1_nm" column="cons_typ1_nm" />
+        <result property="cons_typ2_nm" column="cons_typ2_nm" />
+        <result property="cons_typ3_nm" column="cons_typ3_nm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="cons_scrt_titl" column="cons_scrt_titl" />
+    </resultMap>
+
+    <resultMap id="ConsScrtDtlMap.resultConsScrtView" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="cons_scrt_id" column="cons_scrt_id" />
+        <result property="cons_typ1_cd" column="cons_typ1_cd" />
+        <result property="cons_typ2_cd" column="cons_typ2_cd" />
+        <result property="cons_typ3_cd" column="cons_typ3_cd" />
+        <result property="use_yn" column="use_yn" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="cons_typ1_nm" column="cons_typ1_nm" />
+        <result property="cons_typ2_nm" column="cons_typ2_nm" />
+        <result property="cons_typ3_nm" column="cons_typ3_nm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="cons_scrt_titl" column="cons_scrt_titl" />
+        <result property="cons_scrt_cntn" column="cons_scrt_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="cons_scrt_html_cntn" column="cons_scrt_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+    </resultMap>
+
+    <select id="ConsScrtDtlMap.getConsScrtList" parameterType="map" resultMap="ConsScrtDtlMap.resultConsScrt">
+        SELECT /* ConsScrtDtlMap.getConsScrtList */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT CONS_SCRT_ID, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, CONS_SCRT_TITL
+                            , USE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM
+                            , AMND_ID, AMNT_DTTM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.AMND_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.RGSR_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                         FROM TB_CONS_SCRT_DTL A
+        <include refid="ConsScrtDtlMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ConsScrtDtlMap.getConsScrtView" parameterType="map" resultMap="ConsScrtDtlMap.resultConsScrtView">
+        SELECT /* ConsScrtDtlMap.getConsScrtView */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT CONS_SCRT_ID, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, CONS_SCRT_TITL
+                            , CONS_SCRT_CNTN, CONS_SCRT_HTML_CNTN, USE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM
+                            , AMND_ID, AMNT_DTTM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.AMND_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.RGSR_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                         FROM TB_CONS_SCRT_DTL A
+        <include refid="ConsScrtDtlMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ConsScrtDtlMap.insertConsScrt" parameterType="map">
+        <selectKey keyProperty="cons_scrt_id" resultType="String" order="BEFORE">
+            SELECT 'CNS' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* ConsScrtDtlMap.insertConsScrt */
+                    TB_CONS_SCRT_DTL
+                    (CONS_SCRT_ID, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, CONS_SCRT_TITL
+                  , CONS_SCRT_CNTN, CONS_SCRT_HTML_CNTN, USE_YN, CNTR_CD, RGSR_ID
+                  , RGSN_DTTM, AMND_ID, AMNT_DTTM, BZPT_DIV)
+             VALUES (#{cons_scrt_id}, #{cons_typ1_cd}, #{cons_typ2_cd}, #{cons_typ3_cd}, #{cons_scrt_titl}
+                   , #{cons_scrt_cntn:CLOB}, #{cons_scrt_html_cntn:CLOB} , #{use_yn}, #{cntr_cd}, #{rgsr_id}
+                   , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{bzpt_div})
+    </insert>
+
+    <update id="ConsScrtDtlMap.updateConsScrt" parameterType="map">
+        UPDATE /* ConsScrtDtlMap.updateConsScrt */
+               TB_CONS_SCRT_DTL
+           SET CONS_TYP1_CD        = #{cons_typ1_cd}
+             , CONS_TYP2_CD       = #{cons_typ2_cd}
+             , CONS_TYP3_CD        = #{cons_typ3_cd}
+             , CONS_SCRT_TITL      = #{cons_scrt_titl}
+             , CONS_SCRT_CNTN = #{cons_scrt_cntn:CLOB}
+             , CONS_SCRT_HTML_CNTN = #{cons_scrt_html_cntn:CLOB}
+             , USE_YN          = #{use_yn}
+             , AMND_ID      = #{amnd_id}
+             , AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE CONS_SCRT_ID   = #{cons_scrt_id}
+    </update>
+
+    <delete id="ConsScrtDtlMap.deleteConsScrt" parameterType="map">
+        DELETE /* ConsScrtDtlMap.deleteConsScrt */
+          FROM TB_CONS_SCRT_DTL
+         WHERE
+         <choose>
+            <when test="cons_scrt_id == null or cons_scrt_id == ''">
+               CONS_SCRT_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               CONS_SCRT_ID = #{cons_scrt_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+</mapper>

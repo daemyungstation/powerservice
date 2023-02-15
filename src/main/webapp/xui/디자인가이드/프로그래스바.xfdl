@@ -1,0 +1,252 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="AIR_Search" classname="OLISS_test" inheritanceid="" position="absolute 0 0 1151 768" titletext="New Form" onload="OLISS_test_onload">
+    <Layouts>
+      <Layout>
+        <Button id="Data_search" taborder="1" text="Search" position2="absolute l:488 w:96 t:16 h:21" positiontype="position2" style="font:tahoma,9,bold;" onclick="Data_search_onclick"/>
+        <Calendar id="Calendar00" taborder="1" position2="absolute l:140 w:110 t:16 h:20" positiontype="position2" dateformat="yyyy-MM-dd" value="null" style="font:Tahoma,8;"/>
+        <Calendar id="Calendar01" taborder="1" position2="absolute l:260 w:110 t:16 h:20" positiontype="position2" dateformat="yyyy-MM-dd" value="null" style="font:Tahoma,8;"/>
+        <Static id="Static03" text="-" position2="absolute l:245 w:22 t:13 h:26" positiontype="position2" style="align:center;font:tahoma,9,bold;"/>
+        <Static id="Static06" text="Onboard Date :" position2="absolute l:41 w:115 t:11 h:26" positiontype="position2" style="font:tahoma,9,bold;"/>
+        <Grid id="Grid00" taborder="5" useinputpanel="false" position="absolute 28 45 594 528" binddataset="ds_daily_report" oncellclick="Grid00_oncellclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="57"/>
+                <Column size="115"/>
+                <Column size="291"/>
+                <Column size="85"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="25"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="No"/>
+                <Cell col="1" text="Date"/>
+                <Cell col="2" text="Content"/>
+                <Cell col="3" text="File"/>
+              </Band>
+              <Band id="body">
+                <Cell expr="currow+1"/>
+                <Cell col="1" text="bind:daily_date" mask="####-##-##"/>
+                <Cell col="2" style="align:left;" text="expr:(gf_userInfo(3)!='V') ? '['+group_id+'] '+ group_desc : 'Daily Report'"/>
+                <Cell col="3" displaytype="image" style="cursor:hand;" text="http://203.242.142.179/oliss/ui/img/xlsx_file.png"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Div id="Div00" taborder="6" position="absolute 23 535 600 623" style="background:antiquewhite;" visible="false">
+          <Layouts>
+            <Layout>
+              <Shape id="Shape00" type="roundrectangle" position2="absolute l:5 w:566 t:6 h:75" positiontype="position2"/>
+              <Calendar id="Calendar_date" taborder="1" position="absolute 74 19 176 39" anchor="default" dateformat="yyyy-MM-dd " value="null"/>
+              <Combo id="Combo_group" taborder="2" position="absolute 266 20 466 40" innerdataset="@gds_group" codecolumn="GROUP_ID" datacolumn="GROUP_DESC" anchor="default" index="-1"/>
+              <Edit id="file_name" taborder="3" readonly="true" position="absolute 74 45 381 65" style="background:white;border:1 solid #b4b4b4ff ;" anchor="default"/>
+              <Button id="img_search" taborder="4" text="Browser" onclick="Button01_onclick" position2="absolute l:385 w:82 t:44 h:21" style="font:tahoma,9,bold;" positiontype="position2"/>
+              <Button id="img_save" taborder="5" text="Save" position2="absolute l:471 w:82 t:20 h:45" style="font:tahoma,9,bold;" onclick="Div00_img_save_onclick" positiontype="position2"/>
+              <Static id="Static00" text="Date :" position="absolute 26 20 81 40" style="font:tahoma,9,bold;" anchor="default"/>
+              <Static id="Static01" text="Group :" position="absolute 210 20 265 40" style="font:tahoma,9,bold;" anchor="default"/>
+              <Static id="Static02" text="File :" position="absolute 36 42 70 62" style="font:tahoma,9,bold;" anchor="default"/>
+            </Layout>
+          </Layouts>
+        </Div>
+        <ActiveX id="tabs" visible="false" progid="{BCFA4759-1193-4EC3-92A0-F03F6461DA78}" popupstyle="true" adjustalpha="true" useautobitmapcache="1" position2="absolute l:63 w:167 t:629 h:76" positiontype="position2" taborder="7" SerialFileElement="-1"/>
+        <FileDownload id="FileDownload00" taborder="10" retry="0" text="FileDownload00" position="absolute 240 631 380 705" visible="false"/>
+        <ProgressBar id="ProgressBar00" taborder="12" max="100" min="0" position="absolute 28 529 593 536"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_daily_report" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="daily_date" type="STRING" size="8"/>
+          <Column id="group_id" type="STRING" size="2"/>
+          <Column id="group_desc" type="STRING" size="100"/>
+          <Column id="file_name" type="STRING" size="100"/>
+          <Column id="file_name2" type="STRING" size="100"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+      <HttpObject id="HttpObject00" asyncflag="true" retry="10" timeout="30000" onload="HttpObject00_onload" onstatus="HttpObject00_onstatus"/>
+      <FileDialog id="FileDialog00" filter="All(*.*)|*.*|" filterindex="0" defaultextension="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[//include "LIB::COMMTRAN.js";			// 공통 트랜젝션 관련
+//include "LIB::COMMUTIL.js";			// 공통 함수 관련
+
+function Right(sOrg, nSize)
+{
+	if( sOrg == null )
+		return "";
+	if( sOrg.length < nSize )
+		return sOrg;
+	else
+		return sOrg.substr(sOrg.length-nSize, nSize);
+}
+
+function Today()
+{
+	var sToday = "";
+	var objDate = new Date();
+	var sToday  = objDate.getFullYear().toString();
+	sToday += Right("0" + (objDate.getMonth() + 1), 2);
+	sToday += Right("0" + objDate.getDate(), 2);
+
+	return sToday;
+}
+
+function Oldday()
+{
+	var sToday = "";	
+	var toDay = new Date();
+	toDay.addDate(-15); // 20일 전 날짜 구하기
+		
+	var sToday  = toDay.getFullYear().toString();
+	sToday += Right("0" + (toDay.getMonth() + 1), 2);
+	sToday += Right("0" + toDay.getDate(), 2);
+
+	return sToday;
+}
+
+function OLISS_test_onload(obj:Form, e:LoadEventInfo)
+{
+
+    Div00.background.color="transparent";
+   
+	// 초기 조회 시간 세팅
+	
+	Calendar00.value = Oldday()
+	
+	Calendar01.value = Today();
+	
+	Div00.Calendar_date.value = Today();
+	
+	
+	Div00.Combo_group.index = 0;
+	
+// 	if(gf_userInfo(3)!="V")	  	  
+// 	  Div00.visible = true;
+
+			
+}
+
+
+
+function fn_callback(strSvcId, nErrorCode, strErrorMsg)
+{
+	
+	if ( strSvcId == "Daily_report_search")
+	{
+		trace(strErrorMsg);
+	}
+}
+
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	tabs.AddFile();
+	Div00.file_name.value = tabs.UploadFiles[1].SourceFile;
+}
+
+function Div00_img_save_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gf_setMessage("C", "자료를 저장 하시겠습니까 ?");
+	if (gf_trim(Div00.Calendar_date) == "")
+	{
+		gf_setMessage("A", "Date를 입력하세요");
+		return
+	}
+	
+	if (gf_trim(Div00.file_name.value) == "")
+	{
+		gf_setMessage("A", "업로드할 File을 선택 하세요");
+		return
+	}
+	
+	if (gf_trim(Div00.file_name.value) != "")
+	{
+		var sUrl   = "http://203.242.142.179/oliss/SERVICE/Comm/file_upload.asp" ;
+		var sParam = "?daily_date="+gf_trim(Div00.Calendar_date.value)
+					+ "&group_id="+gf_trim(Div00.Combo_group.value);
+					
+		tabs.UploadURL = sUrl + sParam;   
+		tabs.PostMultipartFormData();
+		
+		tabs.RemoveAllFiles();
+		
+		Div00.file_name.value = "";
+				
+		Data_search_onclick();
+	}
+	
+}
+
+function Data_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var sSidId		= "Daily_report_search";							// SDI ID
+	var sUrl 		= gv_url + "Comm/daily_report.asp"; 	    	// 호출 URL	
+	var sInputDs 	= ""; 						// 등록 데이터셋	
+	var sOutDs		= "ds_daily_report=output"; 		        	// 아웃풋 데이터셋	
+	var sParam		= " arg_s_date=" + gf_trim(Calendar00.value)
+			        + " arg_e_date=" + gf_trim(Calendar01.value)
+			        + " arg_id=" + gf_userInfo(0)
+			        + " arg_code_mng=" + gds_userInfo.getColumn(0,"CODE_MNG");
+
+	
+	gf_transaction(sSidId, sUrl, sInputDs, sOutDs, sParam, "fn_callback", true);
+}
+
+function Grid00_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+
+	//if(obj.getCellPos(e.row, e.cell) == 3)
+    //{
+		
+		ProgressBar00.pos = 0; 
+		downFolder = FileDialog00.open("File Download - Daily Report",FileDialog.SELFOLDER); //사용자 폴더 선택
+		
+	        
+			var vFile_down = new VirtualFile();
+			vFile_down.open("Daily_Report_"+ds_daily_report.getColumn(Grid00.currentrow,"file_name2"), VirtualFile.openWrite );	//내문서로 다운로드 받음.
+     
+			if (vFile_down)
+			{				
+				var strFileName = vFile_down.filename;
+				var rtn = HttpObject00.download("http://www.miplatform.co.kr/Miplatform/NewHome/include/includFileDownLoadNew.asp?str_FileDir=A05&str_file_name=200710-A05-00017-CodeSamples_eng.zip&strSourceName=CodeSamples_eng.zip",vFile_down,true);		
+			
+			
+				var objExt = new ExtCommon;
+				var strDs = objExt.readFile(system.convertRealPath("%DOCUMENT%")+"\\"+strFileName,"OBJ"); 
+				objExt.writeFile(downFolder+"\\"+strFileName, strDs); 
+				VirtualFile.delete(system.convertRealPath("%DOCUMENT%")+"\\"+strFileName);
+				//alert(downFolder+"\\"+strFileName);
+				system.execShell(downFolder+"\\"+strFileName);
+			}	
+		 
+			
+	//}	
+
+}
+
+
+
+function HttpObject00_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo)
+{
+	trace("HttpObject00_onstatus::" + e.status);
+	this.updateWindow();
+	ProgressBar00.pos = e.status;
+}
+
+function HttpObject00_onload(obj:HttpObject, e:HttpObjLoadEventInfo)
+{
+	if(e.errorcode == 200 || e.errorcode == 0) {
+		ProgressBar00.pos = 100;
+	}
+	trace("errorcode = " + e.errorcode + "\n" + "errormsg = " + e.errormsg + "<< END");
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TrgtExcpMap">
+
+    <sql id="TrgtExcpMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trgt_excp_id != null and trgt_excp_id != ''">
+                AND A.TRGT_EXCP_ID = #{trgt_excp_id}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+            <if test="excp_gbn_cd != null and excp_gbn_cd != ''">
+                AND A.EXCP_GBN_CD = #{excp_gbn_cd}
+            </if>
+            <if test="excp_id != null and excp_id != ''">
+                AND A.EXCP_ID = #{excp_id}
+            </if>
+            <if test="excp_nm != null and excp_nm != ''">
+                AND A.EXCP_NM LIKE #{excp_nm} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="TrgtExcpMap.getTrgtExcpCount" parameterType="map" resultType="int">
+        SELECT /* TrgtExcpMap.getTrgtExcpCount */
+               COUNT(*)
+          FROM TB_TRGT_EXCP A
+        <include refid="TrgtExcpMap.selectCondition_fragment" />
+    </select>
+
+    <select id="TrgtExcpMap.getTrgtExcpList" parameterType="map" resultType="resultMap">
+        SELECT /* TrgtExcpMap.getTrgtExcpList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                             , GETCODENM('CUS180', A.EXCP_GBN_CD, A.CNTR_CD) AS EXCP_GBN_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER C
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM (SELECT TRGT_EXCP_ID, EXCP_GBN_CD, EXCP_ID, EXCP_NM, EXCP_EXPI, USE_YN
+                                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USER_DEFN1_CNTN
+                                     , DECODE(USER_DEFN2_CNTN,'01','01','02') AS USER_DEFN2_CNTN  /* 01:대상제외, 02:제외 */
+                                     , USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+                                  FROM TB_TRGT_EXCP A
+                              <include refid="TrgtExcpMap.selectCondition_fragment" />
+                               ) A
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="TrgtExcpMap.insertTrgtExcp" parameterType="map">
+        <selectKey keyProperty="trgt_excp_id" resultType="String" order="BEFORE">
+            SELECT 'TCP' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* TrgtExcpMap.insertTrgtExcp */
+          INTO TB_TRGT_EXCP
+               (TRGT_EXCP_ID, EXCP_GBN_CD, EXCP_ID, EXCP_NM, EXCP_EXPI, USE_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USER_DEFN1_CNTN, USER_DEFN2_CNTN , USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN)
+        VALUES (#{trgt_excp_id}, #{excp_gbn_cd}, #{excp_id}, #{excp_nm}, #{excp_expi}, #{use_yn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{user_defn1_cntn}, #{user_defn2_cntn}, #{user_defn3_cntn}, #{user_defn4_cntn}, #{user_defn5_cntn} )
+    </insert>
+
+    <update id="TrgtExcpMap.updateTrgtExcp" parameterType="map">
+        UPDATE /* TrgtExcpMap.updateTrgtExcp */
+               TB_TRGT_EXCP
+           SET AMNT_DTTM	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID		= #{amnd_id}
+             , EXCP_EXPI	= #{excp_expi}
+             , EXCP_ID		= #{excp_id}
+             , USE_YN		= #{use_yn}
+             <if test="user_defn1_cntn != null and user_defn1_cntn != ''">
+             , USER_DEFN1_CNTN = #{user_defn1_cntn}
+             </if>
+             <if test="user_defn2_cntn != null and user_defn2_cntn != ''">
+             , USER_DEFN2_CNTN = #{user_defn2_cntn}
+             </if>
+             <if test="user_defn3_cntn != null and user_defn3_cntn != ''">
+             , USER_DEFN3_CNTN = #{user_defn3_cntn}
+             </if>
+
+             <!--
+             , USER_DEFN4_CNTN = #{user_defn4_cntn}
+             , USER_DEFN5_CNTN = #{user_defn5_cntn}
+              -->
+         WHERE TRGT_EXCP_ID	= #{trgt_excp_id}
+    </update>
+
+     <!-- ================================================================
+     * 날짜 : 20190416
+     * 이름 : 정승철
+     * 추가내용 : 연체대상제외 정보삭제
+     * 대상 테이블 : PS_WILLVI.TB_TRGT_EXCP
+     * ================================================================
+     * -->
+    <update id="TrgtExcpMap.deleteTrgtExcp" parameterType="map">
+        UPDATE /* TrgtExcpMap.deleteTrgtExcp */
+               TB_TRGT_EXCP
+           SET AMNT_DTTM	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID		= #{amnd_id}
+             , USE_YN		= #{use_yn}
+         WHERE TRGT_EXCP_ID	= #{trgt_excp_id}
+    </update>
+
+</mapper>

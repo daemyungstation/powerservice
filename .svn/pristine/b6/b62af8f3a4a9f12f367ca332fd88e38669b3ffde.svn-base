@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExamPrbmAnsrMap">
+
+    <sql id="ExamPrbmAnsrMap.selectCondition_fragment">
+        <where>
+            <if test="exam_ansr_id != null and exam_ansr_id != ''">
+                AND A.EXAM_ANSR_ID = #{exam_ansr_id}
+            </if>
+            <if test="exam_prbm_id != null and exam_prbm_id != ''">
+                AND A.EXAM_PRBM_ID = #{exam_prbm_id}
+            </if>
+            <if test="emsh_id != null and emsh_id != ''">
+                AND A.EMSH_ID = #{emsh_id}
+            </if>
+            <if test="exam_trpr_id != null and exam_trpr_id != ''">
+                AND A.EXAM_TRPR_ID = #{exam_trpr_id}
+            </if>
+            <if test="exam_id != null and exam_id != ''">
+                AND A.EXAM_ID = #{exam_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="ExamPrbmAnsrMap.getExamPrbmAnsrCount" parameterType="map" resultType="int">
+        SELECT /* ExamPrbmAnsrMap.getExamPrbmAnsrCount */
+               COUNT(*)
+          FROM TB_EXAM_PRBM_ANSR A
+         <include refid="ExamPrbmAnsrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ExamPrbmAnsrMap.getExamPrbmAnsrList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmAnsrMap.getExamPrbmAnsrList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_ANSR_ID, EXAM_PRBM_ID, EMSH_ID, EXAM_TRPR_ID
+                     , EXAM_ID, PRBM_ANSR_CNTN, ANSR_ACQR_SCR_VL
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , RGSR_NM, AMND_NM
+                  FROM (SELECT EXAM_ANSR_ID, EXAM_PRBM_ID, EMSH_ID, EXAM_TRPR_ID, EXAM_ID
+                             , PRBM_ANSR_CNTN, ANSR_ACQR_SCR_VL
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EXAM_PRBM_ANSR A
+                      <include refid="ExamPrbmAnsrMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ExamPrbmAnsrMap.insertExamPrbmAnsr" parameterType="map">
+        <selectKey keyProperty="exam_ansr_id" resultType="String" order="BEFORE">
+            SELECT 'EPA' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ExamPrbmAnsrMap.insertExamPrbmAnsr */
+          INTO TB_EXAM_PRBM_ANSR
+               (EXAM_ANSR_ID, EXAM_PRBM_ID, EMSH_ID, EXAM_TRPR_ID, EXAM_ID
+              , PRBM_ANSR_CNTN
+          <if test="ansr_acqr_scr_vl != null and ansr_acqr_scr_vl != ''">
+              , ANSR_ACQR_SCR_VL
+          </if>
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{exam_ansr_id}, #{exam_prbm_id}, #{emsh_id}, #{exam_trpr_id}, #{exam_id}
+              , #{prbm_ansr_cntn}
+          <if test="ansr_acqr_scr_vl != null and ansr_acqr_scr_vl != ''">
+              , #{ansr_acqr_scr_vl}
+          </if>
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="ExamPrbmAnsrMap.updateExamPrbmAnsr" parameterType="map">
+        UPDATE /* ExamPrbmAnsrMap.updateExamPrbmAnsr */
+               TB_EXAM_PRBM_ANSR A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            <if test="prbm_ansr_cntn != null and prbm_ansr_cntn != ''">
+             , A.PRBM_ANSR_CNTN     = #{prbm_ansr_cntn}
+            </if>
+            <if test="ansr_acqr_scr_vl != null and ansr_acqr_scr_vl != ''">
+             , A.ANSR_ACQR_SCR_VL       = #{ansr_acqr_scr_vl}
+            </if>
+         WHERE A.EXAM_ANSR_ID   = #{exam_ansr_id}
+           AND A.EXAM_ID         = #{exam_id}
+           AND A.EMSH_ID    = #{emsh_id}
+           AND A.EXAM_PRBM_ID     = #{exam_prbm_id}
+           AND A.EXAM_TRPR_ID     = #{exam_trpr_id}
+    </update>
+
+    <delete id="ExamPrbmAnsrMap.deleteExamPrbmAnsr" parameterType="map">
+        DELETE /* ExamPrbmAnsrMap.deleteExamPrbmAnsr */
+          FROM TB_EXAM_PRBM_ANSR
+         WHERE EXAM_ID           = #{exam_id}
+           AND EMSH_ID      = #{emsh_id}
+           AND EXAM_PRBM_ID       = #{exam_prbm_id}
+           AND EXAM_TRPR_ID       = #{exam_trpr_id}
+    </delete>
+
+</mapper>

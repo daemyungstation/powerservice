@@ -1,0 +1,197 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_MultiSelCheck" classname="Comm_MultiSelCheck" inheritanceid="" position="absolute 0 0 250 22" titletext="New Form" onload="Comm_MultiSelCheck_onload">
+    <Layouts>
+      <Layout/>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_checkboxList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="code" type="STRING" size="256"/>
+          <Column id="data" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="code">1</Col>
+            <Col id="data">체크박스1</Col>
+          </Row>
+          <Row>
+            <Col id="code">2</Col>
+            <Col id="data">체크박스2</Col>
+          </Row>
+          <Row>
+            <Col id="code">3</Col>
+            <Col id="data">체크박스3</Col>
+          </Row>
+          <Row>
+            <Col id="code">4</Col>
+            <Col id="data">체크박스4</Col>
+          </Row>
+          <Row>
+            <Col id="code">5</Col>
+            <Col id="data">체크박스5</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+var fv_codeColNm;
+var fv_dataColNm;
+
+function Comm_MultiSelCheck_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_Init();
+}
+
+function fn_Init()
+{
+	//fn_initMultiSelCheck(ds_checkboxList, "code", "data", 8);
+}
+
+function fn_initMultiSelCheck(objInnerDs, sChkColNm, sCodeColNm, sDataColNm, nWGap, sFontSize, sFontType, nListCnt, nHGap)
+{
+	if(sChkColNm == null) sChkColNm = "_chk";
+
+	// 초기화 설정
+	//this.ds_checkboxList.assign(objInnerDs);
+	this.ds_checkboxList.copyData(objInnerDs, true);
+	fv_codeColNm = sCodeColNm;
+	fv_dataColNm = sDataColNm;
+	
+	var objDs = this.ds_checkboxList;
+
+	if(nWGap == null) 		nWGap 		= 8;
+	if(sFontSize == null) 	sFontSize 	= "9";
+	if(sFontType == null) 	sFontType 	= "Dotum";
+
+	var nChkBoxHeight 	= 12;
+	var nLeft 			= 0;
+	var nTop			= 5;
+
+	for(var i=0;i<objDs.rowcount;i++)
+	{
+		if(nListCnt != null) {
+			var nMod = i%nListCnt;
+			//trace("i::"+i+" nMod::"+nMod);
+			if(nMod == 0) {
+				nLeft = 0;
+				if(i != 0) nTop = nTop + nChkBoxHeight + nHGap;
+			}
+		}
+	
+		var objFont = gfn_getObjFont(sFontSize, sFontType);
+		var objSize = gfn_getTextSize(objDs.getColumn(i, sDataColNm), objFont);
+		var nWidth = objSize.cx+12;
+	
+		var sCheckBoxNm = sChkColNm+i;
+		var objCheckBox = new CheckBox(sCheckBoxNm, nLeft, nTop, (nLeft+nWidth),(nTop+nChkBoxHeight));
+		this.addChild(sCheckBoxNm, objCheckBox); 
+		objCheckBox.show(); 
+
+		objCheckBox.bindcode = objDs.getColumn(i, sCodeColNm);
+		objCheckBox.text = objDs.getColumn(i, sDataColNm);
+		
+		nLeft += nWidth + nWGap;
+	}
+}
+
+function setInit()
+{	
+	var arrObjChk = this.components;
+	
+	for(var i=0;i<arrObjChk.length;i++)
+	{
+		arrObjChk[i].value = 0;
+	}
+}
+
+function getValue()
+{
+	var sRtnStr 	= "";
+	var arrObjChk 	= this.components;
+	
+	for(var i=0;i<arrObjChk.length;i++)
+	{
+		if(arrObjChk[i] instanceof CheckBox) {
+			if(arrObjChk[i].value == 1) sRtnStr += (gfn_getLength(sRtnStr)==0?arrObjChk[i].bindcode:","+arrObjChk[i].bindcode);
+		}	
+	}
+
+	trace("getValue::"+sRtnStr);
+
+	return sRtnStr;
+}
+
+function getText()
+{
+	var sRtnStr 	= "";
+	var arrObjChk 	= this.components;
+	
+	for(var i=0;i<arrObjChk.length;i++)
+	{
+		if(arrObjChk[i] instanceof CheckBox) {
+			if(arrObjChk[i].value == 1) sRtnStr += (gfn_getLength(sRtnStr)==0?arrObjChk[i].text:","+arrObjChk[i].text);
+		}
+	}
+
+	trace("getText::"+sRtnStr);
+
+	return sRtnStr;
+}
+
+function fn_getCheckComp(sCode)
+{
+	var sObjCheckBoxID;
+	var arrObjChk 	= this.components;
+	
+	for(var i=0;i<arrObjChk.length;i++)
+	{
+		if(arrObjChk[i].bindcode == sCode) {
+			sObjCheckBoxID = arrObjChk[i].name;
+			break;
+		}
+	}
+	
+	return sObjCheckBoxID;
+}
+
+function setValue(sValList)
+{
+	var arrCode = String(sValList).split(",");
+	
+	for(var i=0;i<arrCode.length;i++)
+	{
+		var sCheckBoxID = fn_getCheckComp(arrCode[i]);
+		if(!gfn_isNull(sCheckBoxID)) {
+			var objChk = this.components[sCheckBoxID];
+			objChk.value = 1;
+		}
+	}
+}
+
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	setInit();
+}
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	getValue();
+}
+
+function Button02_onclick(obj:Button,  e:ClickEventInfo)
+{
+	getText();
+}
+
+function Button03_onclick(obj:Button,  e:ClickEventInfo)
+{
+	setValue("1,2,3,5");
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwNonPayMap">
+    
+    <!-- ================================================================
+     * 날짜 : 20221026
+     * 이름 : 김주용
+     * 추가내용 : 미납대상생성관리 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_NONPAYMENT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwNonPayMap.getNonPayTitList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNonPayMap.getNonPayTitList */
+		    MST.MST_SEQ,
+		    MST.NP_TITLE,
+		    NP_GBN,
+		    NP_DAY,
+		    NP_ETC,
+		    (SELECT COUNT(*) FROM TB_NONPAYMENT_DTL DTL WHERE MST_SEQ = DTL.MST_SEQ) AS NP_CNT
+		FROM TB_NONPAYMENT_MST MST 
+		WHERE 1=1
+		AND EXT_DT = #{ext_dt}
+		<if test="np_gbn != null and np_gbn != ''">
+            AND MST.NP_GBN = #{np_gbn}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20221026
+     * 이름 : 김주용
+     * 추가내용 : 미납대상생성관리 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_NONPAYMENT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwNonPayMap.getNonPayCount" parameterType="map" resultType="int">
+        SELECT /* DlwNonPayMap.getNonPayCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+             SELECT MST.NP_TITLE,
+				    MST.NP_GBN,
+				    MST.NP_DAY,
+				    MST.NP_ETC,
+				    DTL.NP_SEQ,
+				    DTL.ACCNT_NO,
+				    DTL.MEM_NO
+				FROM TB_NONPAYMENT_MST MST
+				     LEFT OUTER JOIN TB_NONPAYMENT_DTL DTL ON MST.MST_SEQ = DTL.MST_SEQ
+				WHERE 1=1
+				AND MST.EXT_DT = #{ext_dt}
+				<if test="np_gbn != null and np_gbn != ''">
+	                AND MST.NP_GBN = #{np_gbn}
+	            </if>
+				<if test="mst_seq != null and mst_seq != ''">
+	                AND MST.MST_SEQ = #{mst_seq}
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND DTL.ACCNT_NO = #{accnt_no}
+	            </if>
+        ) SUB_TBL
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20221026
+     * 이름 : 김주용
+     * 추가내용 : 미납대상생성관리 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_NONPAYMENT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwNonPayMap.getNonPayList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNonPayMap.getNonPayList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY SUB_TBL.NP_SEQ ASC) AS PAGE_INDX,
+                SUB_TBL.*
+            FROM
+            (
+                SELECT MST.NP_TITLE,
+				    MST.NP_GBN,
+				    MST.NP_DAY,
+				    MST.NP_ETC,
+				    DTL.NP_SEQ,
+				    DTL.ACCNT_NO,
+				    DTL.MEM_NO
+				FROM TB_NONPAYMENT_MST MST
+				     LEFT OUTER JOIN TB_NONPAYMENT_DTL DTL ON MST.MST_SEQ = DTL.MST_SEQ
+				WHERE 1=1
+				AND MST.EXT_DT = #{ext_dt}
+				<if test="np_gbn != null and np_gbn != ''">
+	                AND MST.NP_GBN = #{np_gbn}
+	            </if>
+				<if test="mst_seq != null and mst_seq != ''">
+	                AND MST.MST_SEQ = #{mst_seq}
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND DTL.ACCNT_NO = #{accnt_no}
+	            </if>
+            ) SUB_TBL
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20221026
+     * 이름 : 김주용
+     * 추가내용 : 미납대상생성관리 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_NONPAYMENT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwNonPayMap.getNonPayPopCount" parameterType="map" resultType="int">
+        SELECT /* DlwNonPayMap.getNonPayPopCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+             SELECT 
+				    NP.EXT_DT,
+				    NP.ACCNT_NO,
+				    NP.TRUE_CNT,
+				    NP.REL_CNT,
+				    NP.DIFF_CNT,
+				    NP.SECTION_T_NP,
+				    NP.RESN_PROC_YN,
+				    CASE WHEN SECTION_T_NP = '001' AND NP.TRUE_CNT <![CDATA[<]]> MBID.TRUE_CNT THEN 'Y'
+				         WHEN SECTION_T_NP = '002' AND NP.REL_CNT <![CDATA[<]]> MBID.REL_CNT THEN 'Y'
+				    ELSE 'N' END AS DIFF_YN
+				FROM LF_DMUSER.TB_NONPAYMENT_MNG NP LEFT OUTER JOIN
+				        TB_MEMBER_BASIC_INFO_DAY MBID ON NP.ACCNT_NO = MBID.ACCNT_NO
+				WHERE 1=1
+				AND NP.EXT_DT = #{ext_dt}
+				<if test="diff_cnt_stt != null and diff_cnt_stt != ''">
+	                AND NP.DIFF_CNT <![CDATA[>=]]> #{diff_cnt_stt}
+	            </if>
+	            <if test="diff_cnt_end != null and diff_cnt_end != ''">
+	                AND NP.DIFF_CNT <![CDATA[<=]]> #{diff_cnt_end}
+	            </if>
+				<if test="sction_t_np != null and sction_t_np != ''">
+	                AND NP.SECTION_T_NP = #{sction_t_np}
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND NP.ACCNT_NO = #{accnt_no}
+	            </if>
+        ) SUB_TBL
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20221026
+     * 이름 : 김주용
+     * 추가내용 : 미납대상생성관리 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_NONPAYMENT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwNonPayMap.getNonPayPopList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNonPayMap.getNonPayPopList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY SUB_TBL.ACCNT_NO ASC) AS PAGE_INDX,
+                SUB_TBL.*
+            FROM
+            (
+                SELECT 
+				    NP.EXT_DT,
+				    NP.ACCNT_NO,
+				    NP.TRUE_CNT,
+				    NP.REL_CNT,
+				    NP.DIFF_CNT,
+				    NP.SECTION_T_NP,
+				    NP.RESN_PROC_YN,
+				    CASE WHEN SECTION_T_NP = '001' AND NP.TRUE_CNT <![CDATA[<]]> MBID.TRUE_CNT THEN 'Y'
+				         WHEN SECTION_T_NP = '002' AND NP.REL_CNT <![CDATA[<]]> MBID.REL_CNT THEN 'Y'
+				    ELSE 'N' END AS DIFF_YN
+				FROM LF_DMUSER.TB_NONPAYMENT_MNG NP LEFT OUTER JOIN
+				        TB_MEMBER_BASIC_INFO_DAY MBID ON NP.ACCNT_NO = MBID.ACCNT_NO
+				WHERE 1=1
+				AND NP.EXT_DT = #{ext_dt}
+				<if test="diff_cnt_stt != null and diff_cnt_stt != ''">
+	                AND NP.DIFF_CNT <![CDATA[>=]]> #{diff_cnt_stt}
+	            </if>
+	            <if test="diff_cnt_end != null and diff_cnt_end != ''">
+	                AND NP.DIFF_CNT <![CDATA[<=]]> #{diff_cnt_end}
+	            </if>
+				<if test="sction_t_np != null and sction_t_np != ''">
+	                AND NP.SECTION_T_NP = #{sction_t_np}
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND NP.ACCNT_NO = #{accnt_no}
+	            </if>
+            ) SUB_TBL
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+</mapper>

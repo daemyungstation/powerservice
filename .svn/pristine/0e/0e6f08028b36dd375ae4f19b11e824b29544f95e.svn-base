@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS998102" classname="PS993700" inheritanceid="" position="absolute 0 0 400 100" titletext="Excel다운로드사유입력" scrollbars="none" onload="PS998102_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_popup" class="sta_popupBg1" enable="false" position="absolute 0 0 400 100"/>
+        <Button id="btn_close" taborder="0" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 372 8 392 27"/>
+        <Static id="stc_30" text="Excel 다운로드 사유입력" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 248 28"/>
+        <Static id="sta_GrayLine" class="sta_WF_Line1" position="absolute 11 65 392 66"/>
+        <Static id="stc_01" onclick="div_Work_tab_02_tabpage1_stc_01_onclick" class="sta_workData" position="absolute 104 66 392 92"/>
+        <Button id="btn_save" taborder="18" text="저장" position="absolute 318 41 392 61" style="border:0 none #000000ff ;padding:0 0 0 0;" onclick="btn_onclick"/>
+        <Static id="stc_accnt_no" text="다운로드 사유" class="sta_workLabel1" position="absolute 11 66 129 92" style="font:Dotum,8;" validate=""/>
+        <Edit id="edt_accnt_no" taborder="39" inputtype="number" readonly="true" maxlength="16" position="absolute 107 69 273 89"/>
+        <Combo id="cbo_excelDownloadReason" taborder="40" position="absolute 133 69 388 89" index="-1" innerdataset="@ds_codeExcelDownloadReason" codecolumn="cd" datacolumn="cd_nm"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="menu_id" type="STRING" size="256"/>
+          <Column id="download_reason" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_codeExcelDownloadReason" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cd" type="STRING" size="256"/>
+          <Column id="cd_nm" type="STRING" size="256"/>
+          <Column id="adtl_cd" type="STRING" size="256"/>
+          <Column id="adtl_cd_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_codeDlwCds" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cd_set_cd" type="STRING" size="256"/>
+          <Column id="cd" type="STRING" size="256"/>
+          <Column id="cd_nm" type="STRING" size="256"/>
+          <Column id="adtl_cd" type="STRING" size="256"/>
+          <Column id="adtl_cd_nm" type="STRING" size="256"/>
+          <Column id="use_yn" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+var xFormId;
+var xRetVal;
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS998102_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_initForm(obj);
+	gfn_getList("dlwCd", "114" , null, null, "selectDlwCode", "ds_codeDlwCds"); // 엑셀다운로드사유
+	fn_init();
+}
+
+function fn_callBack(svcId, errCd, errMsg) 
+{   
+	if (errCd != 0) 
+	{
+		switch (svcId) 
+		{
+			case "selectDlwCode" :
+				alert("공통코드 조회에 실패하였습니다 : " + errMsg);
+			break;
+			
+			case "insertExcelDownloadReason" :
+				alert("Excel 다운로드 사유저장 실패하였습니다 : " + errMsg);
+			break;
+		}
+		
+		return false;
+	}
+	else
+	{
+		switch (svcId) 
+		{
+			case "selectDlwCode" :
+				gfn_getCode("114", "SELECT", ds_codeExcelDownloadReason, ds_codeDlwCds);
+			break;
+			
+			case "insertExcelDownloadReason" :
+				fn_postSave(gfn_getCommTypeInit(), svcId);
+			break;
+		}
+	}
+}
+
+function fn_postSave(sType, svcId)
+{
+	switch(svcId) 
+    {
+		case "insertExcelDownloadReason" :
+			if(xRetVal != "1")
+			{
+				alert("사유저장에 실패하였습니다.");
+				xRetVal = "0";
+				close("0");
+			}
+			else
+			{
+				xRetVal = "0";
+				close("1");
+			}
+		break;
+    }
+}
+
+function fn_preSave(sType, svcId) 
+{
+    var return_bool = false;
+    
+    switch(svcId) 
+    {
+		case "insertExcelDownloadReason" :
+		
+			var sExcelDownloadReason = cbo_excelDownloadReason.value;
+			
+			if(gfn_isNull(sExcelDownloadReason) == true)
+			{
+				alert("다운로드 사유를 입력하여 주십시오");
+				return false;
+			}
+			
+			ds_inqCndt.clearData();
+			ds_inqCndt.addRow();
+			
+			ds_inqCndt.setColumn(0, "menu_id", xFormId);
+			ds_inqCndt.setColumn(0, "download_reason", sExcelDownloadReason);
+			return_bool = true;
+		break;
+    }
+	return return_bool;
+}
+
+function fn_commSave(sType, svcId)
+{
+	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(svcId) 
+    {
+        case "insertExcelDownloadReason": 
+            if (!fn_preSave(sType, "insertExcelDownloadReason"))
+            {
+                return false;
+            }
+	        
+	        szSvcid       = "insertExcelDownloadReason";
+		    szController  = "/common/insertExcelDownloadReason";
+		    szInDs        = "ds_input=ds_inqCndt";
+		    szOutDs       = "";
+		    szParam       = "";
+		    szRetCallback = "fn_callBack";
+        break;
+    }
+    
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+function fn_init()
+{
+	xFormId = pFormId;
+	cbo_excelDownloadReason.index = 0;
+	ds_inqCndt.clearData();
+}
+
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+    fn_commSave(gfn_getCommTypeInit(), "insertExcelDownloadReason");
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close("0");
+}]]></Script>
+  </Form>
+</FDL>

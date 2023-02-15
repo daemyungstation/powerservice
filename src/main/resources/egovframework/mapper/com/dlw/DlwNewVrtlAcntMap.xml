@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwNewVrtlAcntMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌 정보 조회수
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <select id="DlwNewVrtlAcntMap.getVrtlAccntInfoCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewVrtlAcntMap.getVrtlAccntInfoCount */
+            COUNT(*) AS ICNT
+        FROM TB_NICE_VRTL_ACCNT_INFO V_INFO LEFT OUTER JOIN
+            MEMBER MEM ON MEM.MEM_NO = V_INFO.MEM_NO
+        WHERE 1=1
+        <if test="del_fg != null and del_fg != ''">
+            AND V_INFO.DEL_FG = #{del_fg}
+        </if>
+        <if test="vrtl_accnt_no != null and vrtl_accnt_no != ''">
+            AND V_INFO.VRTL_ACCNT_NO = #{vrtl_accnt_no}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌 정보 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <select id="DlwNewVrtlAcntMap.getVrtlAccntInfo" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewVrtlAcntMap.getVrtlAccntInfo */
+            *
+        FROM 
+        (
+            SELECT 
+                <if test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                </if>
+                <if test="orderBy == null or orderBy == ''">
+                    '' AS PAGE_INDX,
+                </if>
+                X.*
+            FROM 
+            (
+                SELECT 
+                    V_INFO.VRTL_ACCNT_NO,
+                    V_INFO.BANK_CD,
+                    FN_COM_NM('63', V_INFO.BANK_CD) AS BANK_NM,
+                    CASE WHEN V_INFO.MEM_NO IS NULL THEN ''
+                         ELSE '사용중'
+                    END USE_YN,
+                    MEM.MEM_NO,
+                    MEM.MEM_NM,
+                    TO_CHAR(PREV_CLOSE_DT, 'YYYY-MM-DD HH24:MI:SS') AS PREV_CLOSE_DT,
+                    V_INFO.DEL_FG,
+                    V_INFO.SEQ,
+                    '' AS CHK,
+                    'RR' AS CRUD
+                FROM TB_NICE_VRTL_ACCNT_INFO V_INFO LEFT OUTER JOIN
+                    MEMBER MEM ON MEM.MEM_NO = V_INFO.MEM_NO
+                WHERE 1=1
+                <if test="del_fg != null and del_fg != ''">
+                    AND V_INFO.DEL_FG = #{del_fg}
+                </if>
+                <if test="vrtl_accnt_no != null and vrtl_accnt_no != ''">
+                    AND V_INFO.VRTL_ACCNT_NO = #{vrtl_accnt_no}
+                </if>
+            ) X
+        ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌 정보 강제마감처리
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <update id="DlwNewVrtlAcntMap.updateVrtlAccntRecoverProc" parameterType="map">
+        UPDATE /* DlwNewVrtlAcntMap.updateVrtlAccntRecoverProc */
+            TB_NICE_VRTL_ACCNT_INFO
+        SET DEL_FG = 'N',
+            PREV_CLOSE_DT = NULL
+        WHERE 1=1
+        AND SEQ = #{seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌번호에 고객 고유번호를 부여하기 전 등록여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <select id="DlwNewVrtlAcntMap.getMemNoRegistCnt" parameterType="map" resultType="int">
+        SELECT /* DlwNewVrtlAcntMap.getMemNoRegistCnt */
+            COUNT(*) AS ICNT
+        FROM TB_NICE_VRTL_ACCNT_INFO
+        WHERE 1=1
+        AND MEM_NO = #{mem_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌번호에 고객 고유번호를 부여하기 전 등록여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <select id="DlwNewVrtlAcntMap.getMemNoExists" parameterType="map" resultType="int">
+        SELECT /* DlwNewVrtlAcntMap.getMemNoExists */
+            COUNT(*) AS ICNT
+        FROM MEMBER
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND MEM_NO = #{mem_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200224
+     * 이름 : 송준빈
+     * 추가내용 : 가상계좌번호에 고객 고유번호를 부여
+     * 대상 테이블 : LF_DMUSER.TB_NICE_VRTL_ACCNT_INFO
+     * ================================================================
+     * -->
+    <update id="DlwNewVrtlAcntMap.updateVrtlAccntMemNo" parameterType="map">
+        UPDATE /* DlwNewVrtlAcntMap.updateVrtlAccntMemNo */
+            TB_NICE_VRTL_ACCNT_INFO
+        SET MEM_NO = #{mem_no}
+        WHERE 1=1
+        AND VRTL_ACCNT_NO = #{vrtl_accnt_no}
+    </update>
+</mapper>

@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwUplusMap">
+	<select id="DlwUplusMap.getUplusMainCount" parameterType="map" resultType="int">
+        SELECT /* DlwUplusMap.getUplusMainCount */
+               COUNT(*)
+          FROM (SELECT 
+					    LT.ID_NO,
+					    LT.AGENT_EMP_NM,
+					    LT.U_DLR_NM,
+					    LT.AGENT_EMP_TEL,
+					    LT.PRDCT_NM,
+					    LT.PRDCT_NM2,
+					    LT.MAIN_CONT_TYPE,
+					    LT.NAME,
+					    LT.DISCOUNT_CTN,
+					    LT.HOME_PRD_NUM,
+					    LT.U_PROD_NM,
+					    LT.U_PROD_NO,
+					    LT.HP,
+					    LT.REG_DTM,
+					    LT.CALL_STTS,
+					    LT.MEMO,
+                        NVL((SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = TCA.CNSR_ID),'미정') AS CNSR_NM
+				FROM PS_WILLVI.TB_LGUPLUS_TARGET LT LEFT OUTER JOIN
+                     PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON LT.CMPG_ID = TCA.CMPG_ID AND LT.TRGT_LIST_ID = TCA.TRGT_LIST_ID AND LT.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND LT.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+		        WHERE  1=1
+				<if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+	            </if>
+	            <if test="join_method != null and join_method != ''">
+	               AND LT.JOIN_METHOD = #{join_method}
+	            </if>
+				<if test="dpms_resl_cd != null and dpms_resl_cd != ''">
+	               AND TCA.DPMS_RESL_CD = #{dpms_resl_cd}
+	            </if>
+	            <if test="dpms_stat_cd != null and dpms_stat_cd != ''">
+	               AND TCA.DPMS_STAT_CD = #{dpms_stat_cd}
+	            </if>
+				<if test="cnsr_nm != null and cnsr_nm != ''">
+	                AND TCA.CNSR_ID IN (SELECT USER_ID FROM PS_WILLVI.TB_USER WHERE USER_NM = #{cnsr_nm})
+	             </if>
+	             <if test="id_no != null and id_no != ''">
+	                AND  LT.ID_NO = #{id_no}
+	             </if>  
+	             <if test="home_prd_num != null and home_prd_num != ''">
+	                AND  LT.HOME_PRD_NUM = #{home_prd_num}
+	             </if>  
+	             <if test="u_dlr_nm != null and u_dlr_nm != ''">
+	                AND  LT.U_DLR_NM LIKE '%' || #{u_dlr_nm} || '%'
+	             </if>  
+	             <if test="wh_store_nm != null and wh_store_nm != ''">
+	                AND  LT.WH_STORE_NM LIKE #{wh_store_nm} || '%'
+	             </if>  
+	            <if test="mem_nm != null and mem_nm != ''">
+	                AND  LT.NAME LIKE #{mem_nm} || '%'
+	             </if>
+	             <if test="cell != null and cell != ''">
+				    AND REPLACE(LT.HP, '-', '') = REPLACE( #{cell}, '-', '')
+				</if>
+	            <if test="memo != null and memo != ''">
+	                AND  LT.MEMO LIKE '%' || #{memo} || '%'
+	             </if>  
+	            <if test="dpms_resl_cntn != null and dpms_resl_cntn != ''">
+	                AND  TCA.DPMS_RESL_CNTN LIKE '%' || #{dpms_resl_cntn} || '%'
+	             </if>  
+	             <if test="agent_emp_nm != null and agent_emp_nm != ''">
+	                AND  LT.AGENT_EMP_NM = #{agent_emp_nm}
+	             </if>  
+          ) MAIN_TBL
+          WHERE 1=1
+    </select>
+    
+	<select id="DlwUplusMap.getUplusMainList" parameterType="map" resultType="resultMap">
+		
+        SELECT /* DlwUplusMap.getUplusMainList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY LT.REG_DTM DESC) AS PAGE_INDX,
+	               LT.ID_NO,
+				   LT.AGENT_EMP_NM,
+				   LT.U_DLR_NM,
+				   LT.AGENT_EMP_TEL,
+				   LT.PRDCT_NM,
+				   LT.PRDCT_NM2,
+				   LT.MAIN_CONT_TYPE,
+				   LT.NAME,
+				   LT.DISCOUNT_CTN,
+				   LT.HOME_PRD_NUM,
+				   LT.U_PROD_NM,
+				   LT.U_PROD_NO,
+				   LT.HP,
+				   TO_CHAR(LT.REG_DTM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DTM,
+				   LT.CALL_STTS,
+				   LT.MEMO,
+				   LT.WH_STORE_NM,
+				   CASE WHEN LT.JOIN_METHOD = 'fixedLine' THEN '유선'
+	                    WHEN LT.JOIN_METHOD = 'electronicContract' THEN '전자'
+	                    ELSE LT.JOIN_METHOD END AS JOIN_METHOD,
+                   PS_WILLVI.GETCODENM('CAM090', TCA.DPMS_RESL_CD, TCA.CNTR_CD) AS DPMS_RESL_NM,
+                   PS_WILLVI.GETCODENM('CAM100', TCA.DPMS_STAT_CD, TCA.CNTR_CD) AS DPMS_STAT_NM,
+                   NVL((SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = TCA.CNSR_ID),'미정') AS CNSR_NM,
+                   TCA.DPMS_RESL_CNTN,
+                   CASE WHEN LT.CALL_TYPE = 'quickTell' THEN '빠른통화'
+                        WHEN LT.CALL_TYPE = 'chooseTell' THEN '희망통화'
+                        ELSE '' END CALL_TYPE_NM,
+                   CASE WHEN LT.CONTRACT_TYPE = 'oldContract' THEN '재접수'
+                        WHEN LT.CONTRACT_TYPE = 'newContract' THEN '신규'
+                        ELSE '' END CONTRACT_TYPE_NM,
+                   LT.CALL_DATE,
+                   LT.CALL_TIME,
+                   CASE WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(LT.HP, -1)) = 'T20100' AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') >= NVL(#{cmpg_day}, '20221102') THEN '윌앤비전'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(LT.HP, -1)) = 'T20300' AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') >= NVL(#{cmpg_day}, '20221102') THEN '효성ITX'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(LT.HP, -1)) = 'T20900' AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') >= NVL(#{cmpg_day}, '20221102') THEN '리딩아이'
+                   ELSE '' END CNTR_NM
+			FROM PS_WILLVI.TB_LGUPLUS_TARGET LT LEFT OUTER JOIN
+	             PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON LT.CMPG_ID = TCA.CMPG_ID AND LT.TRGT_LIST_ID = TCA.TRGT_LIST_ID AND LT.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND LT.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+			WHERE  1=1
+			<if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+            </if>
+            <if test="join_method != null and join_method != ''">
+               AND LT.JOIN_METHOD = #{join_method}
+            </if>
+			<if test="dpms_resl_cd != null and dpms_resl_cd != ''">
+               AND TCA.DPMS_RESL_CD = #{dpms_resl_cd}
+            </if>
+            <if test="dpms_stat_cd != null and dpms_stat_cd != ''">
+               AND TCA.DPMS_STAT_CD = #{dpms_stat_cd}
+            </if>
+			<if test="cnsr_nm != null and cnsr_nm != ''">
+                AND TCA.CNSR_ID IN (SELECT USER_ID FROM PS_WILLVI.TB_USER WHERE USER_NM = #{cnsr_nm})
+             </if>
+             <if test="id_no != null and id_no != ''">
+                AND  LT.ID_NO = #{id_no}
+             </if>  
+             <if test="home_prd_num != null and home_prd_num != ''">
+                AND  LT.HOME_PRD_NUM = #{home_prd_num}
+             </if>  
+             <if test="u_dlr_nm != null and u_dlr_nm != ''">
+                AND  LT.U_DLR_NM LIKE '%' || #{u_dlr_nm} || '%'
+             </if>  
+             <if test="wh_store_nm != null and wh_store_nm != ''">
+                AND  LT.WH_STORE_NM LIKE #{wh_store_nm} || '%'
+             </if>  
+            <if test="mem_nm != null and mem_nm != ''">
+                AND  LT.NAME LIKE #{mem_nm} || '%'
+             </if>
+             <if test="cell != null and cell != ''">
+			    AND REPLACE(LT.HP, '-', '') = REPLACE( #{cell}, '-', '')
+			</if>
+            <if test="memo != null and memo != ''">
+                AND  LT.MEMO LIKE '%' || #{memo} || '%'
+             </if>  
+            <if test="dpms_resl_cntn != null and dpms_resl_cntn != ''">
+                AND  TCA.DPMS_RESL_CNTN LIKE '%' || #{dpms_resl_cntn} || '%'
+             </if>
+             <if test="agent_emp_nm != null and agent_emp_nm != ''">
+                AND  LT.AGENT_EMP_NM = #{agent_emp_nm}
+             </if>  
+		) MAIN_TBL
+		WHERE 1=1
+		
+		<if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+	<!-- 제품 상세조회 -->
+    <select id="DlwUplusMap.getUplusPopList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwUplusMap.getUplusPopList */
+		   *
+		   
+		FROM (SELECT ROW_NUMBER() OVER(ORDER BY LT.REG_DTM DESC) AS PAGE_INDX,
+			          LT.ID_NO,
+                      LT.HOME_PRD_NUM,
+                      LT.U_DLR_CD,
+                      LT.U_DLR_NM,
+                      LT.U_INDC_EMPNO,
+                      LT.U_INTG_USER_ID,
+                      LT.WH_POS_CD,
+                      LT.WH_STORE_NM,
+                      LT.MAIN_CONT_TYPE,
+                      LT.U_CMMN_CD_NM,
+                      LT.SALES_TYPE,
+                      LT.PRDCT_NM,
+                      LT.PRDCT_NM2,
+                      LT.PRDCT_NM3,
+                      LT.NAME,
+                      LT.HP,
+                      LT.DISCOUNT_CTN,
+                      LT.U_PROD_NO,
+                      LT.U_PROD_NM,
+                      TO_CHAR(LT.REG_DTM, 'YYYY-MM-DD HH24:MI') AS REG_DTM,
+                      --TO_CHAR(LT.REG_DTM, 'YYYYMMDDHH24MISS') AS REG_DTM,
+                      LT.CALL_STTS,
+                      LT.MEMO,
+                      LT.AGENT_EMP_NM,
+                      LT.PRDCT_CD,
+                      LT.PRDCT_CD2,
+                      LT.PRDCT_CD3,
+                      LT.AGENT_EMP_TEL,
+                      LT.CNSLR,
+                      (CASE WHEN NVL(TCA.CNSR_ID,'N') = 'N' THEN 'N' ELSE 'Y' END) ALCT_YN,
+                      TCA.CNSR_ID,
+                      NVL((SELECT USER_NM FROM TB_USER WHERE USER_ID = TCA.CNSR_ID),'미정') AS CNSR_NM,
+                      (SELECT USER_NM FROM TB_USER WHERE USER_ID = TCA.CNSR_ID) AS USER_NM,
+                      GETCODENM('CAM090', TCA.DPMS_RESL_CD, 'CCA') AS DPMS_RESL_NM,
+                      GETCODENM('CAM100', TCA.DPMS_STAT_CD, 'CCA') AS DPMS_STAT_NM,
+                      TCA.DPMS_STAT_CD,
+                      TCA.TRGT_LIST_ID,
+                      TCA.SUB_TRGT_LIST_ID,
+                      TCA.TRGT_CUST_DTPT_ID,
+                      NVL2((SELECT MAX(ACCNT_NO) FROM LF_DMUSER.MEM_PROD_ACCNT WHERE ID_NO = LT.ID_NO AND DEL_FG = 'N'), 'Y', 'N') AS CHK,
+                      OCI.BRTH_MON_DAY,
+                      OCI.SEX,
+                      OCI.CI_VAL,
+                      OCI.HOME_ZIP,
+                      OCI.HOME_ADDR,
+                      OCI.HOME_ADDR2,
+                      OCI.HOME_TEL,
+                      OCI.PAY_MTHD,
+                      OCI.CARD_NM,
+                      OCI.CARD_NO,
+                      OCI.EXPIRE_DT,
+                      OCI.BANK_NM,
+                      OCI.BANK_ACCNT_NO,
+                      OCI.PAY_DT,
+                      CASE WHEN LT.JOIN_METHOD = 'fixedLine' THEN '유선'
+		                   WHEN LT.JOIN_METHOD = 'electronicContract' THEN '전자'
+		                   ELSE LT.JOIN_METHOD END AS JOIN_METHOD,
+		              CASE WHEN LT.CALL_TYPE = 'quickTell' THEN '빠른통화'
+                           WHEN LT.CALL_TYPE = 'chooseTell' THEN '희망통화'
+                           ELSE '' END CALL_TYPE_NM,
+	                  CASE WHEN LT.CONTRACT_TYPE = 'oldContract' THEN '재접수'
+	                       WHEN LT.CONTRACT_TYPE = 'newContract' THEN '신규'
+	                       ELSE '' END CONTRACT_TYPE_NM,
+	                  LT.CALL_DATE,
+	                  LT.CALL_TIME
+               FROM TB_LGUPLUS_TARGET LT LEFT OUTER JOIN 
+                    TB_LGUPLUS_CNSL_INFO@DMWEB OCI ON LT.ID_NO = OCI.ID_NO LEFT OUTER JOIN
+                    TB_TRGT_CUST_ALCT TCA ON LT.CMPG_ID = TCA.CMPG_ID AND LT.TRGT_LIST_ID = TCA.TRGT_LIST_ID AND LT.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND LT.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+			WHERE 1=1
+				AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') > '20210302'
+				AND  LT.ID_NO = #{id_no}
+               ) B
+            WHERE 1=1
+    </select>
+	
+    <select id="DlwUplusMap.existsUplusListData" parameterType="map" resultType="int">
+        SELECT /* DlwUplusMap.existsUplusListData */
+             COUNT(*) AS ICNT
+		FROM TB_LGUPLUS_CNSL_MAIN@DMWEB
+		WHERE 1=1
+		AND NVL(SEND_YN, 'N') = 'N'
+        
+        
+    </select>
+    
+    <insert id="DlwUplusMap.insertUplusList" parameterType="map">
+        BEGIN
+        	UPDATE TB_LGUPLUS_CNSL_MAIN@DMWEB
+        	SET SEND_YN = 'P'
+        	WHERE NVL(SEND_YN, 'N') = 'N';
+        	
+	        INSERT INTO /* DlwUplusMap.insertUplusList */
+	            PS_WILLVI.TB_LGUPLUS_TARGET
+				(
+				    ID_NO, CMPG_ID,	TRGT_LIST_ID, SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, HOME_PRD_NUM,
+				    U_DLR_CD, U_DLR_NM, U_INDC_EMPNO, U_INTG_USER_ID, WH_POS_CD, WH_STORE_NM,
+				    MAIN_CONT_TYPE, U_CMMN_CD_NM, SALES_TYPE, PRDCT_NM, PRDCT_NM2, PRDCT_NM3, NAME,
+				    HP, DISCOUNT_CTN, U_PROD_NO, U_PROD_NM, REG_DTM, CALL_STTS, MEMO, AGENT_EMP_NM,
+				    PRDCT_CD, PRDCT_CD2, PRDCT_CD3, AGENT_EMP_TEL, CNSLR, JOIN_METHOD, 
+				    CALL_TYPE, CALL_DATE, CALL_TIME, CONTRACT_TYPE
+				)
+	        SELECT ID_NO,
+				    '' AS CMPG_ID,
+				    '' AS TRGT_LIST_ID,
+				    '' AS SUB_TRGT_LIST_ID,
+				    '' AS TRGT_CUST_DTPT_ID,
+				    HOME_PRD_NUM,
+				    U_DLR_CD,
+				    U_DLR_NM,
+				    U_INDC_EMPNO,
+				    U_INTG_USER_ID,
+				    WH_POS_CD,
+				    WH_STORE_NM,
+				    MAIN_CONT_TYPE,
+				    U_CMMN_CD_NM,
+				    SALES_TYPE,
+				    PRDCT_NM,
+				    PRDCT_NM2,
+				    PRDCT_NM3,
+				    NAME,
+				    HP,
+				    DISCOUNT_CTN,
+				    U_PROD_NO,
+				    U_PROD_NM,
+				    REG_DTM,
+				    CALL_STTS,
+				    MEMO,
+				    AGENT_EMP_NM,
+				    PRDCT_CD,
+				    PRDCT_CD2,
+				    PRDCT_CD3,
+				    AGENT_EMP_TEL,
+				    CNSLR,
+				    JOIN_METHOD,
+				    CALL_TYPE,
+				    CALL_DATE,
+				    CALL_TIME,
+				    CONTRACT_TYPE
+				FROM TB_LGUPLUS_CNSL_MAIN@DMWEB
+				WHERE 1=1
+				AND SEND_YN = 'P';
+				--AND ID_NO NOT IN (SELECT ID_NO FROM PS_WILLVI.TB_LGUPLUS_TARGET@DMLIFE)
+			
+			UPDATE TB_LGUPLUS_CNSL_MAIN@DMWEB
+			SET SEND_YN = 'Y'
+			WHERE SEND_YN = 'P';
+		
+		END;
+    </insert>
+</mapper>

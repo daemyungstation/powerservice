@@ -1,0 +1,406 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="srch_prod_pop" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 470 297" titletext="상품정보 조회" onload="prod_onload" scrollbars="none" onactivate="PS992200_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 462 297"/>
+        <Button id="btn_Close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 415 8 435 27"/>
+        <Static id="stc_30" text="전송데이터 조회" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Static id="stc_23" class="sta_workSrcBg" position="absolute 11 44 446 80"/>
+        <Static id="stc_00" text="전송일자" class="sta_workSrcLabel1" position="absolute 24 53 85 73"/>
+        <Button id="btn_Init" taborder="2" onclick="btn_Init_onclick" class="btn_WF_Return" position="absolute 369 52 441 72" tooltiptext="초기화"/>
+        <Button id="btn_Search" taborder="1" onclick="btn_Search_onclick" class="btn_WF_Search" position="absolute 293 52 365 72" tooltiptext="조회" style="shadow:drop 0,0 0 #00000033;"/>
+        <Grid id="grd_trn_monList" taborder="3" binddataset="ds_trn_mon_ac" useinputpanel="false" onvscrolllastover="grd_list_onvscrolllastover" position="absolute 10 109 451 286" scrollpixel="none" oncolresized="grd_list_oncolresized" cellsizingtype="col" autofittype="col" oncellclick="grd_list_oncellclick" autosizingtype="none" selecttype="row" oncelldblclick="grd_list_oncelldblclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="77"/>
+                <Column size="85"/>
+                <Column size="66"/>
+                <Column size="60"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="전송일자" id="prod_cd"/>
+                <Cell col="1" text="기준일자"/>
+                <Cell col="2" text="처리구분" id="prod_nm"/>
+                <Cell col="3"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:jdate"/>
+                <Cell col="1" text="bind:gdate"/>
+                <Cell col="2" displaytype="combo" style="align:center middle;" text="bind:gubun" combodataset="ds_gubunCd" combocodecol="cd" combodatacol="cd_nm"/>
+                <Cell col="3" displaytype="button" edittype="none" text="선택"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_35" text="전송데이터 목록" class="sta_workTitle2" position="absolute 13 89 310 109"/>
+        <Calendar id="j_date" taborder="7" position="absolute 89 52 196 73" dateformat="yyyy-MM" value="null" editformat="yyyy-MM"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="j_yy_mm" type="STRING" size="50"/>
+          <Column id="popup_yn" type="STRING" size="256"/>
+          <Column id="tab_gubun" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_trn_mon_ac" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="6"/>
+          <Column id="gubun" type="STRING" size="256"/>
+          <Column id="jdate" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_gubunCd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cd" type="STRING" size="256"/>
+          <Column id="cd_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="cd">1</Col>
+            <Col id="cd_nm">생성</Col>
+          </Row>
+          <Row>
+            <Col id="cd">2</Col>
+            <Col id="cd_nm">전송</Col>
+          </Row>
+          <Row>
+            <Col id="cd">3</Col>
+            <Col id="cd_nm">결과처리</Col>
+          </Row>
+          <Row>
+            <Col id="cd">4</Col>
+            <Col id="cd_nm">완료</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+var gv_j_date = "";
+var fv_tab_gubn = "";
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var tc_prod = 0;
+
+
+
+
+/***************************************************************************
+ * 함  수  명		: prod_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function prod_onload(obj:Form, e:LoadEventInfo)
+{
+
+	//gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	
+	if(!gfn_isNull(j_yy_mm)) {
+		gv_j_date = j_yy_mm;
+		j_date.value = gv_j_date;
+		
+	} else {
+	   j_date.value = gfn_today();	   
+	}
+	
+	if (!gfn_isEmpty(tab_gubun)) {
+		fv_tab_gubn = tab_gubun;
+	}
+	
+	fn_commSearch(); // 조회
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_srch_onclick()
+ * 기      능 		: 조회버튼 클릭
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch(gfn_getCommTypeInit()); // 조회
+}
+
+
+
+
+/***************************************************************************
+ * 함  수  명		: fn_init()
+ * 기      능 		: 초기화
+ ***************************************************************************/
+function fn_init()
+{	
+	j_date.value = "";
+	
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_preSearch()
+ * 기      능		: 조회 전 처리 조회조건 설정
+ * 수  정  일      : 2016.01.22 
+ ***************************************************************************/
+function fn_preSearch()
+{	
+	trace("--Enter fn_preSearch IF");
+	// 조회조건 및 default 정렬
+		
+	ds_inqCndt.clearData();
+	//ds_trn_mon_ac.keystring = ""; // 정렬컬럼 초기화
+	
+	ds_inqCndt.addRow();
+	ds_inqCndt.setColumn(0, "j_yy_mm", j_date.value);
+	ds_inqCndt.setColumn(0, "tab_gubun", fv_tab_gubn);
+		
+	if(p_mode == "reg") {
+		ds_inqCndt.setColumn(0, "popup_yn", "Y");
+	}
+		
+	trace(ds_inqCndt.saveXML());
+	return true;
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch()
+ * 기      능 		: 전송월 조회
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function fn_commSearch(sType)
+{	
+	trace("fn_commSearch에서 sType:"+sType);
+    
+    if (!fn_preSearch(sType))return false;	
+    	
+	// 호출 레코드 수
+	// if(!gfn_pageSearch(sType, ds_trn_mon_ac, sta_TotalCnt, 10, tc_prod)) return; 
+	
+	var szSvcid       = "searchTransResultList";
+    var szController  = "/acuo/transResult/pop-list";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_trn_mon_ac=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_srchCallBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_srchCallBack()
+ * 기      능		: 조회 콜백 처리
+ ***************************************************************************/
+function fn_srchCallBack(svcid, errcd, errmsg) {
+  
+    if (errcd < 0) {
+		alert("조회를 실패하였습니다.\n" + errmsg);
+    } else {
+		fn_postSearch();	
+    }
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_postSearch()
+ * 기      능		: 처리결과
+ ***************************************************************************/
+function fn_postSearch()
+{
+	if (ds_trn_mon_ac.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+		return;
+	}
+	
+	// 팝업 파라미터가 존재하고 조회결과가 1건인 경우 바로 선택
+	if ((!gfn_isNull(gv_j_date)) && ds_trn_mon_ac.rowcount == 1) {
+		fn_selTransDateChk();
+	}
+}
+/***************************************************************************
+ * 함  수  명		: fn_selTransDateChk(e:GridClickEventInfo)
+ * 기      능		: 전송월 선택
+ ***************************************************************************/
+function fn_selTransDateChk(e:GridClickEventInfo) 
+{
+	if (ds_trn_mon_ac.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+	    return;
+	}
+	
+    var nSelectRow = -1;
+    if (e != null) {
+        nSelectRow = e.row;
+    } else {
+        nSelectRow = ds_trn_mon_ac.rowposition;
+    }
+    if (nSelectRow == -1) {
+        return;
+    }
+    
+    var jdate = ds_trn_mon_ac.getColumn(nSelectRow, "jdate");
+    
+    /*
+    opener.j_date.value = jdate;
+    opener.fn_search();
+	close();
+	*/
+	close(jdate);
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_init_onclick()
+ * 기      능		: 초기화 버튼클릭시
+ * 수  정  일      : 2016.01.22
+ ***************************************************************************/
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_init();
+}
+
+/***************************************************************************
+ * 함  수  명		: grd_list_oncellclick()
+ * 기      능		: 선택 버튼 이벤트
+ ***************************************************************************/
+function grd_list_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+	if(e.cell == "2"){
+	    fn_selTransDateChk(e);
+	}
+}
+/***************************************************************************
+ * 함  수  명		: grd_list_oncelldblclick()
+ * 기      능		: 더블 클릭 이벤트
+ ***************************************************************************/
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_selTransDateChk(e);
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 칼럼사이즈 변경시 Hidden 처리
+						단, 칼럼사이즈를 0으로 변경한 후에는 공통기능버튼
+							(칼럼 보이기/숨기기)으로 다시 보이기 처리
+ ***************************************************************************/
+function grd_list_oncolresized(obj:Grid, e:GridSizeChangedEventInfo)
+{
+	if(e.oldvalue == 0) {
+		obj.setRealColSize(e.formatindex, 0);
+	}
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 엔터 치면 조회실행
+ ***************************************************************************/
+function srch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		fn_commSearch(gfn_getCommTypeInit());
+	}
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 마지막행 이후 스크롤시 Append 조회 처리
+						페이징처리 대상인 경우만 해당
+ ***************************************************************************/
+function grd_list_onvscrolllastover(obj:Grid, e:ScrollEventInfo)
+{
+	fn_commSearch(gfn_getCommTypeAppend());
+}
+
+function btn_gdInit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_resetColsize(grd_prodList);
+}
+
+// onactivate
+function PS992200_onactivate(obj:Form, e:ActivateEventInfo)
+{
+	if (!gfn_isNull(this.userParam)) {
+		
+		gv_j_date = this.userParam.j_yy_mm;
+		j_date.value = gv_j_date;
+		
+		fn_commSearch(gfn_getCommTypeInit()); // 조회
+	
+		// 폼에 parameter 초기화한다.
+		this.userParam = null;
+	}
+}
+
+/*********************************************************************************************
+ * Function : 해당 PC의 오늘 날짜를 가져온다
+ * @param   : 
+ * Return   : 오늘 날짜("yyyyMMdd" 형태)
+*********************************************************************************************/
+function gfn_today()
+{
+	var sToday = "";
+	var objDate = new Date();
+	var sToday  = objDate.getFullYear() + "";
+	sToday += gfn_padLeftB(objDate.getMonth() + 1, 2, "0");
+	sToday += gfn_padLeftB(objDate.getDate(), 2, "0");
+	return sToday;
+}
+/******************************************************************************************** * Function : 왼쪽 채우기 함수 (length를 byte로 계산)
+ * @param   : sValue  - 대상문자열
+              nLength - 자리수
+              sChar    - 채울 문자
+ * Return   : String - length
+*********************************************************************************************/
+function gfn_padLeftB(sValue, nLength, sChar) 
+{
+    if(gfn_isNull(sValue)) return sValue;
+    if(gfn_isNull(sChar)) sChar = " ";
+    var sRetVal = new String(sValue);
+    var nIteration  = nLength - gfn_getLengthB2(sRetVal);
+    var sPadChar = (sChar.length > 1) ? sChar.charAt(0) : sChar;
+    for(var i=0; i<nIteration; i++)
+        sRetVal = sPadChar + sRetVal;
+    return sRetVal;
+}
+/******************************************************************************************** * Function : 입력받은 전체 길이를 계산 결과를 Number Type으로 반환
+              문자, 숫자, 특수문자 : 1 로 Count
+              그 외 한글/한자 : 2 로 count
+ * @param   : 대상문자열
+ * Return   : number - length
+*********************************************************************************************/
+function gfn_getLengthB2(sValue)
+{
+ if(gfn_isNull(sValue)) return 0;
+ var sChk = sValue.toString();
+ var iCnt = 0;
+ for(var i=0; i<sChk.length; i++)
+  (sChk.charCodeAt(i) > 127) ? iCnt += 2 : iCnt++;
+ return iCnt;
+}
+]]></Script>
+  </Form>
+</FDL>

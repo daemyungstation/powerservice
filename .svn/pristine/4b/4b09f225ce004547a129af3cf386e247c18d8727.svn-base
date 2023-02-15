@@ -1,0 +1,362 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Login" classname="Login" inheritanceid="" position="absolute 0 0 360 429" titletext="로그인" onload="Login_onload" class="frm_LoginBg" style="background:URL('IMG::bg_login.png') stretch 10,100;border:0 none #808080ff ;">
+    <Layouts>
+      <Layout>
+        <Static id="sta_userId" text="아이디" class="sta_userIdPw" position2="absolute l:25 w:75 t:263 h:24" positiontype="position2"/>
+        <Static id="sta_pwd" text="비밀번호" class="sta_userIdPw" position2="absolute l:25 w:75 t:296 h:24" positiontype="position2"/>
+        <Edit id="pwd" taborder="1" password="true" lengthunit="utf8" autoselect="true" position2="absolute l:99 w:157 t:296 h:24" positiontype="position2" onkeydown="pwd_onkeydown"/>
+        <Button id="btn_Login" taborder="2" text="로그인" onclick="btn_Control_onclick" class="btn_WFSA_src" position2="absolute l:263 w:76 t:261 h:57" positiontype="position2"/>
+        <CheckBox id="chk_saveId" taborder="3" text="아이디 저장" position2="absolute l:165 w:80 t:338 h:20" positiontype="position2"/>
+        <Button id="btn_Cons" taborder="4" position="absolute 93 149 168 224" onclick="btn_Control_onclick" class="btn_Login_call"/>
+        <Button id="btn_Admin" taborder="5" position="absolute 184 149 262 224" onclick="btn_Control_onclick" class="btn_Login_manage"/>
+        <Edit id="lgn_id" taborder="0" lengthunit="utf8" autoselect="false" position2="absolute l:99 w:156 t:262 h:24" positiontype="position2" enableevent="true" inputmode="upper" maxlength="24" inputtype="numberandenglish"/>
+        <Static id="pass_chng" text="비밀번호 변경" position="absolute 257 341 336 356" onclick="pass_chng_onclick" onmouseenter="pass_chng_over" onmouseleave="pass_chng_over"/>
+        <Button id="btn_Close" text="X" onclick="btn_Control_onclick" class="btn_popupClose" position2="absolute l:324 w:20 t:18 h:19" positiontype="position2" taborder="6" style="font:Dotum,10;"/>
+        <Static id="sta_userId00" text="목동IDC" position2="absolute l:160 w:75 t:380 h:24" positiontype="position2" style="border:3 none #808080ff ;color:red;font:맑은 고딕,10,bold antialias;" onclick="sta_userId00_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Login" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="gds_cd" type="STRING" size="256"/>
+          <Column id="lgn_id" type="STRING" size="256"/>
+          <Column id="pwd" type="STRING" size="256"/>
+          <Column id="_chk" type="INT" size="1"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+          <Column id="cntr_cd" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="gds_cd"/>
+            <Col id="cntr_cd">CCA</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item1" compid="pwd" propid="value" datasetid="ds_Login" columnid="pwd"/>
+      <BindItem id="item0" compid="lgn_id" propid="value" datasetid="ds_Login" columnid="lgn_id"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function Login_onload(obj:Form, e:LoadEventInfo)
+{
+	var sCenterCd = getPrivateProfile("cntr_cd");
+	var sLoginId = getPrivateProfile("lgn_id");
+	var sGdsCd = getPrivateProfile("gds_cd");
+	if(!gfn_isNull(sLoginId)) {
+		ds_Login.setColumn(0, "cntr_cd", sCenterCd);
+		ds_Login.setColumn(0, "lgn_id", sLoginId);
+		ds_Login.setColumn(0, "gds_cd", sGdsCd);
+		chk_saveId.value = 1;
+		fn_setGds(sGdsCd);
+	}
+}
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+
+/***************************************************************************
+ * 함  수  명		: fn_Login_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		trace("Login Error!! nErrorCode::"+nErrorCode);
+		return false;
+	}else {
+		switch (strSvcID) {
+		case "login":
+			if (strErrorMsg != "OK") { // 중복 로그인 체크
+				if (confirm(strErrorMsg)) { // 강제 로그인 여부 확인
+				    fn_Login("Y"); // 강제 로그인 처리
+				}
+				return;
+			} else if (gds_UserInfo.rowcount != 1) { 
+				application.alert("사용자정보가 없습니다.");
+				return;
+			} else {
+			
+			//2017.11.30 로그인 체크(jsmamon.exe (모든이에(T20200),비투퀄리티(T20300))
+			////////////////////////////////////////////////////////////////////////////////////////////
+			//var sTeamCd = gds_UserInfo.getColumn(0, "team_cd");
+			
+			//if (sTeamCd == 'T20200' || sTeamCd == 'T20300')
+			//{
+			
+				//2018.08.27 로그인 체크(jsmamon.exe)
+				var objExt = new ExtCommon();
+				//var ret = objExt.getProcessNameHandle("NateOnMain.exe");  
+				//var ret = objExt.getProcessNameHandle("jsmamon.exe");
+				var ret = objExt.getProcessNameHandle("jsupmon.exe");
+				
+				
+				/*
+				2020.01.29
+				회원 내부 이슈 오피스키퍼 삭제회원
+				강준우 2020010008 인바운드 192.168.240.208
+				김현양 2020010009 인바운드 192.168.240.207
+				김희주 2020010010 인바운드 192.168.240.156
+				송예담 2020010011 인바운드 192.168.240.215
+				전혜정 2020010013 인바운드 192.168.240.205
+				최예지 2020010014 인바운드 192.168.240.181
+				황명선 2020010015 인바운드 192.168.240.155
+				변장현 2020010016 해약방어 192.168.240.206
+				테스트 2016112400 테스트를 위한 추가
+				우옥두 2017120011 테스트를 위한 추가
+				
+				2020.04.07 테스트, 우옥두를 제외한 나머지 사용자 제외
+				*/
+				if(lgn_id.value == '2016112400' || lgn_id.value == '2017120011') {
+					ret = 1;
+				}
+								
+				if (ret == 0)
+				{
+					application.alert("정보유출방지(오피스키퍼) 프로그램이 구동 되지 않아 로그인 할 수 없습니다!");
+					return;
+				}
+			//}
+			////////////////////////////////////////////////////////////////////////////////////////////
+			
+				// 실행된 ADL 에 따라 Frame을 나눈다.
+				afn_SetPrjSeparate();
+				
+				fn_pgm_athr();		//프로그램정보조회
+		
+				//var strFilter = "GDS_CD=='" + ds_Login.getColumn(0,"gds_cd") + "'";
+				//ap_TodoFrame.form.setMenuFilter(strFilter);
+			}
+			//fn_Commit();
+			//2017.11.07 김찬영...
+			UUID = lgn_id.text;
+			break;
+			
+		case "pgmAthr":	
+			var strFilter = "pgm_cd.toString().indexOf('MN') >= 0 && gds_cd =='" + ds_Login.getColumn(0,"gds_cd") + "'";
+
+			if (GV_SYSTEMDIV=="DLCC") {
+				ap_TodoFrame.form.setMenuFilter(strFilter);
+			}else if (GV_SYSTEMDIV=="DLMNG") {
+				ap_LeftFrame.form.setMenuFilter(strFilter,true);
+			}
+			
+			fn_my_menu();		// MyMenu정보 조회
+			break;
+				
+		case "my_menu":
+			fn_Commit();
+			break;
+		 }
+	}
+}
+
+
+/***************************************************************************
+ * 함  수  명		: fn_Commit()
+ * 기      능		: 업무화면 호출
+ ***************************************************************************/
+function fn_Commit()
+{	
+	//var gds_cd = ds_Login.getColumn(0, "gds_cd");
+	/*if (gds_cd == "1") {
+	} else if (gds_cd == "2") {
+	}*/
+	
+	// 로그인시간 저장
+	GV_LOGINTIME = gfn_getTodayFull();
+	
+	// 아이디 저장
+	if(chk_saveId.value == 1) {
+		setPrivateProfile("cntr_cd", ds_Login.getColumn(0, "cntr_cd"));
+		setPrivateProfile("lgn_id", ds_Login.getColumn(0, "lgn_id"));
+		setPrivateProfile("gds_cd", ds_Login.getColumn(0, "gds_cd"));
+	} else {
+		setPrivateProfile("cntr_cd", "");
+		setPrivateProfile("lgn_id", "");
+		setPrivateProfile("gds_cd", "");
+	}
+
+	close("OK");
+}
+
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+// 로그인 처리
+function fn_Login(psDelSessYn)
+{
+	if (gfn_isNull(lgn_id.value)) 
+	{
+		alert("사용자아이디를 입력하세요!!");
+		return false;
+	}
+
+	if (gfn_isNull(pwd.value)) 
+	{
+		alert("비밀번호를 입력하세요!!");
+		return false;
+	}
+	
+	var gds_cd = ds_Login.getColumn(0, "gds_cd");
+	if (gfn_isNull(gds_cd))
+	{
+		alert("업무를 선택하세요!!");
+		return false;
+	}
+	
+	if (typeof(psDelSessYn) != "string") {
+	    psDelSessYn = "N";
+	}
+
+	//즐겨찾기메뉴(gds_Bookmark) 데이타, 전체메뉴 데이타(gds_Pgm) 검색
+	var szSvcid       = "login";
+	var szController  = "/login";
+	var szInDs        = "ds_input=ds_Login";
+	var szOutDs       = "gds_UserInfo=ds_output";
+	var szParam       = "del_sess_yn=" + psDelSessYn;
+	var szRetCallback = "fn_callBack";
+
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+// 프로그램별 권한정보 설정
+function fn_pgm_athr()
+{	
+	var szSvcid       = "pgmAthr";
+	var szController  = "/syst/pgm-athr/list";
+	var szInDs        = "";
+	var szOutDs       = "gds_Pgm=ds_output";
+	var szParam       = "menu_flag=Y";
+	var szRetCallback = "fn_callBack";
+
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+// 프로그램별 권한정보 설정
+function fn_my_menu()
+{	
+	var szSvcid       = "my_menu";
+	var szController  = "/syst/my-menu/list/all";
+	var szInDs        = "";
+	var szOutDs       = "gds_Bookmark=ds_output";
+	var szParam       = "";
+	var szRetCallback = "fn_callBack";
+
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+function fn_setGds(typ)
+{
+	if (typ == "cons" || typ == "1") {
+		GV_SYSTEMDIV = "DLCC";
+		ds_Login.setColumn(0, "gds_cd", "1");
+ 		btn_Cons.style.background.image = "IMG::btn_login_01N.png";
+ 		btn_Admin.style.background.image = "IMG::btn_login_02D.png";
+	} else if (typ == "admin" || typ == "2") {
+		GV_SYSTEMDIV = "DLMNG";
+		ds_Login.setColumn(0, "gds_cd", "2");
+ 		btn_Cons.style.background.image = "IMG::btn_login_01D.png";
+ 		btn_Admin.style.background.image = "IMG::btn_login_02N.png";
+	}
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+function btn_Control_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (obj == btn_Close){		//x 버튼 이벤트
+		application.exit();
+	}else if (obj == btn_Login) {				//로그인 버튼
+		fn_Login();
+	}else if (obj == btn_Cons){					//업무선택(상담업무)
+		fn_setGds("cons");
+	}else if (obj == btn_Admin){				//업무선택(관리업무)
+		fn_setGds("admin");
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: pass_chng_onclick()
+ * 기      능		: 비밀번호 변경팝업 호출
+ ***************************************************************************/
+function pass_chng_onclick(obj:Static,  e:ClickEventInfo)
+{
+	var objDataset 	= new Dataset();
+	objDataset.name = "ds_lgn_info";
+	objDataset.addColumn("lgn_id", "string", "255");
+	objDataset.addColumn("cntr_cd", "string", "255");
+	objDataset.addRow();
+	objDataset.setColumn(0, "lgn_id", lgn_id.value);
+	objDataset.setColumn(0, "cntr_cd", ds_Login.getColumn(0, "cntr_cd"));
+	
+	var sPrmr = {ds_lgn_info:objDataset};
+	//var sPrmr = {chng_lgn_id:lgn_id.value};
+	
+	var reVal = gfn_diaLog("비밀번호 변경", -1, -1, -1, -1, "PS990000::PS991400.xfdl", false, sPrmr, false, false, true);
+	
+}
+
+
+/***************************************************************************
+ * 함  수  명		: pass_chng_over()
+ * 기      능		: 비밀번호 변경 마우스 오버
+ ***************************************************************************/
+function pass_chng_over(obj:Static, e:MouseEventInfo)
+{
+	obj.style.cursor = "pointer";
+	if (e.eventid == "onmouseenter") obj.style.color = "red";
+	else if (e.eventid == "onmouseleave") obj.style.color = "black";
+}
+
+
+/***************************************************************************
+ * 함  수  명		: pass_chng_over()
+ * 기      능		: 비밀번호 변경 마우스 오버
+ ***************************************************************************/
+function pwd_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13)
+	{
+		ds_Login.setColumn(0, "pwd", pwd.value);
+		fn_Login();
+	}
+}
+
+
+]]></Script>
+  </Form>
+</FDL>

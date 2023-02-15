@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwTermMangiInfoMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20210623
+     * 이름 : 송준빈
+     * 추가내용 : 기간별 만기정보 조회수
+     * 대상 테이블 : DUAL
+     * ================================================================
+     * -->
+    <select id="DlwTermMangiInfoMap.getTermMangiCount" parameterType="map" resultType="int">
+        SELECT /* DlwTermMangiInfoMap.getTermMangiCount */
+            1 AS ICNT
+        FROM DUAL D
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210623
+     * 이름 : 송준빈
+     * 추가내용 : 기간별 만기정보 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * -->
+    <select id="DlwTermMangiInfoMap.getTermMangiList" parameterType="map" resultType="resultMap">
+        /* DlwTermMangiInfoMap.getTermMangiList */
+        WITH MANGI_MAIN AS
+        (
+            SELECT
+                ACCNT_NO,
+                KSTBIT,
+                MAN_DAY,
+                EVENT_PROC_DAY,
+                RESN_PROC_DAY,
+                RESON
+            FROM
+            (
+                SELECT
+                    CM.ACCNT_NO,
+                    CM.KSTBIT,
+                    TO_CHAR(ADD_MONTHS(CM.JOIN_DT, PD.EXPR_NO - 1 + NVL((SELECT NVL(MME.EXT_PERIOD, 0) FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME WHERE 1=1 AND DEL_FG = 'N' AND MME.ACCNT_NO = CM.ACCNT_NO), 0) * 12 ),'YYYYMMDD') AS MAN_DAY,
+                    EV.EVENT_PROC_DAY, 
+                    RS.RESN_PROC_DAY,
+                    RS.RESON
+                FROM MEM_PROD_ACCNT CM INNER JOIN
+                    PRODUCT PD ON CM.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                    RESCISSION RS ON CM.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+                    EVENT EV ON CM.ACCNT_NO = EV.ACCNT_NO AND EV.DEL_FG = 'N'
+                WHERE 1=1
+                AND CM.DEL_FG = 'N'
+                AND CM.KSTBIT NOT IN ('01')
+            )
+        )
+        
+        SELECT 
+            PRE_TOT_CNT,     --전체 만기 회원(전월기준)
+            RESN_CNT,        --전체 만기 회원 중 해약(만기제외) 회원 수 
+            RESN_CNT2,       --전체 만기 회원 중 해약(만기) 회원 수  
+            EVEN_CNT,        --전체 만기 회원 중 행사 회원 수
+            
+            PRE_MON_MAN_CNT,  --전월 만기 회원 수 (전월기준) 
+            PRE_MON_RES_CNT,  --전월 만기 회원 중 해약(만기제외) 회원 수 
+            PRE_MON_RES2_CNT, --전체 만기 회원 중 전월 해약(만기) 회원 수 
+            PRE_MON_EVT_CNT,  --전월 만기 회원 중 행사 회원 수        
+        
+            
+            MON_MAN_CNT,      --전체 만기 회원 중 당월 만기 회원 수 (당월기준)
+            MON_MAN_RES_CNT,  --당월 만기 회원 중 해약(만기제외) 회원 수 
+            MON_MAN_RES2_CNT, --전체 만기 회원 중 당월 해약(만기) 회원 수 
+            MON_MAN_EVT_CNT,  --당월 만기 회원 중 행사 회원 수    
+            
+            NEX_MAN_CNT,      --전체 만기 회원 중 익월 만기 회원 수 
+            NEX_MAN_RES_CNT,  --전체 만기 회원 중 해약(만기제외) 회원 수  
+            NEX_MAN_EVT_CNT   --익월 만기 회원 중 행사 회원 수  
+        FROM
+        (
+            SELECT 
+                SUM(CASE WHEN MAN_DAY <![CDATA[<]]> #{stt_dt} THEN 1 ELSE 0 END) AS PRE_TOT_CNT, 
+                SUM(CASE WHEN MAN_DAY <![CDATA[<]]> #{stt_dt} AND KSTBIT = '03' AND RESN_PROC_DAY <![CDATA[<]]> #{stt_dt} AND RESON != '23' THEN 1 ELSE 0 END)  AS RESN_CNT, 
+                SUM(CASE WHEN MAN_DAY <![CDATA[<]]> #{stt_dt} AND KSTBIT = '04' AND EVENT_PROC_DAY <![CDATA[<]]> #{stt_dt} THEN 1 ELSE 0 END) AS EVEN_CNT,
+                SUM(CASE WHEN MAN_DAY <![CDATA[<]]> #{stt_dt} AND KSTBIT = '03' AND RESN_PROC_DAY <![CDATA[<]]> #{stt_dt} AND RESON = '23' THEN 1 ELSE 0 END) AS RESN_CNT2, 
+                
+                SUM(CASE WHEN MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1)) THEN 1 ELSE 0 END ) AS PRE_MON_MAN_CNT, 
+                SUM(CASE WHEN MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))  AND RESN_PROC_DAY <![CDATA[<]]> #{stt_dt} AND RESON != '23' THEN 1 ELSE 0 END ) AS PRE_MON_RES_CNT, 
+                SUM(CASE WHEN MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))  AND KSTBIT = '04' AND EVENT_PROC_DAY <![CDATA[<]]> #{stt_dt} THEN 1 ELSE 0 END ) AS PRE_MON_EVT_CNT,
+                SUM(CASE WHEN MAN_DAY <![CDATA[<]]> #{stt_dt} AND RESN_PROC_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1)) AND RESON = '23' THEN 1 ELSE 0 END ) AS PRE_MON_RES2_CNT, 
+                
+                SUM(CASE WHEN MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt}) THEN 1 ELSE 0 END ) AS MON_MAN_CNT,
+                SUM(CASE WHEN MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})  AND RESN_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1) AND RESON != '23' THEN 1 ELSE 0 END ) AS MON_MAN_RES_CNT, 
+                SUM(CASE WHEN MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})  AND KSTBIT = '04' AND EVENT_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1) THEN 1 ELSE 0 END ) AS MON_MAN_EVT_CNT,              
+                SUM(CASE WHEN MAN_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)  AND RESN_PROC_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt}) AND RESON = '23' THEN 1 ELSE 0 END ) AS MON_MAN_RES2_CNT, 
+                        
+                SUM(CASE WHEN MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1)) THEN 1 ELSE 0 END ) AS NEX_MAN_CNT,  --전월만기대상자 중 해약수             
+                SUM(CASE WHEN MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1))   AND RESN_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1) AND RESON != '23' THEN 1 ELSE 0 END ) AS NEX_MAN_RES_CNT, 
+                SUM(CASE WHEN MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1))  AND KSTBIT = '04' AND EVENT_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1) THEN 1 ELSE 0 END ) AS NEX_MAN_EVT_CNT
+            FROM MANGI_MAIN
+        )
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 기간별 만기고객 현황 상세 조회수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * -->
+    <select id="DlwTermMangiInfoMap.getMangiAccntInfoDtlCount" parameterType="map" resultType="int">
+        SELECT /* DlwTermMangiInfoMap.getMangiAccntInfoDtlCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                MPA.ACCNT_NO,
+                MPA.KSTBIT,
+                TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - 1 + NVL((SELECT NVL(MME.EXT_PERIOD, 0) FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME WHERE 1=1 AND DEL_FG = 'N' AND MME.ACCNT_NO = MPA.ACCNT_NO), 0) * 12 ),'YYYYMMDD') AS MAN_DAY,
+                EV.EVENT_PROC_DAY, 
+                RS.RESN_PROC_DAY,
+                RS.RESON,
+                MPA.JOIN_DT,
+                PD.PROD_NM
+            FROM MEM_PROD_ACCNT MPA INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+                EVENT EV ON MPA.ACCNT_NO = EV.ACCNT_NO AND EV.DEL_FG = 'N'
+            WHERE 1=1
+            AND MPA.DEL_FG = 'N'
+            AND MPA.KSTBIT NOT IN ('01')
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0001')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0002')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.KSTBIT = '03' 
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0003')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.KSTBIT = '04' 
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> #{stt_dt}
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0004')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.KSTBIT = '03' 
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESON = '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0101')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0102')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0103')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+            AND MAIN_TBL.KSTBIT = '04' 
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> #{stt_dt}
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0104')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESN_PROC_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+            AND MAIN_TBL.RESON = '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0201')">
+            AND MAIN_TBL.MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0202')">
+            AND MAIN_TBL.MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0203')">
+            AND MAIN_TBL.MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+            AND MAIN_TBL.KSTBIT = '04'
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0204')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+            AND MAIN_TBL.RESN_PROC_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+            AND MAIN_TBL.RESON = '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0301')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1))
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0302')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1))
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1) 
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0303')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1)) 
+            AND MAIN_TBL.KSTBIT = '04' 
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 기간별 만기고객 현황 상세 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * -->
+    <select id="DlwTermMangiInfoMap.getMangiAccntInfoDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwTermMangiInfoMap.getMangiAccntInfoDtlList */
+            MAIN_TBL.ACCNT_NO,
+            MAIN_TBL.KSTBIT,
+            MAIN_TBL.MAN_DAY,
+            MAIN_TBL.EVENT_PROC_DAY,
+            MAIN_TBL.RESN_PROC_DAY,
+            MAIN_TBL.RESON,
+            MAIN_TBL.MEM_NM,
+            MAIN_TBL.JOIN_DT,
+            MAIN_TBL.PROD_NM
+        FROM
+        (
+            SELECT
+                MPA.ACCNT_NO,
+                MPA.KSTBIT,
+                TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - 1 + NVL((SELECT NVL(MME.EXT_PERIOD, 0) FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME WHERE 1=1 AND DEL_FG = 'N' AND MME.ACCNT_NO = MPA.ACCNT_NO), 0) * 12 ),'YYYYMMDD') AS MAN_DAY,
+                EV.EVENT_PROC_DAY, 
+                RS.RESN_PROC_DAY,
+                RS.RESON,
+                FN_MEM_NM(MPA.MEM_NO) AS MEM_NM,
+                MPA.JOIN_DT,
+                PD.PROD_NM
+            FROM MEM_PROD_ACCNT MPA INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+                EVENT EV ON MPA.ACCNT_NO = EV.ACCNT_NO AND EV.DEL_FG = 'N'
+            WHERE 1=1
+            AND MPA.DEL_FG = 'N'
+            AND MPA.KSTBIT NOT IN ('01')
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0001')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0002')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.KSTBIT = '03' 
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0003')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.KSTBIT = '04' 
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> #{stt_dt}
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0004')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.KSTBIT = '03' 
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESON = '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0101')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0102')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0103')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+            AND MAIN_TBL.KSTBIT = '04' 
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> #{stt_dt}
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0104')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> #{stt_dt}
+            AND MAIN_TBL.RESN_PROC_DAY BETWEEN ADD_MONTHS(#{stt_dt},-1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},-1))
+            AND MAIN_TBL.RESON = '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0201')">
+            AND MAIN_TBL.MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0202')">
+            AND MAIN_TBL.MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0203')">
+            AND MAIN_TBL.MAN_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+            AND MAIN_TBL.KSTBIT = '04'
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0204')">
+            AND MAIN_TBL.MAN_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+            AND MAIN_TBL.RESN_PROC_DAY BETWEEN #{stt_dt} AND LAST_DAY(#{stt_dt})
+            AND MAIN_TBL.RESON = '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0301')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1))
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0302')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1))
+            AND MAIN_TBL.RESN_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1) 
+            AND MAIN_TBL.RESON != '23'
+        </if>
+        <if test="grid_column_id != null and grid_column_id != '' and grid_column_id.equalsIgnoreCase('grd_list0303')">
+            AND MAIN_TBL.MAN_DAY BETWEEN ADD_MONTHS(#{stt_dt},1) AND LAST_DAY(ADD_MONTHS(#{stt_dt},1)) 
+            AND MAIN_TBL.KSTBIT = '04' 
+            AND MAIN_TBL.EVENT_PROC_DAY <![CDATA[<]]> ADD_MONTHS(#{stt_dt},1)
+        </if>
+    </select>
+</mapper>

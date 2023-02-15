@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvltTrprInfoMap">
+
+    <select id="EvltTrprInfoMap.getEvltTrprInfoCount" parameterType="map" resultType="int">
+        SELECT /* EvltTrprInfoMap.getEvltTrprInfoCount */
+               COUNT(*)
+          FROM TB_EVLT_TRPR_INFO
+         WHERE EVLT_PLAN_ID = #{evlt_plan_id}
+           AND CNTR_CD = #{cntr_cd}
+        <if test="evlp_id != null and evlp_id != ''">
+            AND EVLP_ID = #{evlp_id}
+        </if>
+    </select>
+
+    <select id="EvltTrprInfoMap.getEvltTrprInfoList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltTrprInfoMap.getEvltTrprInfoList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY TEAM_NM, TRPR_NM) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD) AS TEAM_NM
+                              , (SELECT COUNT(*)
+                                   FROM TB_EVLT_RESL_DTL
+                                  WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                    AND EVLP_ID = A.EVLP_ID
+                                    AND TRPR_ID = A.TRPR_ID
+                                    AND CNTR_CD = A.CNTR_CD
+                                    AND EVLT_RESL_STAT_CD = '30') AS RESL_CNT
+                             , (SELECT EVLT_BAS_YRMN
+                                  FROM TB_EVLT_PLAN
+                                 WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EVLT_BAS_YRMN
+                          FROM (SELECT A.TRPR_ID, A.EVLT_PLAN_ID, A.EVLP_ID, A.CNTR_CD
+                                     , A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                                     , B.USER_NM AS TRPR_NM, B.ENCO_DT, B.TEAM_CD
+                                  FROM TB_EVLT_TRPR_INFO A, TB_USER B
+                                 WHERE A.TRPR_ID = B.USER_ID
+                                   AND A.CNTR_CD = B.CNTR_CD
+                                   AND A.CNTR_CD = #{cntr_cd}
+                                   AND A.EVLT_PLAN_ID = #{evlt_plan_id}
+                                <if test="evlp_id != null and evlp_id != ''">
+                                   AND EVLP_ID = #{evlp_id}
+                                </if>
+                               ) A
+                        ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EvltTrprInfoMap.insertEvltTrprInfo" parameterType="map">
+        INSERT /* EvltTrprInfoMap.insertEvltTrprInfo */
+          INTO TB_EVLT_TRPR_INFO
+               (TRPR_ID, EVLT_PLAN_ID, EVLP_ID, CNTR_CD, RGSR_ID
+              , RGSN_DTTM, AMND_ID, AMNT_DTTM, TRPR_TEAM_CD)
+        VALUES (#{trpr_id}, #{evlt_plan_id}, #{evlp_id}, #{cntr_cd}, #{rgsr_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), (SELECT TEAM_CD FROM TB_USER WHERE USER_ID = #{trpr_id}))
+    </insert>
+
+    <delete id="EvltTrprInfoMap.deleteEvltTrprInfo" parameterType="map">
+        DELETE /* EvltTrprInfoMap.deleteEvltTrprInfo */
+          FROM TB_EVLT_TRPR_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EVLT_PLAN_ID = #{evlt_plan_id}
+        <if test="selectcheck != null and selectcheck != ''">
+            AND TRPR_ID
+            <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+            </foreach>
+        </if>
+    </delete>
+
+    <update id="EvltTrprInfoMap.updateEvltTrprInfo" parameterType="map">
+        UPDATE /* EvltTrprInfoMap.updateEvltTrprInfo */
+               TB_EVLT_TRPR_INFO QU
+           SET (EVLT_RNKN_SQNO, EVLT_WHL_AVRG, EVLT_NMPR_CNT) =
+               (SELECT EVLT_RNKN_SQNO, EVLT_WHL_AVRG, EVLT_NMPR_CNT
+                  FROM (SELECT EVLT_PLAN_ID, TRPR_ID, CNTR_CD, EVLT_NMPR_CNT
+                             , TRUNC(USERAVG, 2) AS USERAVG
+                             , EVLT_RNKN_SQNO, TRUNC(SUMUSERAVG/EVLT_NMPR_CNT, 2) AS EVLT_WHL_AVRG
+                          FROM (SELECT EVLT_PLAN_ID, TRPR_ID, CNTR_CD, USERAVG
+                                     , (RANK() OVER(PARTITION BY EVLT_PLAN_ID ORDER BY USERAVG DESC)) AS EVLT_RNKN_SQNO
+                                     , SUM(USERAVG) OVER() AS SUMUSERAVG
+                                     , COUNT(EVLT_PLAN_ID) OVER() AS EVLT_NMPR_CNT
+                                  FROM (SELECT EVLT_PLAN_ID, TRPR_ID, CNTR_CD
+                                             , SUM(EVLT_RESL_SCR) / COUNT(*) AS USERAVG
+                                          FROM (SELECT A.EVLT_PLAN_ID, A.TRPR_ID, A.CNTR_CD
+                                                     , NVL(B.EVLT_RESL_SCR, 0) AS EVLT_RESL_SCR
+                                                  FROM (SELECT A.*
+                                                          FROM TB_EVLT_TRPR_INFO A
+                                                         WHERE EVLT_PLAN_ID = #{evlt_plan_id}
+                                                           AND CNTR_CD = #{cntr_cd}) A
+                                                  LEFT JOIN TB_EVLT_RESL_DTL B
+                                                    ON B.EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                                   AND B.TRPR_ID = A.TRPR_ID
+                                                   AND B.CNTR_CD = A.CNTR_CD
+                                               ) A
+                                         GROUP BY EVLT_PLAN_ID, TRPR_ID, CNTR_CD
+                                        ) A
+                                ) A
+                        ) A
+                  WHERE QU.EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                    AND QU.TRPR_ID = A.TRPR_ID
+                )
+         WHERE EVLT_PLAN_ID = #{evlt_plan_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="EvltTrprInfoMap.deleteAllEvltTrprInfo" parameterType="map">
+        DELETE /* EvltTrprInfoMap.deleteAllEvltTrprInfo */
+          FROM TB_EVLT_TRPR_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EVLT_PLAN_ID = #{evlt_plan_id}
+        <if test="selectcheck != null and selectcheck != ''">
+            AND EVLP_ID
+            <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+            </foreach>
+        </if>
+    </delete>
+</mapper>

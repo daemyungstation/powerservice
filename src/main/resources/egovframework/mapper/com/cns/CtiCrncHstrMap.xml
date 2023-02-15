@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CtiCrncHstrMap">
+
+    <sql id="CtiCrncHstrMap.selectCondition_fragment">
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="cti_crnc_dtl_id != null and cti_crnc_dtl_id != ''">
+            AND A.CTI_CRNC_DTL_ID = #{cti_crnc_dtl_id}
+        </if>
+        <if test="call_typ_cd != null and call_typ_cd != ''">
+            AND A.CALL_TYP_CD = #{call_typ_cd}
+        </if>
+        <if test="call_typ_dtl_cd != null and call_typ_dtl_cd != ''">
+            AND A.CALL_TYP_DTL_CD = #{call_typ_dtl_cd}
+        </if>
+        <if test="rec_id != null and rec_id != ''">
+            AND A.REC_ID = #{rec_id}
+        </if>
+        <if test="anino != null and anino != ''">
+            AND A.ANINO = REPLACE(#{anino}, '-', '')
+        </if>
+        <if test="user_id != null and user_id != ''">
+            AND A.USER_ID IN(${user_id})
+        </if>
+        <if test="bzpt_divs != null and bzpt_divs != ''">
+            AND A.BZPT_DIV IN (${bzpt_divs})
+        </if>
+        <if test="user_id == null or user_id == ''">
+            <choose>
+                <when test="team2_cd != null and team2_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD
+                                   AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+            AND A.RGSN_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+        </if>
+        <if test='rec_cons_yn == "Y"'>
+            <if test="consno != null and consno != ''">
+                AND B.CONSNO = #{consno}
+            </if>
+            <if test="cons_conc_yn != null and cons_conc_yn != ''">
+                AND B.CONC_YN = #{cons_conc_yn}
+            </if>
+            <if test="cons_mem_no != null and cons_mem_no != ''">
+                AND B.MEM_NO = #{cons_mem_no}
+            </if>
+            <if test="cons_mem_nm != null and cons_mem_nm != ''">
+                AND B.MEM_NM = #{cons_mem_nm}
+            </if>
+            <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+                AND B.CONS_TYP1_CD = #{cons_typ1_cd}
+            </if>
+            <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+                AND B.CONS_TYP2_CD = #{cons_typ2_cd}
+            </if>
+            <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+                AND B.CONS_TYP3_CD = #{cons_typ3_cd}
+            </if>
+        </if>
+        <if test='rec_prod_yn == "Y"'>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND C.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="dsps_typ_cd != null and dsps_typ_cd != ''">
+                AND C.DSPS_TYP_CD = #{dsps_typ_cd}
+            </if>
+            <if test="prod_cd != null and prod_cd != ''">
+                AND C.PROD_CD = #{prod_cd}
+            </if>
+            <if test="emple_no != null and emple_no != ''">
+                AND C.EMPLE_NO = #{emple_no}
+            </if>
+        </if>
+        <if test='rec_ob_yn == "Y"'>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND D.CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND D.TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND D.SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+                AND D.TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+            </if>
+            <if test="ob_mem_no != null and ob_mem_no != ''">
+                AND D.MEM_NO = #{ob_mem_no}
+            </if>
+            <if test="ob_mem_nm != null and ob_mem_nm != ''">
+                AND D.MEM_NM = #{ob_mem_nm}
+            </if>
+            <if test="ob_conc_yn != null and ob_conc_yn != ''">
+                AND D.CONC_YN = #{ob_conc_yn}
+            </if>
+            <if test="cmpg_typ1_cd != null and cmpg_typ1_cd != ''">
+                AND D.CMPG_TYP1_CD = #{cmpg_typ1_cd}
+            </if>
+            <if test="cmpg_typ2_cd != null and cmpg_typ2_cd != ''">
+                AND D.CMPG_TYP2_CD = #{cmpg_typ2_cd}
+            </if>
+        </if>
+    </sql>
+
+    <select id="CtiCrncHstrMap.getCtiCrncHstrCount" parameterType="map" resultType="int">
+        SELECT /* CtiCrncHstrMap.getCtiCrncHstrCount */
+               COUNT(*)
+          FROM TB_CTI_CRNC_DTL A
+        <if test='rec_cons_yn == "Y"'>
+            LEFT JOIN TB_REC_CONS_DTL B
+                   ON A.CTI_CRNC_DTL_ID = B.CTI_CRNC_DTL_ID
+        </if>
+        <if test='rec_prod_yn == "Y"'>
+            LEFT JOIN TB_REC_PROD_DTL C
+                   ON A.CTI_CRNC_DTL_ID = C.CTI_CRNC_DTL_ID
+        </if>
+        <if test='rec_ob_yn == "Y"'>
+            LEFT JOIN TB_REC_TM_DTL D
+                   ON A.CTI_CRNC_DTL_ID = D.CTI_CRNC_DTL_ID
+        </if>
+          WHERE 1 = 1
+        <include refid="CtiCrncHstrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="CtiCrncHstrMap.getCtiCrncHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* CtiCrncHstrMap.getCtiCrncHstrList */
+               F.*
+             , NVL(#{rec_cons_yn}, 'N') AS REC_CONS_YN, NVL(#{rec_prod_yn}, 'N') AS REC_PROD_YN, NVL(#{rec_ob_yn}, 'N') AS REC_OB_YN
+             , CASE WHEN CALL_TYP_CD = 'I' THEN 'I/B'
+                    WHEN CALL_TYP_CD = 'O' THEN 'O/B'
+                    ELSE ''
+                END AS CALL_TYP_NM
+             , CASE WHEN CALL_TYP_DTL_CD = 'I' THEN 'I/B'
+                    WHEN CALL_TYP_DTL_CD = 'O' THEN 'O/B'
+                    WHEN CALL_TYP_DTL_CD = 'E' THEN '내선'
+                    WHEN CALL_TYP_DTL_CD = 'T' THEN '호전환시도'
+                    WHEN CALL_TYP_DTL_CD = 'C' THEN '3자통화시도'
+                    ELSE ''
+                END AS CALL_TYP_DTL_NM
+             , (SELECT U.USER_NM
+                  FROM TB_USER U
+                 WHERE U.USER_ID = F.USER_ID
+                   AND U.CNTR_CD = F.CNTR_CD) AS USER_NM
+             , (SELECT U.USER_NM
+                  FROM TB_USER U
+                 WHERE U.USER_ID = F.RGSR_ID
+                   AND U.CNTR_CD = F.CNTR_CD) AS RGSR_NM
+             , (SELECT U.USER_NM
+                  FROM TB_USER U
+                 WHERE U.USER_ID = F.AMND_ID
+                   AND U.CNTR_CD = F.CNTR_CD) AS AMND_NM
+            <if test='rec_cons_yn == "Y"'>
+                , (SELECT C.CONS_TYP_NM
+                     FROM TB_CONS_TYP_CD C
+                    WHERE C.CONS_TYP_CD = F.CONS_TYP1_CD
+                      AND C.CNTR_CD = F.CNTR_CD) AS CONS_TYP1_NM
+                , (SELECT C.CONS_TYP_NM
+                     FROM TB_CONS_TYP_CD C
+                    WHERE C.CONS_TYP_CD = F.CONS_TYP2_CD
+                      AND C.CNTR_CD = F.CNTR_CD) AS CONS_TYP2_NM
+                , (SELECT C.CONS_TYP_NM
+                     FROM TB_CONS_TYP_CD C
+                    WHERE C.CONS_TYP_CD = F.CONS_TYP3_CD
+                      AND C.CNTR_CD = F.CNTR_CD) AS CONS_TYP3_NM
+            </if>
+            <if test='rec_prod_yn == "Y"'>
+                , CASE WHEN DSPS_TYP_CD = 'I' THEN '등록'
+                       WHEN DSPS_TYP_CD = 'U' THEN '수정'
+                       WHEN DSPS_TYP_CD = 'D' THEN '삭제'
+                       ELSE ''
+                   END AS DSPS_TYP_NM
+            </if>
+            <if test='rec_ob_yn == "Y"'>
+                , FN_GETHRCHCDNM('CAM990', F.CMPG_TYP1_CD, F.CNTR_CD) AS CMPG_TYP1_NM
+                , FN_GETHRCHCDNM('CAM990', F.CMPG_TYP2_CD, F.CNTR_CD) AS CMPG_TYP2_NM
+            </if>
+         FROM (SELECT ROWNUM AS PAGE_INDX, E.*
+                 FROM (SELECT A.CNTR_CD, A.CTI_CRNC_DTL_ID, A.CALL_TYP_CD, A.CALL_TYP_DTL_CD, A.CALL_ID
+                            , A.UEI, A.REC_ID, A.ANINO, A.USER_ID, A.DELIVERED_DTTM
+                            , A.ESTABLISHED_DTTM, A.CLEAR_DTTM, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                        <if test='rec_cons_yn == "Y"'>
+                            , B.REC_CONS_DTL_ID, B.CONSNO, B.CONS_TYP1_CD, B.CONS_TYP2_CD, B.CONS_TYP3_CD
+                            , B.CONC_YN AS CONS_CONC_YN, B.MEM_NO AS CONS_MEM_NO, B.MEM_NM AS CONS_MEM_NM
+                        </if>
+                        <if test='rec_prod_yn == "Y"'>
+                            , C.REC_PROD_DTL_ID, C.ACCNT_NO, C.PROD_CD, C.PROD_NM, C.EMPLE_NO, C.EMPLE_NM
+                            , C.DSPS_TYP_CD
+                        </if>
+                        <if test='rec_ob_yn == "Y"'>
+                            , D.REC_TM_DTL_ID, D.CMPG_ID, D.TRGT_LIST_ID, D.SUB_TRGT_LIST_ID, D.TRGT_CUST_DTPT_ID
+                            , D.MEM_NO AS OB_MEM_NO, D.MEM_NM AS OB_MEM_NM, D.CONC_YN AS OB_CONC_YN, CMPG_TYP1_CD, CMPG_TYP2_CD
+                            , (SELECT CM.CMPG_NM
+                                 FROM TB_CMPG_BASI CM
+                                WHERE CM.CMPG_ID = D.CMPG_ID) AS CMPG_NM
+                        </if>
+                         FROM TB_CTI_CRNC_DTL A
+                <if test='rec_cons_yn == "Y"'>
+                    LEFT JOIN TB_REC_CONS_DTL B
+                           ON A.CTI_CRNC_DTL_ID = B.CTI_CRNC_DTL_ID
+                </if>
+                <if test='rec_prod_yn == "Y"'>
+                    LEFT JOIN TB_REC_PROD_DTL C
+                           ON A.CTI_CRNC_DTL_ID = C.CTI_CRNC_DTL_ID
+                </if>
+                <if test='rec_ob_yn == "Y"'>
+                    LEFT JOIN TB_REC_TM_DTL D
+                           ON A.CTI_CRNC_DTL_ID = D.CTI_CRNC_DTL_ID
+                </if>
+                        WHERE 1 = 1
+                        <include refid="CtiCrncHstrMap.selectCondition_fragment"/>
+                        <choose>
+                            <when test="orderBy == null or orderBy == ''">
+                                ORDER BY A.AMNT_DTTM DESC
+                            </when>
+                            <otherwise>
+                                ORDER BY ${orderBy} ${orderDirection}
+                            </otherwise>
+                        </choose>
+                        ) E
+                ) F
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="CtiCrncHstrMap.insertCtiCrncDtl" parameterType="map">
+        <selectKey keyProperty="cti_crnc_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'CCH' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* CtiCrncHstrMap.insertCtiCrncDtl */
+          INTO TB_CTI_CRNC_DTL
+               (CNTR_CD, CTI_CRNC_DTL_ID, CALL_TYP_CD, CALL_TYP_DTL_CD, CALL_ID
+              , UEI, REC_ID, ANINO, USER_ID, BZPT_DIV
+            <if test="operation != null and operation == 'delivered'">
+                , DELIVERED_DTTM
+            </if>
+            <if test="operation != null and operation == 'established'">
+                , ESTABLISHED_DTTM
+            </if>
+            <if test="operation != null and operation == 'clear'">
+                , CLEAR_DTTM
+            </if>
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{cntr_cd}, #{cti_crnc_dtl_id}, #{call_typ_cd}, #{call_typ_dtl_cd}, #{call_id}
+              , #{uei}, #{rec_id}, REPLACE(#{anino}, '-', ''), #{rgsr_id}, #{bzpt_div}
+            <if test="operation != null and operation == 'delivered'">
+                , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            </if>
+            <if test="operation != null and operation == 'established'">
+                , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            </if>
+            <if test="operation != null and operation == 'clear'">
+                , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            </if>
+              , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="CtiCrncHstrMap.updateCtiCrncDtl" parameterType="map">
+        UPDATE /* CtiCrncHstrMap.updateCtiCrncDtl */
+               TB_CTI_CRNC_DTL
+           SET AMND_ID         	= #{amnd_id}
+             , AMNT_DTTM      	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        <if test="operation != null and operation == 'established'">
+            , CALL_TYP_CD		= #{call_typ_cd}
+            , CALL_TYP_DTL_CD	= #{call_typ_dtl_cd}
+            , CALL_ID			= #{call_id}
+            , UEI				= #{uei}
+            , REC_ID			= #{rec_id}
+            , ANINO				= REPLACE(#{anino}, '-', '')
+            , ESTABLISHED_DTTM 	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        </if>
+        <if test="operation != null and operation == 'clear'">
+            , CLEAR_DTTM        = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        </if>
+         WHERE CTI_CRNC_DTL_ID	= #{cti_crnc_dtl_id}
+    </update>
+
+    <insert id="CtiCrncHstrMap.mergeRecConsDtl" parameterType="map">
+        <selectKey keyProperty="rec_cons_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'RCD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        MERGE INTO /* CtiCrncHstrMap.mergeRecConsDtl */
+              TB_REC_CONS_DTL A
+        USING (SELECT #{cti_crnc_dtl_id} AS CTI_CRNC_DTL_ID
+                    , #{consno} AS CONSNO
+                 FROM DUAL) B
+           ON (A.CTI_CRNC_DTL_ID = B.CTI_CRNC_DTL_ID
+               AND A.CONSNO = B.CONSNO)
+         WHEN MATCHED THEN
+              UPDATE SET CONC_YN		= NVL(#{conc_yn}, 'N')
+                       , CONS_TYP1_CD 	= #{cons_typ1_cd}
+                       , CONS_TYP2_CD 	= #{cons_typ2_cd}
+                       , CONS_TYP3_CD 	= #{cons_typ3_cd}
+                       , MEM_NO     	= #{mem_no}
+                       , MEM_NM     	= #{mem_nm}
+                       , AMND_ID    	= #{amnd_id}
+                       , AMNT_DTTM  	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHEN NOT MATCHED THEN
+              INSERT (CNTR_CD, REC_CONS_DTL_ID, CTI_CRNC_DTL_ID, CONSNO, CONC_YN
+                    , MEM_NO, MEM_NM, RGSR_ID, RGSN_DTTM, AMND_ID
+                    , AMNT_DTTM, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD)
+              VALUES (#{cntr_cd}, #{rec_cons_dtl_id}, #{cti_crnc_dtl_id}, #{consno}, NVL(#{conc_yn}, 'N')
+                    , #{mem_no}, #{mem_nm}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}
+                    , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cons_typ1_cd}, #{cons_typ2_cd}, #{cons_typ3_cd})
+    </insert>
+
+    <insert id="CtiCrncHstrMap.mergeRecProdDtl" parameterType="map">
+        <selectKey keyProperty="rec_prod_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'RPD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        MERGE INTO /* CtiCrncHstrMap.mergeRecConsDtl */
+              TB_REC_PROD_DTL A
+        USING (SELECT #{cti_crnc_dtl_id} AS CTI_CRNC_DTL_ID
+                    , #{accnt_no} AS ACCNT_NO
+                 FROM DUAL) B
+           ON (A.CTI_CRNC_DTL_ID = B.CTI_CRNC_DTL_ID
+               AND A.ACCNT_NO = B.ACCNT_NO)
+         WHEN MATCHED THEN
+              UPDATE SET DSPS_TYP_CD	= #{dsps_typ_cd}
+                       , PROD_CD        = #{prod_cd}
+                       , PROD_NM        = #{prod_nm}
+                       , EMPLE_NO       = #{emple_no}
+                       , EMPLE_NM       = #{emple_nm}
+                       , AMND_ID		= #{amnd_id}
+                       , AMNT_DTTM  	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHEN NOT MATCHED THEN
+              INSERT (CNTR_CD, REC_PROD_DTL_ID, CTI_CRNC_DTL_ID, ACCNT_NO, DSPS_TYP_CD
+                    , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, PROD_CD
+                    , PROD_NM, EMPLE_NO, EMPLE_NM)
+              VALUES (#{cntr_cd}, #{rec_prod_dtl_id}, #{cti_crnc_dtl_id}, #{accnt_no}, #{dsps_typ_cd}
+                    , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{prod_cd}
+                    , #{prod_nm}, #{emple_no}, #{emple_nm})
+    </insert>
+
+    <insert id="CtiCrncHstrMap.mergeRecTmDtl" parameterType="map">
+        <selectKey keyProperty="rec_tm_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'RPD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        MERGE INTO /* CtiCrncHstrMap.mergeRecTmDtl */
+              TB_REC_TM_DTL A
+        USING (SELECT #{cti_crnc_dtl_id} AS CTI_CRNC_DTL_ID
+                    , #{cmpg_id} AS CMPG_ID
+                    , #{trgt_list_id} AS TRGT_LIST_ID
+                    , #{sub_trgt_list_id} AS SUB_TRGT_LIST_ID
+                    , #{trgt_cust_dtpt_id} AS TRGT_CUST_DTPT_ID
+                 FROM DUAL) B
+           ON (A.CTI_CRNC_DTL_ID = B.CTI_CRNC_DTL_ID
+               AND A.CMPG_ID = B.CMPG_ID
+               AND A.TRGT_LIST_ID = B.TRGT_LIST_ID
+               AND A.SUB_TRGT_LIST_ID = B.SUB_TRGT_LIST_ID
+               AND A.TRGT_CUST_DTPT_ID = B.TRGT_CUST_DTPT_ID)
+         WHEN MATCHED THEN
+              UPDATE SET MEM_NO			= #{mem_no}
+                       , MEM_NM			= #{mem_nm}
+                       , CMPG_TYP1_CD 	= #{cmpg_typ1_cd}
+                       , CMPG_TYP2_CD 	= #{cmpg_typ2_cd}
+                       , CONC_YN		= NVL(#{conc_yn}, 'N')
+                       , AMND_ID		= #{amnd_id}
+                       , AMNT_DTTM  	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHEN NOT MATCHED THEN
+              INSERT (CNTR_CD, REC_TM_DTL_ID, CTI_CRNC_DTL_ID, CMPG_ID, TRGT_LIST_ID
+                    , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, MEM_NO, MEM_NM, RGSR_ID
+                    , RGSN_DTTM, AMND_ID, AMNT_DTTM, CONC_YN, CMPG_TYP1_CD
+                    , CMPG_TYP2_CD)
+              VALUES (#{cntr_cd}, #{rec_tm_dtl_id}, #{cti_crnc_dtl_id}, #{cmpg_id}, #{trgt_list_id}
+                    , #{sub_trgt_list_id}, #{trgt_cust_dtpt_id}, #{mem_no}, #{mem_nm}, #{rgsr_id}
+                    , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), NVL(#{conc_yn}, 'N'), #{cmpg_typ1_cd}
+                    , #{cmpg_typ2_cd})
+    </insert>
+
+    <insert id="CtiCrncHstrMap.insertCtiCrncHstr" parameterType="map">
+        INSERT /* CtiCrncHstrMap.insertCtiCrncHstr */
+          INTO TB_CTI_CRNC_HSTR
+               (CNTR_CD, CTI_CRNC_DTL_ID, CHNG_DTTM, CALL_TYP_CD, CALL_TYP_DTL_CD
+              , CALL_ID, UEI, REC_ID, ANINO, USER_ID
+              , DELIVERED_DTTM, ESTABLISHED_DTTM, CLEAR_DTTM, RGSR_ID, RGSN_DTTM
+              , AMND_ID, AMNT_DTTM, BZPT_DIV)
+        SELECT CNTR_CD, CTI_CRNC_DTL_ID, SYSTIMESTAMP, CALL_TYP_CD, CALL_TYP_DTL_CD
+              , CALL_ID, UEI, REC_ID, ANINO, USER_ID
+              , DELIVERED_DTTM, ESTABLISHED_DTTM, CLEAR_DTTM, RGSR_ID, RGSN_DTTM
+              , AMND_ID, AMNT_DTTM, BZPT_DIV
+          FROM TB_CTI_CRNC_DTL
+         WHERE CTI_CRNC_DTL_ID = #{cti_crnc_dtl_id}
+    </insert>
+
+</mapper>

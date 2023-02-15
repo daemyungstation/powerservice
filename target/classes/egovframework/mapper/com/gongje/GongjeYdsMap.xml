@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjeYdsMap">
+
+    <select id="GongjeYdsMap.getGongjeYdsCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeYdsMap.getGongjeYdsCount */
+               COUNT(*)
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'T'
+
+    </select>
+
+   <select id="GongjeYdsMap.getGongjeYdsList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeYdsMap.getGongjeYdsList */
+               *
+          FROM (   SELECT '41' AS GUBUN, /* 구분(양도양수) */
+                           A.ACCNT_NO,	  /* 소비자번호 */
+                           B.DED_NO,	  /* 공제번호 */
+                           C.MEM_NM,	  /* 양도자성명 */
+                           HANOV_DT AS TRNS_DT, /* 양도일자 */
+                           'N' AS CHG_YN, /* 소비자번호 변경여부(변경:Y / 미변경:N) */
+                           A.ACCNT_NO AS YS_ACCNT_NO,    /* 양수소비자번호 */
+                           D.MEM_NM AS YS_MEM_NM,	  /* 양수소비자성명 */
+                           <![CDATA[CASE WHEN LENGTH(NVL(D.IDN_NO,' ')) <> 10 AND SUBSTR(D.BRTH_MON_DAY,1,2) = '19' AND D.SEX = '0001' THEN SUBSTR(D.BRTH_MON_DAY,3,6) || '1000000'
+                                 WHEN LENGTH(NVL(D.IDN_NO,' ')) <> 10 AND SUBSTR(D.BRTH_MON_DAY,1,2) = '19' AND D.SEX = '0002' THEN SUBSTR(D.BRTH_MON_DAY,3,6) || '2000000'
+                                 WHEN LENGTH(NVL(D.IDN_NO,' ')) <> 10 AND SUBSTR(D.BRTH_MON_DAY,1,2) = '20' AND D.SEX = '0001' THEN SUBSTR(D.BRTH_MON_DAY,3,6) || '3000000'
+                                 WHEN LENGTH(NVL(D.IDN_NO,' ')) <> 10 AND SUBSTR(D.BRTH_MON_DAY,1,2) = '20' AND D.SEX = '0002' THEN SUBSTR(D.BRTH_MON_DAY,3,6) || '4000000'
+                                 WHEN LENGTH(NVL(D.IDN_NO,' ')) = 10 THEN D.IDN_NO
+                            ELSE '' END BRTH_MON_DAY,]]>  /* 주민번호 */
+                           E.PROD_NM,	  /* 상품종류(상품명) */
+                           'N' AS YN,     /* 상품변경여부(변경:Y / 미변경:N) */
+                           '' AS AMT,	  /* 총계약금액(변경시 필수) */
+                           '' AS NUM,     /* 총계약회차(변경시 필수) */
+                           '' AS EXP_DT,  /* 계약만기일자(변경시 필수) */
+                           '' AS PAY_DD,  /* 월납입예정일(변경시 필수) */
+                           '' AS PAY_AMT, /* 월납입계약금액 */
+                           F.NUM AS TOT_NUM,  /* 이전최종납입회차 */
+                           F.AMT AS TOT_AMT,  /* 이전총납입금액 */
+                           SUBSTR(HANOV_DT,1,6) AS YYMM,    /* 정산년월(납부시) */
+                           HANOV_DT AS PAY_DT,                 /* 납입일자(납부시) */
+                           F.NUM AS PAY_NUM, /* 납입회차(납부시) */
+                           F.AMT AS PAY_AMT2,/* 납입금액(납부시) */
+                           <!-- 2018.06.20 : 양도자정보 => 양수자정보로 변경요청 (by 박영선M)
+                                             (** 해당 항목 : 우편번호, 주소, 연락처, 이메일) -->
+                           <![CDATA[CASE WHEN NVL(D.HOME_ZIP,' ') <> ' ' THEN D.HOME_ZIP ELSE D.WRPL_ZIP END POST, ]]>        /* 우편번호 */
+                           <![CDATA[CASE WHEN NVL(D.HOME_ADDR,' ') <> ' ' THEN D.HOME_ADDR ELSE D.WRPL_ADDR END ADDR1, ]]>    /* 주소1    */
+                           <![CDATA[CASE WHEN NVL(D.HOME_ADDR2,' ') <> ' ' THEN D.HOME_ADDR2 ELSE D.WRPL_ADDR2 END ADDR2, ]]> /* 주소2    */
+                           <![CDATA[CASE WHEN NVL(D.CELL,' ') <> ' ' THEN D.CELL ELSE '010-0000-0000' END TEL, ]]>            /* 연락처   */
+                           D.EMAIL                                                                                            /* 이메일   */
+                    FROM TRANSFER_BRKDN A
+                        LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                        LEFT OUTER JOIN MEMBER C ON C.MEM_NO = A.TRSFO_MEM_NO
+                        LEFT OUTER JOIN MEMBER D ON D.MEM_NO = A.TRSFE_MEM_NO
+                        LEFT OUTER JOIN PRODUCT E ON E.PROD_CD = B.PROD_CD
+                        LEFT OUTER JOIN (SELECT MAX(NO) NUM, SUM(PAY_AMT) AMT, ACCNT_NO FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) F ON F.ACCNT_NO = A.ACCNT_NO
+                    WHERE A.NEW_YN = 'Y'
+                      <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+                      AND A.ACCNT_NO IN(SELECT ACCNT_NO FROM GONGJE_HIST_TEMP WHERE ACCNT_NO = A.ACCNT_NO AND CL = 'T')
+                       /***************************************************************************
+                         고유번호통합작업으로 인해
+                         양도인이 해약 또는 행사를 한 회원인 경우,
+                         양도양수로 조회되어 공제신고 되는 문제 수정 - 2018.02.01 정승철
+                       ****************************************************************************/
+                      AND A.ACCNT_NO NOT IN ( SELECT ACCNT_NO
+                                                FROM RESCISSION
+                                               WHERE DEL_FG  = 'N'
+
+                                               UNION ALL
+
+                                              SELECT ACCNT_NO
+                                                FROM EVENT
+                                               WHERE DEL_FG  = 'N'
+                                            )
+
+                      <if test="stt_dt != null and stt_dt != ''">
+                          <![CDATA[AND HANOV_DT >= #{stt_dt} ]]>
+                      </if>
+                      <if test="end_dt != null and end_dt != ''">
+                          <![CDATA[AND HANOV_DT <= #{end_dt} ]]>
+                      </if>
+                ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <insert id="GongjeYdsMap.getGongjeYdsInsert" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeYdsMap.getGongjeYdsInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'T'
+    </insert>
+
+    <insert id="GongjeYdsMap.getGongjeYdsInsert_Temp" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeYdsMap.getGongjeYdsInsert_Temp */
+
+        INSERT INTO GONGJE_HIST_TEMP
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'T',
+                A.ACCNT_NO,
+                '00',
+                F.AMT,
+                HANOV_DT
+        FROM TRANSFER_BRKDN A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON C.MEM_NO = A.TRSFO_MEM_NO
+            LEFT OUTER JOIN MEMBER D ON D.MEM_NO = A.TRSFE_MEM_NO
+            LEFT OUTER JOIN PRODUCT E ON E.PROD_CD = B.PROD_CD
+            LEFT OUTER JOIN (SELECT MAX(NO) NUM, SUM(PAY_AMT) AMT, ACCNT_NO FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) F ON F.ACCNT_NO = A.ACCNT_NO
+        WHERE A.NEW_YN = 'Y'
+          <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          /***************************************************************************************************
+             고유번호통합작업으로 인해
+             양도인이 해약 또는 행사를 한 회원인 경우, 양도양수로 관리되어
+             실질적으로는 공제회쪽에 전송하지 않았지만, 전송한 것 처럼 보이는 문제 수정 - 2018.02.27 정승철
+           ****************************************************************************************************/
+          AND A.ACCNT_NO NOT IN ( SELECT ACCNT_NO
+                                    FROM RESCISSION
+                                   WHERE DEL_FG  = 'N'
+
+                                   UNION ALL
+
+                                  SELECT ACCNT_NO
+                                    FROM EVENT
+                                   WHERE DEL_FG  = 'N'
+                                )
+          <if test="stt_dt != null and stt_dt != ''">
+              <![CDATA[AND HANOV_DT >= #{stt_dt} ]]>
+          </if>
+          <if test="end_dt != null and end_dt != ''">
+              <![CDATA[AND HANOV_DT <= #{end_dt} ]]>
+          </if>
+    </insert>
+
+</mapper>

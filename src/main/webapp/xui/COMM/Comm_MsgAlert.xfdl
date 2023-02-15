@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_MsgAlert" classname="CMMAlert" inheritanceid="" position="absolute 0 0 371 140" titletext="확인메세지[단건]" onload="Comm_MsgAlert_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_27" class="sta_popupBg1" enable="false" position="absolute 0 0 371 140"/>
+        <Static id="stc_28" text="확인" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 167 28"/>
+        <Button id="btn_Close13" taborder="3" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 346 8 366 27"/>
+        <ImageViewer id="ImageViewer00" taborder="4" image="URL('IMG::confirm_default.png')" position="absolute 24 60 79 112" style="background:transparent;border:0 none #808080ff ;"/>
+        <Static id="stc_errMsg" text="[UORD0200060] 정상처리되었습니다." position="absolute 98 60 355 85" style="align:left middle;"/>
+        <Static id="stc_treatMsg" position="absolute 99 88 355 110" class="sta_workHelpGray" style="align:left middle;" text="조치메세지&#13;&#10;조치메세지"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_MsgInfo">
+        <ColumnInfo>
+          <Column id="MSG_CD" type="STRING" size="255"/>
+          <Column id="MSG_CNTN" type="STRING" size="256"/>
+          <Column id="MSG_LVL_CD" type="STRING" size="256"/>
+          <Column id="MSG_TYP_CD" type="STRING" size="256"/>
+          <Column id="ERR_TYP_CD" type="STRING" size="256"/>
+          <Column id="ITSM_ADMN_YN" type="STRING" size="256"/>
+          <Column id="THEAT_CD" type="STRING" size="256"/>
+          <Column id="THEAT_CNTN" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+          <Row/>
+          <Row/>
+          <Row/>
+          <Row/>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_ErrorLogView" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function Comm_MsgAlert_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_init();
+}
+
+function fn_init()
+{
+	this.stc_errMsg.text 	= "";
+	this.stc_treatMsg.text 	= "";
+
+	fn_viewMsgInfo();
+}
+
+function fn_viewMsgInfo()
+{
+	ds_ErrorLogView.loadXML(pv_ds_ErrorLogView);
+// 	trace("ds_ErrorLogView>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+// 	trace(ds_ErrorLogView.saveXML());
+	ds_MsgInfo.clearData();		// 초기화
+	
+	for(var i=0;i<ds_ErrorLogView.rowcount;i++)
+	{
+		//var sErrNo 		= ds_ErrorLogView.getColumn(i, "errmsgNumber");
+		var sErrCd 		= ds_ErrorLogView.getColumn(i, "errmsgErrcd");
+		var sTheatCd 	= ds_ErrorLogView.getColumn(i, "errmsgTreatcd");
+		var nRow 		= gds_ComMsg.findRow("MSG_CD", sErrCd);
+		
+		if(nRow != -1) {
+			var nARow = gfn_addDs(ds_MsgInfo, true);
+			ds_MsgInfo.setColumn(nARow, "MSG_CD", 		gds_ComMsg.getColumn(nRow, "MSG_CD"));
+			ds_MsgInfo.setColumn(nARow, "MSG_CNTN", 	gds_ComMsg.getColumn(nRow, "MSG_CNTN"));
+			ds_MsgInfo.setColumn(nARow, "MSG_LVL_CD", 	gds_ComMsg.getColumn(nRow, "MSG_LVL_CD"));
+			ds_MsgInfo.setColumn(nARow, "MSG_TYP_CD", 	gds_ComMsg.getColumn(nRow, "MSG_TYP_CD"));
+			ds_MsgInfo.setColumn(nARow, "ERR_TYP_CD", 	gds_ComMsg.getColumn(nRow, "ERR_TYP_CD"));
+			ds_MsgInfo.setColumn(nARow, "ITSM_ADMN_YN", gds_ComMsg.getColumn(nRow, "ITSM_ADMN_YN"));
+			ds_MsgInfo.setColumn(nARow, "THEAT_CD", 	sTheatCd);
+			//ds_MsgInfo.setColumn(nARow, "THEAT_CNTN", 	"");
+			
+			// 에러정보 처리
+			//gds_ErrorDescription.filter("errmsgNumber=='"+ sErrNo +"'");
+			gds_ErrorDescription.filter("errmsgErrcd=='"+ sErrCd +"'");
+			
+			//trace("gds_ErrorDescription.rowcount::"+gds_ErrorDescription.rowcount);
+			
+			if(gds_ErrorDescription.rowcount > 0) {
+				var sMSG_CNTN = ds_MsgInfo.getColumn(nARow, "MSG_CNTN");
+				for(var j=0;j<gds_ErrorDescription.rowcount;j++)
+				{
+					var sErrDescd 	 = gds_ErrorDescription.getColumn(j, "errmsgErrDescd");
+					var sErrDesvalue = gds_ErrorDescription.getColumn(j, "errmsgErrDesvalue");
+					
+					//trace("sErrDescd::"+sErrDescd + " sErrDesvalue::"+sErrDesvalue + " sMSG_CNTN::"+sMSG_CNTN);
+					
+					sMSG_CNTN = String(sMSG_CNTN).replace(sErrDescd, sErrDesvalue);
+				}
+				
+				//trace("sMSG_CNTN>>>>>>>>>>>>>>>>>>>>>>>>>>>"+sMSG_CNTN);
+			
+				ds_MsgInfo.setColumn(nARow, "MSG_CNTN", sMSG_CNTN);
+			}
+			gds_ErrorDescription.filter("");
+
+			// 조치정보 처리
+			if(gfn_getLength(sTheatCd) > 0) {
+				var nRow = gds_ComMsg.findRow("MSG_CD", sTheatCd);
+				if(nRow != -1) {
+					ds_MsgInfo.setColumn(nARow, "THEAT_CNTN", gds_ComMsg.getColumn(nRow, "MSG_CNTN"));
+				}
+			}
+
+			this.stc_errMsg.text 	= "[" + ds_MsgInfo.getColumn(0, "MSG_CD") + "]" + ds_MsgInfo.getColumn(0, "MSG_CNTN");
+			this.stc_treatMsg.text 	= ds_MsgInfo.getColumn(0, "THEAT_CNTN");
+		}
+	}
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+]]></Script>
+  </Form>
+</FDL>

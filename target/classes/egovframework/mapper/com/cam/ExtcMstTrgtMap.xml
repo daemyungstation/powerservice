@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExtcMstTrgtMap">
+
+    <sql id="ExtcMstTrgtMap.selectCondition_fragment">
+        <where>
+
+        </where>
+    </sql>
+
+    <select id="ExtcMstTrgtMap.getSnbcCount" parameterType="map" resultType="int">
+       SELECT  /* "ExtcMstTrgtMap.getSnbcCount" */
+                COUNT(*)
+          FROM ( SELECT A.DLV_ID, B.SQNC_NO , B.DSPS_MTHD_CD, B.DSPS_RSN_CD, B.DLV_STAT_CD, A.SNDG_KIND_CD, A.ACCNT_NO,A.MEM_NO,A.MEM_NM
+                      , ROW_NUMBER() OVER (PARTITION BY B.DLV_ID ORDER BY B.DLV_ID, B.SQNC_NO DESC) AS SQNC_IDX
+                   FROM TB_DLV A, TB_DLV_DTL B
+                  WHERE A.DLV_ID = B.DLV_ID )
+        WHERE SQNC_IDX = 1
+          AND DSPS_MTHD_CD = '20'
+          AND SNDG_KIND_CD = #{dsps_rsn_cd}
+     </select>
+
+    <select id="ExtcMstTrgtMap.getSnbc" parameterType="map" resultType="resultMap">
+        SELECT  /* ExtcMstTrgtMap.getSnbc */
+                *
+          FROM (SELECT ROW_NUMBER() OVER (PARTITION BY B.DLV_ID ORDER BY B.DLV_ID, B.SQNC_NO DESC) AS SQNC_IDX
+                       , A.DLV_ID AS PRMV_ID, B.SQNC_NO , B.DSPS_MTHD_CD, B.DSPS_RSN_CD, B.DLV_STAT_CD, A.SNDG_KIND_CD, A.ACCNT_NO,MB.MEM_NO,MB.MEM_NM
+                  FROM TB_DLV A INNER JOIN
+                    TB_DLV_DTL B ON A.DLV_ID = B.DLV_ID INNER JOIN
+                    LF_DMUSER.MEM_PROD_ACCNT MPA ON A.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                    LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'
+
+               ) A
+        WHERE SQNC_IDX = 1
+          AND DSPS_MTHD_CD = '20'
+          AND SNDG_KIND_CD = #{dsps_rsn_cd}
+          AND NOT EXISTS(SELECT 'Y'
+                             FROM TB_TRGT_CUST_DTPT
+                            WHERE PRMV_ID = A.PRMV_ID)
+     </select>
+
+     <select id="ExtcMstTrgtMap.getDeleteTrgtCustAlct" parameterType="map" resultType="resultMap">
+        SELECT /* ExtcMstTrgtMap.getDeleteTrgtCustAlct */
+             *
+         FROM TB_TRGT_CUST_ALCT
+        WHERE CMPG_ID = #{cmpg_id}
+          AND CNSR_ID = #{user_id}
+          AND SUB_TRGT_LIST_ID  = #{sub_trgt_list_id}
+          AND ROWNUM <![CDATA[<=]]> #{delcount}
+     </select>
+
+     <update id="ExtcMstTrgtMap.updateAcrs" parameterType="map">
+        UPDATE /* ExtcMstTrgtMap.updateAcrs */
+               TB_UNPY_MNGE
+           SET
+               ACRS_TODAY = #{acrs_today}
+             , ACRS_TDAY_UNPY_RCVR_RNTM = #{acrs_tday_unpy_rcvr_rntm}
+             , ACC_STAT = #{acc_stat}
+          <if test="acrs_day_end != null">
+             , ACRS_DAY_END = #{acrs_day_end}
+          </if>
+          <if test="acrs_enmn_unpy_rcvr_rntm != null">
+             , ACRS_ENMN_UNPY_RCVR_RNTM = #{acrs_enmn_unpy_rcvr_rntm}
+          </if>
+          <if test="acrs_day_5 != null">
+             , ACRS_DAY_5 = #{acrs_day_5}
+          </if>
+          <if test="acrs_5dy_unpy_rcvr_rntm != null">
+             , ACRS_5DY_UNPY_RCVR_RNTM = #{acrs_5dy_unpy_rcvr_rntm}
+          </if>
+          <if test="acrs_day_10 != null">
+             , ACRS_DAY_10 = #{acrs_day_10}
+          </if>
+          <if test="acrs_10dy_unpy_rcvr_rntm != null">
+             , ACRS_10DY_UNPY_RCVR_RNTM = #{acrs_10dy_unpy_rcvr_rntm}
+          </if>
+          <if test="acrs_day_15 != null">
+             , ACRS_DAY_15 = #{acrs_day_15}
+          </if>
+          <if test="acrs_15dy_unpy_rcvr_rntm != null">
+             , ACRS_15DY_UNPY_RCVR_RNTM = #{acrs_15dy_unpy_rcvr_rntm}
+          </if>
+          <if test="acrs_day_20 != null">
+             , ACRS_DAY_20 = #{acrs_day_20}
+          </if>
+          <if test="acrs_20dy_unpy_rcvr_rntm != null">
+             , ACRS_20DY_UNPY_RCVR_RNTM = #{acrs_20dy_unpy_rcvr_rntm}
+          </if>
+          <if test="acrs_day_25 != null">
+             , ACRS_DAY_25 = #{acrs_day_25}
+          </if>
+          <if test="acrs_25dy_unpy_rcvr_rntm != null">
+             , ACRS_25DY_UNPY_RCVR_RNTM = #{acrs_25dy_unpy_rcvr_rntm}
+          </if>
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE
+               ACCNT_NO = #{accnt_no}
+       <choose>
+          <when test="sFg != null and sFg.equalsIgnoreCase('N')">
+               AND DATA_DT = TO_CHAR(ADD_MONTHS(SYSDATE,-1),'YYYYMM')
+          </when>
+          <otherwise>
+              AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+          </otherwise>
+       </choose>
+     </update>
+
+     <update id="ExtcMstTrgtMap.updateUnpy" parameterType="map">
+        UPDATE /* ExtcMstTrgtMap.updateUnpy */
+               TB_UNPY_MNGE
+           SET
+           <choose>
+            <when test="updateOption == 'trgt_update'">
+               TRGT_LIST_NM        = (SELECT TRGT_LIST_NM
+                                        FROM TB_TRGT_LIST_DTL
+                                       WHERE TRGT_LIST_ID =#{trgt_list_id})
+               WHERE TRGT_LIST_ID = #{trgt_list_id}
+            </when>
+            <when test="updateOption == 'sub_trgt_update'">
+               SUB_TRGT_LIST_NM    = (SELECT SUB_TRGT_LIST_NM
+                                        FROM TB_SUB_TRGT_LIST_DTL
+                                       WHERE SUB_TRGT_LIST_ID =#{sub_trgt_list_id})
+               WHERE SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </when>
+            <when test="updateOption == 'cmpg_update'">
+               CMPG_NM =   (SELECT CMPG_NM
+                              FROM TB_CMPG_BASI
+                             WHERE CMPG_ID =#{cmpg_id})
+               WHERE CMPG_ID = #{cmpg_id}
+            </when>
+            <when test="updateOption == 'extc'">
+               EXTC_YN             = #{extc_yn}
+             , TRGT_LIST_ID        = #{trgt_list_id}
+             , TRGT_LIST_NM        = (SELECT TRGT_LIST_NM
+                                        FROM TB_TRGT_LIST_DTL
+                                       WHERE TRGT_LIST_ID =#{trgt_list_id})
+             , SUB_TRGT_LIST_ID    = #{sub_trgt_list_id}
+             , SUB_TRGT_LIST_NM    = (SELECT SUB_TRGT_LIST_NM
+                                        FROM TB_SUB_TRGT_LIST_DTL
+                                       WHERE SUB_TRGT_LIST_ID =#{sub_trgt_list_id})
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+           </when>
+           <when test="updateOption == 'alct'">
+                ALCT_YN = #{alct_yn}
+              , CMPG_ID = #{cmpg_id}
+              , CMPG_NM = (SELECT CMPG_NM
+                             FROM TB_CMPG_BASI
+                            WHERE CMPG_ID =#{cmpg_id})
+              , CNSR_ID = #{user_id}
+              , ECCL_DT = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+              , AMND_ID = #{amnd_id}
+              , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+           </when>
+           <when test="updateOption == 'alct_d'">
+                ALCT_YN = #{alct_yn}
+              , CMPG_ID = null
+              , CMPG_NM = null
+              , CNSR_ID = null
+              , ECCL_DT = null
+              , AMND_ID = #{amnd_id}
+              , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+           </when>
+           <when test="updateOption == 'sub_del'">
+                ALCT_YN = 'N'
+              , CMPG_ID = null
+              , CMPG_NM = null
+              , CNSR_ID = null
+              , ECCL_DT = null
+              , EXTC_YN = 'N'
+              , TRGT_LIST_ID = null
+              , TRGT_LIST_NM = null
+              , SUB_TRGT_LIST_ID = null
+              , SUB_TRGT_LIST_NM = null
+              , AMND_ID = #{amnd_id}
+              , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+              WHERE SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+           </when>
+           <when test="updateOption == 'cust_del'">
+                ALCT_YN = 'N'
+              , CMPG_ID = null
+              , CMPG_NM = null
+              , CNSR_ID = null
+              , ECCL_DT = null
+              , EXTC_YN = 'N'
+              , TRGT_LIST_ID = null
+              , TRGT_LIST_NM = null
+              , SUB_TRGT_LIST_ID = null
+              , SUB_TRGT_LIST_NM = null
+              , AMND_ID = #{amnd_id}
+              , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+           </when>
+           <when test="updateOption == 'trgt_del'">
+                ALCT_YN = 'N'
+              , CMPG_ID = null
+              , CMPG_NM = null
+              , CNSR_ID = null
+              , ECCL_DT = null
+              , EXTC_YN = 'N'
+              , TRGT_LIST_ID = null
+              , TRGT_LIST_NM = null
+              , SUB_TRGT_LIST_ID = null
+              , SUB_TRGT_LIST_NM = null
+              , AMND_ID = #{amnd_id}
+              , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+              WHERE TRGT_LIST_ID = #{trgt_list_id}
+           </when>
+           <when test="updateOption == 'cmpg_del'">
+                ALCT_YN = 'N'
+              , CMPG_ID = null
+              , CMPG_NM = null
+              , CNSR_ID = null
+              , ECCL_DT = null
+              , AMND_ID = #{amnd_id}
+              , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+              WHERE CMPG_ID = #{cmpg_id}
+           </when>
+        </choose>
+        <if test="prmv_id != null and prmv_id != ''">
+             WHERE UNPY_ID = #{prmv_id}
+        </if>
+        <if test="del_cnsr_id != null and del_cnsr_id != ''and cmpg_id != null and cmpg_id != ''">
+             WHERE CNSR_ID = #{del_cnsr_id}
+               AND CMPG_ID = #{cmpg_id}
+               AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+        </if>
+    </update>
+
+    <update id="ExtcMstTrgtMap.updateUnpy_new" parameterType="map">
+        /* ExtcMstTrgtMap.updateUnpy_new */
+		UPDATE LF_DMUSER.TB_MEMBER_YENCHE_MNG
+		SET
+		<choose>
+			<when test="updateOption == 'extc'">
+				EXT_YN = 'Y',
+			    SUB_TRGT_LIST_ID = #{sub_trgt_list_id},
+			    TRGT_LIST_ID = #{trgt_list_id}
+			    WHERE  EXT_ID = #{prmv_id}
+		    </when>
+
+			<when test="updateOption == 'sub_del'">
+				EXT_YN = 'N',
+			    SUB_TRGT_LIST_ID = '',
+			    TRGT_LIST_ID = ''
+				WHERE SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+		    </when>
+	    </choose>
+    </update>
+</mapper>
+
+

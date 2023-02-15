@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TeamMap">
+
+    <sql id="TeamMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="team_all_flag == null or team_all_flag == ''">
+                <choose>
+                    <when test="team_lvl_cnt != null and team_lvl_cnt != ''">
+                        AND TEAM_LVL_CNT = #{team_lvl_cnt}
+                    </when>
+                    <when test="team_cd == null or team_cd == ''">
+                        <choose>
+                            <when test="hgrn_team_cd == null or hgrn_team_cd == ''">
+                            AND (HGRN_TEAM_CD IS NULL OR HGRN_TEAM_CD = '')
+                            </when>
+                            <otherwise>
+                            AND HGRN_TEAM_CD = #{hgrn_team_cd}
+                            </otherwise>
+                        </choose>
+                    </when>
+                    <otherwise>
+                        AND TEAM_CD = #{team_cd}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <select id="TeamMap.getTeamCount" parameterType="map" resultType="int">
+        SELECT /* TeamMap.getTeamCount */
+               COUNT(*)
+          FROM TB_CONS_TEAM A
+        <include refid="TeamMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="TeamMap.getTeamList" parameterType="map" resultType="resultMap">
+        SELECT /* TeamMap.getTeamList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , GETCODENM('COM040', BZPT_DIV, CNTR_CD) AS BZPT_DIV_NM
+                  FROM (SELECT TEAM_CD, CNTR_CD, HGRN_TEAM_CD, TEAM_NM
+                             , TEAM_SQNC, TEAM_LVL_CNT, USE_YN, TEAM_EXPI, TEAM_CTI_NO
+                             , BZPT_DIV
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.HGRN_TEAM_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS HGRN_TEAM_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                              , (SELECT MAX(TEAM_SQNC)
+                                     FROM	TB_CONS_TEAM
+                            <include refid="TeamMap.selectCondition_fragment" />
+                            ) AS MAXORD
+                          FROM TB_CONS_TEAM A
+                        <include refid="TeamMap.selectCondition_fragment" />
+                        <if test="orderBy == null or orderBy == ''">
+                              ORDER BY TEAM_SQNC ASC
+                        </if>
+                        <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       ) B
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="TeamMap.getTeamTree" parameterType="map" resultType="resultMap">
+        SELECT /* TeamMap.getTeamTree */
+               TEAM_CD, CNTR_CD, HGRN_TEAM_CD, TEAM_NM, TEAM_SQNC, TEAM_LVL_CNT
+             , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                  FROM TB_CONS_TEAM
+                 WHERE CNTR_CD = A.CNTR_CD
+                   AND HGRN_TEAM_CD = A.TEAM_CD) AS HASCHILDREN
+          FROM TB_CONS_TEAM A
+         WHERE CNTR_CD = #{cntr_cd}
+         START WITH A.HGRN_TEAM_CD  IS NULL
+         CONNECT BY PRIOR TEAM_CD = HGRN_TEAM_CD
+        ORDER SIBLINGS BY TEAM_LVL_CNT,TEAM_SQNC ASC
+        <!-- SELECT /* TeamMap.getTeamTree */
+               TEAM_CD, CNTR_CD, HGRN_TEAM_CD, TEAM_NM
+             , TEAM_SQNC, TEAM_LVL_CNT
+             , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                  FROM TB_CONS_TEAM
+                 WHERE CNTR_CD = A.CNTR_CD
+                   AND HGRN_TEAM_CD = A.TEAM_CD) AS HASCHILDREN
+          FROM TB_CONS_TEAM A
+         WHERE CNTR_CD = #{cntr_cd}
+        <choose>
+            <when test="team_cd == null or team_cd == ''">
+            AND (HGRN_TEAM_CD = '' OR HGRN_TEAM_CD IS NULL)
+            </when>
+            <otherwise>
+            AND HGRN_TEAM_CD = #{team_cd}
+            </otherwise>
+        </choose>
+      ORDER BY TEAM_SQNC ASC -->
+    </select>
+
+    <select id="TeamMap.getTeamMaxOrder" parameterType="map" resultType="int">
+        SELECT /* TeamMap.getTeamMaxOrder */
+               NVL(MAX(TEAM_SQNC), 0)
+          FROM TB_CONS_TEAM
+         WHERE CNTR_CD = #{cntr_cd}
+        <choose>
+            <when test="hgrn_team_cd == null or hgrn_team_cd == ''">
+           AND HGRN_TEAM_CD IS NULL
+            </when>
+            <otherwise>
+           AND HGRN_TEAM_CD = #{hgrn_team_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="TeamMap.getTeamDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* TeamMap.getTeamDuplicateCount */
+               COUNT(*)
+          FROM TB_CONS_TEAM
+          WHERE CNTR_CD = #{cntr_cd}
+            AND TEAM_SQNC = #{team_sqnc}
+            AND TEAM_CD != #{team_cd}
+        <choose>
+            <when test="hgrn_team_cd == null or hgrn_team_cd == ''">
+            AND HGRN_TEAM_CD IS NULL
+            </when>
+            <otherwise>
+            AND HGRN_TEAM_CD = #{hgrn_team_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="TeamMap.insertTeam" parameterType="map">
+        INSERT INTO /* TeamMap.insertTeam */
+                    TB_CONS_TEAM
+                    (TEAM_CD, CNTR_CD, HGRN_TEAM_CD, TEAM_NM
+                  , TEAM_SQNC, TEAM_LVL_CNT, USE_YN, TEAM_CTI_NO, TEAM_EXPI
+                  , BZPT_DIV
+                  , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{team_cd}, #{cntr_cd}, #{hgrn_team_cd}, #{team_nm}
+                  , #{team_sqnc}, #{team_lvl_cnt}, #{use_yn}, #{team_cti_no}, #{team_expi}
+                  , #{bzpt_div}
+                  , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="TeamMap.updateTeam" parameterType="map">
+        UPDATE /* TeamMap.updateTeam */
+               TB_CONS_TEAM
+           SET TEAM_NM = #{team_nm}
+             , TEAM_SQNC = #{team_sqnc}
+             , TEAM_LVL_CNT = #{team_lvl_cnt}
+             , TEAM_EXPI = #{team_expi}
+             , TEAM_CTI_NO = #{team_cti_no}
+             , USE_YN = #{use_yn}
+             , BZPT_DIV = #{bzpt_div}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE TEAM_CD = #{team_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <update id = "TeamMap.updateTeamOrder" parameterType="map">
+    <![CDATA[
+        UPDATE /* TeamMap.updateTeamOrder */
+               TB_CONS_TEAM
+           SET TEAM_SQNC = CASE TEAM_CD WHEN #{team_cd} THEN ${team_sqnc}
+                           ELSE CASE SIGN(${old_team_sqnc} - ${team_sqnc}) WHEN -1 THEN TEAM_SQNC - 1
+                                                                             WHEN  1 THEN TEAM_SQNC + 1 END
+                           END
+          WHERE TEAM_SQNC <= CASE SIGN(${old_team_sqnc} - ${team_sqnc}) WHEN  1 THEN ${old_team_sqnc}
+                                                                          WHEN -1 THEN ${team_sqnc}
+                             END
+            AND TEAM_SQNC >= CASE SIGN(${old_team_sqnc} - ${team_sqnc}) WHEN  1 THEN ${team_sqnc}
+                                                                         WHEN -1 THEN ${old_team_sqnc}
+                             END
+            AND TEAM_LVL_CNT = #{team_lvl_cnt}
+            AND CNTR_CD = #{cntr_cd}
+    ]]>
+    </update>
+
+
+</mapper>

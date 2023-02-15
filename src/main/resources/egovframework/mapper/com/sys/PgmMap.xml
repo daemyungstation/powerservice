@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="PgmMap">
+
+    <sql id="PgmMap.selectCondition_fragment">
+          WHERE GDS_CD = #{gds_cd}
+            AND CNTR_CD = #{cntr_cd}
+        <choose>
+            <when test="pgm_cd == null or pgm_cd == ''">
+                <choose>
+                    <when test="hgrn_pgm_cd == null or hgrn_pgm_cd == ''">
+                    AND HGRN_PGM_CD IS NULL
+                    </when>
+                    <otherwise>
+                    AND HGRN_PGM_CD = #{hgrn_pgm_cd}
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                AND PGM_CD = #{pgm_cd}
+            </otherwise>
+        </choose>
+        <if test="lvl_cnt != null and lvl_cnt != ''">
+            AND LVL_CNT = #{lvl_cnt}
+        </if>
+    </sql>
+
+    <select id="PgmMap.getPgmCount" parameterType="map" resultType="int">
+        SELECT /* PgmMap.getPgmCount */
+               COUNT(*)
+          FROM TB_PGM A
+        <include refid="PgmMap.selectCondition_fragment" />
+    </select>
+
+    <select id="PgmMap.getPgmList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmMap.getPgmList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT PGM_CD, GDS_CD, CNTR_CD, HGRN_PGM_CD, PGM_NM
+                     , PGM_SQNC, FILE_NM, CLOT_FUNC_NM, PRMR_CNTN, IMG_PATH
+                     , LVL_CNT, ADMR_YN, PPUP_YN
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_PGM A
+        <include refid="PgmMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+              ORDER BY ${orderBy} ${orderDirection}
+        </if>
+               ) B
+    </select>
+
+    <select id="PgmMap.getPgmTree" parameterType="map" resultType="resultMap">
+        SELECT /* PgmMap.getPgmTree */
+               PGM_CD, GDS_CD, CNTR_CD, HGRN_PGM_CD, PGM_NM
+             , PGM_SQNC, LVL_CNT
+             , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                  FROM TB_PGM B
+                 WHERE B.CNTR_CD = A.CNTR_CD
+                   AND B.GDS_CD = A.GDS_CD
+                   AND B.HGRN_PGM_CD = A.PGM_CD) AS HASCHILDREN
+          FROM TB_PGM A
+         WHERE GDS_CD = #{gds_cd}
+           AND CNTR_CD = #{cntr_cd}
+         START WITH HGRN_PGM_CD IS NULL
+       CONNECT BY PRIOR  PGM_CD = HGRN_PGM_CD
+         ORDER SIBLINGS BY A.PGM_SQNC ASC
+<!--         <choose>
+            <when test="pgm_cd == null or pgm_cd == ''">
+            AND HGRN_PGM_CD IS NULL
+            </when>
+            <otherwise>
+            AND HGRN_PGM_CD = #{pgm_cd}
+            </otherwise>
+        </choose>
+              ORDER BY PGM_SQNC ASC
+        -->
+
+    </select>
+
+    <select id="PgmMap.getPgmMaxSequence" parameterType="map" resultType="int">
+        SELECT /* PgmMap.getPgmMaxSequence */
+               NVL(MAX(PGM_SQNC), 0)
+          FROM TB_PGM
+         WHERE CNTR_CD = #{cntr_cd}
+           AND GDS_CD = #{gds_cd}
+        <choose>
+            <when test="hgrn_pgm_cd == null or hgrn_pgm_cd == ''">
+           AND HGRN_PGM_CD IS NULL
+            </when>
+            <otherwise>
+           AND HGRN_PGM_CD = #{hgrn_pgm_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="PgmMap.getPgmDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* PgmMap.getPgmDuplicateCount */
+               COUNT(*)
+          FROM TB_PGM
+          WHERE GDS_CD = #{gds_cd}
+            AND CNTR_CD = #{cntr_cd}
+            AND PGM_SQNC = #{pgm_sqnc}
+            AND PGM_CD != #{pgm_cd}
+        <choose>
+            <when test="hgrn_pgm_cd == null or hgrn_pgm_cd == ''">
+            AND HGRN_PGM_CD IS NULL
+            </when>
+            <otherwise>
+            AND HGRN_PGM_CD = #{hgrn_pgm_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="PgmMap.insertPgm" parameterType="map">
+        INSERT /* PgmMap.insertPgm */
+          INTO TB_PGM
+               (PGM_CD, GDS_CD, CNTR_CD, HGRN_PGM_CD, PGM_NM
+              , PGM_SQNC, FILE_NM, CLOT_FUNC_NM, PRMR_CNTN, IMG_PATH
+              , LVL_CNT, ADMR_YN, PPUP_YN
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{pgm_cd}, #{gds_cd}, #{cntr_cd}, #{hgrn_pgm_cd}, #{pgm_nm}
+              , #{pgm_sqnc}, #{file_nm}, #{clot_func_nm}, #{prmr_cntn}, #{img_path}
+              , #{lvl_cnt}, #{admr_yn}, #{ppup_yn}
+              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="PgmMap.updatePgm" parameterType="map">
+        UPDATE /* PgmMap.updatePgm */
+               TB_PGM
+           SET PGM_NM = #{pgm_nm}
+             , PGM_SQNC = #{pgm_sqnc}
+             , FILE_NM = #{file_nm}
+             , CLOT_FUNC_NM = #{clot_func_nm}
+             , PRMR_CNTN = #{prmr_cntn}
+             , IMG_PATH = #{img_path}
+             , LVL_CNT = #{lvl_cnt}
+             , ADMR_YN = #{admr_yn}
+             , PPUP_YN = #{ppup_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE PGM_CD = #{pgm_cd}
+          AND GDS_CD = #{gds_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="PgmMap.deletePgm" parameterType="map">
+        DELETE /* PgmMap.deletePgm */
+          FROM TB_PGM
+         WHERE GDS_CD = #{gds_cd}
+           AND CNTR_CD = #{cntr_cd}
+           AND PGM_CD IN (SELECT PGM_CD
+                            FROM (SELECT *
+                                    FROM TB_PGM
+                                   WHERE GDS_CD = #{gds_cd}
+                                     AND CNTR_CD = #{cntr_cd}
+                                 )
+                           START WITH PGM_CD = #{pgm_cd}
+                         CONNECT BY PRIOR PGM_CD = HGRN_PGM_CD
+                         )
+    </delete>
+
+    <update id = "PgmMap.updatePgmSequence" parameterType="map">
+    <![CDATA[
+        UPDATE /* PgmMap.updatePgmSequence */
+               TB_PGM
+           SET PGM_SQNC =
+                   (CASE PGM_CD WHEN #{pgm_cd} THEN ${pgm_sqnc}
+                                ELSE (CASE SIGN(${pgm_sqnc_old} - ${pgm_sqnc}) WHEN -1 THEN PGM_SQNC - 1
+                                                                               WHEN  1 THEN PGM_SQNC + 1
+                                      END)
+                    END)
+         WHERE PGM_SQNC <= (CASE SIGN(${pgm_sqnc_old} - ${pgm_sqnc}) WHEN  1 THEN ${pgm_sqnc_old}
+                                                                     WHEN -1 THEN ${pgm_sqnc}
+                            END)
+           AND PGM_SQNC >= (CASE SIGN(${pgm_sqnc_old} - ${pgm_sqnc}) WHEN  1 THEN ${pgm_sqnc}
+                                                                     WHEN -1 THEN ${pgm_sqnc_old}
+                            END)
+           AND GDS_CD = #{gds_cd}
+           AND LVL_CNT = #{lvl_cnt}
+           AND CNTR_CD = #{cntr_cd}
+    ]]>
+        <choose>
+            <when test="hgrn_pgm_cd == null or hgrn_pgm_cd == ''">
+           AND HGRN_PGM_CD IS NULL
+            </when>
+            <otherwise>
+           AND HGRN_PGM_CD = #{hgrn_pgm_cd}
+            </otherwise>
+        </choose>
+    </update>
+
+
+    <update id="PgmMap.updateCardPop" parameterType="map" >
+        <!-- 카드 청구시 카드결재 팝업 여부-->
+        UPDATE /* PgmMap.updateCardPop */
+               TB_PGM
+           SET AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             <if test="cardPopGb != null and cardPopGb != ''">
+             , PRMR_CNTN = #{cardPopGb}
+             </if>
+         WHERE PGM_CD = 'MN160902'
+
+    </update>
+
+    <select id="PgmMap.getCardPoplist" parameterType="map" resultType="resultMap">
+          SELECT /* PgmMap.getCardPoplist */
+                 PRMR_CNTN
+            FROM TB_PGM
+           WHERE PGM_CD = 'MN160902'
+      </select>
+
+</mapper>

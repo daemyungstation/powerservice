@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOnlnPymnAcntMap">
+    <select id="DlwOnlnPymnAcntMap.getOnlnPymnAcntChngCount" parameterType="map" resultType="int">
+        SELECT /* DlwOnlnPymnAcntMap.getOnlnPymnAcntChngCount */
+               COUNT(*)
+          FROM CM_ACNT_CHNG_PTC CHG
+             , MB_MEM_MST MEM
+         WHERE CHG.ID = MEM.ID
+         <if test="mem_nm != null and mem_nm != ''">
+             AND MEM.NAME LIKE '%' || #{mem_nm} || '%'
+         </if>
+         <if test="accnt_no != null and accnt_no != ''">
+             AND CHG.ACCNT_NO = #{accnt_no}
+         </if>
+         <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+             AND TO_CHAR(CHG.MOD_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+         </if>
+         <if test="prcs_yn != null and prcs_yn != ''">
+             AND CHG.PRCS_YN = #{prcs_yn}
+         </if>
+         <if test="mem_hp != null and mem_hp != ''">
+             AND MEM.HP = #{mem_hp}
+         </if>
+    </select>
+
+    <select id="DlwOnlnPymnAcntMap.getOnlnPymnAcntChngList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOnlnPymnAcntMap.getOnlnPymnAcntChngList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , A.*
+                  FROM (SELECT MEM.UNQ_NO, MEM.NAME, MEM.HP, SUBSTR(MEM.BIRTH,3,6) AS IDN_NO, MEM.EMAIL
+                             , CHG.*
+                          FROM CM_ACNT_CHNG_PTC CHG
+                             , MB_MEM_MST MEM
+                         WHERE CHG.ID = MEM.ID
+                         <if test="mem_nm != null and mem_nm != ''">
+                             AND MEM.NAME LIKE '%' || #{mem_nm} || '%'
+                         </if>
+                         <if test="accnt_no != null and accnt_no != ''">
+                             AND CHG.ACCNT_NO = #{accnt_no}
+                         </if>
+                         <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             AND TO_CHAR(CHG.MOD_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                         </if>
+                         <if test="prcs_yn != null and prcs_yn != ''">
+                             AND CHG.PRCS_YN = #{prcs_yn}
+                         </if>
+                         <if test="mem_hp != null and mem_hp != ''">
+                             AND MEM.HP = #{mem_hp}
+                         </if>
+                       ) A
+               ) B
+               <if test="orderBy != null and orderBy != ''">
+                   ORDER BY ${orderBy} ${orderDirection}
+               </if>
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id="DlwOnlnPymnAcntMap.updateOnlnTrntCmplAcntChng" parameterType="map">
+         UPDATE /* DlwOnlnPymnAcntMap.updateOnlnTrntCmplAcntChng */
+                CM_ACNT_CHNG_PTC
+            SET PRCS_YN = 'Y'
+              , MOD_ID = #{mod_id}
+              , MOD_IP = #{mod_ip}
+              , MOD_DTM = SYSDATE
+          WHERE CHNG_SEQ = #{chng_seq}
+    </update>
+
+    <update id="DlwOnlnPymnAcntMap.updateOnlnTrntCmplMemChng" parameterType="map">
+         UPDATE /* DlwOnlnPymnAcntMap.updateOnlnTrntCmplMemChng */
+                MB_MEM_CHNG_PTC
+            SET PRCS_YN = 'Y'
+              , MOD_ID = #{mod_id}
+              , MOD_IP = #{mod_ip}
+              , MOD_DTM = SYSDATE
+          WHERE CHNG_SEQ = #{chng_seq}
+    </update>
+</mapper>

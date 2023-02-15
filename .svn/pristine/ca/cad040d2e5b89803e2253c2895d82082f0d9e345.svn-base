@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMallMngMap">
+
+    <select id="DlwMallMngMap.getMallMemberCount" parameterType="map" resultType="int">
+     	SELECT /* DlwMallMngMap.getMallMemberCount */
+     	       COUNT(*)
+		FROM MEMBER
+		WHERE 1=1
+		AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		<if test="accnt_no != null and accnt_no != ''">
+             AND GOODS_ID = #{accnt_no}
+        </if>
+        <if test="state != null and state != ''">
+             AND STATE = #{state}
+        </if>
+        <if test="sdp_yn != null and sdp_yn != ''">
+             AND SDP_YN = #{sdp_yn}
+        </if>
+        <if test="yen_che_fg != null and yen_che_fg != ''">
+             AND YEN_CHE_FG = #{yen_che_fg}
+        </if>
+        <if test="mall_use_yn != null and mall_use_yn != ''">
+             AND MALL_USE_YN = #{mall_use_yn}
+        </if>
+    </select>
+    
+    <select id="DlwMallMngMap.getMallMemberList" parameterType="map" resultType="resultMap">
+     	
+        SELECT /* DlwMallMngMap.getMallMemberList */
+               *
+        FROM (
+	        SELECT 
+	     	       ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	     	       MEMBER_ID,
+			       GOODS_ID,
+			       CI,
+			       GOODS_NAME,
+			       RESORT_NUM,
+			       STATE,
+			       CASE WHEN STATE = '1' THEN '유효'
+			            WHEN STATE = '3' THEN '행사대기'
+			            WHEN STATE = '4' THEN '행사완료'
+			            WHEN STATE = '5' THEN '해약접수'
+			            WHEN STATE = '6' THEN '해약완료'
+			            WHEN STATE = '7' THEN '양도양수'
+			            ELSE '' END AS STATE_NM,
+			       ACU_AMT,
+			       USE_AMT,
+			       CMPLT_DATE,
+			       CREATE_DATE,
+			       SDP_YN,
+			       CREATE_ID,
+			       YEN_CHE_FG,
+			       MALL_USE_YN
+			FROM MEMBER
+			WHERE 1=1
+			AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			<if test="accnt_no != null and accnt_no != ''">
+	             AND GOODS_ID = #{accnt_no}
+	        </if>
+	        <if test="state != null and state != ''">
+	             AND STATE = #{state}
+	        </if>
+	        <if test="sdp_yn != null and sdp_yn != ''">
+	             AND SDP_YN = #{sdp_yn}
+	        </if>
+	        <if test="yen_che_fg != null and yen_che_fg != ''">
+	             AND YEN_CHE_FG = #{yen_che_fg}
+	        </if>
+	        <if test="mall_use_yn != null and mall_use_yn != ''">
+	             AND MALL_USE_YN = #{mall_use_yn}
+	        </if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <select id="DlwMallMngMap.getMallCashHistroyCount" parameterType="map" resultType="int">
+     	SELECT /* DlwMallMngMap.getMallCashHistroyCount */ 
+     	       COUNT(*)
+        FROM DLWMALL.CASH_HISTORY A
+        WHERE 1=1
+        AND (TYPE IN ('U', 'C') OR INCREMENT_AMT > 0)
+          <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+			AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		</if>
+		<if test="accnt_no != null and accnt_no != ''">
+             AND GOODS_ID = #{accnt_no}
+        </if>
+        <if test="type != null and type != ''">
+             AND TYPE = #{type}
+        </if>
+    </select>
+    
+    <select id="DlwMallMngMap.getMallCashHistroyList" parameterType="map" resultType="resultMap">
+     	
+        SELECT /* DlwMallMngMap.getMallCashHistroyList */
+               *
+        FROM (
+	        SELECT 
+	     	       ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	     	       MEMBER_ID
+	              ,GOODS_ID
+	              ,TYPE
+	              ,DECODE(TYPE, 'U', '사용', 'C', '취소', 'A', '적립') AS TYPE_NM
+	              ,AMT
+	              ,MEMO
+	              ,CREATE_DATE
+	              ,CREATE_ID
+	              ,YEN_CHE_FG
+	              ,INCREMENT_AMT
+            FROM DLWMALL.CASH_HISTORY A
+            WHERE 1=1
+            AND (TYPE IN ('U', 'C') OR INCREMENT_AMT > 0)
+            <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+				AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			</if>
+			<if test="accnt_no != null and accnt_no != ''">
+	             AND GOODS_ID = #{accnt_no}
+	        </if>
+	        <if test="type != null and type != ''">
+	             AND TYPE = #{type}
+	        </if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <select id="DlwMallMngMap.getMallMemHistroyCount" parameterType="map" resultType="int">
+     	SELECT /* DlwMallMngMap.getMallMemHistroyCount */ 
+     	       COUNT(*)
+        FROM DLWMALL.MEMBER_HISTORY A
+        WHERE 1=1
+        <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+			AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		</if>
+		<if test="accnt_no != null and accnt_no != ''">
+             AND GOODS_ID = #{accnt_no}
+        </if>
+        <if test="state != null and state != ''">
+             AND STATE = #{state}
+        </if>
+    </select>
+    
+    <select id="DlwMallMngMap.getMallMemHistroyList" parameterType="map" resultType="resultMap">
+     	
+        SELECT /* DlwMallMngMap.getMallMemHistroyList */
+               *
+        FROM (
+	        SELECT 
+	     	       ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+	     	      ,MEMBER_ID
+	              ,GOODS_ID
+	              ,STATE
+	              ,CASE WHEN STATE = '1' THEN '유효'
+			            WHEN STATE = '3' THEN '행사대기'
+			            WHEN STATE = '4' THEN '행사완료'
+			            WHEN STATE = '5' THEN '해약접수'
+			            WHEN STATE = '6' THEN '해약완료'
+			            WHEN STATE = '7' THEN '양도양수'
+			            ELSE '' END AS STATE_NM
+	              ,MEMO
+	              ,CREATE_DATE
+	              ,CREATE_ID
+            FROM DLWMALL.MEMBER_HISTORY A
+	        WHERE 1=1
+	        <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+				AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			</if>
+			<if test="accnt_no != null and accnt_no != ''">
+	             AND GOODS_ID = #{accnt_no}
+	        </if>
+	        <if test="state != null and state != ''">
+	             AND STATE = #{state}
+	        </if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+</mapper>

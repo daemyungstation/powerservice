@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="XlsMap">
+
+    <sql id="XlsMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="xls_id != null and xls_id != ''">
+                AND A.XLS_ID = #{xls_id}
+            </if>
+            <if test="xls_nm != null and xls_nm != ''">
+                AND A.XLS_NM LIKE '%' || #{xls_nm} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 엑셀 TOTAL COUNT -->
+    <select id="XlsMap.getXlsCount" parameterType="map" resultType="int">
+       SELECT /* XlsMap.getXlsCount */
+              COUNT(*)
+         FROM TB_XLS A
+       <include refid="XlsMap.selectCondition_fragment"/>
+    </select>
+
+    <!-- 엑셀 검색 -->
+    <select id="XlsMap.getXlsList" parameterType="map" resultType="resultMap">
+        SELECT /* XlsMap.getXlsList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , XLS_ID, LIST_QURY_ID, CSCNT_QURY_ID, XLS_NM, XLS_EXPI
+                     , USE_YN
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , RGSR_NM, AMND_NM
+                  FROM (SELECT XLS_ID, LIST_QURY_ID, CSCNT_QURY_ID, XLS_NM, XLS_EXPI
+                             , USE_YN
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_XLS A
+        <include refid="XlsMap.selectCondition_fragment"/>
+        <choose>
+            <when test="orderBy == null or orderBy == ''">
+                 ORDER BY A.XLS_ID ASC
+            </when>
+            <otherwise>
+                 ORDER BY ${orderBy} ${orderDirection}
+            </otherwise>
+        </choose>
+                      )
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <!-- 엑셀 등록 -->
+    <insert id="XlsMap.insertXls" parameterType="map">
+        INSERT  /* XlsMap.insertXls */
+          INTO TB_XLS
+               (XLS_ID, LIST_QURY_ID, CSCNT_QURY_ID, XLS_NM, XLS_EXPI
+              , USE_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{xls_id}, #{list_qury_id}, #{cscnt_qury_id}, #{xls_nm}, #{xls_expi}
+              , #{use_yn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <!-- 엑셀 수정 -->
+    <update id="XlsMap.updateXls" parameterType="map">
+        UPDATE /* XlsMap.updateXls */
+               TB_XLS
+           SET LIST_QURY_ID = #{list_qury_id}
+             , CSCNT_QURY_ID = #{cscnt_qury_id}
+             , XLS_NM = #{xls_nm}
+             , XLS_EXPI = #{xls_expi}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE XLS_ID = #{xls_id}
+    </update>
+
+    <!-- 엑셀 삭제 -->
+    <delete id="XlsMap.deleteXls" parameterType="map">
+        DELETE /* XlsMap.deleteXls */
+          FROM TB_XLS
+         WHERE XLS_ID = #{xls_id}
+    </delete>
+
+</mapper>

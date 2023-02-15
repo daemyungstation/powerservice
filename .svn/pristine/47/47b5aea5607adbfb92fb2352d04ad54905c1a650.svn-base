@@ -1,0 +1,654 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TotalschMap">
+    <!-- FAQ -->
+    <sql id="TotalschMap.selectCondition_fragment_FAQ">
+        <where>
+            <if test="faq_id != null and faq_id != ''">
+                AND A.FAQ_ID = #{faq_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="open_stat_cd != null and open_stat_cd != ''">
+                AND A.OPEN_STAT_CD = #{open_stat_cd}
+            </if>
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (FAQ_QUST_CNTN LIKE '%' || #{srch_word} || '%'
+                  OR FAQ_ANSR_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+        </where>
+    </sql>
+
+    <resultMap id="TotalschMap.resultFaq" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="faq_id" column="faq_id" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="cons_typ1_cd" column="cons_typ1_cd" />
+        <result property="cons_typ2_cd" column="cons_typ2_cd" />
+        <result property="cons_typ3_cd" column="cons_typ3_cd" />
+        <result property="faq_qust_cntn" column="faq_qust_cntn" />
+        <result property="faq_ansr_cntn" column="faq_ansr_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="open_stat_cd" column="open_stat_cd" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="open_stat_nm" column="open_stat_nm" />
+        <result property="faq_typ3_nm" column="faq_typ3_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_fg" column="file_fg" />
+    </resultMap>
+
+    <resultMap id="TotalschMap.resultFaqView" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="faq_id" column="faq_id" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="cons_typ1_cd" column="cons_typ1_cd" />
+        <result property="cons_typ2_cd" column="cons_typ2_cd" />
+        <result property="cons_typ3_cd" column="cons_typ3_cd" />
+        <result property="faq_qust_cntn" column="faq_qust_cntn" />
+        <result property="faq_ansr_cntn" column="faq_ansr_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="faq_ansr_html_cntn" column="faq_ansr_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="open_stat_cd" column="open_stat_cd" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="open_stat_nm" column="open_stat_nm" />
+        <result property="faq_typ3_nm" column="faq_typ3_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_fg" column="file_fg" />
+    </resultMap>
+
+    <select id="TotalschMap.getFaqCount" parameterType="map" resultType="int">
+        SELECT /* TotalschMap.getFaqCount */
+               COUNT(*)
+          FROM TB_FAQ_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_FAQ" />
+    </select>
+
+    <select id="TotalschMap.getFaqList" parameterType="map" resultMap="TotalschMap.resultFaq">
+        SELECT /* TotalschMap.getFaqList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT FAQ_ID, CNTR_CD, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                             , FAQ_QUST_CNTN, FAQ_ANSR_CNTN, OPEN_STAT_CD, INQ_CNT
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , CASE WHEN EXISTS (SELECT *
+                                                   FROM TB_FILE
+                                                  WHERE RLTN_ITEM_ID = A.FAQ_ID
+                                                    AND ATCH_TYP_CD != '30') THEN 'Y'
+                                    ELSE 'N'
+                                END AS FILE_FG
+                          FROM TB_FAQ_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_FAQ" />
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="TotalschMap.getFaqView" parameterType="map" resultMap="TotalschMap.resultFaqView">
+        SELECT /* TotalschMap.getFaqView */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT FAQ_ID, CNTR_CD, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                             , FAQ_QUST_CNTN, FAQ_ANSR_CNTN, FAQ_ANSR_HTML_CNTN, OPEN_STAT_CD, INQ_CNT
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , CASE WHEN EXISTS (SELECT *
+                                                   FROM TB_FILE
+                                                  WHERE RLTN_ITEM_ID = A.FAQ_ID
+                                                    AND ATCH_TYP_CD != '30') THEN 'Y'
+                                    ELSE 'N'
+                                END AS FILE_FG
+                          FROM TB_FAQ_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_FAQ" />
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id="TotalschMap.updateFaqViewCnt" parameterType="String">
+        UPDATE /* TotalschMap.updateFaqViewCnt */
+               TB_FAQ_DTL
+           SET INQ_CNT = INQ_CNT + 1
+         WHERE FAQ_ID = #{faq_id}
+    </update>
+    <!-- // FAQ -->
+
+
+    <!-- 게시판 -->
+    <sql id="TotalschMap.selectCondition_fragment_NOBD">
+        <where>
+            <if test="nobd_id != null and nobd_id != ''">
+                AND A.NOBD_ID = #{nobd_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <choose>
+                <when test="dltn_yn != null and dltn_yn != ''">
+                    AND A.DLTN_YN = #{dltn_yn}
+                </when>
+                <otherwise>
+                    AND A.DLTN_YN = 'N'
+                </otherwise>
+            </choose>
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (NOBD_TITL LIKE '%' || #{srch_word} || '%'
+                  OR NOBD_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+        </where>
+    </sql>
+    <resultMap id="nobdResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="nobd_id" column="nobd_id" />
+        <result property="nobd_typ_id" column="nobd_typ_id" />
+        <result property="nobd_bswr_div_cd" column="nobd_bswr_div_cd" />
+        <result property="nobd_bswr_div_nm" column="nobd_bswr_div_nm" />
+        <result property="nobd_titl" column="nobd_titl" />
+        <result property="nobd_cntn" column="nobd_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="dltn_yn" column="dltn_yn" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_flag" column="file_flag" />
+    </resultMap>
+
+    <resultMap id="nobdResultViewMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="nobd_id" column="nobd_id" />
+        <result property="nobd_typ_id" column="nobd_typ_id" />
+        <result property="nobd_bswr_div_cd" column="nobd_bswr_div_cd" />
+        <result property="nobd_bswr_div_nm" column="nobd_bswr_div_nm" />
+        <result property="nobd_titl" column="nobd_titl" />
+        <result property="nobd_cntn" column="nobd_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="nobd_html_cntn" column="nobd_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="dltn_yn" column="dltn_yn" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_flag" column="file_flag" />
+    </resultMap>
+
+    <select id="TotalschMap.getNobdCount" parameterType="map" resultType="int">
+        SELECT /* TotalschMap.getNobdCount */
+               COUNT(*)
+          FROM TB_NOBD_DTL A
+      <include refid="TotalschMap.selectCondition_fragment_NOBD" />
+    </select>
+
+    <select id="TotalschMap.getNobdList" parameterType="map" resultMap="nobdResultMap">
+        SELECT /* TotalschMap.getNobdList */
+               C.*
+             , GETCODENM('KMS030', NOBD_BSWR_DIV_CD, C.CNTR_CD) AS NOBD_BSWR_DIV_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT A.NOBD_ID, A.NOBD_TYP_ID, A.NOBD_TITL, A.KYWD_CNTN, A.NOBD_CNTN
+                            , A.DLTN_YN, A.INQ_CNT, A.NOBD_BSWR_DIV_CD
+                            , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.RGSR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE C
+                                                   WHERE C.RLTN_ITEM_ID = A.NOBD_ID
+                                                     AND C.RLTN_TBL_NM = 'TB_NOBD_DTL'
+                                                     AND C.ATCH_TYP_CD != '30')
+                                     THEN 'Y'
+                                     ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_NOBD_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_NOBD" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="TotalschMap.getNobdView" parameterType="map" resultMap="nobdResultViewMap">
+        SELECT /* TotalschMap.getNobdView */
+               C.*
+             , GETCODENM('KMS030', NOBD_BSWR_DIV_CD, C.CNTR_CD) AS NOBD_BSWR_DIV_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT A.NOBD_ID, A.NOBD_TYP_ID, A.NOBD_TITL, A.KYWD_CNTN, A.NOBD_CNTN, A.NOBD_HTML_CNTN
+                            , A.DLTN_YN, A.INQ_CNT, B.NOBD_TYP_NM, A.NOBD_BSWR_DIV_CD
+                            , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.RGSR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE C
+                                                   WHERE C.RLTN_ITEM_ID = A.NOBD_ID
+                                                     AND C.RLTN_TBL_NM = 'TB_NOBD_DTL'
+                                                     AND C.ATCH_TYP_CD != '30')
+                                     THEN 'Y'
+                                     ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_NOBD_DTL A
+                          JOIN TB_NOBD_TYP_ADMN B
+                            ON A.NOBD_TYP_ID = B.NOBD_TYP_ID
+                           AND A.CNTR_CD = B.CNTR_CD
+        <include refid="TotalschMap.selectCondition_fragment_NOBD" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id="TotalschMap.updateNobdViewCnt" parameterType="String">
+        UPDATE /* TotalschMap.updateNobdViewCnt */
+               TB_NOBD_DTL
+           SET INQ_CNT = INQ_CNT + 1
+         WHERE NOBD_ID = #{nobd_id}
+    </update>
+    <!-- // 게시판 -->
+
+    <!-- 공지사항 -->
+    <sql id="TotalschMap.selectCondition_fragment_ANCMMTR">
+        <where>
+            <if test="ancm_mtr_id != null and ancm_mtr_id != ''">
+                AND A.ANCM_MTR_ID = #{ancm_mtr_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (ANCM_MTR_TITL LIKE '%' || #{srch_word} || '%'
+                  OR ANCM_MTR_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+        </where>
+    </sql>
+    <resultMap id="ancmMtrlDtlResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="ancm_mtr_id" column="ancm_mtr_id" />
+        <result property="ancm_mtr_titl" column="ancm_mtr_titl" />
+        <result property="ancm_mtr_cntn" column="ancm_mtr_cntn" javaType="String" jdbcType="CLOB" />
+        <result property="ancm_mtr_html_cntn" column="ancm_mtr_html_cntn" javaType="String" jdbcType="CLOB" />
+        <result property="ancm_typ_cd" column="ancm_typ_cd" />
+        <result property="ancm_typ_nm" column="ancm_typ_nm" />
+        <result property="ancm_stt_dt" column="ancm_stt_dt" />
+        <result property="ancm_end_dt" column="ancm_end_dt" />
+        <result property="ancm_chpr_nm" column="ancm_chpr_nm" />
+        <result property="ancm_chpr_id" column="ancm_chpr_id" />
+        <result property="use_yn" column="use_yn" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_flag" column="file_flag" />
+    </resultMap>
+
+    <select id="TotalschMap.getAncmMtrDtlCount" parameterType="map" resultType="int">
+        SELECT /* TotalschMap.getAncmMtrDtlCount */
+               COUNT(*)
+          FROM TB_ANCM_MTR_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_ANCMMTR" />
+    </select>
+
+    <select id="TotalschMap.getAncmMtrDtlList" parameterType="map" resultMap="ancmMtrlDtlResultMap">
+        SELECT /* TotalschMap.getAncmMtrDtlList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT ANCM_MTR_ID, ANCM_MTR_TITL, ANCM_MTR_CNTN, ANCM_MTR_HTML_CNTN, ANCM_TYP_CD
+                             , ANCM_STT_DT, ANCM_END_DT, ANCM_CHPR_ID, USE_YN, INQ_CNT
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('KMS040', ANCM_TYP_CD, #{cntr_cd}) AS ANCM_TYP_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.ANCM_CHPR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS ANCM_CHPR_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE B
+                                                   WHERE B.RLTN_ITEM_ID = A.ANCM_MTR_ID
+                                                     AND B.RLTN_TBL_NM = 'TB_ANCM_MTR_DTL'
+                                                     AND B.ATCH_TYP_CD != '30' ) THEN 'Y'
+                                    ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_ANCM_MTR_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_ANCMMTR" />
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="TotalschMap.getAncmMtrDtlView" parameterType="map" resultMap="ancmMtrlDtlResultMap">
+        SELECT /* TotalschMap.getAncmMtrDtlView */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT ANCM_MTR_ID, ANCM_MTR_TITL, ANCM_MTR_CNTN, ANCM_MTR_HTML_CNTN, ANCM_TYP_CD
+                             , ANCM_STT_DT, ANCM_END_DT, ANCM_CHPR_ID, USE_YN, INQ_CNT
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('KMS040', ANCM_TYP_CD, #{cntr_cd}) AS ANCM_TYP_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.ANCM_CHPR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS ANCM_CHPR_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE B
+                                                   WHERE B.RLTN_ITEM_ID = A.ANCM_MTR_ID
+                                                     AND B.RLTN_TBL_NM = 'TB_ANCM_MTR_DTL'
+                                                     AND B.ATCH_TYP_CD != '30' ) THEN 'Y'
+                                    ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_ANCM_MTR_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_ANCMMTR" />
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id="TotalschMap.updateAncmMtrDtlViewCnt" parameterType="String">
+        UPDATE /* TotalschMap.updateAncmMtrDtlViewCnt */
+               TB_ANCM_MTR_DTL
+           SET INQ_CNT = INQ_CNT + 1
+         WHERE ANCM_MTR_ID = #{ancm_mtr_id}
+    </update>
+    <!-- // 공지사항 -->
+
+
+    <!-- 상담스크립트 -->
+    <sql id="TotalschMap.selectCondition_fragment_CONSSCRT">
+        <where>
+            <if test="cons_scrt_id != null and cons_scrt_id != ''">
+                AND A.CONS_SCRT_ID = #{cons_scrt_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (CONS_SCRT_TITL LIKE '%' || #{srch_word} || '%'
+                  OR CONS_SCRT_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+        </where>
+    </sql>
+    <resultMap id="TotalschMap.resultConsScrt" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="cons_scrt_id" column="cons_scrt_id" />
+        <result property="cons_typ1_cd" column="cons_typ1_cd" />
+        <result property="cons_typ2_cd" column="cons_typ2_cd" />
+        <result property="cons_typ3_cd" column="cons_typ3_cd" />
+        <result property="use_yn" column="use_yn" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="cons_typ1_nm" column="cons_typ1_nm" />
+        <result property="cons_typ2_nm" column="cons_typ2_nm" />
+        <result property="cons_typ3_nm" column="cons_typ3_nm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="cons_scrt_titl" column="cons_scrt_titl" />
+        <result property="cons_scrt_cntn" column="cons_scrt_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+    </resultMap>
+
+    <resultMap id="TotalschMap.resultConsScrtView" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="cons_scrt_id" column="cons_scrt_id" />
+        <result property="cons_typ1_cd" column="cons_typ1_cd" />
+        <result property="cons_typ2_cd" column="cons_typ2_cd" />
+        <result property="cons_typ3_cd" column="cons_typ3_cd" />
+        <result property="use_yn" column="use_yn" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="cons_typ1_nm" column="cons_typ1_nm" />
+        <result property="cons_typ2_nm" column="cons_typ2_nm" />
+        <result property="cons_typ3_nm" column="cons_typ3_nm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="cons_scrt_titl" column="cons_scrt_titl" />
+        <result property="cons_scrt_cntn" column="cons_scrt_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="cons_scrt_html_cntn" column="cons_scrt_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+    </resultMap>
+
+    <select id="TotalschMap.getConsScrtCount" parameterType="map" resultType="int">
+        SELECT /* TotalschMap.getConsScrtCount */
+               COUNT(*)
+          FROM TB_CONS_SCRT_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_CONSSCRT" />
+    </select>
+
+    <select id="TotalschMap.getConsScrtList" parameterType="map" resultMap="TotalschMap.resultConsScrt">
+        SELECT /* TotalschMap.getConsScrtList */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT CONS_SCRT_ID, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, CONS_SCRT_TITL
+                            , CONS_SCRT_CNTN, USE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM
+                            , AMND_ID, AMNT_DTTM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.AMND_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.RGSR_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                         FROM TB_CONS_SCRT_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_CONSSCRT" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="TotalschMap.getConsScrtView" parameterType="map" resultMap="TotalschMap.resultConsScrtView">
+        SELECT /* TotalschMap.getConsScrtView */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT CONS_SCRT_ID, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, CONS_SCRT_TITL
+                            , CONS_SCRT_CNTN, CONS_SCRT_HTML_CNTN, USE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM
+                            , AMND_ID, AMNT_DTTM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                            , (SELECT CONS_TYP_NM
+                                 FROM TB_CONS_TYP_CD
+                                WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                  AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.AMND_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.RGSR_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                         FROM TB_CONS_SCRT_DTL A
+        <include refid="TotalschMap.selectCondition_fragment_CONSSCRT" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+    <!-- // 상담스크립트 -->
+
+</mapper>

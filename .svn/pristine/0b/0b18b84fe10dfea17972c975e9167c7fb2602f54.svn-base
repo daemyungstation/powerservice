@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="NiceCreditMap">
+
+    <!-- Safe-Key 조회 이력 생성 -->
+    <insert id="NiceCreditMap.insertNiceSafekeySearchHis" parameterType="map">
+        INSERT /* NiceCreditMap.insertNiceSafekeySearchHis */
+          INTO NICE_SAFEKEY_SRCH_HIS
+        (
+               ICNT         /* 순번 */
+             , MEM_NO    	/* 고유번호 */
+             , NAME        	/* 성명 */
+             , CELL        	/* 휴대폰 */
+             , BRTH_MON_DAY	/* 생년월일 */
+             , SEX         	/* 성별 */
+             , SAFEKEY     	/* SAFEKEY */
+             , RETURN_CODE  /* 응답코드 */
+             , EMPL_NO  	/* 사번 */
+             , FST_INS_UID 	/* 최초입력자 */
+             , FST_INS_DT 	/* 최초입력시간 */
+        )
+        VALUES
+        (
+               (SELECT NVL(MAX(ICNT),0) + 1 FROM NICE_SAFEKEY_SRCH_HIS)
+             , #{mem_no}
+             , #{name}
+             , #{cell}
+             , #{brth_mon_day}
+             , LPAD(#{sex}, 4, '0')
+             , #{safekey}
+             , #{return_code}
+             , #{empl_no}
+             , #{loginid}
+             , SYSDATE
+        )
+    </insert>
+
+    <!-- 신용등급 조회 이력 생성 -->
+    <insert id="NiceCreditMap.insertNiceCreditSearchHis" parameterType="map">
+        INSERT /* NiceCreditMap.insertNiceCreditSearchHis */
+          INTO NICE_CREDIT_SRCH_HIS
+        (
+               SAFEKEY     		/* SAFEKEY */
+             , ICNT        		/* 순번 */
+             , EMPLE_NO 		/* 사번 */
+             , SRCH_DT     		/* 조회일자 */
+             , FITNESS_YN		/* 적합여부 */
+             , MEM_NO 			/* 고유번호 */
+             , CREDIT_RMK    	/* 신용비고 */
+             , RETURN_CODE    	/* 응답코드 */
+             , FST_INS_UID  	/* 최초입력자ID */
+             , FST_INS_DT		/* 최초입력시간 */
+        )
+        VALUES
+        (
+               #{safekey}
+             , (SELECT NVL(MAX(ICNT),0) + 1 FROM NICE_CREDIT_SRCH_HIS WHERE SAFEKEY = #{safekey})
+             , #{emple_no}
+             , #{srch_dt}
+             , #{fitness_yn}
+             , #{mem_no}
+             , #{credit_rmk}
+             , #{return_code}
+             , #{loginid}
+             , SYSDATE
+        )
+    </insert>
+
+    <!-- NICE Safe-Key 발급권유 SMS 발송내역 등록 -->
+    <insert id="NiceCreditMap.insertNiceSafekeySmsHis" parameterType="map">
+        INSERT INTO NICE_SAFEKEY_SMS_HIS
+        (
+               ICNT         	/* 순번 */
+             , REQ_SEQ      	/* 요청일련번호 */
+             , MEM_NO      		/* 회원명 */
+             , MEM_NM      		/* 회원명 */
+             , BRTH_MON_DAY  	/* 생년월일 */
+             , CELL      		/* 휴대전화 */
+             , SEX      		/* 성별 */
+             , EMPL_NO     		/* 사번 */
+             , REQ_DTHMS    	/* 요청일시분초 */
+             , ISSUE_DTHMS  	/* 발급완료일시분초 */
+             , SAFEKEY      	/* SAFEKEY */
+             , AUTH_TYPE      	/* 인증구분 */
+             , AUTH_RESULT_CODE	/* 인증결과코드 */
+             , RETURN_CODE     	/* 응답코드 */
+             , RETURN_MSG     	/* 응답메시지 */
+             , FST_INS_UID  	/* 최초입력자ID */
+             , FST_INS_DT		/* 최초입력일시분초 */
+             , LST_UPD_UID  	/* 최종수정자ID */
+             , LST_UPD_DT		/* 최종수정일시분초 */
+             , TEAM_CD			/* 팀코드 */
+        )
+        VALUES
+        (
+               (SELECT NVL(MAX(ICNT),0) + 1 FROM NICE_SAFEKEY_SMS_HIS)
+             , #{req_seq}
+             , #{mem_no}
+             , #{mem_nm}
+             , #{brth_mon_day}
+             , #{cell}
+             , #{sex}
+             , #{empl_no}
+             , #{req_dthms}
+             , #{issue_dthms}
+             , #{safekey}
+             , NULL
+             , NULL
+             , #{return_code}
+             , #{return_msg}
+             , #{lgnId}
+             , SYSDATE
+             , NULL
+             , NULL
+             , #{team_cd}
+        )
+    </insert>
+
+    <!-- NICE Safe-Key 발급권유 SMS 발송후 Safe-Key 발급결과 업데이트 -->
+    <update id="NiceCreditMap.updateNiceSafekeySmsSendResult" parameterType="map">
+        UPDATE /* NiceCreditMap.updateNiceSafekeySmsSendResult */
+               NICE_SAFEKEY_SMS_HIS
+           SET SMS_SEND_RETURN_CODE		= #{return_code}  					/* SMS발송결과코드 */
+             , LST_UPD_UID				= #{loginid}  						/* 최종수정자ID */
+             , LST_UPD_DT 				= SYSDATE							/* 최종수정일시분초 */
+         WHERE REQ_SEQ		= #{req_seq}
+            AND REQ_DTHMS	= #{req_dthms}
+    </update>
+
+    <!-- NICE Safe-Key 발급권유 SMS 발송후 Safe-Key 발급결과 업데이트 : 나이스에서 결과를 넘겨받은 경우 -->
+    <update id="NiceCreditMap.updateNiceSafekeyMobileIssueResult" parameterType="map">
+        UPDATE /* NiceCreditMap.updateNiceSafekeyMobileIssueResult */
+               NICE_SAFEKEY_SMS_HIS
+           SET ISSUE_DTHMS		= #{issue_dthms}  						/* 발급완료일시분초 */
+             , SAFEKEY			= #{safekey}      						/* SAFEKEY */
+             , AUTH_TYPE		= #{auth_type}      					/* 인증구분 */
+             , AUTH_RESULT_CODE	= #{auth_result_code}      				/* 인증결과코드 */
+             , RETURN_CODE		= #{return_code}      					/* 응답코드 */
+             , RETURN_MSG		= #{return_msg}      					/* 응답메시지 */
+             , LST_UPD_UID		= #{loginid}  							/* 최종수정자ID */
+             , LST_UPD_DT 		= SYSDATE								/* 최종수정일시분초 */
+         WHERE REQ_SEQ		= #{req_seq}
+            AND REQ_DTHMS	= #{req_dthms}
+    </update>
+
+    <!-- NICE Safe-Key 발급권유 SMS 발송후 24시간 만료한 경우 실패로처리 -->
+    <update id="NiceCreditMap.updateExpiredSafekeySmsHist" parameterType="map">
+        UPDATE /* NiceCreditMap.updateExpiredSafekeySmsHist */
+               NICE_SAFEKEY_SMS_HIS
+           SET AUTH_TYPE		= '0'      					/* 인증구분 */
+             , AUTH_RESULT_CODE	= 'C003'      				/* 인증결과코드 */
+             , RETURN_CODE		= '0000'      				/* 응답코드 */
+             , LST_UPD_UID		= #{rgsr_id}  				/* 최종수정자ID */
+             , LST_UPD_DT 		= SYSDATE					/* 최종수정일시분초 */
+         WHERE FST_INS_DT <![CDATA[<]]> (SYSDATE - 1)
+            AND RETURN_CODE IS NULL
+    </update>
+
+    <!-- NICE Safe-Key 발급권유 SMS 발송후 Safe-Key 발급결과 업데이트 : 시스템 내부 업무 담당자가 직접 실행 -->
+    <update id="NiceCreditMap.updateSafeKeyIssueStat" parameterType="map">
+        UPDATE /* NiceCreditMap.updateSafeKeyIssueStat */
+               NICE_SAFEKEY_SMS_HIS
+           SET ISSUE_DTHMS		= #{issue_dthms}  						/* 발급완료일시분초 */
+             , SAFEKEY			= #{safekey}      						/* SAFEKEY */
+             , AUTH_TYPE		= #{auth_type}      					/* 인증구분 */
+             , AUTH_RESULT_CODE	= #{auth_result_code}      				/* 인증결과코드 */
+             , RETURN_CODE		= #{return_code}      					/* 응답코드 */
+             , LST_UPD_UID		= #{rgsr_id}  							/* 최종수정자ID */
+             , LST_UPD_DT 		= SYSDATE								/* 최종수정일시분초 */
+         WHERE REQ_SEQ		= #{req_seq}
+            AND REQ_DTHMS	= #{req_dthms}
+    </update>
+
+    <!-- NICE Safe-Key 발급 SMS 발송 -->
+    <sql id="NiceCreditMap.getMoNiceSafeKeySms_cond">
+        <if test="mem_nm != null and mem_nm != ''">
+            AND A.MEM_NM LIKE '%' || #{mem_nm} || '%'
+        </if>
+        <if test="cell != null and cell != ''">
+       AND A.CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+        </if>
+        <if test="sex != null and sex != ''">
+       AND A.SEX = #{sex}
+        </if>
+        <if test="brth_mon_day != null and brth_mon_day != ''">
+       AND A.BRTH_MON_DAY = #{brth_mon_day}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+       AND B.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="emple_no != null and emple_no != ''">
+       AND A.EMPLE_NO = #{emple_no}
+        </if>
+        <if test="team_cd != null and team_cd != ''">
+       AND A.TEAM_CD = #{team_cd}
+        </if>
+        <if test="fr_dt != null and to_dt != null">
+       AND A.REQ_DTHMS BETWEEN #{fr_dt}||'000000' AND #{to_dt}||'235959'
+        </if>
+        <if test="safekey_null_yn != null and safekey_null_yn.equals('Y')">
+       AND (
+               A.RETURN_CODE IS NULL OR ('0' = A.AUTH_TYPE AND 'C002' = A.AUTH_RESULT_CODE)
+       )
+       AND A.SMS_SEND_RETURN_CODE = '0000'
+        </if>
+    </sql>
+    <!-- //NICE Safe-Key 발급 SMS 발송 -->
+
+    <!-- NICE Safe-Key 발급 SMS 발송 목록 조회 -->
+    <select id="NiceCreditMap.getMoNiceSafeKeySmsList" parameterType="map" resultType="resultMap">
+    SELECT PAGE_LIST.*
+      FROM (
+    SELECT PAGE_LIST_SUB.*
+         , ROWNUM PAGE_INDX
+         FROM
+     (
+    <![CDATA[
+    SELECT /* NiceCreditMap.getMoNiceSafeKeySmsList */
+           A.ICNT         												/* 순번 */
+         , A.REQ_SEQ      												/* 요청일련번호 */
+         , A.MEM_NO      												/* 고유번호 */
+         , A.MEM_NM      												/* 회원명 */
+         , A.CELL      													/* 휴대전화 */
+         , A.BRTH_MON_DAY      											/* 생년월일 */
+         , A.SEX      													/* 성별 */
+         , A.EMPL_NO     												/* 사번 */
+         , A.REQ_DTHMS    												/* 요청일시분초 */
+         , DECODE(A.SMS_SEND_RETURN_CODE, '0000', A.SMS_SEND_RETURN_CODE, '0001')   SMS_SEND_RETURN_CODE 									/* SMS발송결과[0000=정상] */
+         , A.ISSUE_DTHMS  												/* 발급완료일시분초 */
+         , A.SAFEKEY      												/* SAFEKEY */
+         , A.AUTH_TYPE      											/* 인증구분 */
+         , A.AUTH_TYPE || A.AUTH_RESULT_CODE AS AUTH_RESULT_CODE		/* 인증결과코드 */
+         , A.RETURN_CODE      											/* 응답코드 */
+         , A.RETURN_MSG      											/* 응답메시지(오류가 있는 경우만 값 존재) */
+         , A.FST_INS_UID  												/* 최초입력자ID */
+         , TO_CHAR(A.FST_INS_DT, 'YYYYMMDDHH24MISS')	FST_INS_DTHMS 	/* 최초입력일시분초 */
+         , A.LST_UPD_UID  												/* 최종수정자ID */
+         , TO_CHAR(A.LST_UPD_DT, 'YYYYMMDDHH24MISS') LST_UPD_DTHMS		/* 최종수정일시분초 */
+         , CMP_VIEW_YN													/* 캠페인확인여부 */
+         , CI_VAL														/* CI */
+         , TEAM_CD														/* 팀코드 */
+      FROM NICE_SAFEKEY_SMS_HIS A
+     WHERE 1=1
+    ]]>
+    <include refid="NiceCreditMap.getMoNiceSafeKeySms_cond" />
+
+    <choose>
+        <when test="orderBy != null and orderBy != ''">
+     ORDER BY ${orderBy} ${orderDirection}
+        </when>
+        <otherwise>
+     ORDER BY ICNT DESC
+        </otherwise>
+    </choose>
+        ) PAGE_LIST_SUB
+    ) PAGE_LIST
+
+    <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+     WHERE PAGE_INDX >= #{startLine}
+       AND PAGE_INDX < #{endLine}
+        ]]>
+    </if>
+
+    </select>
+
+    <!-- NICE Safe-Key 발급 SMS 건수 조회 -->
+    <select id="NiceCreditMap.getMoNiceSafeKeySmsCount" parameterType="map" resultType="int">
+    SELECT /* NiceCreditMap.getMoNiceSafeKeySmsCount */
+           COUNT(*)
+      FROM NICE_SAFEKEY_SMS_HIS A
+     WHERE 1=1
+    <include refid="NiceCreditMap.getMoNiceSafeKeySms_cond" />
+    </select>
+
+    <!-- NICE Safe-Key 발급 SMS 최종 발송일자 -->
+    <select id="NiceCreditMap.getSmsSendDt" parameterType="map" resultType="resultMap">
+    SELECT /* NiceCreditMap.getSmsSendDt */
+           TO_CHAR(FST_INS_DT, 'YYYYMMDD') SAFEKEY_SMS_SEND_DT
+         , CI_VAL
+      FROM NICE_SAFEKEY_SMS_HIS A
+     WHERE 1=1
+        <include refid="NiceCreditMap.getMoNiceSafeKeySms_cond" />
+     ORDER BY FST_INS_DT DESC
+    </select>
+
+    <!-- NICE Safe-Key 발급 SMS 최종 발송일자 -->
+    <select id="NiceCreditMap.getCurrDbDthms" resultType="resultMap">
+    SELECT /* NiceCreditMap.getCurrDbDthms */
+           TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') CURR_DTHMS
+         , TO_CHAR(SYSDATE, 'YYYYMMDD') CURR_YMD
+      FROM DUAL
+    </select>
+
+    <!--
+    NICE Safe-Key 목록 조회
+        Safekey 발급이력 테이블에서 조회한다.)
+    -->
+    <select id="NiceCreditMap.getSafekeKeyListFromHist" parameterType="map" resultType="resultMap">
+    SELECT /* NiceCreditMap.getSafekeKeyListFromHist */
+           SAFEKEY
+         , CI_VAL
+         , TO_CHAR(FST_INS_DT, 'YYYYMMDD') SAFEKEY_SMS_SEND_DT
+      FROM NICE_SAFEKEY_SMS_HIS A
+     WHERE A.MEM_NM = #{mem_nm}
+       <if test="cell != null and cell != ''">
+       AND A.CELL = REPLACE(#{cell}, '-', '')
+       </if>
+       AND A.SEX = #{sex}
+       AND A.BRTH_MON_DAY = #{brth_mon_day}
+       AND A.SAFEKEY IS NOT NULL
+     ORDER BY FST_INS_DT DESC
+    </select>
+
+</mapper>

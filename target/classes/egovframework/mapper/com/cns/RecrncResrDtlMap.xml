@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="RecrncResrDtlMap">
+
+    <sql id="RecrncResrDtlMap.selectCondition_fragment">
+        <where>
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+            <if test="recrnc_stat_cd != null and recrnc_stat_cd != ''">
+                AND RECRNC_STAT_CD = #{recrnc_stat_cd}
+            </if>
+            <if test="recrnc_stat_cd_list != null and recrnc_stat_cd_list != ''">
+                AND RECRNC_STAT_CD IN (${recrnc_stat_cd_list})
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+                <![CDATA[
+                AND RGSN_DTTM >= RPAD(REPLACE(#{stt_dt}, '-', ''), 14, '0')
+                ]]>
+            </if>
+
+            <if test="end_dt != null and end_dt != ''">
+                <![CDATA[
+                AND RGSN_DTTM <= RPAD(REPLACE(#{end_dt}, '-', ''), 14, '9')
+                ]]>
+            </if>
+            <choose>
+                <when test="bzpt_divs != null and bzpt_divs != ''">
+                    AND BZPT_DIV IN (${bzpt_divs})
+                </when>
+                <when test="cnsr_id != null and cnsr_id != ''">
+                    AND CNSR_ID = #{cnsr_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.CNSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.CNSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD
+                                   AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+            <if test="left_tm != null and left_tm != ''">
+                <choose>
+                    <when test="left_tm == '00'">
+                    <![CDATA[
+                        AND RECRNC_DT || RECRNC_HRMN < TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')
+                    ]]>
+                    </when>
+                    <otherwise>
+                        AND RECRNC_DT || RECRNC_HRMN BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') AND TO_CHAR(SYSDATE + (#{left_tm} * (1/24/60)), 'YYYYMMDDHH24MI')
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="RecrncResrDtlMap.getRecrncResrDtlCount" parameterType="map" resultType="int">
+        SELECT /* RecrncResrDtlMap.getRecrncResrDtlCount */
+               COUNT(*)
+          FROM TB_RECRNC_RESR_DTL A
+        <include refid="RecrncResrDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="RecrncResrDtlMap.getRecrncResrDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* RecrncResrDtlMap.getRecrncResrDtlList */
+               C.*
+             , GETCODENM('CNS030', RECRNC_STAT_CD, CNTR_CD) AS RECRNC_STAT_NM
+             , (TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60 AS LEFT_TM
+             , (CASE WHEN TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') > SYSDATE
+                     THEN TRUNC(TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) || '일 ' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE), 1) * 24), 2, 0) || '시간 ' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24, 1) * 60), 2, 0) || '분 ' ||
+                          LPAD(TRUNC(ROUND(MOD((TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60, 1) * 60)), 2, 0) || '초'
+                     ELSE TRUNC(SYSDATE - TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS')) || '일 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || '시간 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분 ' ||
+                          LPAD(TRUNC(ROUND(MOD((SYSDATE - TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS')) * 24 * 60, 1) * 60)), 2, 0) || '초'
+                END) AS TERM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS TEAM2_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS TEAM1_CD
+                  FROM (SELECT CONSNO, RECRNC_CNTC_TLNO, RECRNC_DT, RECRNC_HRMN, RECRNC_STAT_CD
+                             , CNSR_ID, SIDO_TMCNT, RECRNC_SIDO_DTTM, RECRNC_DTTM
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.CNSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS CNSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.CNSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS TEAM2_CD
+                          FROM (SELECT CONSNO, RECRNC_CNTC_TLNO, RECRNC_DT, RECRNC_HRMN, RECRNC_STAT_CD
+                                     , CNSR_ID, SIDO_TMCNT, RECRNC_SIDO_DTTM, RECRNC_DT || RECRNC_HRMN || '00' AS RECRNC_DTTM
+                                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                                  FROM TB_RECRNC_RESR_DTL A
+        <include refid="RecrncResrDtlMap.selectCondition_fragment" />
+                               ) A
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="RecrncResrDtlMap.insertRecrncResrDtl" parameterType="map">
+        INSERT /* RecrncResrDtlMap.insertRecrncResrDtl */
+          INTO TB_RECRNC_RESR_DTL
+               (CONSNO, RECRNC_CNTC_TLNO, RECRNC_DT, RECRNC_HRMN, RECRNC_STAT_CD
+              , CNSR_ID, SIDO_TMCNT, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{consno}, REPLACE(#{recrnc_cntc_tlno}, '-', ''), REPLACE(#{recrnc_dt}, '-', ''), REPLACE(#{recrnc_hrmn}, ':', ''), '10'
+              , #{rgsr_id}, 0, #{bzpt_div}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="RecrncResrDtlMap.updateRecrncResrDtl" parameterType="map">
+        UPDATE /* RecrncResrDtlMap.updateRecrncResrDtl */
+               TB_RECRNC_RESR_DTL
+           SET AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            <if test="oper_typ == 'update'"> <!-- 담당자 수정 -->
+             , CNSR_ID = #{cnsr_id}
+            </if>
+            <if test="oper_typ == 'close'"> <!-- 임의종결 -->
+             , RECRNC_STAT_CD = '30'
+            </if>
+            <if test="oper_typ == 'make-call'"> <!-- 전화시도 -->
+             , SIDO_TMCNT = SIDO_TMCNT + 1
+             , RECRNC_SIDO_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , RECRNC_STAT_CD = '20' <!-- 전화시도시 처리중 변경 -->
+            </if>
+            <if test="oper_typ == 'csel'"> <!-- 상담화면 수정 -->
+             , RECRNC_STAT_CD = '10'
+             , RECRNC_CNTC_TLNO = REPLACE(#{recrnc_cntc_tlno}, '-', '')
+             , RECRNC_DT =  REPLACE(#{recrnc_dt}, '-', '')
+             , RECRNC_HRMN = REPLACE(#{recrnc_hrmn}, ':', '')
+             , CNSR_ID = #{amnd_id}
+            </if>
+        WHERE CONSNO = #{consno}
+    </update>
+
+
+    <!-- TO-DO 예약콜 탭에서 사용하는 쿼리 -->
+    <select id="RecrncResrDtlMap.getTodoRecrncResrDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* RecrncResrDtlMap.getTodoRecrncResrDtlList */
+               C.*
+             , DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAYFG
+             , GETCODENM('CNS010', ACPG_CHNL_CD, CNTR_CD) AS ACPG_CHNL_NM
+             , GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, CNTR_CD) AS CONS_DSPSMDDL_DTPT_NM
+             , GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD) AS CONS_STAT_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+
+<!--
+    2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서...
+                  FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO, A.ARS_SRVC_ADDR, A.INCO_TLNO
+                             , A.CALL_ID, A.MEM_NO, A.ACPG_CHNL_CD, A.ACPG_DTTM, A.ACTP_ID
+                             , A.TOTL_CONS_HR, A.CLNT_NM, A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD
+                             , A.CONS_MEMO_CNTN, A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD, A.CONS_DSPS_DTTM, A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.ADMR_AMNT_YN, A.ADMR_ID, A.ADMR_AMNT_DTTM, A.CNTR_CD
+                             , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.MEM_NM, A.SEX, A.BRTH_MON_DAY, A.CI_VAL, A.IDN_NO
+                             , A.HOME_TEL, A.CELL, A.WRPL_TEL, A.HOME_ZIP, A.HOME_ADDR
+                             , A.HOME_ADDR2, A.CREDIT_RATING, A.CRDT_MNG_NO, A.EMAIL
+                             , C.RECRNC_CNTC_TLNO, C.RECRNC_DT, C.RECRNC_HRMN, C.SIDO_TMCNT, C.RECRNC_DTTM
+                             , (SELECT D.CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD D
+                                 WHERE D.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND D.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                          FROM TB_CONS A
+                             , (SELECT CONSNO, RECRNC_CNTC_TLNO, RECRNC_DT, RECRNC_HRMN, RECRNC_STAT_CD
+                                     , CNSR_ID, SIDO_TMCNT, RECRNC_DT || RECRNC_HRMN || '00' AS RECRNC_DTTM
+                                  FROM TB_RECRNC_RESR_DTL
+                                 WHERE RECRNC_STAT_CD IN ('10','20')) C
+                         WHERE A.CONSNO = C.CONSNO
+-->
+
+                    FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO, A.ARS_SRVC_ADDR, A.INCO_TLNO
+                             , A.CALL_ID, A.MEM_NO, A.ACPG_CHNL_CD, A.ACPG_DTTM, A.ACTP_ID
+                             , A.TOTL_CONS_HR, A.CLNT_NM, A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD
+                             , A.CONS_MEMO_CNTN, A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD, A.CONS_DSPS_DTTM, A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.ADMR_AMNT_YN, A.ADMR_ID, A.ADMR_AMNT_DTTM, A.CNTR_CD
+                             , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , MEM.MEM_NM, A.SEX, A.BRTH_MON_DAY, MEM.CI_VAL, A.IDN_NO
+                             , MEM.HOME_TEL, MEM.CELL, MEM.WRPL_TEL, MEM.HOME_ZIP, MEM.HOME_ADDR
+                             , MEM.HOME_ADDR2, A.CREDIT_RATING, A.CRDT_MNG_NO, MEM.EMAIL
+                             , C.RECRNC_CNTC_TLNO, C.RECRNC_DT, C.RECRNC_HRMN, C.SIDO_TMCNT, C.RECRNC_DTTM
+                             , (SELECT D.CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD D
+                                 WHERE D.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND D.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                          FROM TB_CONS A
+                                 LEFT OUTER JOIN
+                               LF_DMUSER.MEMBER MEM
+                                  ON A.MEM_NO = MEM.MEM_NO
+                             , (SELECT CONSNO, RECRNC_CNTC_TLNO, RECRNC_DT, RECRNC_HRMN, RECRNC_STAT_CD
+                                     , CNSR_ID, SIDO_TMCNT, RECRNC_DT || RECRNC_HRMN || '00' AS RECRNC_DTTM
+                                  FROM TB_RECRNC_RESR_DTL
+                                 WHERE RECRNC_STAT_CD IN ('10','20')) C
+                         WHERE A.CONSNO = C.CONSNO
+                       <if test="user_id != null and user_id != ''">
+                           AND C.CNSR_ID = #{user_id}
+                       </if>
+                       <if test="consno != null and consno != ''">
+                           AND A.CONSNO = #{consno}
+                       </if>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+    <!-- <select id="RecrncResrDtlMap.getTodoRecrncResrDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* RecrncResrDtlMap.getTodoRecrncResrDtlList */
+               C.*
+             , DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAYFG
+             , GETCODENM('CNS010', ACPG_CHNL_CD, CNTR_CD) AS ACPG_CHNL_NM
+             , GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, CNTR_CD) AS CONS_DSPSMDDL_DTPT_NM
+             , GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD) AS CONS_STAT_NM
+             , GETCODENM('CUS010', CUST_TEND_CD, CNTR_CD) AS CUST_TEND_NM
+             , GETCODENM('CUS020', CUST_DIV_CD, CNTR_CD) AS CUST_DIV_NM
+             , GETCODENM('CUS030', CUST_TYP_CD, CNTR_CD) AS CUST_TYP_NM
+             , GETCODENM('CUS090', GNDR_CD, CNTR_CD) AS GNDR_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO, A.ARS_SRVC_ADDR, A.INCO_TLNO
+                             , A.CALL_ID, A.CUST_ID, A.ACPG_CHNL_CD, A.ACPG_CHNL_DTPT_CD, A.ACPG_DTTM
+                             , A.ACTP_ID, A.TOTL_CONS_HR, A.ACPG_TRGT_CD, A.CLNT_NM, A.CLNT_CNTC_TLNO
+                             , A.CLNT_CUST_RLTN_CD, A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD, A.CONS_QUST_CNTN
+                             , A.CONS_ANSR_CNTN, A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD, A.CONS_DSPS_DTTM, A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.TRCT_BOX_ID, A.TRCT_SQNO, A.ADMR_AMNT_YN, A.ADMR_ID
+                             , A.ADMR_AMNT_DTTM
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , B.CUST_NM, B.CUST_TYP_CD, B.CUST_DIV_CD, B.CUST_TEND_CD, B.TLNO
+                             , B.CLPH_NO, B.FAX_NO, B.EMIL_ADDR, B.UNFC_CSNO, B.HMPG_ID
+                             , B.CUST_IDNT_NO, B.SNS_ID, B.FIST_CONS_CD, B.FIST_CONS_DTLS_CD, B.CUST_BRDT
+                             , B.SLCN_LUNR_DIV_CD, B.GNDR_CD, B.NTFR_DIV_CD, B.RPPR_NM, B.BZTP_CD
+                             , B.BIZ_ITMS_CD, B.BZST_CD
+                             , C.RECRNC_CNTC_TLNO, C.RECRNC_DT, C.RECRNC_HRMN, C.SIDO_TMCNT, C.RECRNC_DTTM
+                             , (SELECT D.CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD D
+                                 WHERE D.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND D.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                          FROM TB_CONS A
+                             , TB_CUST_BASI B
+                             , (SELECT CONSNO, RECRNC_CNTC_TLNO, RECRNC_DT, RECRNC_HRMN, RECRNC_STAT_CD
+                                     , CNSR_ID, SIDO_TMCNT, RECRNC_DT || RECRNC_HRMN || '00' AS RECRNC_DTTM
+                                  FROM TB_RECRNC_RESR_DTL
+                                 WHERE RECRNC_STAT_CD IN ('10','20')) C
+                         WHERE A.CONSNO = C.CONSNO
+                           AND A.CUST_ID = B.CUST_ID(+)
+                       <if test="user_id != null and user_id != ''">
+                           AND C.CNSR_ID = #{user_id}
+                       </if>
+                       <if test="consno != null and consno != ''">
+                           AND A.CONSNO = #{consno}
+                       </if>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select> -->
+
+</mapper>

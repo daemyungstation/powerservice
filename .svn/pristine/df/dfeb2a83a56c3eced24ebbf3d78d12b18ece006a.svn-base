@@ -1,0 +1,795 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwExcelMap">
+    <!-- PS 세션, 온라인 세션 대용량용 엑셀 map-->
+    
+    <select id="DlwExcelMap.getUplusMainExcelCount" parameterType="map" resultType="int">
+        SELECT /* DlwExcelMap.getUplusMainExcelCount */
+               COUNT(*)
+          FROM (SELECT 
+					    LT.ID_NO,
+					    LT.AGENT_EMP_NM,
+					    LT.U_DLR_NM,
+					    LT.AGENT_EMP_TEL,
+					    LT.PRDCT_NM,
+					    LT.PRDCT_NM2,
+					    LT.MAIN_CONT_TYPE,
+					    LT.NAME,
+					    LT.DISCOUNT_CTN,
+					    LT.HOME_PRD_NUM,
+					    LT.U_PROD_NM,
+					    LT.U_PROD_NO,
+					    LT.HP,
+					    LT.REG_DTM,
+					    LT.CALL_STTS,
+					    LT.MEMO,
+                        NVL((SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = TCA.CNSR_ID),'미정') AS CNSR_NM
+				FROM PS_WILLVI.TB_LGUPLUS_TARGET LT LEFT OUTER JOIN
+                     PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON LT.CMPG_ID = TCA.CMPG_ID AND LT.TRGT_LIST_ID = TCA.TRGT_LIST_ID AND LT.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND LT.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+		        WHERE  1=1
+				<if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+	            </if>
+	            <if test="join_method != null and join_method != ''">
+	               AND LT.JOIN_METHOD = #{join_method}
+	            </if>
+				<if test="dpms_resl_cd != null and dpms_resl_cd != ''">
+	               AND TCA.DPMS_RESL_CD = #{dpms_resl_cd}
+	            </if>
+	            <if test="dpms_stat_cd != null and dpms_stat_cd != ''">
+	               AND TCA.DPMS_STAT_CD = #{dpms_stat_cd}
+	            </if>
+				<if test="cnsr_nm != null and cnsr_nm != ''">
+	                AND TCA.CNSR_ID IN (SELECT USER_ID FROM PS_WILLVI.TB_USER WHERE USER_NM = #{cnsr_nm})
+	             </if>
+	             <if test="id_no != null and id_no != ''">
+	                AND  LT.ID_NO = #{id_no}
+	             </if>  
+	             <if test="home_prd_num != null and home_prd_num != ''">
+	                AND  LT.HOME_PRD_NUM = #{home_prd_num}
+	             </if>  
+	             <if test="u_dlr_nm != null and u_dlr_nm != ''">
+	                AND  LT.U_DLR_NM LIKE '%' || #{u_dlr_nm} || '%'
+	             </if>  
+	             <if test="wh_store_nm != null and wh_store_nm != ''">
+	                AND  LT.WH_STORE_NM LIKE #{wh_store_nm} || '%'
+	             </if>  
+	            <if test="mem_nm != null and mem_nm != ''">
+	                AND  LT.NAME LIKE #{mem_nm} || '%'
+	             </if>
+	             <if test="cell != null and cell != ''">
+				    AND REPLACE(LT.HP, '-', '') = REPLACE( #{cell}, '-', '')
+				</if>
+	            <if test="memo != null and memo != ''">
+	                AND  LT.MEMO LIKE '%' || #{memo} || '%'
+	             </if>  
+	            <if test="dpms_resl_cntn != null and dpms_resl_cntn != ''">
+	                AND  TCA.DPMS_RESL_CNTN LIKE '%' || #{dpms_resl_cntn} || '%'
+	             </if>  
+	             <if test="agent_emp_nm != null and agent_emp_nm != ''">
+	                AND  LT.AGENT_EMP_NM = #{agent_emp_nm}
+	             </if>  
+          ) MAIN_TBL
+          WHERE 1=1
+    </select>
+    
+	<select id="DlwExcelMap.getUplusMainExcelList" parameterType="map" resultType="resultMap">
+		
+        SELECT /* DlwExcelMap.getUplusMainExcelList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY LT.REG_DTM DESC) AS PAGE_INDX,
+	               LT.ID_NO,
+				   LT.AGENT_EMP_NM,
+				   LT.U_DLR_NM,
+				   LT.AGENT_EMP_TEL,
+				   LT.PRDCT_NM,
+				   LT.PRDCT_NM2,
+				   LT.MAIN_CONT_TYPE,
+				   LT.NAME,
+				   LT.DISCOUNT_CTN,
+				   LT.HOME_PRD_NUM,
+				   LT.U_PROD_NM,
+				   LT.U_PROD_NO,
+				   LT.HP,
+				   TO_CHAR(LT.REG_DTM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DTM,
+				   LT.CALL_STTS,
+				   LT.MEMO,
+				   LT.WH_STORE_NM,
+				   CASE WHEN LT.JOIN_METHOD = 'fixedLine' THEN '유선'
+	                    WHEN LT.JOIN_METHOD = 'electronicContract' THEN '전자'
+	                    ELSE LT.JOIN_METHOD END AS JOIN_METHOD,
+                   PS_WILLVI.GETCODENM('CAM090', TCA.DPMS_RESL_CD, TCA.CNTR_CD) AS DPMS_RESL_NM,
+                   PS_WILLVI.GETCODENM('CAM100', TCA.DPMS_STAT_CD, TCA.CNTR_CD) AS DPMS_STAT_NM,
+                   NVL((SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = TCA.CNSR_ID),'미정') AS CNSR_NM,
+                   TCA.DPMS_RESL_CNTN,
+                   CASE WHEN LT.CALL_TYPE = 'quickTell' THEN '빠른통화'
+                        WHEN LT.CALL_TYPE = 'chooseTell' THEN '희망통화'
+                        ELSE '' END CALL_TYPE_NM,
+                   CASE WHEN LT.CONTRACT_TYPE = 'oldContract' THEN '재접수'
+                        WHEN LT.CONTRACT_TYPE = 'newContract' THEN '신규'
+                        ELSE '' END CONTRACT_TYPE_NM,
+                   LT.CALL_DATE,
+                   LT.CALL_TIME,
+                   CASE WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(LT.HP, -1)) = 'T20100' AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') >= NVL(#{cmpg_day}, '20221102') THEN '윌앤비전'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(LT.HP, -1)) = 'T20300' AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') >= NVL(#{cmpg_day}, '20221102') THEN '효성ITX'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(LT.HP, -1)) = 'T20900' AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') >= NVL(#{cmpg_day}, '20221102') THEN '리딩아이'
+                   ELSE '' END CNTR_NM
+			FROM PS_WILLVI.TB_LGUPLUS_TARGET LT LEFT OUTER JOIN
+	             PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON LT.CMPG_ID = TCA.CMPG_ID AND LT.TRGT_LIST_ID = TCA.TRGT_LIST_ID AND LT.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND LT.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+			WHERE  1=1
+			<if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(LT.REG_DTM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+            </if>
+            <if test="join_method != null and join_method != ''">
+               AND LT.JOIN_METHOD = #{join_method}
+            </if>
+			<if test="dpms_resl_cd != null and dpms_resl_cd != ''">
+               AND TCA.DPMS_RESL_CD = #{dpms_resl_cd}
+            </if>
+            <if test="dpms_stat_cd != null and dpms_stat_cd != ''">
+               AND TCA.DPMS_STAT_CD = #{dpms_stat_cd}
+            </if>
+			<if test="cnsr_nm != null and cnsr_nm != ''">
+                AND TCA.CNSR_ID IN (SELECT USER_ID FROM PS_WILLVI.TB_USER WHERE USER_NM = #{cnsr_nm})
+             </if>
+             <if test="id_no != null and id_no != ''">
+                AND  LT.ID_NO = #{id_no}
+             </if>  
+             <if test="home_prd_num != null and home_prd_num != ''">
+                AND  LT.HOME_PRD_NUM = #{home_prd_num}
+             </if>  
+             <if test="u_dlr_nm != null and u_dlr_nm != ''">
+                AND  LT.U_DLR_NM LIKE '%' || #{u_dlr_nm} || '%'
+             </if>  
+             <if test="wh_store_nm != null and wh_store_nm != ''">
+                AND  LT.WH_STORE_NM LIKE #{wh_store_nm} || '%'
+             </if>  
+            <if test="mem_nm != null and mem_nm != ''">
+                AND  LT.NAME LIKE #{mem_nm} || '%'
+             </if>
+             <if test="cell != null and cell != ''">
+			    AND REPLACE(LT.HP, '-', '') = REPLACE( #{cell}, '-', '')
+			</if>
+            <if test="memo != null and memo != ''">
+                AND  LT.MEMO LIKE '%' || #{memo} || '%'
+             </if>  
+            <if test="dpms_resl_cntn != null and dpms_resl_cntn != ''">
+                AND  TCA.DPMS_RESL_CNTN LIKE '%' || #{dpms_resl_cntn} || '%'
+             </if>
+             <if test="agent_emp_nm != null and agent_emp_nm != ''">
+                AND  LT.AGENT_EMP_NM = #{agent_emp_nm}
+             </if>  
+		) MAIN_TBL
+		WHERE 1=1
+		
+		<if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+	<select id="DlwExcelMap.getSmartLifeExcelCount" parameterType="map" resultType="int">
+        SELECT /* DlwExcelMap.getSmartLifeExcelCount */
+               COUNT(*)
+          FROM (SELECT NAME
+		             , TEL
+		             , HP
+		             , OSC_CNSL_SEQ
+		             , PRDCT_NM
+		             , PRDCT_NM2
+		             , AGENT_CD
+		             , AGENT_EMP_NM
+		             , MAIN_CONT_TYPE
+		             , FUNNEL
+		             , MEMO
+		             , SLLR_CTEL
+		             , CALL_STTS
+		             , CNSLR
+		             , REG_DTM
+		        FROM OM_OSC_CNSL_MST@DMWEB OCM
+		             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                     LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+		        WHERE B2B_STTS = 'SMART'
+		        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+	            </if>
+	            <if test="cnslr != null and cnslr != ''">
+	                AND CNSLR = #{cnslr}
+	            </if>
+	            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+	                AND AGENT_EMP_NM = #{agent_emp_nm}
+	            </if>
+	            <if test="name != null and name != ''">
+	                AND NAME = #{name}
+	            </if>
+	            <if test="hp != null and hp != ''">
+	                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+	            </if>
+	            <if test="memo != null and memo != ''">
+	                AND MEMO LIKE #{memo} || '%'
+	            </if>
+                ) A
+    </select>
+    
+	<select id="DlwExcelMap.getSmartLifeExcelList" parameterType="map" resultType="resultMap">
+		
+        SELECT /* DlwExcelMap.getSmartLifeExcelList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY REG_DTM DESC) AS PAGE_INDX
+	             , NAME
+	             , TEL
+	             , HP
+	             , OSC_CNSL_SEQ
+	             , PRDCT_NM
+	             , PRDCT_NM2
+	             , AGENT_CD
+	             , AGENT_EMP_NM
+	             , MAIN_CONT_TYPE
+	             , CASE WHEN FUNNEL = '1' THEN '온라인'
+				        WHEN FUNNEL = '2' THEN '홈쇼핑'
+				        WHEN FUNNEL = '3' THEN '가전'
+				        WHEN FUNNEL = '4' THEN '모바일'
+				        ELSE FUNNEL END AS FUNNEL
+	             , MEMO
+	             , SLLR_CTEL
+	             , CALL_STTS
+	             , CNSLR
+	             , TO_CHAR(REG_DTM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DTM
+	             , TCA.DPMS_RESL_CNTN
+	             , CASE WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD@DMLIFE
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(OCM.HP, -1)) = 'T20100' AND SUBSTR(TCD.RGSN_DTTM, 0, 8) >= NVL(#{cmpg_day}, '20221102') THEN '윌앤비전'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD@DMLIFE
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(OCM.HP, -1)) = 'T20300' AND SUBSTR(TCD.RGSN_DTTM, 0, 8) >= NVL(#{cmpg_day}, '20221102') THEN '효성ITX'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD@DMLIFE
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(OCM.HP, -1)) = 'T20900' AND SUBSTR(TCD.RGSN_DTTM, 0, 8) >= NVL(#{cmpg_day}, '20221102') THEN '리딩아이'
+                   ELSE '' END CNTR_NM
+                 , OCM.AGENT_CODE1
+	        FROM OM_OSC_CNSL_MST@DMWEB OCM
+	             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                 LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+	        WHERE B2B_STTS = 'SMART'
+	        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+            </if>
+            <if test="cnslr != null and cnslr != ''">
+                AND CNSLR = #{cnslr}
+            </if>
+            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+                AND AGENT_EMP_NM = #{agent_emp_nm}
+            </if>
+            <if test="name != null and name != ''">
+                AND NAME = #{name}
+            </if>
+            <if test="hp != null and hp != ''">
+                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+            </if>
+            <if test="memo != null and memo != ''">
+                AND MEMO LIKE #{memo} || '%'
+            </if>
+		) MAIN_TBL
+		WHERE 1=1
+    </select>
+    
+	
+    <!-- 특수회원 카운트조회 -->
+    <select id="DlwExcelMap.getCustExceptionCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwExcelMap.getCustExceptionCount */
+               COUNT(*)
+          FROM LF_DMUSER.TB_BANKRUPTCY_MNG TBM INNER JOIN
+          MEM_PROD_ACCNT MPA ON TBM.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+          MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+          PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD 
+        WHERE 1=1 
+        <if test="accnt_no != null and accnt_no != ''"> 
+        AND TBM.ACCNT_NO = #{accnt_no}
+        </if>
+	    <if test="mem_nm != null and mem_nm != ''">
+               AND TBM.MEM_NM LIKE '%' || #{mem_nm} || '%'
+        </if>	     
+        <if test="bankr_gbn != null and bankr_gbn != ''">
+        AND TBM.BANKR_GBN = #{bankr_gbn}
+        </if>
+        <if test="del_fg != null and del_fg != ''">
+        AND TBM.DEL_FG = #{del_fg}
+        </if>
+        
+        <if test="date_type == '01'"> 
+             <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                 AND  TBM.RECORD_DT <![CDATA[>=]]> #{stt_dt}
+                 AND  TBM.RECORD_DT <![CDATA[<=]]> #{end_dt}
+             </if> 
+         </if>
+         
+        <if test="date_type == '02'">
+             <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                 AND  TBM.CLOSE_DT <![CDATA[>=]]> #{stt_dt}
+                 AND  TBM.CLOSE_DT <![CDATA[<=]]> #{end_dt}
+             </if> 
+         </if>         
+
+    </select>
+    
+    <!-- 특수회원 조회 -->
+    <select id="DlwExcelMap.getCustExceptionList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwExcelMap.getCustExceptionList */   
+               Z.*
+          FROM (SELECT X.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                        </when>
+                    </choose> 
+                  FROM ( SELECT 
+                  				SEQ,
+							    ACCNT_NO,
+							    KSTBIT, 
+							    MEM_NM,
+							    PROD_CD,
+							    PROD_NM,
+							    RESN_PROC_YN,
+							    PAY_TOT_AMT, 
+							    REL_TOT_AMT,
+							    ADD_TOT_AMT,
+							    NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL.PROD_CD AND NO <![CDATA[<=]]> TRUE_CNT),0) AS TRUE_AMT,
+							    NVL((SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL.PROD_CD AND NO <![CDATA[<=]]> REL_CNT),0) AS REL_AMT,
+							    NVL((SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL.PROD_CD AND NO <![CDATA[<=]]> ADD_CNT),0) AS ADD_AMT,
+							    BANKR_GBN,
+							    CASE WHEN BANKR_GBN = 'B' THEN '파산'
+							         WHEN BANKR_GBN = 'R' THEN '회생'
+							         ELSE BANKR_GBN END AS BANKR_GBN_NM,
+							    JURISDICTION,
+							    CASE_NO_1,
+							    CASE_NO_2,
+							    RECORD_DT, 
+							    CASE_CONTENT,
+							    CASE_NO_3,
+							    CASE_NO_4, 
+	                            CLOSE_DT,
+	                            REPAY_AMT,
+	                            (
+	                                NVL((SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL.PROD_CD AND NO  <![CDATA[<=]]>  REL_CNT),0) +
+	                                NVL((SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL.PROD_CD AND NO  <![CDATA[<=]]>  ADD_CNT),0) + 
+	                                NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = TBL.PROD_CD AND NO  <![CDATA[<=]]>  TRUE_CNT),0) +
+	                                REPAY_AMT
+	                            ) - (REL_TOT_AMT + ADD_TOT_AMT) AS DIFF_AMT,
+	                            REG_DM,
+	                            REG_MAN
+							FROM
+							(
+							    SELECT 
+							    	TBM.SEQ,
+							        TBM.ACCNT_NO, 
+							        CASE WHEN MPA.KSTBIT = '01' THEN '대기'
+	                                     WHEN MPA.KSTBIT = '02' THEN '가입'
+	                                     WHEN MPA.KSTBIT = '03' THEN '해약'
+	                                     WHEN MPA.KSTBIT = '04' THEN '행사'
+	                                     WHEN MPA.KSTBIT = '09' THEN '만기' ELSE MPA.KSTBIT END KSTBIT,
+							        TBM.BANKR_GBN,
+							        TBM.JURISDICTION,
+							        TBM.CASE_NO_1,
+							        TBM.CASE_NO_2,
+							        TBM.RECORD_DT,
+							        TBM.CLOSE_DT, 
+							        TBM.CASE_CONTENT,
+							        TBM.CASE_NO_3, 
+							        TBM.CASE_NO_4,
+							        TBM.MEM_NM,
+							        MPA.PROD_CD,
+							        PD.PROD_NM,
+							        NVL(RS.RESN_PROC_YN,'N') AS RESN_PROC_YN,
+							        (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD) AS PAY_TOT_AMT,
+							        (SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD) AS REL_TOT_AMT,
+							        (SELECT SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD) AS ADD_TOT_AMT,
+	                                CASE WHEN KSTBIT = '03' AND NVL(RS.RESN_PROC_YN,'N') = 'Y' THEN 0 
+	                                ELSE (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') 
+	                                END AS TRUE_CNT,
+							        (SELECT COUNT(*) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS REL_CNT,
+							        (SELECT COUNT(*) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS ADD_CNT,
+							        NVL((
+	                                    SELECT 
+	                                        SUM(NVL(AMT * (END_NO - STT_NO + 1),0))
+	                                    FROM LF_DMUSER.TB_BANKRUPTCY_SETUP 
+	                                    WHERE MST_SEQ = TBM.SEQ
+                                	),0) AS REPAY_AMT,
+                                	TO_CHAR(TBM.REG_DM, 'YYYYMMDD') AS REG_DM,
+                                    (SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = TBM.REG_MAN) AS REG_MAN
+							    FROM LF_DMUSER.TB_BANKRUPTCY_MNG TBM INNER JOIN
+							        MEM_PROD_ACCNT MPA ON TBM.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+							        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+							        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                                	RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+							    WHERE 1=1 
+							    <if test="accnt_no != null and accnt_no != ''">
+	                            AND TBM.ACCNT_NO = #{accnt_no}
+	                            </if>
+							    <if test="mem_nm != null and mem_nm != ''">
+	                            AND TBM.MEM_NM LIKE '%' || #{mem_nm} || '%'
+	                            </if>	                            
+	                            <if test="bankr_gbn != null and bankr_gbn != ''">
+	                            AND TBM.BANKR_GBN = #{bankr_gbn}
+	                            </if>
+	                            <if test="del_fg != null and del_fg != ''">
+	                            AND TBM.DEL_FG = #{del_fg}
+	                            </if>
+						        <if test="date_type == '01'"> 
+						             <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+						                 AND  TBM.RECORD_DT <![CDATA[>=]]> #{stt_dt}
+						                 AND  TBM.RECORD_DT <![CDATA[<=]]> #{end_dt}
+						             </if> 
+						         </if>
+						         
+						        <if test="date_type == '02'">
+						             <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+						                 AND  TBM.CLOSE_DT <![CDATA[>=]]> #{stt_dt}
+						                 AND  TBM.CLOSE_DT <![CDATA[<=]]> #{end_dt}
+						             </if> 
+						         </if>   	                            
+							) TBL
+                       ) X
+               ) Z
+
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+
+    </select>
+    
+    <!-- 쇼핑몰회원조회 -->
+    <select id="DlwExcelMap.getMallMemberCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwExcelMap.getMallMemberCount */
+     	       COUNT(*)
+		FROM MEMBER@DLWMALL
+		WHERE 1=1
+		<if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+			AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		</if>
+		<if test="accnt_no != null and accnt_no != ''">
+             AND GOODS_ID = #{accnt_no}
+        </if>
+        <if test="state != null and state != ''">
+             AND STATE = #{state}
+        </if>
+        <if test="sdp_yn != null and sdp_yn != ''">
+             AND SDP_YN = #{state}
+        </if>
+        <if test="yen_che_fg != null and yen_che_fg != ''">
+             AND YEN_CHE_FG = #{state}
+        </if>
+        <if test="mall_use_yn != null and mall_use_yn != ''">
+             AND MALL_USE_YN = #{mall_use_yn}
+        </if>       
+
+    </select>
+    
+    <!-- 쇼핑몰회원 조회 -->
+    <select id="DlwExcelMap.getMallMemberList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwExcelMap.getMallMemberList */
+               *
+        FROM (
+	        SELECT 
+	     	       ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	     	       MEMBER_ID,
+			       GOODS_ID,
+			       CI,
+			       GOODS_NAME,
+			       RESORT_NUM,
+			       STATE,
+			       CASE WHEN STATE = '1' THEN '유효'
+			            WHEN STATE = '3' THEN '행사대기'
+			            WHEN STATE = '4' THEN '행사완료'
+			            WHEN STATE = '5' THEN '해약접수'
+			            WHEN STATE = '6' THEN '해약완료'
+			            WHEN STATE = '7' THEN '양도양수'
+			            ELSE '' END AS STATE_NM,
+			       ACU_AMT,
+			       USE_AMT,
+			       CMPLT_DATE,
+			       CREATE_DATE,
+			       SDP_YN,
+			       CREATE_ID,
+			       YEN_CHE_FG,
+			       MALL_USE_YN
+			FROM MEMBER@DLWMALL
+			WHERE 1=1
+			<if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+				AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			</if>
+			<if test="accnt_no != null and accnt_no != ''">
+	             AND GOODS_ID = #{accnt_no}
+	        </if>
+	        <if test="state != null and state != ''">
+	             AND STATE = #{state}
+	        </if>
+	        <if test="sdp_yn != null and sdp_yn != ''">
+	             AND SDP_YN = #{state}
+	        </if>
+	        <if test="yen_che_fg != null and yen_che_fg != ''">
+	             AND YEN_CHE_FG = #{state}
+	        </if>
+	        <if test="mall_use_yn != null and mall_use_yn != ''">
+	             AND MALL_USE_YN = #{mall_use_yn}
+	        </if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <!-- 쇼핑몰회원조회 -->
+    <select id="DlwExcelMap.getMallCashHistroyCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwExcelMap.getMallCashHistroyCount */ 
+               COUNT(*)
+        FROM DLWMALL.CASH_HISTORY@DLWMALL A
+        WHERE 1=1
+        AND (TYPE IN ('U', 'C') OR INCREMENT_AMT > 0)
+          <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+			AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		</if>
+		<if test="accnt_no != null and accnt_no != ''">
+             AND GOODS_ID = #{accnt_no}
+        </if>
+        <if test="type != null and type != ''">
+             AND TYPE = #{type}
+        </if>    
+
+    </select>
+    
+    <!-- 쇼핑몰회원 조회 -->
+    <select id="DlwExcelMap.getMallCashHistroyList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwExcelMap.getMallCashHistroyList */
+               *
+        FROM (
+	        SELECT 
+	     	       ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	     	       MEMBER_ID
+	              ,GOODS_ID
+	              ,TYPE
+	              ,DECODE(TYPE, 'U', '사용', 'C', '취소', 'A', '적립') AS TYPE_NM
+	              ,AMT
+	              ,MEMO
+	              ,CREATE_DATE
+	              ,CREATE_ID
+	              ,YEN_CHE_FG
+	              ,INCREMENT_AMT
+            FROM DLWMALL.CASH_HISTORY@DLWMALL A
+            WHERE 1=1
+            AND (TYPE IN ('U', 'C') OR INCREMENT_AMT > 0)
+            <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '') and (accnt_no == null or accnt_no == '')">
+				AND TO_CHAR(CREATE_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			</if>
+			<if test="accnt_no != null and accnt_no != ''">
+	             AND GOODS_ID = #{accnt_no}
+	        </if>
+	        <if test="type != null and type != ''">
+	             AND TYPE = #{type}
+	        </if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <select id="DlwExcelMap.getDliveExcelCount" parameterType="map" resultType="int">
+        SELECT /* DlwExcelMap.getDliveExcelCount */
+               COUNT(*)
+          FROM (SELECT NAME
+		             , TEL
+		             , HP
+		             , OSC_CNSL_SEQ
+		             , PRDCT_NM
+		             , PRDCT_NM2
+		             , AGENT_CD
+		             , AGENT_EMP_NM
+		             , MAIN_CONT_TYPE
+		             , FUNNEL
+		             , MEMO
+		             , SLLR_CTEL
+		             , CALL_STTS
+		             , CNSLR
+		             , REG_DTM
+		        FROM OM_OSC_CNSL_MST@DMWEB OCM
+		             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                     LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+		        WHERE B2B_STTS = 'DLIVE'
+		        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+	            </if>
+	            <if test="cnslr != null and cnslr != ''">
+	                AND CNSLR = #{cnslr}
+	            </if>
+	            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+	                AND AGENT_EMP_NM = #{agent_emp_nm}
+	            </if>
+	            <if test="name != null and name != ''">
+	                AND NAME = #{name}
+	            </if>
+	            <if test="hp != null and hp != ''">
+	                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+	            </if>
+	            <if test="memo != null and memo != ''">
+	                AND MEMO LIKE #{memo} || '%'
+	            </if>
+                ) A
+    </select>
+    
+	<select id="DlwExcelMap.getDliveExcelList" parameterType="map" resultType="resultMap">
+		
+        SELECT /* DlwExcelMap.getDliveExcelList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY REG_DTM DESC) AS PAGE_INDX
+	             , OCM.NAME
+	             , OCM.HP
+	             , OCM.OSC_CNSL_SEQ
+	             , OCM.PRDCT_NM
+	             , OCM.AGENT_EMP_NM
+	             , OCM.MAIN_CONT_TYPE
+	             , OCM.MEMO
+	             , OCM.SLLR_NUM
+                 , OCM.SLLR_PART
+                 , OCM.SLLR_CTEL
+	             , OCM.CALL_STTS
+	             , OCM.CNSLR
+	             , TO_CHAR(REG_DTM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DTM
+	             , TCA.DPMS_RESL_CNTN
+	             , OCM.AGENT_NM
+                 , OCM.CALLTIME
+                 , OCM.CSTMR_UNQ_NUM
+                 , OCM.JOIN_PROD
+	        FROM OM_OSC_CNSL_MST@DMWEB OCM
+	             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                 LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+	        WHERE B2B_STTS = 'DLIVE'
+	        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+            </if>
+            <if test="cnslr != null and cnslr != ''">
+                AND CNSLR = #{cnslr}
+            </if>
+            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+                AND AGENT_EMP_NM = #{agent_emp_nm}
+            </if>
+            <if test="name != null and name != ''">
+                AND NAME = #{name}
+            </if>
+            <if test="hp != null and hp != ''">
+                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+            </if>
+            <if test="memo != null and memo != ''">
+                AND MEMO LIKE #{memo} || '%'
+            </if>
+		) MAIN_TBL
+		WHERE 1=1
+    </select>
+    
+	<select id="DlwExcelMap.getOnlnConsCount" parameterType="map" resultType="int">
+        SELECT
+		    	/* DlwExcelMap.getOnlnConsCount */
+		    	COUNT(*)
+		    FROM
+		    (
+			    SELECT 
+			        MST.PRSN_CNSL_SEQ,
+			        MAX(CASE WHEN TASK_GB = 'R' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CHECK_DT,
+			        MAX(CASE WHEN TASK_GB = 'A' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS REPLY_DT,
+			        MAX(CASE WHEN TASK_GB = 'S' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CONFIRM_DT
+			    FROM CS_PRSN_CNSL_MST@DMWEB MST LEFT OUTER JOIN    
+			        CS_PRSN_CNSL_LOG@DMWEB PCL ON MST.PRSN_CNSL_SEQ = PCL.PRSN_CNSL_SEQ
+			    WHERE 1=1
+			        <if test="id != null and id != ''">
+						AND ID = #{id}
+					</if>
+					<if test="prcs_cd != null and prcs_cd != ''">
+						AND MST.PRCS_CD = #{prcs_cd}
+					</if>
+					<if test="search_gbn == '01'">           
+			   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			   		</if>
+			    GROUP BY MST.PRSN_CNSL_SEQ 
+		    ) TBL 
+		    WHERE 1=1
+	   		<if test="search_gbn == '02'">           
+	   		 	AND CONFIRM_DT BETWEEN #{stt_dt} AND #{end_dt}
+	   		</if> 
+    </select>
+    
+	<select id="DlwExcelMap.getOnlnConsList" parameterType="map" resultType="resultMap">
+		
+	    SELECT   
+        		/* DlwExcelMap.getOnlnConsList */
+               *
+        	FROM 
+        	(
+		        SELECT 
+					  ROW_NUMBER() OVER(ORDER BY MST.REG_DTM DESC) PAGE_INDX,				
+				    MST.PRSN_CNSL_SEQ,
+				    MST.ID,
+				    MST.INQRY_CD,
+				    (SELECT CD_NM FROM CO_CD_DTL@DMWEB WHERE CD_ID = 'PRSN_INQRY_GB' AND CD = MST.INQRY_CD) AS INQRY_NM,
+				    MST.INQRY_DTL_CD,
+				    (SELECT CD_NM FROM CO_CD_DTL@DMWEB WHERE CD_ID = 'PRSN_INQRY_DTL_GB' AND CD = MST.INQRY_DTL_CD) AS INQRY_DTL_NM,
+				    MST.TITL,
+				    TO_CHAR(SUBSTR(MST.CNTN, 1, 4000)) AS CNTN,
+				    TO_CHAR(SUBSTR(MST.ANSW, 1, 4000)) AS ANSW,
+				    MST.PRCS_CD,
+				    (SELECT CD_NM FROM CO_CD_DTL@DMWEB WHERE CD_ID = 'PROCESS_TYPE' AND CD = MST.PRCS_CD) AS PRCS_NM,
+				    MST.REG_DTM,
+				    MB.NAME,
+				    MB.EMAIL,
+				    MB.HP,
+				    TBL.CHECK_USER,
+				    TBL.CHECK_DT,
+				    TBL.REPLY_USER,
+				    TBL.REPLY_DT,
+				    TBL.CONFIRM_USER,
+				    TBL.CONFIRM_DT
+				FROM
+				(
+				    SELECT 
+				        MST.PRSN_CNSL_SEQ,
+				        MAX(CASE WHEN TASK_GB = 'R' THEN PCL.MOD_ID ELSE '' END) AS CHECK_USER,
+				        MAX(CASE WHEN TASK_GB = 'R' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CHECK_DT,
+				        MAX(CASE WHEN TASK_GB = 'A' THEN PCL.MOD_ID ELSE '' END) AS REPLY_USER,
+				        MAX(CASE WHEN TASK_GB = 'A' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS REPLY_DT,
+				        MAX(CASE WHEN TASK_GB = 'S' THEN PCL.MOD_ID ELSE '' END) AS CONFIRM_USER,
+				        MAX(CASE WHEN TASK_GB = 'S' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CONFIRM_DT
+				    FROM CS_PRSN_CNSL_MST@DMWEB MST LEFT OUTER JOIN    
+				        CS_PRSN_CNSL_LOG@DMWEB PCL ON MST.PRSN_CNSL_SEQ = PCL.PRSN_CNSL_SEQ
+				    WHERE 1=1
+				        <if test="id != null and id != ''">
+							AND ID = #{id}
+						</if>
+						<if test="prcs_cd != null and prcs_cd != ''">
+							AND MST.PRCS_CD = #{prcs_cd}
+						</if>
+						<if test="search_gbn == '01'">           
+				   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+				   		</if>
+				    GROUP BY MST.PRSN_CNSL_SEQ   
+				) TBL INNER JOIN 
+				    CS_PRSN_CNSL_MST@DMWEB MST ON MST.PRSN_CNSL_SEQ = TBL.PRSN_CNSL_SEQ LEFT OUTER JOIN
+				    MB_MEM_MST@DMWEB MB ON MST.ID = MB.ID AND MB.USE_YN = 'Y'
+				    WHERE 1=1
+			   		<if test="search_gbn == '02'">           
+			   		 	AND CONFIRM_DT BETWEEN #{stt_dt} AND #{end_dt}
+			   		</if> 
+	        )
+        
+    </select>
+</mapper>

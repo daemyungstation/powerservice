@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwResnSearchMap">
+	<!-- 해약현황 검색수 조회 -->
+    <select id="DlwResnSearchMap.getResnSearchCount" parameterType="map" resultType="int">
+        SELECT /* DlwResnSearchMap.getResnSearchCount */
+               COUNT(*) AS ICNT
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY RS.ACCNT_NO ASC) AS PAGE_INDX
+                       ,RS.ACCNT_NO
+					   ,MB.MEM_NM
+					   ,PD.PROD_CD
+					   ,PD.PROD_NM
+					   ,MPA.JOIN_DT
+					   ,RS.RESN_CL
+					   ,LF_DMUSER.FN_COM_NM('64',RS.RESN_CL) AS RESN_CL_NM
+					   ,RS.RESN_ACPT_DAY
+					   ,RS.RESN_PROC_DAY
+					   ,CASE WHEN RS.RESN_CL = '02' AND NVL(RS.DEL_FG,'N') ='N' THEN '미대상'
+					         WHEN NVL(RS.RESN_PROC_YN,'N') ='Y' AND NVL(RS.CHK_SUBMIT,'N') ='N'THEN '처리'
+					         WHEN NVL(RS.RESN_PROC_YN,'N') ='Y' AND NVL(RS.CHK_SUBMIT,'N') ='Y' THEN '처리(송금X)'
+					         WHEN NVL(RS.DEL_FG,'N') ='Y' THEN '해약취소'
+					         ELSE '미처리'
+					    END RESN_PROC_YN
+					   ,RS.DEL_FG
+					FROM RESCISSION_DAMO RS INNER JOIN
+					    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG= 'N' INNER JOIN
+					    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+					    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+					WHERE 1=1
+					<if test="accnt_no != null and accnt_no != ''">
+                      AND RS.ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="dateTyp =='01'">
+			            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+			                AND RS.RESN_ACPT_DAY BETWEEN #{stt_dt} AND #{end_dt}
+			            </if>
+			        </if>
+			        <if test="dateTyp =='02'">
+			            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+			                AND RS.RESN_PROC_DAY BETWEEN #{stt_dt} AND #{end_dt}
+			            </if>
+			        </if>
+			        <if test="resn_cl != null and resn_cl != ''">
+                      AND RS.RESN_CL = #{resn_cl}
+                    </if>
+                    <if test="resn_yn != null and resn_yn != ''">
+			            <if test='resn_yn == "Y" '>
+			            AND	 NVL(RS.RESN_PROC_YN,'N') = #{resn_yn}   AND  NVL(RS.DEL_FG,'N') = 'N'
+			            </if>
+			            <if test='resn_yn == "N" '>
+			            AND	 NVL(RS.RESN_PROC_YN,'N') = #{resn_yn} AND  NVL(RS.DEL_FG,'N') = 'N'
+			            </if>
+			            <if test='resn_yn == "C" '>
+			            AND	 NVL(RS.DEL_FG,'N') = 'Y'
+			            </if>
+			        </if>
+               ) MAIN_TBL
+         WHERE 1=1
+    </select>
+
+    <!-- 해약현황 조회 -->
+    <select id="DlwResnSearchMap.getResnSearchList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwResnSearchMap.getResnSearchList */
+               MAIN_TBL.*
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY RS.ACCNT_NO ASC) AS PAGE_INDX
+                       ,RS.ACCNT_NO
+					   ,MB.MEM_NM
+					   ,PD.PROD_CD
+					   ,PD.PROD_NM
+					   ,MPA.JOIN_DT
+					   ,RS.RESN_CL
+					   ,LF_DMUSER.FN_COM_NM('64',RS.RESN_CL) AS RESN_CL_NM
+					   ,RS.RESN_ACPT_DAY
+					   ,RS.RESN_PROC_DAY
+					   ,CASE WHEN RS.RESN_CL = '02' AND NVL(RS.DEL_FG,'N') ='N' THEN '미대상'
+					         WHEN NVL(RS.RESN_PROC_YN,'N') ='Y' AND NVL(RS.CHK_SUBMIT,'N') ='N'THEN '처리'
+					         WHEN NVL(RS.RESN_PROC_YN,'N') ='Y' AND NVL(RS.CHK_SUBMIT,'N') ='Y' THEN '처리(송금X)'
+					         WHEN NVL(RS.DEL_FG,'N') ='Y' THEN '해약취소'
+					         ELSE '미처리'
+					    END RESN_PROC_YN
+					   ,RS.DEL_FG
+					FROM RESCISSION_DAMO RS INNER JOIN
+					    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG= 'N' INNER JOIN
+					    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+					    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+					WHERE 1=1
+					<if test="accnt_no != null and accnt_no != ''">
+                      AND RS.ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="dateTyp =='01'">
+			            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+			                AND RS.RESN_ACPT_DAY BETWEEN #{stt_dt} AND #{end_dt}
+			            </if>
+			        </if>
+			        <if test="dateTyp =='02'">
+			            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+			                AND RS.RESN_PROC_DAY BETWEEN #{stt_dt} AND #{end_dt}
+			            </if>
+			        </if>
+			        <if test="resn_cl != null and resn_cl != ''">
+                      AND RS.RESN_CL = #{resn_cl}
+                    </if>
+                    <if test="resn_yn != null and resn_yn != ''">
+			            <if test='resn_yn == "Y" '>
+			            AND	 NVL(RS.RESN_PROC_YN,'N') = #{resn_yn}   AND  NVL(RS.DEL_FG,'N') = 'N'
+			            </if>
+			            <if test='resn_yn == "N" '>
+			            AND	 NVL(RS.RESN_PROC_YN,'N') = #{resn_yn} AND  NVL(RS.DEL_FG,'N') = 'N'
+			            </if>
+			            <if test='resn_yn == "C" '>
+			            AND	 NVL(RS.DEL_FG,'N') = 'Y'
+			            </if>
+			        </if>
+               ) MAIN_TBL
+         WHERE 1=1
+         <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+           AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+           AND PAGE_INDX <![CDATA[<]]> #{endLine}
+         </if>
+    </select>
+</mapper>

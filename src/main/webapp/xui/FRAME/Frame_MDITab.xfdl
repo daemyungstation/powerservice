@@ -1,0 +1,492 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Frame_MDITab" classname="Frame_MDITab" inheritanceid="" position="absolute 0 0 1240 37" onload="Frame_MDITab_onload" scrollbars="none" onsize="Frame_MDITab_onsize">
+    <Layouts>
+      <Layout>
+        <Static id="Static00" class="sta_TabLine" position="absolute 0 36 1240 37" anchor="all"/>
+        <Div id="div_Tab" taborder="1" onhscroll="div_Tab_onhscroll" scrollbars="none" class="div_TF_MDI" position="absolute 30 0 927 37" onsize="div_Tab_onsize">
+          <Layouts>
+            <Layout/>
+          </Layouts>
+        </Div>
+        <Button id="btn_PreMdi" taborder="1" text="&lt;" defaultbutton="true" onclick="btn_PreMdi_onclick" class="btn_MDI_SpinLeft" position="absolute 1136 12 1161 34" anchor="top right"/>
+        <Button id="btn_NexMdi" taborder="1" defaultbutton="true" onclick="btn_NexMdi_onclick" class="btn_MDI_SpinRight" position="absolute 1161 12 1186 34" anchor="top right"/>
+        <Button id="btn_MdiList" taborder="1" class="btn_MDI_Drop" position="absolute 1191 12 1220 34" anchor="top right" onclick="btn_MdiList_onclick"/>
+        <Button id="btn_MdiList00" taborder="1" onclick="btn_MdiList_onclick" class="btn_MDI_openlist2" position="absolute 1247 3 1267 23" anchor="top right"/>
+        <Button id="btn_Home" taborder="1" class="btn_MDI_Home" position="absolute 4 15 24 34" onclick="btn_Home_onclick"/>
+        <Div id="div_Tab00" anchor="all" taborder="1" style="background:transparent;" onhscroll="div_Tab_onhscroll" scrollbars="none" class="div_TF_MDI" position="absolute 30 -1 1126 36" onsize="div_Tab_onsize">
+          <Layouts>
+            <Layout>
+              <Button id="Button00" taborder="1" text="특이고객관리" class="btn_MDI_tab_S" position="absolute 2 10 167 37" anchor="default" onclick="div_Tab00_Button00_onclick"/>
+              <Button id="Button01" taborder="1" class="btn_MDI_extra_S" position="absolute 140 18 152 31" anchor="default" onclick="div_Tab00_Button01_onclick"/>
+            </Layout>
+          </Layouts>
+        </Div>
+        <Button id="Button02" taborder="1" text="센터현황" class="btn_MDI_tab" position="absolute 197 10 362 37"/>
+        <Button id="Button03" taborder="1" class="btn_MDI_extra" position="absolute 335 18 347 31"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[// include "LIB::lib_Comm.xjs"; //공통함수 호출 
+// include "LIB::lib_App.xjs";  
+// include "LIB::lib_Util.xjs"; 
+
+include "LIB::lib_All.xjs"; 
+
+var onTabWork 			= false;
+var nTop 				= 10;
+var nBottom 			= 37;
+var nWidth 				= 165;
+var nExtraButtonLeft 	= 170;
+var nExtraButtonRight 	= 182;
+var nExtraButtonTop 	= 18;
+var nExtraButtonBottom 	= 31;
+var nBtnCount 			= 0;
+var nBtnStart 			= 1;
+var nBtnEnd 			= 6;
+var benter 				= false;
+var objSelectBtn;
+//var sBtnWorkCd 			= "01";
+var sBtnWorkCdEx 		= "_S";
+
+function Frame_MDITab_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_BtnEnable();
+}
+
+//페이지를 네비게이션에 추가한다.
+function lfn_setNaviAdd(naviCD, naviNM) {
+	//trace("naviCD::"+naviCD);
+	var i;
+	var objFont = gfn_getObjFont(9,"Malgun Gothic");
+	objFont.bold = false;
+	
+	var objTextSize = gfn_getTextSize(naviNM, objFont);
+	var nGap;
+	if(gds_OpenMenu.rowcount==1) {
+		nGap = 0;
+	} else {
+		nGap = div_Tab.components[gds_OpenMenu.getColumn(gds_OpenMenu.rowcount-2, "WINID")].position.right;
+	}
+	
+	var naviNM_Tooltip = naviNM;
+	btn_MdiList.enable = true;
+	
+	for(i=0;i<div_Tab.components.length;i++)
+	{
+		if(div_Tab.components[i].class=="btn_MDI_tab_S")	{
+			div_Tab.components[i].class ="btn_MDI_tab";
+		}
+  
+		if(div_Tab.components[i].class=="btn_MDI_extra_S") {
+		  div_Tab.components[i].class ="btn_MDI_extra";	
+		}
+	}
+	
+	nBtnCount++;
+
+	//페이지 버튼 생성
+	var objBtn = new Button();
+
+	objBtn.init(naviCD, nGap+1, nTop, nGap+objTextSize.cx+50, nBottom);
+	div_Tab.addChild(objBtn.name, objBtn);
+	objBtn.text = naviNM;
+	objBtn.tooltiptext = naviNM_Tooltip;
+	//objBtn.class = "btn_MDI_S"+sBtnWorkCd;
+	objBtn.class = "btn_MDI_tab_S";
+	
+	objBtn.onclick.setHandler(Button_onclick);
+	
+	objBtn.visible = true;
+	objBtn.show();
+	objBtn.click();
+
+	//페이지 닫기 버튼 생성
+	var objExtraBtn = new Button();
+	objExtraBtn.init(naviCD+"__EX", objBtn.position.right-17, nExtraButtonTop, objBtn.position.right-3, nExtraButtonBottom);
+	div_Tab.addChild(objExtraBtn.name, objExtraBtn);
+	objExtraBtn.class = "btn_MDI_extra_S";
+	
+	//objExtraBtn.background = "url('theme://base/btn_MDItab_extra.png') 50 50";
+	objExtraBtn.onclick.setHandler(ExtraButton_onclick);
+	objExtraBtn.onmouseenter.setHandler(ExtraButton_onmouseenter);
+	objExtraBtn.onmouseleave.setHandler(ExtraButton_onmouseleave);
+	objExtraBtn.visible = true;
+	objExtraBtn.show();
+
+	
+	//생성된 페이지의 갯수에 따라 네비게이션을 한칸 이동할지 현재로 유지할지 결정
+	if(nBtnCount>nBtnEnd) {
+		nBtnStart = nBtnCount-nBtnEnd
+		f_BtnMove("NEXT");
+	} else {
+		f_BtnMove("MOVE");
+	}
+	
+	div_Tab.resetScroll();
+	
+	objBtn.setFocus();
+}
+
+//버튼클릭시 해당페이지로 focus를 이동하여 해당페이지를 Active상태로 만든다.
+function Button_onclick(obj:Button,  e:ClickEventInfo)
+{
+	//trace("obj.name::"+obj.name + ":: e.eventid" + e.eventid);
+
+	lfn_activeTabpage(obj.name);
+}
+
+function Button_ondbclick(obj:Button, e:MouseEventInfo)
+{
+	gfn_changePopup(obj.name);
+}
+
+// 닫기버튼 클릭시 해당하는 페이지를 닫는다.
+function ExtraButton_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var activePage = "";
+	var closePage = "";
+	var livePage = "";
+	var closeFirst = true;
+	//닫으려고 하는 페이지 
+	closePage = obj.name.replace("__EX", "");
+	
+	//활성화 되어 있는 Page 검색
+	for(var i = 0; i < gds_OpenMenu.rowcount; i++){		
+		if(ap_WorkFrame.frames[ gds_OpenMenu.getColumn(i, "WINID") ].openstatus == "maximize"){
+			activePage = gds_OpenMenu.getColumn(i, "WINID");
+		}
+	}
+	
+	if(activePage == closePage){
+		//활성화되어 있는 창을 닫으려고 하는 경우
+		livePage = gds_OpenMenu.getColumn(gds_OpenMenu.rowcount-1, "WINID");
+		closeFirst = false;
+	}else{
+		//활성화되어 있는 창이 아닌 창을 닫으려고 하는 경우
+		livePage = activePage;
+		closeFirst = true;
+	}
+	
+	//닫으려 했던 페이지 먼저 닫기
+	if(closeFirst == true){
+		gfn_tabOnClose(closePage);
+	}
+	
+	//gds_OpenMenu를 확인하여 rowcount가 0인 경우에는 mainFrame을 open하고 0이 아닌 경우에는 livepage를 open한다.		
+	if(gds_OpenMenu.rowcount > 0){	
+		lfn_activeTabpage(livePage);
+	}else{
+		trace("mainframe open");
+		ap_WorkMainFrame.form.fn_init();
+		ap_LeftFrame.form.fn_WorkMainShowHide("HOME");
+	}
+	//닫으려 했던 페이지 나중 닫기
+	if(closeFirst != true){
+		gfn_tabOnClose(closePage);
+	}
+}
+
+//선택된페이지의 Button을 Select상태로 만들고 
+//해당하는페이지가 현재페이지 네비게이션에 보이지 
+//않을경우 네비게이션에 보이는 Button의 위치를 변경해 
+//선택된페이지가 네비게이션에 보이도록 한다.
+function lfn_activeTabpage(naviCD) {
+	
+	var i;
+	var sWINID;
+	var nRow;
+	var nBtnMoveCount;
+	
+	// 위치 밑에서 위로 변경처리(속도때문에)
+// 	nRow = gds_OpenMenu.findRow("WINID", naviCD)
+// 	gds_OpenMenu.rowposition = nRow;
+// 	gfn_activeFrame(naviCD);	
+
+	for(i=0;i<gds_OpenMenu.rowcount;i++)
+	{
+		sWINID = gds_OpenMenu.getColumn(i, "WINID");
+	
+		if(gfn_isNull(div_Tab.components[sWINID])==true) continue;
+		
+		if(div_Tab.components[sWINID].class=="btn_MDI_tab_S")
+		{
+			div_Tab.components[sWINID].class ="btn_MDI_tab";
+			
+			if(gfn_isNull(div_Tab.components[sWINID+"__EX"])==true) continue;
+			
+			div_Tab.components[sWINID+"__EX"].class ="btn_MDI_extra";
+			
+			var sMethod = "div_Tab."+gds_OpenMenu.getColumn(0, "WINID")+".setSelectStatus(false);";
+			eval(sMethod);
+		}
+	}
+
+   
+	if(gfn_isNull(div_Tab.components[naviCD])==false)
+	{
+		div_Tab.components[naviCD].class = "btn_MDI_tab_S";			 
+		
+		if(gfn_isNull(div_Tab.components[naviCD+"__EX"])==false) {
+			div_Tab.components[naviCD+"__EX"].class ="btn_MDI_extra_S";
+		}
+		
+		div_Tab.resetScroll();
+		div_Tab.components[naviCD].setFocus();
+	}
+	
+	nRow = gds_OpenMenu.findRow("WINID", naviCD)
+	
+	gds_OpenMenu.rowposition = nRow;
+
+	gfn_activeFrame(naviCD);
+}
+
+function lfn_movePage(naviCD)
+{
+	var i;
+	nRow = gds_OpenMenu.findRow("WINID", naviCD)
+		
+	if(nRow<nBtnStart-1) {
+		nBtnMoveCount = (nBtnStart-1) - nRow;
+		for(i=0;i<nBtnMoveCount;i++)
+		{
+			f_BtnMove("PREV");
+		}
+	} else if(nRow>nBtnStart+nBtnEnd-2) {
+		nBtnMoveCount = nRow - (nBtnStart+nBtnEnd-2);
+		for(i=0;i<nBtnMoveCount;i++)
+		{
+			f_BtnMove("NEXT");
+		}
+	}
+}
+
+//페이지가 닫아졌을때 해당페이지의 네비게이션 버튼과 닫기버튼을 삭제한다.
+function lfn_deleteTabpage(naviCD) {
+	var i;
+	var sWINID;
+    if(gfn_isNull(div_Tab.components[naviCD])==false) {
+       eval("var nGap = div_Tab."+naviCD+".position.width;");
+       div_Tab.removeChild(naviCD);    
+       
+       if(naviCD.indexOf("HOME01") != -1) {  
+       } else {
+		   eval("div_Tab."+naviCD+"__EX.visible = false");
+		   div_Tab.removeChild(naviCD+"__EX");
+       }	
+    }
+    
+    //trace(gds_OpenMenu.saveXML());
+    
+	var nRow = gds_OpenMenu.findRow("WINID", naviCD);
+ 	for(i=nRow+1;i<gds_OpenMenu.rowcount;i++)
+ 	{
+   		sWINID = gds_OpenMenu.getColumn(i, "WINID");
+
+		//trace("sWINID::"+sWINID);
+		
+			div_Tab.components[sWINID].move(div_Tab.components[sWINID].position.left-(nGap+1), nTop);
+			div_Tab.components[sWINID+"__EX"].move(div_Tab.components[sWINID].position.right-17, nExtraButtonTop);
+ 	}
+ 	
+ 	//if(gds_OpenMenu.rowcount <= 0) ap_LeftFrame.form.fn_WorkMainShowHide("HOME");
+ 	
+ 	//모든 work frame이 닫히고 main frame이 등장하는 경우 mainframe의 init 함수 호출
+  	if(gds_OpenMenu.rowcount == 1 && ap_LogoutCk){
+ 		ap_WorkMainFrame.form.fn_init();
+  	}
+}
+
+function ExtraButton_onmouseenter(obj:Button, e:MouseEventInfo)
+{ 
+// 	var objBtn = div_Tab.components[obj.name.toString().replace("__EX", "")];
+// 	
+// 	if(objBtn.class!="btn_MDI_extra_S") {
+// 		objBtn.class = "btn_MDI_extra";
+// 	}
+}
+
+function ExtraButton_onmouseleave(obj:Button, e:MouseEventInfo)
+{
+// 	var objBtn = div_Tab.components[obj.name.toString().replace("__EX", "")];
+// 	
+// 	if(objBtn.class!="btn_MDI_extra_S") {
+// 		objBtn.class = "btn_MDI_extra";
+// 	}
+}
+
+//네비게이션 다음버튼 클릭시
+function btn_NexMdi_onclick(obj:Button,  e:ClickEventInfo)
+{
+	//div_Tab.hscrollbar.pos += div_Tab.hscrollbar.page;
+	
+	var npos = div_Tab.hscrollbar.pos + div_Tab.position.width;
+	
+	var nrealpos = fn_MenuPositionChange("R", npos);
+	
+	div_Tab.hscrollbar.pos = nrealpos;
+	fn_BtnEnable();	
+}
+
+//네비게이션 이전버튼 클릭시
+function btn_PreMdi_onclick(obj:Button,  e:ClickEventInfo)
+{
+	//div_Tab.hscrollbar.pos -= div_Tab.hscrollbar.page;
+	
+	var npos = div_Tab.hscrollbar.pos - div_Tab.position.width;
+	
+	var nrealpos = fn_MenuPositionChange("L", npos);
+	
+	div_Tab.hscrollbar.pos = nrealpos;
+	
+	fn_BtnEnable();	
+	
+}
+
+//선택된 Type에 따라 버튼의 위치를 이동시킨다.
+function f_BtnMove(Type)
+{
+	if(Type=="PREV") {
+		if(nBtnStart!=1) {
+			nBtnStart--;
+		}
+	} else if(Type=="NEXT") {
+		if(nBtnStart != gds_OpenMenu.rowcount-nBtnEnd+1&&gds_OpenMenu.rowcount>nBtnEnd) {
+			nBtnStart++;
+		}
+	} else if(Type=="MOVE") {
+		nBtnStart=nBtnStart;
+	}
+	
+	btn_PreMdi.enable = true;
+	btn_NexMdi.enable = true;
+	
+	if(nBtnStart==1) {
+		btn_PreMdi.enable = false;		
+	}
+	
+	if(nBtnStart == gds_OpenMenu.rowcount-nBtnEnd+1||gds_OpenMenu.rowcount<=nBtnEnd) {
+		btn_NexMdi.enable = false;
+	}
+}
+
+function btn_MdiList_onclick(obj:Button,  e:ClickEventInfo)
+{
+ 	var nX   = obj.position.right+3;
+ 	var nY   = 101;
+ 	
+ 	//trace("nX::"+nX + " nY::"+nY);
+ 	
+	var strParam = "";
+	var reVal = gfn_diaLog("OpenMenu", nX, nY, 256, 356, "COMM::Comm_OpenPage.xfdl", false, strParam, false, true, true);
+}
+
+function PopLink_ListBoxLink_onitemclick(obj:ListBox, e:ListBoxClickEventInfo)
+{
+	lfn_activeTabpage(e.itemvalue);
+	PopLink.closePopup();
+}
+
+function div_Tab_onsize(obj:Div, e:SizeEventInfo)
+{
+	nBtnEnd = Math.round(obj.position.width/130);
+	f_BtnMove("MOVE");
+}
+
+function Frame_MDITabonmousemove(obj:Form, e:MouseEventInfo)
+{
+
+}
+
+function Frame_MDITab_onkeydown(obj:Form, e:KeyEventInfo)
+{
+	gfn_shortcutKey(obj, e);
+}
+
+function cmb_Arrange_onclick(obj:Combo, e:ItemChangeEventInfo)
+{
+    gv_ckFramVis = 0;
+	gfn_arrangeWin(e.postvalue);	
+  	gv_LeftFrame.form.divMenu_btn_Hide_onclick();
+}
+
+// 좌우 이동 버튼 관련 처리----------------------------------------------------------------------
+function fn_MenuPositionChange(sGbn, npos) 
+{
+	var objBtnMenu = div_Tab.components;
+	
+	if(sGbn == "L") {
+		for(var i=objBtnMenu.length-1;i>=0;i--)
+		{
+			if(npos >= objBtnMenu[i].position.left) {
+				return objBtnMenu[i].position.left;
+			}
+		}
+	} else if(sGbn == "R") {
+		for(var i=0;i<objBtnMenu.length;i++)
+		{
+			if(npos <= objBtnMenu[i].position.right) {
+				return objBtnMenu[i].position.left;
+			} else {
+				if(npos >= div_Tab.hscrollbar.max)
+					return div_Tab.hscrollbar.max;
+			}
+		}
+	}	
+}
+
+function fn_BtnEnable()
+{
+	var npos 	= div_Tab.hscrollbar.pos;
+	var nmin 	= div_Tab.hscrollbar.min;
+	var nmax 	= div_Tab.hscrollbar.max;
+	var nDivW 	= div_Tab.position.width;
+	
+	if(npos == 0) {
+		if(npos == nmin) {
+			btn_PreMdi.enable 	= false;
+			btn_NexMdi.enable 	= true;
+		} else if(npos == nmax) {
+			btn_PreMdi.enable 	= true;
+			btn_NexMdi.enable 	= false;
+		} else {
+			btn_PreMdi.enable 	= false;
+			btn_NexMdi.enable 	= false;
+		}
+	} else if(npos > 0) {
+		if(npos == nmax) {
+			btn_PreMdi.enable 	= true;
+			btn_NexMdi.enable 	= false;
+		} else {
+			btn_PreMdi.enable 	= true;
+			btn_NexMdi.enable 	= true;
+		}
+	} else if(npos < 0) {
+		btn_PreMdi.enable 		= false;
+		btn_NexMdi.enable 		= false;
+	}	
+}
+
+function Frame_MDITab_onsize(obj:Form, e:SizeEventInfo)
+{
+	div_Tab.position.left 	= 30;
+	div_Tab.position.right 	= this.position.width - 113;
+
+	fn_BtnEnable();
+}
+
+//홈으로 가기 버튼을 눌렀을 경우 main페이지에 대한 init을 한 후 호출한다.
+function btn_Home_onclick(obj:Button,  e:ClickEventInfo)
+{
+	ap_WorkMainFrame.form.fn_init();
+	ap_LeftFrame.form.fn_WorkMainShowHide("HOME");
+}
+
+function div_Tab00_Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	
+}
+]]></Script>
+  </Form>
+</FDL>

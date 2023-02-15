@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ConsTypMap">
+
+    <sql id="ConsTypMap.selectCondition_fragment">
+        <where>
+            <if test="cons_typ_lvl_cnt != null and cons_typ_lvl_cnt != ''">
+                AND CONS_TYP_LVL_CNT = #{cons_typ_lvl_cnt}
+            </if>
+            <if test="hgrn_cons_typ_cd != null and hgrn_cons_typ_cd != ''">
+                AND HGRN_CONS_TYP_CD = #{hgrn_cons_typ_cd}
+            </if>
+            <if test="cons_typ_nm != null and cons_typ_nm != ''">
+                AND CONS_TYP_NM LIKE '%' || #{cons_typ_nm} || '%'
+            </if>
+            <if test="cons_typ_sqnc != null and cons_typ_sqnc != ''">
+                AND CONS_TYP_SQNC = #{cons_typ_sqnc}
+            </if>
+            <if test="cons_typ_expi != null and cons_typ_expi != ''">
+                AND CONS_TYP_EXPI LIKE '%' || #{cons_typ_expi} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="rgsr_id != null and rgsr_id != ''">
+                AND RGSR_ID = #{rgsr_id}
+            </if>
+            <if test="rgsn_dttm != null and rgsn_dttm != ''">
+                AND RGSN_DTTM = #{rgsn_dttm}
+            </if>
+            <if test="amnd_id != null and amnd_id != ''">
+                AND AMND_ID = #{amnd_id}
+            </if>
+            <if test="amnt_dttm != null and amnt_dttm != ''">
+                AND AMNT_DTTM = #{amnt_dttm}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="ars_srvc_cd != null and ars_srvc_cd != ''">
+                AND ARS_SRVC_CD = #{ars_srvc_cd}
+            </if>
+            <choose>
+                <when test="tree_fg != null and tree_fg != ''">
+                    <choose>
+                        <when test="cons_typ_cd != null and cons_typ_cd != ''">
+                        AND HGRN_CONS_TYP_CD = #{cons_typ_cd}
+                        </when>
+                        <otherwise>
+                        AND HGRN_CONS_TYP_CD IS NULL
+                        </otherwise>
+                    </choose>
+                </when>
+                <otherwise>
+                    <if test="cons_typ_cd != null and cons_typ_cd != ''">
+                        AND CONS_TYP_CD = #{cons_typ_cd}
+                    </if>
+                    <if test="hgrn_cons_typ_cd == null or hgrn_cons_typ_cd == ''">
+                        AND (HGRN_CONS_TYP_CD IS NULL OR HGRN_CONS_TYP_CD ='')
+                    </if>
+                </otherwise>
+            </choose>
+        </where>
+    </sql>
+
+    <sql id="ConsTypMap.selectListCondition_fragment">
+         <if test="cons_typ_nm != null and cons_typ_nm != ''">
+            AND ((A.CONS_TYP_NM LIKE '%' || #{cons_typ_nm} || '%')
+                OR (B.CONS_TYP_NM LIKE '%' || #{cons_typ_nm} || '%')
+                OR (C.CONS_TYP_NM LIKE '%' || #{cons_typ_nm} || '%'))
+         </if>
+         <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+             AND A.CONS_TYP_CD = #{cons_typ1_cd}
+         </if>
+         <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+             AND B.CONS_TYP_CD = #{cons_typ2_cd}
+         </if>
+         <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+             AND C.CONS_TYP_CD = #{cons_typ3_cd}
+         </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+    </sql>
+
+    <insert id="ConsTypMap.mergeConsTyp" parameterType="map">
+        MERGE INTO /* ConsTypMap.mergeConsTyp */
+                   TB_CONS_TYP_CD A
+        USING (SELECT #{cons_typ_cd} CONS_TYP_CD, #{hgrn_cons_typ_cd} HGRN_CONS_TYP_CD FROM DUAL) B
+           ON (A.CONS_TYP_CD = B.CONS_TYP_CD
+               AND NVL(A.HGRN_CONS_TYP_CD, ' ') = NVL(B.HGRN_CONS_TYP_CD, ' '))
+         WHEN MATCHED THEN
+            UPDATE SET
+                   CONS_TYP_NM    = #{cons_typ_nm}
+                 , CONS_TYP_SQNC   = #{cons_typ_sqnc}
+                 , CONS_TYP_EXPI  = #{cons_typ_expi}
+                 , ARS_SRVC_CD         = #{ars_srvc_cd}
+                 , AMND_ID     = #{amnd_id}
+                 , AMNT_DTTM         = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                 , USE_YN         = #{use_yn}
+         WHEN NOT MATCHED THEN
+            INSERT (CONS_TYP_CD, HGRN_CONS_TYP_CD, CONS_TYP_NM, CONS_TYP_SQNC, CONS_TYP_EXPI
+                 , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USE_YN, CNTR_CD
+                 , CONS_TYP_LVL_CNT, ARS_SRVC_CD)
+            VALUES (#{cons_typ_cd}, #{hgrn_cons_typ_cd}, #{cons_typ_nm}, #{cons_typ_sqnc}, #{cons_typ_expi}
+                 , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                 , #{use_yn}, #{cntr_cd} , #{cons_typ_lvl_cnt}, #{ars_srvc_cd})
+    </insert>
+
+    <select id="ConsTypMap.getConsTypByPrimaryKey" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTypMap.getConsTypByPrimaryKey */
+               A.CONS_TYP_CD, A.HGRN_CONS_TYP_CD, A.CONS_TYP_NM, A.CONS_TYP_SQNC, A.CONS_TYP_EXPI
+             , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM, A.USE_YN
+             , A.CONS_TYP_LVL_CNT, A.ARS_SRVC_CD
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = A.RGSR_ID
+                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = A.AMND_ID
+                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+          FROM TB_CONS_TYP_CD A
+         WHERE A.CONS_TYP_CD = #{cons_typ_cd}
+           AND A.CNTR_CD  = #{cntr_cd}
+    </select>
+
+    <select id="ConsTypMap.getConsTypTotalCount" parameterType="map" resultType="int">
+        SELECT /* ConsTypMap.getConsTypTotalCount */
+               COUNT(*)
+          FROM TB_CONS_TYP_CD
+        <include refid="ConsTypMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ConsTypMap.getConsTyp" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTypMap.getConsTyp */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT CONS_TYP_CD, HGRN_CONS_TYP_CD, CONS_TYP_NM, CONS_TYP_SQNC, CONS_TYP_EXPI
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USE_YN
+                     , ARS_SRVC_CD, CONS_TYP_LVL_CNT
+                     , (SELECT CONS_TYP_NM
+                          FROM TB_CONS_TYP_CD
+                         WHERE CONS_TYP_CD = A.HGRN_CONS_TYP_CD
+                           AND CNTR_CD   = A.CNTR_CD) AS HGRN_CONS_TYP_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.RGSR_ID
+                           AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.AMND_ID
+                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                     , (SELECT COUNT(*)
+                          FROM TB_CONS_TYP_CD
+                         WHERE HGRN_CONS_TYP_CD = A.CONS_TYP_CD
+                           AND CNTR_CD      = A.CNTR_CD
+                           AND USE_YN = 'Y') AS NODE_USE_COUNT
+                     , DECODE(A.CONS_TYP_LVL_CNT,'3',FN_GETCONSTYPFULLNM(A.CONS_TYP_CD, A.CNTR_CD), '') AS CONS_TYPE_FULL_NM
+                     , GETCODENM('CNS060', A.ARS_SRVC_CD, A.CNTR_CD) AS ARS_NM
+                     , (SELECT MAX(CONS_TYP_SQNC)
+                          FROM TB_CONS_TYP_CD
+                     <include refid="ConsTypMap.selectCondition_fragment"/>
+                       ) AS MAX_ORD
+                  FROM TB_CONS_TYP_CD A
+                <include refid="ConsTypMap.selectCondition_fragment"/>
+
+                    ORDER BY CONS_TYP_SQNC
+
+                ) B
+    </select>
+
+    <select id="ConsTypMap.getConsTypOver" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTypMap.getConsTypOver */
+               CONS_TYP_CD, HGRN_CONS_TYP_CD, CONS_TYP_NM, CONS_TYP_SQNC, CONS_TYP_EXPI
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USE_YN, ARS_SRVC_CD
+          FROM TB_CONS_TYP_CD
+        <include refid="ConsTypMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ConsTypMap.getConsTypTree" parameterType="map" resultType="resultMap">
+       SELECT /* ConsTypMap.getConsTypTree */
+               CONS_TYP_CD, HGRN_CONS_TYP_CD, CONS_TYP_NM, CONS_TYP_LVL_CNT, USE_YN
+             , (SELECT COUNT(CONS_TYP_CD)
+                  FROM TB_CONS_TYP_CD B
+                 WHERE B.HGRN_CONS_TYP_CD = A.CONS_TYP_CD
+                   AND B.CNTR_CD = A.CNTR_CD) AS NODE_COUNT
+             , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                  FROM TB_CONS_TYP_CD
+                 WHERE CNTR_CD = A.CNTR_CD
+                   AND HGRN_CONS_TYP_CD = A.CONS_TYP_CD) AS HASCHILDREN
+          FROM TB_CONS_TYP_CD A
+         START WITH HGRN_CONS_TYP_CD IS NULL
+       CONNECT BY PRIOR CONS_TYP_CD = HGRN_CONS_TYP_CD
+         ORDER SIBLINGS BY CONS_TYP_SQNC ASC
+    </select>
+
+    <select id="ConsTypMap.getConsTypTotal" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTypMap.getConsTypTotal */
+               CONS_TYP_CD, HGRN_CONS_TYP_CD, CONS_TYP_NM, CONS_TYP_SQNC, CONS_TYP_LVL_CNT
+          FROM TB_CONS_TYP_CD
+         WHERE CONS_TYP_CD != 'ROOT'
+           AND CNTR_CD    = #{cntr_cd}
+           AND USE_YN = 'Y'
+      ORDER BY CONS_TYP_LVL_CNT ASC, CONS_TYP_SQNC ASC
+    </select>
+
+    <update id="ConsTypMap.updateConsTypOrd" parameterType="map">
+    <![CDATA[
+        UPDATE /* ConsTypMap.updateConsTypOrd */
+               TB_CONS_TYP_CD
+           SET CONS_TYP_SQNC  =
+                   CASE CONS_TYP_CD
+                       WHEN #{cons_typ_cd}  THEN ${cons_typ_sqnc}
+                       ELSE CASE SIGN( ${old_cons_typ_sqnc} - ${cons_typ_sqnc} )
+                               WHEN -1 THEN CONS_TYP_SQNC - 1
+                               WHEN  1 THEN CONS_TYP_SQNC + 1
+                           END
+                       END
+         WHERE CNTR_CD = #{cntr_cd}
+           AND  CONS_TYP_SQNC <=
+                CASE SIGN( ${old_cons_typ_sqnc} - ${cons_typ_sqnc} )
+                    WHEN 1 THEN ${old_cons_typ_sqnc}
+                    WHEN -1 THEN ${cons_typ_sqnc}
+                END
+              AND CONS_TYP_SQNC >=
+                CASE SIGN( ${old_cons_typ_sqnc} - ${cons_typ_sqnc} )
+                    WHEN 1 THEN ${cons_typ_sqnc}
+                    WHEN -1 THEN ${old_cons_typ_sqnc}
+                END
+    ]]>
+    <choose>
+      <when test="hgrn_cons_typ_cd != null and hgrn_cons_typ_cd != ''">
+         AND HGRN_CONS_TYP_CD = #{hgrn_cons_typ_cd}
+      </when>
+      <otherwise>
+               AND (HGRN_CONS_TYP_CD IS NULL OR HGRN_CONS_TYP_CD ='')
+      </otherwise>
+    </choose>
+    </update>
+
+    <select id="ConsTypMap.getConsTypCount" parameterType="map" resultType="int">
+        SELECT /* ConsTypMap.getConsTypCount */
+               COUNT(*)
+          FROM TB_CONS_TYP_CD A
+             , TB_CONS_TYP_CD B
+             , TB_CONS_TYP_CD C
+         WHERE A.CONS_TYP_CD = B.HGRN_CONS_TYP_CD
+           AND B.CONS_TYP_CD = C.HGRN_CONS_TYP_CD
+        <include refid="ConsTypMap.selectListCondition_fragment"/>
+    </select>
+
+    <select id="ConsTypMap.getConsTypList" parameterType="map" resultType="resultMap">
+         SELECT /* ConsTypMap.getConsTypList */
+                *
+           FROM (SELECT ROWNUM AS PAGE_INDX
+                      , CONS_TYP1_NM, CONS_TYP2_NM, CONS_TYP3_NM
+                      , CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                      , CONS_TYP1_NM || '>' || CONS_TYP2_NM || '>' || CONS_TYP3_NM AS FULL_CONS_TYP_NM
+                      , CONS_TYP1_CD || '>' || CONS_TYP2_CD || '>' || CONS_TYP3_CD AS FULL_CONS_TYP_CD
+                   FROM (SELECT A.CONS_TYP_NM AS CONS_TYP1_NM, B.CONS_TYP_NM AS CONS_TYP2_NM, C.CONS_TYP_NM AS CONS_TYP3_NM
+                              , A.CONS_TYP_CD AS CONS_TYP1_CD, B.CONS_TYP_CD AS CONS_TYP2_CD, C.CONS_TYP_CD AS CONS_TYP3_CD
+                           FROM TB_CONS_TYP_CD A
+                             , TB_CONS_TYP_CD B
+                             , TB_CONS_TYP_CD C
+                         WHERE A.CONS_TYP_CD = B.HGRN_CONS_TYP_CD
+                           AND B.CONS_TYP_CD = C.HGRN_CONS_TYP_CD
+        <include refid="ConsTypMap.selectListCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                 ))
+    <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+    <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+    </if>
+    </select>
+
+    <select id="ConsTypMap.getConsTypByArscd" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTypMap.getConsTypByArscd */
+               CASE WHEN CONS_TYP_LVL_CNT=1
+                       THEN CONS_TYP_CD
+                       WHEN CONS_TYP_LVL_CNT=2
+                       THEN HGRN_CONS_TYP_CD
+                       WHEN CONS_TYP_LVL_CNT=3
+                       THEN (SELECT HGRN_CONS_TYP_CD
+                               FROM TB_CONS_TYP_CD
+                              WHERE CONS_TYP_CD = B.HGRN_CONS_TYP_CD)
+               END AS CONS_TYP1_CD
+             , CASE WHEN CONS_TYP_LVL_CNT=1
+                     THEN ''
+                     WHEN CONS_TYP_LVL_CNT=2
+                     THEN CONS_TYP_CD
+                     WHEN CONS_TYP_LVL_CNT=3
+                     THEN HGRN_CONS_TYP_CD
+               END AS CONS_TYP2_CD
+             , CASE WHEN CONS_TYP_LVL_CNT=3
+                    THEN CONS_TYP_CD
+                    ELSE ''
+               END AS CONS_TYP3_CD
+             , GETCODENM('C20006', #{ars_srvc_cd}, #{cntr_cd}) AS ARS_NM
+          FROM (SELECT HGRN_CONS_TYP_CD, CONS_TYP_CD, CONS_TYP_LVL_CNT
+                  FROM (SELECT A.HGRN_CONS_TYP_CD, A.CONS_TYP_CD, A.CONS_TYP_LVL_CNT
+                          FROM TB_CONS_TYP_CD A
+                         WHERE A.ARS_SRVC_CD = #{ars_srvc_cd}
+                      ORDER BY A.CONS_TYP_LVL_CNT DESC )
+                 WHERE ROWNUM = 1 ) B
+    </select>
+
+    <select id="ConsTypMap.getConsTypDupCount" parameterType="map" resultType="int">
+        SELECT /* ConsTypMap.getConsTypDupCount */
+               COUNT(*)
+          FROM TB_CONS_TYP_CD
+          WHERE CNTR_CD = #{cntr_cd}
+            AND CONS_TYP_SQNC = #{cons_typ_sqnc}
+            AND CONS_TYP_CD != #{cons_typ_cd}
+        <choose>
+            <when test="hgrn_cons_typ_cd == null or hgrn_cons_typ_cd == ''">
+            AND HGRN_CONS_TYP_CD IS NULL
+            </when>
+            <otherwise>
+            AND HGRN_CONS_TYP_CD = #{hgrn_cons_typ_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <delete id="ConsTypMap.deleteConsTyp" parameterType="map">
+        DELETE /* ConsTypMap.deleteConsTyp */
+          FROM TB_CONS_TYP_CD
+         WHERE CNTR_CD = #{cntr_cd}
+           AND CONS_TYP_CD IN (SELECT CONS_TYP_CD
+                               FROM (SELECT *
+                                       FROM TB_CONS_TYP_CD
+                                      WHERE CNTR_CD = #{cntr_cd}
+                                    )
+                         START WITH CONS_TYP_CD = #{cons_typ_cd}
+                         CONNECT BY PRIOR CONS_TYP_CD = HGRN_CONS_TYP_CD
+                            )
+    </delete>
+
+    <select id="ConsTypMap.getConsConsTypCount" parameterType="map" resultType="int">
+         SELECT /* ConsTypMap.getConsConsTypCount */
+                COUNT(*)
+           FROM TB_CONS
+         WHERE (CONS_TYP1_CD = #{cons_typ_cd} OR CONS_TYP2_CD = #{cons_typ_cd} OR CONS_TYP3_CD = #{cons_typ_cd})
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="ConsTypMap.getConsTypTree2" parameterType="map" resultType="resultMap">
+        SELECT /* ConsTypMap.getConsTypTree2 */
+               CONS_TYP_CD, HGRN_CONS_TYP_CD, CONS_TYP_NM, CONS_TYP_LVL_CNT+1 AS CONS_TYP_LVL_CNT, USE_YN
+             , (SELECT COUNT(CONS_TYP_CD)
+                  FROM TB_CONS_TYP_CD B
+                 WHERE B.HGRN_CONS_TYP_CD = A.CONS_TYP_CD
+                   AND B.CNTR_CD = A.CNTR_CD) AS NODE_COUNT
+             , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                  FROM TB_CONS_TYP_CD
+                 WHERE CNTR_CD = A.CNTR_CD
+                   AND HGRN_CONS_TYP_CD = A.CONS_TYP_CD) AS HASCHILDREN
+          FROM TB_CONS_TYP_CD A
+        <include refid="ConsTypMap.selectCondition_fragment"/>
+      ORDER BY A.CONS_TYP_SQNC ASC
+    </select>
+
+    <select id="ConsTypMap.getConsTypMaxOrder" parameterType="map" resultType="int">
+        SELECT /* ConsTypMap.getConsTypMaxOrder */
+               NVL(MAX(CONS_TYP_SQNC), 0)
+          FROM TB_CONS_TYP_CD
+         WHERE 1 = 1
+        <choose>
+            <when test="hgrn_cons_typ_cd != null and hgrn_cons_typ_cd != ''">
+           AND HGRN_CONS_TYP_CD = #{hgrn_cons_typ_cd}
+            </when>
+            <otherwise>
+           AND HGRN_CONS_TYP_CD IS NULL
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="ConsTypMap.getConsTypGubn" parameterType="map" resultType="String">
+        SELECT /* ConsTypMap.getConsTypGubn */
+               ARS_SRVC_CD
+          FROM TB_CONS_TYP_CD
+         WHERE CONS_TYP_CD = #{cons_typ3_cd}
+           AND CNTR_CD = #{cntr_cd}
+           AND USE_YN = 'Y'
+    </select>
+
+</mapper>

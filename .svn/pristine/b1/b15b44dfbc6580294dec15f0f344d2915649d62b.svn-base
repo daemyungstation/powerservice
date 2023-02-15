@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+
+    <!-- ================================================================
+     * 날짜 : 20230119
+     * 이름 : 조용우
+     * 추가내용 : 미납정보 당월 미납 초기데이터 INSERT , 미납정보 당월납입실적 UPDATE
+     * 대상 테이블 :   TB_CLOSE_MEMBER_MON , PRODUCT , PRODUCT_NO_DATA , TB_BANKRUPTCY_MNG , RESCISSION , TB_MEMBER_EXT_SPECIAL , TB_NONPAYMENT_MNG_TMP , TB_MEMBER_WDRW_REQ_DAMO
+     * ================================================================
+     * -->
+     <bean id="dlwNonPayMngJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dlwNonPayServiceImpl" />
+        <property name="targetMethod" value="insertTbNonpaymentMng" />
+        <property name="concurrent" value="false" />
+    </bean>
+
+    <!-- MethodInvokingJobDetailFactoryBean를 이용한 JobDetailBean 설정  -->
+    <!-- **** Cron Expression ****
+         Field Name          Allowed Values         Allowed Special Characters
+         seconds             0-59                   , - * /
+         Minutes             0-59                   , - * /
+         Hours               0-23                   , - * /
+         Day-of-month        1-31                   , - * ? / L W
+         Month               1-12 or JAN-DEC        , - * /
+         Day-of-Week         1-7 or SUN-SAT         , - * ? / L W
+         Year(Optional)      empty, 1970-2099       , - * /
+
+         ‘-’ 문자를 사용해서 범위를 표현하고 ‘,’ 문자를 사용해서 목록을 표현한다.
+                        예로 "MON-FRI" 는 "월요일 에서 금요일"을 의미하며, "MON, WED, FRI" 는 "월, 수, 금"을 의미한다.
+                        와일드카드 문자 '*' 는 필드에서 가능한 모든(every) 값을 의미한다.
+                        예로 Month 필드에서 사용되면 매월을 의미하고, Year 필드에서는 매년을 의미한다.
+         '/' 문자는 값 증분을 의미한다. 예를 들면, '0/15' 을 minute 필드에 기록하면 '0분에 시작해서 15분마다'를 의미한다.
+                        만약 동일한 필드에 '3/20'을 기록하면 '3, 23, 43'을 의미한다.
+         '?' 문자는 day-of-month and day-of-week 필드에서만 사용 된다. 특별한 설정을 하지 않겠다는 의미이다.
+
+         ** Sample **
+         0 0 12 ? * WED : 매 수요일 오후 12시
+         0 0/5 * * * ? : 매 5분 간격 0초에 (즉, 5분 0초, 10분 0초, 15분 0초, …)
+         10 0/5 * * * ? : 매 5분 간격 10초 (즉, 0분 10초, 5분 10초, 10분 10초, …)
+         0 30 10-12 ? * WED,FRI” : 매 수요일, 금요일의 10:30분, 11:30분, 12:30분
+     -->
+
+     <!-- ================================================================
+     * 날짜 : 20230119
+     * 이름 : 조용우
+     * 추가내용 : 미납정보 당월 미납 초기데이터 INSERT , 미납정보 당월납입실적 UPDATE
+     * 대상 테이블 :   TB_CLOSE_MEMBER_MON , PRODUCT , PRODUCT_NO_DATA , TB_BANKRUPTCY_MNG , RESCISSION , TB_MEMBER_EXT_SPECIAL , TB_NONPAYMENT_MNG_TMP , TB_MEMBER_WDRW_REQ_DAMO
+     * ================================================================
+     * -->
+    <bean id="dlwNonPayMngTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="dlwNonPayMngJob" />
+        <property name="cronExpression" value="0 10 0 * * ?" />
+    </bean>
+
+    <!-- 미납월별정보 스케줄러 -->
+    <bean id="dlwNoncheduler" class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <property name="triggers">
+            <list>
+                 <!-- dlccwas1(관리자) 에만 스케줄러 적용
+                 <ref bean="dlwNonPayMngTrigger" />
+                 -->
+            </list>
+        </property>
+    </bean>
+    <!-- // 미납월별정보 스케줄러 -->
+
+</beans>

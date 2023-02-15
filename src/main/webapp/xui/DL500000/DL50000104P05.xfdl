@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL50000104P05" classname="DL460603_01" inheritanceid="" position="absolute 0 0 400 150" titletext="사원기본정보" onload="DL50000104P05_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 400 150"/>
+        <Static id="stc_14" class="sta_workData" anchor="default" position="absolute 86 41 392 67" positiontype="position"/>
+        <Static id="stc_21" text="사원번호" class="sta_workLabel1" style="color:#555555ff;font:Dotum,8;" validate="" anchor="default" position="absolute 7 41 87 67" positiontype="position"/>
+        <Edit id="edt_id_no" taborder="2" lengthunit="ascii" maxlength="20" style="font:Dotum,9;" anchor="default" position="absolute 91 44 387 64" positiontype="position" readonly="true"/>
+        <Static id="stc_00" class="sta_workData" position="absolute 86 66 392 92"/>
+        <Static id="stc_01" text="사원명" class="sta_workLabel1" position="absolute 7 66 87 92" style="color:#555555ff;font:Dotum,8;" validate=""/>
+        <Edit id="edt_id_no00" taborder="3" lengthunit="ascii" maxlength="20" position="absolute 91 69 387 89" style="font:Dotum,9;" readonly="true"/>
+        <Static id="stc_02" class="sta_workData" position="absolute 86 91 392 117"/>
+        <Static id="stc_03" text="부서" class="sta_workLabel1" position="absolute 7 91 87 117" style="color:#555555ff;font:Dotum,8;" validate=""/>
+        <Edit id="edt_id_no01" taborder="4" lengthunit="ascii" maxlength="20" position="absolute 91 94 387 114" style="font:Dotum,9;" readonly="true"/>
+        <Static id="stc_04" class="sta_workData" position="absolute 86 116 392 142"/>
+        <Static id="stc_05" text="전화번호" class="sta_workLabel1" position="absolute 7 116 87 142" style="color:#555555ff;font:Dotum,8;" validate=""/>
+        <Edit id="edt_id_no02" taborder="5" lengthunit="ascii" maxlength="20" position="absolute 91 119 387 139" style="font:Dotum,9;" readonly="true"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 372 8 392 27"/>
+        <Static id="stc_30" text="담당/모집사원 기본정보" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 251 28"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="emple_no" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_listEmpleInfo" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="emple_no" type="STRING" size="256"/>
+          <Column id="emple_nm" type="STRING" size="256"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item0" compid="edt_id_no" propid="value" datasetid="ds_listEmpleInfo" columnid="emple_no"/>
+      <BindItem id="item1" compid="edt_id_no00" propid="value" datasetid="ds_listEmpleInfo" columnid="emple_nm"/>
+      <BindItem id="item2" compid="edt_id_no01" propid="value" datasetid="ds_listEmpleInfo" columnid="dept_nm"/>
+      <BindItem id="item3" compid="edt_id_no02" propid="value" datasetid="ds_listEmpleInfo" columnid="cell"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                   */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+include "LIB::lib_ConsTyp.xjs";
+
+var xEmpleNo;
+var xBefEmpleCd;
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	    */
+/********************************************************************************************/
+function DL50000104P05_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_init();
+}
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		    */
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) 
+	{
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+			case "selectEmpleList" :
+				fn_postSearch(gfn_getCommTypeInit(), "selectEmpleList");
+			break;
+		}
+	}
+}
+
+function fn_postSearch(sType, searchInfo)
+{
+	switch(searchInfo) 
+    {
+		case "selectEmpleList" :			
+		    if(ds_listEmpleInfo.getRowCount() <= 0)
+		    {
+			    alert("조회된 데이터가 없습니다.");
+		    }
+		break;
+	}
+}
+
+/********************************************************************************************/
+/* 4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+function fn_preSearch(sType, searchInfo)
+{
+	switch (searchInfo) 
+	{
+		case "selectEmpleList" :
+			var sSearchEmpleNo = "";
+			
+			if(gfn_isNull(xEmpleNo) == false)
+			{
+				sSearchEmpleNo = xEmpleNo;
+			}
+	
+			if(gfn_isNull(xBefEmpleCd) == false)
+			{
+				sSearchEmpleNo = xBefEmpleCd;
+			}
+			
+			ds_inqCndt.clearData();
+			ds_inqCndt.addRow();
+	
+			ds_inqCndt.setColumn(0, "emple_no", sSearchEmpleNo);
+		break;
+	}
+	
+	return true;
+}
+
+/********************************************************************************************/
+/* 5. 서비스 호출(gfn_Transaction)                                                   	    */
+/********************************************************************************************/
+function fn_commSearch(sType, searchInfo) 
+{
+   	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(searchInfo) 
+    {
+		case "selectEmpleList" :
+			if (!fn_preSearch(gfn_getCommTypeInit(), "selectEmpleList"))
+			{
+				return false;
+			}
+	
+			var szSvcid       = "selectEmpleList";
+			var szController  = "/dlw/emp/selectEmpleList";
+			var szInDs        = "ds_input=ds_inqCndt";    
+			var szOutDs       = "ds_listEmpleInfo=ds_output";
+			var szParam       = "";
+			var szRetCallback = "fn_callBack";
+
+			// 트랜젝션 공통함수 호출
+			gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+		break;
+	}
+}
+
+/********************************************************************************************/
+/* 6. 사용자 함수                                                                   	    */
+/********************************************************************************************/
+function fn_init()
+{
+    if(gfn_isNull(pEmpleNo) == false)
+	{
+		xEmpleNo = pEmpleNo;
+		stc_30.text = "담당사원 기본정보"
+	}
+	
+	if(gfn_isNull(pBefEmpleCd) == false)
+	{
+		xBefEmpleCd = pBefEmpleCd;
+		stc_30.text = "모집사원 기본정보"
+	}
+	
+	ds_inqCndt.clearData();
+	ds_listEmpleInfo.clearData();
+	
+	fn_commSearch(gfn_getCommTypeInit(), "selectEmpleList");
+}
+/********************************************************************************************/
+/* 7. 이벤트(Event) Function                                                          	    */
+/********************************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}]]></Script>
+  </Form>
+</FDL>

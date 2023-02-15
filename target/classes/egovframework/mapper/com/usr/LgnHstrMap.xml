@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="LgnHstrMap">
+
+    <sql id="LgnHstrMap.selectCondition_fragment">
+        <if test="cntr_cd != null and cntr_cd != ''">
+           AND B.CNTR_CD = #{cntr_cd}
+        </if>
+        <choose>
+            <when test="user_id != null and user_id != ''">
+            AND B.USER_ID = #{user_id}
+            </when>
+            <when test="team2_cd != null and team2_cd != ''">
+            AND B.TEAM2_CD = #{team2_cd}
+            </when>
+            <when test="team1_cd != null and team1_cd != ''">
+            AND B.TEAM1_CD = #{team1_cd}
+            </when>
+        </choose>
+    </sql>
+
+    <select id="LgnHstrMap.getLgnHstrCount" parameterType="map" resultType="int">
+        SELECT /* LgnHstrMap.getLgnHstrCount */
+               COUNT (*)
+          FROM TB_LGN_HSTR A
+             , (SELECT A.USER_ID, A.USER_NM, A.LGN_ID, A.CNTR_CD
+                     , B.TEAM_CD AS TEAM2_CD, B.TEAM_NM AS TEAM2_NM
+                     , C.TEAM_CD AS TEAM1_CD, C.TEAM_NM AS TEAM1_NM
+                  FROM TB_USER A
+                     , TB_CONS_TEAM B
+                     , TB_CONS_TEAM C
+                 WHERE A.TEAM_CD = B.TEAM_CD
+                   AND A.CNTR_CD = B.CNTR_CD
+                   AND B.HGRN_TEAM_CD = C.TEAM_CD
+                   AND B.CNTR_CD = C.CNTR_CD) B
+         WHERE A.USER_ID = B.USER_ID
+           AND A.CNTR_CD = B.CNTR_CD
+           AND B.CNTR_CD = #{cntr_cd}
+           <if test="stt_dt != null and stt_dt != ''">
+           <![CDATA[
+           AND A.LGN_DTTM >= TO_TIMESTAMP(REPLACE(#{stt_dt}, '-', '') || '000000', 'YYYYMMDDHH24MISS')
+           ]]>
+           </if>
+           <if test="end_dt != null and end_dt != ''">
+           <![CDATA[
+           AND A.LGN_DTTM <= TO_TIMESTAMP(REPLACE(#{end_dt}, '-', '') || '235959', 'YYYYMMDDHH24MISS')
+           ]]>
+           </if>
+        <include refid="LgnHstrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="LgnHstrMap.getLgnHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* LgnHstrMap.getLgnHstrList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT TO_CHAR(A.LGN_DTTM, 'YYYYMMDDHH24MISS') AS LGN_DTTM, A.USER_ID, A.LGN_TYP_CD, A.IP_ADDR, A.LGN_FALR_RSN_CD
+                             , A.RGSN_DTTM, A.AMNT_DTTM, B.USER_NM, B.LGN_ID, B.TEAM1_CD
+                             , B.TEAM1_NM, B.TEAM2_CD, B.TEAM2_NM
+                          FROM TB_LGN_HSTR A
+                             , (SELECT A.USER_ID, A.USER_NM, A.LGN_ID, A.CNTR_CD
+                                     , B.TEAM_CD AS TEAM2_CD, B.TEAM_NM AS TEAM2_NM
+                                     , C.TEAM_CD AS TEAM1_CD, C.TEAM_NM AS TEAM1_NM
+                                  FROM TB_USER A
+                                     , TB_CONS_TEAM B
+                                     , TB_CONS_TEAM C
+                                 WHERE A.TEAM_CD = B.TEAM_CD
+                                   AND A.CNTR_CD = B.CNTR_CD
+                                   AND B.HGRN_TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD) B
+                         WHERE A.USER_ID = B.USER_ID
+                           AND A.CNTR_CD = B.CNTR_CD
+                           <if test="stt_dt != null and stt_dt != ''">
+                           <![CDATA[
+                           AND A.LGN_DTTM >= TO_TIMESTAMP(REPLACE(#{stt_dt}, '-', '') || '000000', 'YYYYMMDDHH24MISS')
+                           ]]>
+                           </if>
+                           <if test="end_dt != null and end_dt != ''">
+                           <![CDATA[
+                           AND A.LGN_DTTM <= TO_TIMESTAMP(REPLACE(#{end_dt}, '-', '') || '235959', 'YYYYMMDDHH24MISS')
+                           ]]>
+                           </if>
+        <include refid="LgnHstrMap.selectCondition_fragment"/>
+        <choose>
+            <when test="orderBy == null or orderBy == ''">
+                        ORDER BY A.LGN_DTTM DESC, A.USER_ID ASC
+            </when>
+            <otherwise>
+                        ORDER BY ${orderBy} ${orderDirection}
+            </otherwise>
+        </choose>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="LgnHstrMap.insertLgnHstr" parameterType="map">
+        <selectKey keyProperty="lgn_hstr_id" resultType="String" order="BEFORE">
+            SELECT 'LOG' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+       INSERT /* LgnHstrMap.insertLgnHstr */
+         INTO TB_LGN_HSTR
+              (LGN_HSTR_ID, USER_ID, LGN_TYP_CD, LGN_DTTM, IP_ADDR
+            , LGN_FALR_RSN_CD, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+            , AMNT_DTTM)
+       VALUES (#{lgn_hstr_id}, #{user_id}, #{lgn_typ_cd}, SYSTIMESTAMP, #{ip_addr}
+            , #{lgn_falr_rsn_cd}, #{cntr_cd}, #{user_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{user_id}
+            , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+</mapper>

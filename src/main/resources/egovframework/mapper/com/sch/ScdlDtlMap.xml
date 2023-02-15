@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ScdlDtlMap">
+
+    <select id="ScdlDtlMap.getScdlDtlList" parameterType="map" resultType="resultMap">
+        <![CDATA[
+        SELECT /* ScdlDtlMap.getScdlDtlList */
+               SCDL_ID, SCDL_TYP_CD, SCDL_CHPR_ID, SCDL_TITL, SCDL_CNTN
+             , ALDY_YN
+             , TO_CHAR(TO_DATE(SCDL_STT_DTTM, 'YYYYMMDDHH24MISS'), 'YYYY/MM/DD HH24:MI') AS SCDL_STT_DTTM
+             , TO_CHAR(TO_DATE(SCDL_END_DTTM, 'YYYYMMDDHH24MISS'), 'YYYY/MM/DD HH24:MI') AS SCDL_END_DTTM
+             , TO_CHAR(TO_DATE(SCDL_STT_DTTM, 'YYYYMMDDHH24MISS'), 'YYYYMMDD') AS SCDL_STT_DT
+             , TO_CHAR(TO_DATE(SCDL_END_DTTM, 'YYYYMMDDHH24MISS'), 'YYYYMMDD') AS SCDL_END_DT
+             , (CASE WHEN ALDY_YN = 'Y' THEN 1 ELSE 0 END) AS ALDY_FLAG
+             , 1 AS SCDL_SQNC, EDCT_CRS_ID
+          FROM TB_SCDL_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND (SCDL_STT_DTTM BETWEEN #{stt_dt} || '0000' AND #{end_dt} || '9999'
+             OR SCDL_END_DTTM BETWEEN #{stt_dt} || '0000' AND #{end_dt} || '9999'
+             OR #{stt_dt} || '0000' BETWEEN SCDL_STT_DTTM AND SCDL_END_DTTM
+             OR #{end_dt} || '9999' BETWEEN SCDL_STT_DTTM AND SCDL_END_DTTM)
+    ]]>
+    <if test="filters != null and filters != ''">
+    <choose>
+        <when test="filters.size > 0">
+            <foreach collection="filters" item="item" separator="or" close=")" open="AND (">
+                <choose>
+                    <when test='item.value == "C" or item.value == "O"'>
+                    (SCDL_TYP_CD = #{item.value} AND CNTR_CD = #{cntr_cd})
+                    </when>
+                    <otherwise>
+                    (SCDL_TYP_CD = #{item.value} AND SCDL_CHPR_ID = #{user_id})
+                    </otherwise>
+                </choose>
+            </foreach>
+        </when>
+        <otherwise>
+                AND 1 = 2
+        </otherwise>
+    </choose>
+    </if>
+      ORDER BY SCDL_STT_DTTM ASC
+    </select>
+
+    <insert id="ScdlDtlMap.insertScdlDtl" parameterType="map">
+        <selectKey keyProperty="scdl_id" resultType="String" order="BEFORE">
+            SELECT 'SCD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* ScdlDtlMap.insertScdlDtl */
+          INTO TB_SCDL_DTL
+               (SCDL_ID, SCDL_TYP_CD, SCDL_CHPR_ID, SCDL_TITL, SCDL_CNTN
+              , SCDL_STT_DTTM, SCDL_END_DTTM, ALDY_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{scdl_id}, #{scdl_typ_cd}, #{rgsr_id}, #{scdl_titl}, #{scdl_cntn}
+              , #{scdl_stt_dttm}, #{scdl_end_dttm}, DECODE(#{aldy_flag}, 1, 'Y', 'N')
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="ScdlDtlMap.updateScdlDtl" parameterType="map">
+        UPDATE /* ScdlDtlMap.updateScdlDtl */
+               TB_SCDL_DTL
+           SET SCDL_TYP_CD = #{scdl_typ_cd}
+             , SCDL_TITL = #{scdl_titl}
+             , SCDL_CNTN = #{scdl_cntn}
+             , SCDL_STT_DTTM = #{scdl_stt_dttm}
+             , SCDL_END_DTTM = #{scdl_end_dttm}
+             , ALDY_YN = DECODE(#{aldy_flag}, 1, 'Y', 'N')
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE SCDL_ID = #{scdl_id}
+    </update>
+
+    <delete id="ScdlDtlMap.deleteScdlDtl" parameterType="map">
+        DELETE /* ScdlDtlMap.deleteScdlDtl */
+          FROM TB_SCDL_DTL
+         WHERE SCDL_ID = #{scdl_id}
+    </delete>
+
+</mapper>

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="RlvtInttMap">
+
+    <sql id="RlvtInttMap.selectCondition_fragment">
+        <where>
+          <if test="content != null and content != ''">
+              <if test="search_typ == 'rlvt_intt_nm'">
+                  AND RLVT_INTT_NM LIKE '%' || #{content} || '%'
+              </if>
+              <if test="search_typ == 'rlvt_intt_expi'">
+                  AND RLVT_INTT_EXPI LIKE '%' || #{content} || '%'
+              </if>
+              <if test="search_typ == 'rlvt_intt_chpr_nm'">
+                  AND RLVT_INTT_CHPR_NM = #{content}
+              </if>
+              <if test="search_typ == 'rlvt_intt_rprs_tlno'">
+                  AND RLVT_INTT_RPRS_TLNO LIKE '%' || #{content} || '%'
+              </if>
+          </if>
+          <if test="use_yn != null and use_yn != ''">
+              AND USE_YN = #{use_yn}
+          </if>
+          <if test="rlvt_intt_id != null and rlvt_intt_id !=''">
+              AND RLVT_INTT_ID = #{rlvt_intt_id}
+          </if>
+          <if test="cntr_cd != null and cntr_cd !=''">
+              AND CNTR_CD = #{cntr_cd}
+          </if>
+      </where>
+    </sql>
+
+    <select id="RlvtInttMap.getRlvtInttCount" parameterType="map" resultType="int">
+        SELECT /* RlvtInttMap.getRlvtInttCount */
+               COUNT(*)
+          FROM TB_RLVT_INTT
+        <include refid="RlvtInttMap.selectCondition_fragment" />
+    </select>
+
+    <select id="RlvtInttMap.getRlvtInttList" parameterType="map" resultType="resultMap">
+        SELECT /* RlvtInttMap.getRlvtInttList */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.AMND_ID
+                   AND CNTR_CD = C.CNTR_CD) AS AMND_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT RLVT_INTT_ID, RLVT_INTT_NM, RLVT_INTT_RPRS_TLNO, RLVT_INTT_FAX_TLNO, RLVT_INTT_CHPR_NM
+                             , RLVT_INTT_EXPI, HMPG_ADDR, USE_YN, CNTR_CD, RGSR_ID
+                             , RGSN_DTTM, AMND_ID, AMNT_DTTM, EXPE_SQNC
+                          FROM TB_RLVT_INTT A
+        <include refid="RlvtInttMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+              ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="RlvtInttMap.getRlvtInttMaxOrder" parameterType="map" resultType="int">
+        SELECT /* RlvtInttMap.getRlvtInttMaxOrder */
+               NVL(MAX(EXPE_SQNC), 0)
+          FROM TB_RLVT_INTT
+         WHERE CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="RlvtInttMap.getRlvtInttDupCout" parameterType="map" resultType="int">
+        SELECT /* RlvtInttMap.getRlvtInttDupCout */
+               COUNT(*)
+          FROM TB_RLVT_INTT
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EXPE_SQNC = #{expe_sqnc}
+       <if test="rlvt_intt_id != null and rlvt_intt_id != ''">
+           AND RLVT_INTT_ID != #{rlvt_intt_id}
+       </if>
+    </select>
+
+    <insert id="RlvtInttMap.insertRlvtIntt" parameterType="map">
+        <selectKey keyProperty="rlvt_intt_id" resultType="String" order="BEFORE">
+            SELECT 'RLV' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT  /* RlvtInttMap.insertRlvtIntt*/
+          INTO TB_RLVT_INTT
+               (RLVT_INTT_ID, RLVT_INTT_NM, RLVT_INTT_RPRS_TLNO, RLVT_INTT_FAX_TLNO, RLVT_INTT_CHPR_NM
+              , RLVT_INTT_EXPI, HMPG_ADDR, USE_YN, CNTR_CD, EXPE_SQNC, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{rlvt_intt_id}, #{rlvt_intt_nm}, REPLACE(#{rlvt_intt_rprs_tlno}, '-', ''), REPLACE(#{rlvt_intt_fax_tlno}, '-', ''), #{rlvt_intt_chpr_nm}
+              , #{rlvt_intt_expi}, #{hmpg_addr}, #{use_yn}, #{cntr_cd}, #{expe_sqnc}, #{rgsr_id}
+              , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="RlvtInttMap.updateRlvtIntt" parameterType="map">
+        UPDATE  /* RlvtInttMap.updateRlvtIntt */
+               TB_RLVT_INTT
+           SET RLVT_INTT_NM = #{rlvt_intt_nm}
+             , RLVT_INTT_RPRS_TLNO = REPLACE(#{rlvt_intt_rprs_tlno}, '-', '')
+             , RLVT_INTT_FAX_TLNO = REPLACE(#{rlvt_intt_fax_tlno}, '-', '')
+             , RLVT_INTT_CHPR_NM = #{rlvt_intt_chpr_nm}
+             , RLVT_INTT_EXPI = #{rlvt_intt_expi}
+             , HMPG_ADDR = #{hmpg_addr}
+             , USE_YN = #{use_yn}
+             , EXPE_SQNC = #{expe_sqnc}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE RLVT_INTT_ID = #{rlvt_intt_id}
+    </update>
+
+    <update id="RlvtInttMap.updateRlvtInttOrd" parameterType="map">
+        <![CDATA[
+        UPDATE /* RlvtInttMap.updateRlvtInttOrd */
+               TB_RLVT_INTT
+           SET EXPE_SQNC = CASE RLVT_INTT_ID WHEN #{rlvt_intt_id} THEN ${expe_sqnc}
+                                             ELSE CASE SIGN(${old_expe_sqnc} - ${expe_sqnc}) WHEN -1 THEN EXPE_SQNC - 1
+                                                                                                WHEN  1 THEN EXPE_SQNC + 1
+                                                   END
+                              END
+         WHERE EXPE_SQNC <= CASE SIGN(${old_expe_sqnc} - ${expe_sqnc}) WHEN  1 THEN ${old_expe_sqnc}
+                                                                            WHEN -1 THEN ${expe_sqnc}
+                               END
+           AND EXPE_SQNC >= CASE SIGN(${old_expe_sqnc} - ${expe_sqnc}) WHEN  1 THEN ${expe_sqnc}
+                                                                            WHEN -1 THEN ${old_expe_sqnc}
+                               END
+           AND CNTR_CD = #{cntr_cd}
+        ]]>
+    </update>
+
+    <delete id="RlvtInttMap.deleteRlvtIntt" parameterType="map">
+        DELETE /* RlvtInttMap.deleteRlvtIntt */
+          FROM TB_RLVT_INTT
+         WHERE RLVT_INTT_ID = #{rlvt_intt_id}
+    </delete>
+
+</mapper>

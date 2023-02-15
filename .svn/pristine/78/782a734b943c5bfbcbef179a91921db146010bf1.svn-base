@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvltExecMap">
+
+    <sql id="EvltExecMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trpr_id != null and trpr_id != ''">
+                AND A.CHPR_ID = #{trpr_id}
+            </if>
+            <if test="startd != null and startd != ''">
+            <![CDATA[
+                AND A.ACPG_DTTM >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+            ]]>
+            </if>
+            <if test="endd != null and endd != ''">
+            <![CDATA[
+                AND A.ACPG_DTTM <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+            ]]>
+            </if>
+            <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+                AND A.ACPG_CHNL_CD = #{acpg_chnl_cd}
+            </if>
+            <if test="cons_stat_cd != null and cons_stat_cd != ''">
+                AND A.CONS_STAT_CD = #{cons_stat_cd}
+            </if>
+            <if test="evlt_resl_stat_cd != null and evlt_resl_stat_cd != '' and evlt_plan_id != null and evlt_plan_id != ''">
+                <choose>
+                    <when test="evlt_resl_stat_cd == '10'">
+                           AND (EXISTS (SELECT 'Y'
+                                       FROM TB_EVLT_RESL_DTL
+                                      WHERE CONSNO = A.CONSNO
+                                        AND CNTR_CD = A.CNTR_CD
+                                        AND EVLT_PLAN_ID = #{evlt_plan_id}
+                                        AND EVLT_RESL_STAT_CD = #{evlt_resl_stat_cd})
+                          OR NOT EXISTS (SELECT 'Y'
+                                           FROM TB_EVLT_RESL_DTL
+                                          WHERE CONSNO = A.CONSNO
+                                            AND CNTR_CD = A.CNTR_CD
+                                            AND EVLT_PLAN_ID = #{evlt_plan_id}))
+                    </when>
+                    <otherwise>
+                           AND EXISTS (SELECT 'Y'
+                                      FROM TB_EVLT_RESL_DTL
+                                     WHERE CONSNO = A.CONSNO
+                                       AND CNTR_CD = A.CNTR_CD
+                                       AND EVLT_PLAN_ID = #{evlt_plan_id}
+                                       AND EVLT_RESL_STAT_CD = #{evlt_resl_stat_cd})
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+
+    </sql>
+
+    <select id="EvltExecMap.getEvltExecCount" parameterType="map" resultType="int">
+        SELECT /* EvltExecMap.getEvltExecCount */
+               COUNT(*)
+          FROM TB_CONS A
+      <include refid="EvltExecMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EvltExecMap.getEvltExecList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltExecMap.getEvltExecList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY EVLT_RESL_STAT_CD DESC, ACPG_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                    FROM (SELECT CONSNO, ACPG_DTTM, ACPG_CHNL_CD, CONS_STAT_CD
+                             , MEM_NO, CHPR_ID, CALL_ID, CNTR_CD
+                             , CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD, EVLT_PLAN_ID
+                             , GETCODENM('CNS010', A.ACPG_CHNL_CD, A.CNTR_CD) AS ACPG_CHNL_NM
+                             , GETCODENM('CNS030', A.CONS_STAT_CD, A.CNTR_CD) AS CONS_STAT_NM
+                             , GETCODENM('EVL030', A.EVLT_RESL_STAT_CD, A.CNTR_CD) AS EVLT_RESL_STAT_NM
+                             , (SELECT EVST_ID
+                                  FROM TB_EVLT_PLAN
+                                 WHERE EVLT_PLAN_ID = A.EVLT_PLAN_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EVST_ID
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND CNTR_CD   = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (CASE WHEN EVLT_RESL_STAT_CD IS NULL THEN 'N' ELSE 'Y' END) AS EVLT_YN
+                             , NVL(EVLT_RESL_STAT_CD, '10') AS EVLT_RESL_STAT_CD
+                             , ACCNT_NO
+                          FROM (SELECT A.*
+                                     , (SELECT EVLT_RESL_STAT_CD
+                                          FROM TB_EVLT_RESL_DTL
+                                         WHERE CONSNO = A.CONSNO
+                                           AND CNTR_CD = A.CNTR_CD
+                                           AND EVLT_PLAN_ID = A.EVLT_PLAN_ID) AS EVLT_RESL_STAT_CD
+                                  FROM (SELECT A.*
+                                          FROM (SELECT CONSNO, ACPG_DTTM, ACPG_CHNL_CD, CONS_STAT_CD
+                                                     , MEM_NO, CHPR_ID, CALL_ID, CNTR_CD
+                                                     , CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+                                                     , #{evlt_plan_id} AS EVLT_PLAN_ID
+                                                     , ACCNT_NO
+                                                  FROM TB_CONS A
+                                              <include refid="EvltExecMap.selectCondition_fragment"/>
+                                               ) A
+                                        ) A
+                                ) A
+                        ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="EvltExecMap.getEvltExec" parameterType="map" resultType="resultMap">
+        SELECT /* EvltExecMap.getEvltExec */
+               C.EVLT_PLAN_ID, C.EVST_ID, C.EVLT_PRGR_STAT_CD, C.CONSNO, C.EVLT_RESL_ID
+             , EVLT_RESL_CNTN, CHOS_RSN, LEDN_DMND_CALL_YN, RCMD_TRGT_CALL_YN, EVLP_ID
+             , CALL_ID, EVLT_ACKD_ID, EVLT_ACKD_STAT_CD, DIST_CNTN
+             , EVLT_ACKD_RESL_CNTN, DIST_END_DT
+             , GETCODENM('EVL020', D.EVLT_ACKD_STAT_CD, D.CNTR_CD) AS EVLT_ACKD_STAT_NM
+             , (CASE WHEN C.DIST_END_DT <![CDATA[>=]]> TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END) AS DIST_YN
+             , NVL(evlt_resl_stat_cd,'10') evlt_resl_stat_cd
+          FROM (SELECT A.EVLT_PLAN_ID, A.EVST_ID, A.EVLT_PRGR_STAT_CD, B.EVLT_RESL_ID, B.EVLT_RESL_CNTN
+                     , B.CHOS_RSN, B.LEDN_DMND_CALL_YN, B.RCMD_TRGT_CALL_YN, B.EVLP_ID, A.DIST_END_DT
+                     , A.CNTR_CD, C.CONSNO, C.CALL_ID,b.evlt_resl_stat_cd
+                  FROM TB_EVLT_PLAN A
+                     , (SELECT *
+                          FROM TB_EVLT_RESL_DTL
+                         WHERE EVLT_PLAN_ID = #{evlt_plan_id}
+                           AND CONSNO = #{consno}) B
+                     , TB_CONS C
+                 WHERE A.EVLT_PLAN_ID = #{evlt_plan_id}
+                   AND A.CNTR_CD = #{cntr_cd}
+                   AND A.EVLT_PLAN_ID = B.EVLT_PLAN_ID(+)
+                   AND A.CNTR_CD = B.CNTR_CD(+)
+                   AND C.CONSNO = #{consno}
+                   AND A.CNTR_CD = C.CNTR_CD
+                ) C
+              , TB_EVLT_ACKD_DTL D
+         WHERE C.EVLT_RESL_ID = D.EVLT_RESL_ID(+)
+    </select>
+
+</mapper>

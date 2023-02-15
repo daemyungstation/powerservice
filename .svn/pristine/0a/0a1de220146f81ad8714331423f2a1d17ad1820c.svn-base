@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="FrmDev" classname="Work_Contents1" inheritanceid="" position="absolute 0 0 1007 779" titletext="DIS Excute 샘플" onload="FrmDev_onload">
+    <Layouts>
+      <Layout>
+        <Div id="div_body" taborder="0" text="Div00" scrollbars="autoboth" position="absolute 0 110 989 779" anchor="all" style="background:#ff450066;">
+          <Layouts>
+            <Layout/>
+          </Layouts>
+        </Div>
+        <Div id="Div00" taborder="3" text="Div00" scrollbars="autoboth" position="absolute 0 0 989 94" positiontype="position" anchor="left top right">
+          <Layouts>
+            <Layout>
+              <Static id="stc_23" class="sta_workSrcBg" position="absolute 0 0 989 91" anchor="left top right"/>
+            </Layout>
+          </Layouts>
+        </Div>
+        <Static id="Static01" text="결과메세지" position="absolute 0 110 130 779" style="background:#edeee6ff; border:1 solid #c6c6c5ff ; align:center middle; font:Tahoma,9,bold antialias; " anchor="left top bottom"/>
+        <Static id="Static02" position="absolute 129 110 989 779" style="background:#ffffffff; border:1 solid #c6c6c5ff ; align:center middle; font:Tahoma,9,bold antialias; " anchor="all"/>
+        <TextArea id="txa_result" taborder="1" position="absolute 140 138 976 767" anchor="all"/>
+        <Static id="stc_21" text="NameSpace" class="sta_workSrcLabel1" position="absolute 15 11 117 31"/>
+        <Edit id="edt_nameSpace" taborder="1" position="absolute 99 11 738 31" validate="title:NameSpace,required:true"/>
+        <Static id="stc_00" text="TrscCode" class="sta_workSrcLabel1" position="absolute 15 35 117 55"/>
+        <Edit id="edt_trscCode" taborder="1" position="absolute 99 35 218 55" validate="title:TrscCode,required:true"/>
+        <Static id="stc_01" text="SqlID" class="sta_workSrcLabel1" position="absolute 15 59 117 79"/>
+        <Edit id="edt_sqlID" taborder="1" position="absolute 99 59 268 79" validate="title:SqlID,required:true"/>
+        <Button id="btn_View" taborder="1" text="표형식으로 보기" position="absolute 140 114 249 135" onclick="btn_View_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_output" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="resCd" type="STRING" size="256"/>
+          <Column id="errorMsg" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function FrmDev_onload(obj:Form, e:LoadEventInfo)
+{
+	// 시스템 공통함수 호출
+	gfn_commInit(obj);
+	
+	// 공통버튼 상태변경
+	gfn_setCommBtn_Status(true,true,false,false,false,false);	
+}
+
+function fn_commInit()
+{
+	txa_result.value 	= "";
+	edt_nameSpace.value = "";
+	edt_trscCode.value 	= "";
+	edt_sqlID.value 	= "";
+}
+
+function fn_commSearch()
+{
+	if (!gfn_getValidateCompList(this)) {
+		return false;
+	}
+
+	txa_result.value = "";
+
+	// 페이징처리 데이타 처리
+	gds_RequestCompVariable.clearData();
+
+	var nRow = gds_RequestCompVariable.addRow();
+	gds_RequestCompVariable.setColumn(nRow, "pageNo", 	1);
+	gds_RequestCompVariable.setColumn(nRow, "reqCount", 100);
+	gds_RequestCompVariable.setColumn(nRow, "startNum", 1);
+	gds_RequestCompVariable.setColumn(nRow, "endNum", 	100);
+	
+	// 서비스 호출
+	var sNameSpace 	= gfn_trim(this.edt_nameSpace.value);
+	var sTrscCode	= gfn_trim(this.edt_trscCode.value);
+	var sSqlId		= gfn_trim(this.edt_sqlID.value);
+
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace(sNameSpace);
+	gfn_setKwData_trscCode(sTrscCode);
+	gfn_setKwData_sqlId(sSqlId);
+	gfn_setKwData_trscType(gfn_getTranTypeSearch());
+	
+	gfn_tranDIS(gfn_getCommTypeAppend() 
+				, "ds_input=ds_input"
+				, "ds_output=datas"
+				, "fn_commSearch_callBack");	
+}
+
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_commSearch_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	
+	trace(ds_output.saveXML());
+	
+	this.txa_result.value = ds_output.saveXML();
+}	
+
+function btn_View_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_debug(ds_output);
+}
+]]></Script>
+  </Form>
+</FDL>

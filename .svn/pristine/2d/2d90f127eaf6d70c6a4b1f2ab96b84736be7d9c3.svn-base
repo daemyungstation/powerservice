@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="frm" classname="PS020410" inheritanceid="" position="absolute 0 0 447 512" titletext="애큐온인증" onload="frm_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 0 447 508"/>
+        <Static id="stc_30" text="사내조직도" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 231 28"/>
+        <Button id="btn_Close" taborder="15" onclick="fn_close" class="btn_popupClose" position="absolute 423 8 443 27"/>
+        <Static id="stc_15" text="사내조직도" class="sta_workTitle2" position="absolute 11 44 199 64"/>
+        <Grid id="grd_list" taborder="12" binddataset="ds_list" useinputpanel="false" cellsizingtype="col" autofittype="col" position="absolute 10 67 437 469" oncelldblclick="grd_list_oncelldblclick" treeusecheckbox="false" treeuseline="false">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="353"/>
+              </Columns>
+              <Rows>
+                <Row size="25"/>
+              </Rows>
+              <Band id="body">
+                <Cell displaytype="tree" edittype="tree" style="align:left;line:1 none #808080ff ;" text="bind:dept_nm" wordwrap="char" treelevel="bind:lvl" treestate="1"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_pay_gen" taborder="16" text="닫기" onclick="fn_close" class="btn_WF_Common" position2="absolute r:10 w:82 t:477 h:20" positiontype="position2" style="padding:0 0 0 0;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="dept_kind" type="STRING" size="32"/>
+          <Column id="lvl" type="STRING" size="32"/>
+          <Column id="high_dept_cd" type="STRING" size="32"/>
+          <Column id="dept_cd" type="STRING" size="32"/>
+          <Column id="dept_nm" type="STRING" size="32"/>
+          <Column id="use_yn" type="STRING" size="32"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_cond" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="dept_cd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+//권한
+var rgsnYn; //등록권한
+var inqYn; //조회권한
+var amntYn; //수정권한
+var dltnYn; //삭제권한
+var pritYn; //출력권한
+var xlsYn; //엑셀권한
+
+var fv_dept_cd 	= "";
+var fv_lgnId 	= "";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function frm_onload(obj:Form, e:LoadEventInfo)
+{
+	fv_lgnId = gfn_getUserInfo("lgn_id");
+	gfn_initForm(obj);	
+	fn_init();
+	
+	if ( !gfn_isEmpty(p_dept_cd) ) {
+		fv_dept_cd = p_dept_cd;
+	}
+	
+	fn_search();
+}
+
+// 초기화 함수
+function fn_init() 
+{
+	ds_list.clearData();
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	var i, 
+		nPos,
+		arrCol,
+		sItemNm,
+		sItemVal,
+		dummy;
+	
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {		
+			case "search":
+				fn_postSearch();
+				break;
+		}
+	}
+}
+
+// 조회 전 처리
+function fn_preSearch()
+{
+	ds_cond.clearData();
+	ds_cond.addRow();
+	ds_cond.setColumn(0, "dept_cd", fv_dept_cd);
+	return true;
+}
+
+//조회
+function fn_search(obj, e)
+{	
+	// 유효성 체크
+	if ( !fn_preSearch() ) {
+		return;
+	}
+	
+	var szSvcid       = "search";
+    var szController  = "/common/selectOrgChartMap";
+    var szInDs        = "ds_input=ds_cond";
+    var szOutDs       = "ds_list=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+// 조회 후 처리
+function fn_postSearch() {
+	var lvl;
+	
+	if (ds_list.rowcount < 1) {
+		alert("조회된 데이터가 없습니다.");
+	} 
+	else {
+		grd_list.setTreeStatus(0, true);
+	}
+}
+
+function fn_close(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	var nPos = ds_list.rowposition;
+	var mRst = {dept_cd:ds_list.getColumn(nPos, "dept_cd"),
+				dept_nm:ds_list.getColumn(nPos, "dept_nm"),
+				high_dept_cd:ds_list.getColumn(nPos, "high_dept_cd"),
+				lvl:ds_list.getColumn(nPos, "lvl"),
+				use_yn:ds_list.getColumn(nPos, "use_yn")};	
+	close(mRst);
+}
+
+]]></Script>
+  </Form>
+</FDL>

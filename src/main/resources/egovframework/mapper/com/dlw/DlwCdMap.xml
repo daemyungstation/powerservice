@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCdMap">
+
+    <select id="DlwCdMap.getDlwAllCdList" resultType="resultMap">
+
+
+        SELECT /* DlwCdMap.getDlwAllCdList */
+               GRP_CD AS CD_SET_CD , '' AS CNTR_CD, COM_CD AS CD, CD_NM, ORDR_TURN AS CD_SQNC
+             , USE_YN , CON AS CD_EXPI, '' AS ADTL_CD, '' AS ADTL_CD_NM
+          FROM COM_CD
+         WHERE 1=1
+        <if test="all_fg != 'ALL'">
+            AND USE_YN = 'Y'
+        </if>
+           AND GRP_CD IN
+        <foreach collection="sCdSetList" item="item" separator="," close=")" open="(">
+               #{item}
+        </foreach>
+         ORDER BY CD_SQNC ASC
+    </select>
+
+    <select id="DlwCdMap.getDlwCdCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwCdMap.getDlwCdCount */
+               COUNT(*)
+          FROM (SELECT A.*
+                  FROM (SELECT GRP_CD AS CD_SET_CD , '' AS CNTR_CD, COM_CD AS CD, CD_NM, ORDR_TURN AS CD_SQNC
+                             , USE_YN , CON AS CD_EXPI, '' AS ADTL_CD, '' AS ADTL_CD_NM
+                          FROM COM_CD
+                         WHERE 1=1
+                        <if test="AllFg != 'ALL'">
+                            AND USE_YN = 'Y'
+                        </if>
+                        <if test="grp_cd != null and grp_cd != ''">
+                            AND GRP_CD = #{grp_cd}
+                        </if>
+                        <if test="cd_nm != null and cd_nm != ''">
+                            AND CD_NM LIKE '%' || #{cd_nm} || '%'
+                        </if>
+                        <if test="cd != null and cd != ''">
+                            AND COM_CD = #{cd}
+                        </if>
+                        ) A
+                ) B
+    </select>
+
+    <select id="DlwCdMap.getDlwCdList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwCdMap.getDlwCdList */
+               B.*
+          FROM (SELECT A.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY CD) PAGE_INDX
+                        </otherwise>
+                    </choose>
+                 FROM (SELECT GRP_CD AS CD_SET_CD , '' AS CNTR_CD, COM_CD AS CD, CD_NM, ORDR_TURN AS CD_SQNC
+                            , USE_YN , CON AS CD_EXPI, '' AS ADTL_CD, '' AS ADTL_CD_NM
+                         FROM COM_CD
+                        WHERE USE_YN = 'Y'
+                        <if test="grp_cd != null and grp_cd != ''">
+                            AND GRP_CD = #{grp_cd}
+                        </if>
+                        <if test="cd_nm != null and cd_nm != ''">
+                            AND CD_NM LIKE '%' || #{cd_nm} || '%'
+                        </if>
+                        <if test="cd != null and cd != ''">
+                            AND COM_CD = #{cd}
+                        </if>
+                       ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+</mapper>

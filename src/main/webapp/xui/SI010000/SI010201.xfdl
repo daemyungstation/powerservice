@@ -1,0 +1,217 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_FileUploadExcel_Popup" classname="Comm_FileUploadExcel_Popup" inheritanceid="" position="absolute 0 0 460 183" titletext="파일업로드(Excel)" onload="Comm_FileUploadExcel_Popup_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_25" class="sta_popupBg1" enable="false" position="absolute 0 0 450 179"/>
+        <Static id="stc_26" text="파일 업로드" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 421 8 441 27"/>
+        <Static id="stc_33" class="sta_workSrcBg" position="absolute 11 69 439 111"/>
+        <Static id="stc_32" text="파일찾기" class="sta_workSrcLabel1" position="absolute 23 80 81 100"/>
+        <Edit id="edt_FilePath" taborder="1" position="absolute 84 80 406 100" enable="false"/>
+        <Button id="btn_FileSelect" taborder="1" class="btn_WFSA_workSrcPop" position="absolute 408 80 428 100" onclick="btn_FileSelect_onclick"/>
+        <Static id="Static00" text="※ xml 파일만 등록하실 수 있습니다.&#13;&#10;※ 파일명 끝부분에 일시부분은 지워주신 후 업로드하시기 바랍니다.&#13;&#10; " position="absolute 9 113 443 192" style="linespace:5;"/>
+        <Button id="btn_Commit" taborder="1" text="확인" position="absolute 370 45 439 65" onclick="btn_Commit_onclick"/>
+        <Static id="stc_00" text="파일선택" class="sta_workTitle2" position="absolute 12 48 196 68"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_UploadResult" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_FileList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="xRowStatusType" type="STRING" size="256"/>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="fileId" type="STRING" size="256"/>
+          <Column id="fileLPath" type="STRING" size="256"/>
+          <Column id="filePath" type="STRING" size="256"/>
+          <Column id="fileName" type="STRING" size="256"/>
+          <Column id="targetId" type="STRING" size="256"/>
+          <Column id="fileSize" type="STRING" size="256"/>
+          <Column id="fileType" type="STRING" size="256"/>
+          <Column id="detailInfo" type="STRING" size="256"/>
+          <Column id="regDate" type="STRING" size="256"/>
+          <Column id="isUploaded" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ObjDsExcel" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_ObjDsInput" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+// 부모창으로부터 전달받는 변수
+//var pv_TrscCd;			// 저장시 실행할 Transaction Code
+//var pv_ObjDsExcel;		// Excel File 선택시 Import할 데이타셋
+//var pv_ObjDsInput;		// 파라미터 전달용 Input 데이타셋
+
+var fv_FilePath   		= "";				// Default 파일경로
+var fv_FilterFlag		= "XML";			// File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+
+function Comm_FileUploadExcel_Popup_onload(obj:Form, e:LoadEventInfo)
+{
+	//gfn_commPopInit(obj, true);
+	
+	//fn_init();
+}
+
+function fn_init()
+{
+	ds_ObjDsExcel.assign(pv_ObjDsExcel);
+	ds_ObjDsInput.assign(pv_ObjDsInput);
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function btn_FileSelect_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var objFiles = gfn_fileSelect("S", fv_FilePath, fv_FilterFlag);
+	if (!objFiles) return;
+	
+ 	trace("filename::"+objFiles.filename);
+// 	trace("filepath::"+objFiles.path);
+// 	trace("filefullpath::"+objFiles.fullpath);
+	
+	ds_FileList.clearData();
+	this.edt_FilePath.value = objFiles.fullpath;
+}
+
+function btn_Commit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(gfn_getLength(this.edt_FilePath.value) <= 0) {
+		alert("업로드할 파일을 선택하세요!");
+		return;
+	}
+	
+	if(!confirm("파일을 업로드 하시겠습니까?")) return;
+
+	// 파일업로드
+	var sLocalFilePath = this.edt_FilePath.value;
+	
+	if(fn_fileUpload(sLocalFilePath)) {
+	
+		// 엑셀파일 Import
+		//gfn_importExcelToDataset(ds_ObjDsExcel.name, null, null, null, sLocalFilePath);
+		
+		// DB 저장
+		//fn_commSave(gfn_getCommTypeSave());
+	
+// 		trace(ds_UploadResult.saveXML());
+// 	
+// 		trace("Upload OK!!");
+// 		trace(ds_FileList.saveXML());
+
+// 		var objDs = this.removeChild(ds_FileList.name);
+// 	
+// 		// 파일 업로드 후 반환시에 Upload Result Dataset을 반환한다.
+// 		close(objDs);
+	}
+}
+
+
+/***************************************************************************
+ * 함  수  명		: fn_commSave()
+ * 기      능		: (공통버튼)저장 프로세스
+ ***************************************************************************/
+function fn_commSave(sType)
+{
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_trscCode(pv_TrscCd);
+
+	var strInputDatasetlist = pv_ObjDsInput.name+"="+ds_ObjDsInput.name;
+		strInputDatasetlist += " "+ "ds_fileInfo=ds_FileList";
+		strInputDatasetlist += " "+ pv_ObjDsExcel.name+"=" + ds_ObjDsExcel.name;
+
+	gfn_tranMCI(sType
+				, strInputDatasetlist
+				, ""
+				, "fn_commSave_callBack");
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSave_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_commSave_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	
+	alert("저장되었습니다.");
+	close();
+}
+
+/*****************************************************************************************
+ * 함  수  명	: fn_fileUpload
+ * 입      력	: 1. sfileLocalPath 	: 첨부파일 Local Path
+				  2. sUploadUrl 		: Upload Url
+ * 반      환	:   
+ * 기      능	: 단일파일 업로드 용도
+				  시스템 에러발생시 화면캡쳐 파일업로드 사용
+ *****************************************************************************************/ 
+function fn_fileUpload(sfileLocalPath, sUploadUrl)
+{
+	if(sUploadUrl == null) sUploadUrl = gfn_getFileUploadUrl()+"?UUID="+UUID;
+
+	var objHttp;
+ 	objHttp = objects["httpObject"];
+ 	
+ 	if (objHttp == null) {
+		objHttp = new HttpObject();
+		objHttp.onload.setHandler(fn_httpObject_onload);
+	}    
+	
+	var arrFiles = new Array();
+	var objVirtualFiles = new VirtualFile;
+	var nRtn = objVirtualFiles.open(sfileLocalPath, VirtualFile.openRead | VirtualFile.openBinary);
+	
+	if (!nRtn) {
+		objVirtualFiles.close();
+		return false;
+	}	
+		
+	arrFiles[0] = objVirtualFiles;
+	
+	trace("sUploadUrl::"+sUploadUrl);
+	
+	var nRtn = objHttp.upload(sUploadUrl, FileDialog.LOAD, arrFiles[0], false);
+	
+	objVirtualFiles.close();	
+	
+	if(!nRtn) {
+		alert("파일 업로드 중 오류발생!!");
+		return false;
+	}
+	
+	return true;
+}
+
+ /*****************************************************************************************
+ * 함  수  명	: fn_httpObject_onload
+ * 입      력	: 1. obj 	: HttpObject
+				  2. e 		: HttpObjLoadEventInfo
+ * 반      환	:   
+ * 기      능	: 단일파일 업로드 콜백
+ *****************************************************************************************/ 
+function fn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo) 
+{
+	if (e.errorcode == 0) {
+		ds_UploadResult.loadXML(e.errormsg);
+	
+		var nCurRow = gfn_addDs(ds_FileList);
+		ds_FileList.setColumn(nCurRow, "fileId", 		ds_UploadResult.getColumn(0, "fileId"));
+		ds_FileList.setColumn(nCurRow, "fileName", 		ds_UploadResult.getColumn(0, "fileName"));
+		ds_FileList.setColumn(nCurRow, "filePath", 		ds_UploadResult.getColumn(0, "filePath"));
+		ds_FileList.setColumn(nCurRow, "fileSize", 		ds_UploadResult.getColumn(0, "fileSize"));
+		ds_FileList.setColumn(nCurRow, "isUploaded", 	ds_UploadResult.getColumn(0, "isUploaded"));
+	} else {
+		alert("파일업로드 실패!!");
+	}
+
+}]]></Script>
+  </Form>
+</FDL>

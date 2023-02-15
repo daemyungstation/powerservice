@@ -1,0 +1,2018 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwVrtlAcntTestMap">
+    <select id="DlwVrtlAcntTestMap.getDlwVrtlAcntClctCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwVrtlAcntTestMap.getDlwVrtlAcntClctCount */
+               COUNT(*)
+          FROM (SELECT VAM.*
+                     , CASE WHEN VAM.STAT = '04' THEN '0001'
+                            WHEN VAM.STAT = '02' AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS <![CDATA[<]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+                            THEN '0002'
+                            ELSE ''
+                        END AS PAY_COMP_FG_CD
+                     , CASE WHEN VAM.STAT = '01' THEN '0001'
+                            WHEN VAM.STAT IN ('02', '04') THEN '0002'
+                            WHEN VAM.STAT = '03' THEN '0003'
+                            ELSE ''
+                        END AS NICE_RESULT_CD
+                  FROM NICE_VRTL_ACCNT_WDRW_REQ_MST VAM
+                 INNER JOIN NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                    ON VAM.SEQ = VAD.SEQ
+                 INNER JOIN MEM_PROD_ACCNT ACCNT
+                    ON VAD.ACCNT_NO = ACCNT.ACCNT_NO
+                 INNER JOIN MEMBER MEM
+                    ON MEM.MEM_NO = ACCNT.MEM_NO
+                 INNER JOIN PRODUCT PROD
+                    ON PROD.PROD_CD = ACCNT.PROD_CD
+                  <!-- 2018.03.20 TM40:MG권한 일 경우 -->
+                  <if test="user_athrCd != null and user_athrCd == 'TM40'">
+                          INNER JOIN LF_DMUSER.RESN_CREDIT_LIST C
+                          ON C.ACCNT_NO = ACCNT.ACCNT_NO
+                          AND C.DEL_FG = 'N'
+                          AND C.TARGET_YM = TO_CHAR(SYSDATE, 'YYYYMM')
+                 </if>
+
+                 WHERE 1=1
+                 <if test="accnt_no != null and accnt_no != ''">
+                     AND ACCNT.ACCNT_NO = #{accnt_no}
+                 </if>
+                 <if test="tid != null and tid != ''">
+                     AND VAM.TID = #{tid}
+                 </if>
+                 <if test="dt_typ == '0001'">
+                     <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                        AND VAM.AUTH_DATE IS NOT NULL
+                        AND SUBSTR('20' || VAM.AUTH_DATE, 8) BETWEEN REPLACE(#{stt_dt}, '/', '') AND REPLACE(#{end_dt}, '/', '')
+                     </if>
+                 </if>
+                 <if test="dt_typ == '0002'">
+                     <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                        AND VAM.EXPIRY_YYYYMMDD BETWEEN REPLACE(#{stt_dt}, '/', '') AND REPLACE(#{end_dt}, '/', '')
+                     </if>
+                 </if>
+                ) TBL
+         WHERE 1=1
+         <if test="trnm_stat != null and trnm_stat != ''">
+             AND TBL.NICE_RESULT_CD = #{trnm_stat}
+         </if>
+         <if test="dpst_stat != null and dpst_stat != ''">
+             <if test="dpst_stat == '0003'">
+                 AND TBL.PAY_COMP_FG_CD NOT IN ('0001', '0002')
+                 AND TBL.NICE_RESULT_CD != '0003'
+             </if>
+             <if test="dpst_stat != '0003'">
+                 AND TBL.PAY_COMP_FG_CD = #{dpst_stat}
+             </if>
+         </if>
+    </select>
+
+    <select id="DlwVrtlAcntTestMap.getDlwVrtlAcntClctList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectVrtlAccntWdrwReqHist -->
+        SELECT /* DlwVrtlAcntTestMap.getDlwVrtlAcntClctList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           '' AS PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT TBL.*
+                             , CASE WHEN TBL.EVT_NM = ''
+                                    THEN '정상'
+                                    ELSE TBL.EVT_NM
+                               END AS JOIN_STAT
+                             , '' CHK
+                             , 'RR' CRUD
+                             , '[대명아임레디]' || CHR(13) ||
+                               '가상계좌 입금 안내' || CHR(13) ||
+                               '가상계좌번호 : ' || TBL.VRTL_ACCNT_NO || CHR(13) ||
+                               '은행 : ' || TBL.BANK_NM || CHR(13) ||
+                               '예금주 : ' || TBL.MEM_NM || CHR(13) ||
+                               '입금금액 : ' || TO_CHAR(TBL.TOTAL_AMT, 'FM999,999,999,999,999.9999') || CHR(13) ||
+                               '입금마감일자 : ' || TBL.EXPIRY_DT || CHR(13) ||
+                               '* 입금마감일자 경과 후 입금 시' || CHR(13) ||
+                               '타인에게 입금반영이 될수 있으니' || CHR(13) ||
+                               '마감일자 꼭 지켜주시기바랍니다.' || CHR(13) ||
+                               '감사합니다.' AS CONTENT
+                             , REPLACE(TBL.CELL, '-', '') AS CLPH_NO
+                          FROM (SELECT MEM.MEM_NM
+                                     , VAM.SEQ
+                                     , MEM.CELL
+                                     , MEM.MEM_NO
+                                     , VAD.ACCNT_NO
+                                     , VAM.VRTL_ACCNT_NO
+                                     , VAM.EXPIRY_YYYYMMDD || ' '
+                                                || SUBSTR(VAM.EXPIRY_HHMMSS, 1, 2) || ':'
+                                                || SUBSTR(SUBSTR(VAM.EXPIRY_HHMMSS, 1, 4), -2) || ':'
+                                                || SUBSTR(VAM.EXPIRY_HHMMSS, -2) AS EXPIRY_DT
+                                     , FN_COM_NM('63', VAM.BANK_CD) AS BANK_NM
+                                     , VAM.BANK_CD AS BANK_CD
+                                     , CASE WHEN VAM.STAT = '01'
+                                            THEN '전송전'
+                                            WHEN VAM.STAT IN ('02', '04')
+                                            THEN '전송완료'
+                                            WHEN VAM.STAT = '03'
+                                            THEN '전송오류'
+                                            ELSE ''
+                                        END AS NICE_RESULT
+                                     , CASE WHEN VAM.STAT = '04'
+                                            THEN '입금완료'
+                                            WHEN VAM.STAT = '02' AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS <![CDATA[<]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                                            THEN '입금안됨'
+                                            WHEN VAM.STAT = '01'
+                                            THEN ''
+                                            WHEN VAM.STAT = '03'
+                                            THEN ''
+                                            ELSE '대기중'
+                                        END AS PAY_COMP_FG
+                                     , CASE WHEN VAM.STAT = '01' THEN '0001'
+                                            WHEN VAM.STAT IN ('02', '04') THEN '0002'
+                                            WHEN VAM.STAT = '03' THEN '0003'
+                                            ELSE ''
+                                        END AS NICE_RESULT_CD
+                                     , CASE WHEN VAM.STAT = '04' THEN '0001'
+                                            WHEN VAM.STAT = '02' AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS <![CDATA[<]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                                            THEN '0002'
+                                            ELSE ''
+                                        END AS PAY_COMP_FG_CD
+                                     , CASE WHEN NVL(VAM.AUTH_DATE, '') = '' THEN
+                                                ''
+                                            ELSE
+                                              VAM.AUTH_DATE
+                                        END AS AUTH_DT
+                                     , VAD.INV_GUNSU
+                                     , VAD.WDRW_REQ_AMT
+                                     , FN_COM_NM('85', PROD.PROD_CL) AS PROD_CL
+                                     , FN_EVENT(ACCNT.ACCNT_NO) AS EVT_NM
+                                     , FN_YEN_CHE(ACCNT.ACCNT_NO) AS PAY_STAT
+                                     , (SELECT SUM(A.WDRW_REQ_AMT)
+                                          FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL A
+                                         WHERE A.SEQ = VAM.SEQ) AS TOTAL_AMT
+                                     , VAM.TID
+                                     , TO_CHAR(VAM.REG_DM, 'YYYY/MM/DD') AS REG_DM
+                                     , FN_EMPLE_NM(VAM.REG_MAN) AS REG_MAN
+                                  FROM NICE_VRTL_ACCNT_WDRW_REQ_MST VAM
+                                 INNER JOIN NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                                    ON VAM.SEQ = VAD.SEQ
+                                 INNER JOIN MEM_PROD_ACCNT ACCNT
+                                    ON VAD.ACCNT_NO = ACCNT.ACCNT_NO
+                                 INNER JOIN MEMBER MEM
+                                    ON MEM.MEM_NO = ACCNT.MEM_NO
+                                 INNER JOIN PRODUCT PROD
+                                    ON PROD.PROD_CD = ACCNT.PROD_CD
+
+                                  <!-- 2018.03.20 TM40:MG권한 일 경우 -->
+                                 <if test="user_athrCd != null and user_athrCd == 'TM40'">
+                                      INNER JOIN LF_DMUSER.RESN_CREDIT_LIST K
+                                      ON K.ACCNT_NO = ACCNT.ACCNT_NO
+                                      AND K.DEL_FG = 'N'
+                                      AND K.TARGET_YM = TO_CHAR(SYSDATE, 'YYYYMM')
+                                 </if>
+                                 WHERE 1=1
+                                 <if test="accnt_no != null and accnt_no != ''">
+                                     AND ACCNT.ACCNT_NO = #{accnt_no}
+                                 </if>
+                                 <if test="tid != null and tid != ''">
+                                     AND VAM.TID = #{tid}
+                                 </if>
+                                 <if test="dt_typ == '0001'">
+                                     <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                         AND VAM.AUTH_DATE IS NOT NULL
+                                        AND SUBSTR('20' || VAM.AUTH_DATE, 1, 8) BETWEEN REPLACE(#{stt_dt}, '/', '') AND REPLACE(#{end_dt}, '/', '')
+                                     </if>
+                                 </if>
+                                 <if test="dt_typ == '0002'">
+                                     <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                        AND VAM.EXPIRY_YYYYMMDD BETWEEN REPLACE(#{stt_dt}, '/', '') AND REPLACE(#{end_dt}, '/', '')
+                                     </if>
+                                 </if>
+                                ) TBL
+                         WHERE 1=1
+                         <if test="trnm_stat != null and trnm_stat != ''">
+                             AND TBL.NICE_RESULT_CD = #{trnm_stat}
+                         </if>
+                         <if test="dpst_stat != null and dpst_stat != ''">
+                             <if test="dpst_stat == '0003'">
+                                 AND TBL.PAY_COMP_FG_CD NOT IN ('0001', '0002')
+                                 AND TBL.NICE_RESULT_CD != '0003'
+                             </if>
+                             <if test="dpst_stat != '0003'">
+                                 AND TBL.PAY_COMP_FG_CD = #{dpst_stat}
+                             </if>
+                         </if>
+                    ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+
+
+    <!-- 현재시간조회 -->
+    <select id="DlwVrtlAcntTestMap.getCurrDthms" parameterType="map" resultType="resultMap">
+        SELECT /* DlwVrtlAcntTestMap.getCurrDthms */
+               SUBSTR(DTHMS, 1, 8) 	AS YYYYMMDD
+             , SUBSTR(DTHMS, 9) 	AS HHMMSS
+          FROM (SELECT TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') DTHMS
+                  FROM DUAL)
+    </select>
+
+    <update id="DlwVrtlAcntTestMap.deleteDlwVrtlAcntClct" parameterType="map">
+        <!-- DM sql-id : deleteVrtlAccntWdrwReqHist -->
+        /* DlwVrtlAcntTestMap.deleteDlwVrtlAcntClct */
+        BEGIN
+            UPDATE NICE_VRTL_ACCNT_WDRW_REQ_MST
+               SET EXPIRY_HHMMSS = #{hhmmss}
+                 , EXPIRY_YYYYMMDD = #{yyyymmdd}
+             WHERE SEQ = #{seq} ;
+
+            UPDATE NICE_VRTL_ACCNT_INFO
+               SET DEL_FG = 'Y'
+                 , PREV_CLOSE_DT =  TO_CHAR(TO_DATE(#{expiry_dt}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDDHH24MISS')
+             WHERE VRTL_ACCNT_NO = #{vrtl_accnt_no}
+               AND BANK_CD = #{bank_cd}
+               ;
+         END;
+    </update>
+
+    <!-- 가상계좌 산출 리스트 조회 -->
+    <select id="DlwVrtlAcntTestMap.getVrtlAccntWdrwReqList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-cms.selectVrtlAccntWdrwReqList -->
+        SELECT /* DlwVrtlAcntTestMap.getVrtlAccntWdrwReqList */
+               VAM.SEQ
+             , VAM.MEM_NO
+             , MEM.MEM_NM
+             , VAM.VRTL_ACCNT_NO
+             , VAM.BANK_CD
+             , FN_COM_NM('63', VAM.BANK_CD) AS BANK_NM
+             , (SELECT SUM(VAD.WDRW_REQ_AMT)
+                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                 WHERE VAD.SEQ = VAM.SEQ) AS WDRW_REQ_AMT
+
+             , CASE WHEN VAM.STAT = '01' THEN 'NICE등록전'
+                    WHEN VAM.STAT = '02' THEN 'NICE등록완료'
+                    WHEN VAM.STAT = '03' THEN '등록오류'
+                    WHEN VAM.STAT = '04' THEN '입금완료'
+               END AS STAT
+
+             , (SELECT LISTAGG(VAD.ACCNT_NO, ',') WITHIN GROUP (ORDER BY VAD.SEQ)
+                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                 WHERE VAD.SEQ = VAM.SEQ
+                 GROUP BY VAD.SEQ
+                  ) AS ACCNT_NO
+
+             , (SELECT COUNT(ACCNT_NO)
+                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                 WHERE VAD.SEQ = VAM.SEQ) AS ACCNT_CNT
+
+             , FN_EMPLE_NM(VAM.REG_MAN) AS REG_MAN
+             , TO_CHAR(VAM.REG_DM, 'YYYY/MM/DD') AS REG_DM
+          FROM NICE_VRTL_ACCNT_WDRW_REQ_MST VAM
+               INNER JOIN MEMBER MEM ON VAM.MEM_NO = MEM.MEM_NO
+         WHERE VAM.STAT = '01'
+         <if test="reg_man != '2010120001'">
+            AND VAM.REG_MAN = #{reg_man}
+         </if>
+         ORDER BY VAM.MEM_NO
+    </select>
+
+    <!-- 가상계좌 산출 대상자 리스트 조회 -->
+    <select id="DlwVrtlAcntTestMap.getVrtlAccntTargetList33" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-cms.selectVrtlAccntTargetList -->
+
+        SELECT /* DlwVrtlAcntTestMap.getVrtlAccntTargetList33 */
+               TBL1.ACCNT_NO
+             , TBL1.PAY_MTHD
+             , TBL1.MEM_NM
+             , TBL1.MEM_NO
+             , TBL1.PROD_CL
+             , TBL1.YEN_CHE AS PAY_STAT
+             , CASE WHEN TBL1.EVT_NM = ''
+                    THEN '정상'
+                    ELSE TBL1.EVT_NM
+                END AS JOIN_STAT
+             , TBL1.EXPR_NO
+             , TBL1.LAST_NO
+             , TBL1.MON_PAY_AMT
+             , TBL1.YEN_CHE_NO
+             , 1 AS INV_GUNSU
+             , FN_COM_NM('01', TBL1.PAY_MTHD) AS PAY_MTHD_NM
+             , FN_COM_NM('85', TBL1.PROD_CL) AS PROD_CL_NM
+             , TBL1.EXPR_NO - TBL1.LAST_NO AS ICHAE_LIMIT_GUNSU
+             , TBL1.EVT_NM
+             , TBL1.WDRW_STAT
+          FROM (SELECT TBL.*
+                     , CASE WHEN SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                            THEN TO_NUMBER(REPLACE(TBL.YEN_CHE, '회 연체', ''))
+                            ELSE 0
+                        END YEN_CHE_NO
+                  FROM (
+                        SELECT ACCNT.ACCNT_NO
+                            , ACCNT.PAY_MTHD
+                            , MEM.MEM_NM
+                            , MEM.MEM_NO
+                            , PROD.PROD_CL
+                            , FN_YEN_CHE(ACCNT.ACCNT_NO) YEN_CHE
+                            , FN_EVENT(ACCNT.ACCNT_NO) EVT_NM
+                            , (PROD.EXPR_NO - ACCNT.NEW_CHAN_GUNSU) EXPR_NO
+                            , NVL((SELECT COUNT(SEQ)
+                                     FROM PAY_MNG
+                                    WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                      AND DEL_FG = 'N'), 0) LAST_NO
+                            , PROD.MON_PAY_AMT
+                            , CASE
+                                WHEN WR.ACCNT_NO IS NOT NULL THEN 'CMS'
+                                WHEN CWR.ACCNT_NO IS NOT NULL THEN 'CARD'
+                                WHEN WRCC.ACCNT_NO IS NOT NULL THEN 'Call'
+                                ELSE ''
+                             END WDRW_STAT
+                          FROM MEM_PROD_ACCNT ACCNT
+                              INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+                              INNER JOIN PRODUCT PROD ON PROD.PROD_CD = ACCNT.PROD_CD AND NVL(PROD.PROD_CL, '00') != '03'
+                              LEFT OUTER JOIN (SELECT * FROM WDRW_REQ WR WHERE WR.STAT IN ('01', '02')) WR ON WR.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (SELECT * FROM CARD_WDRW_REQ CWR WHERE CWR.STAT IN ('01', '02')) CWR ON CWR.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (SELECT * FROM WDRW_REQ_CALL_CENTER WRCC WHERE NVL(WRCC.WDRW_REQ_YN, 'N') = 'N' AND WRCC.DEL_FG IS NULL) WRCC ON WRCC.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (
+                                SELECT VAD.ACCNT_NO
+                                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                                       INNER JOIN NICE_VRTL_ACCNT_WDRW_REQ_MST VAM
+                                            ON VAM.SEQ = VAD.SEQ
+                                                AND (
+                                                        (VAM.STAT = '02' AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS > TO_CHAR(SYSDATE-(1/24), 'YYYYMMDDHH24MISS'))
+                                                        OR
+                                                        VAM.STAT = '01')
+                              ) VAD ON ACCNT.ACCNT_NO = VAD.ACCNT_NO
+                        WHERE 1=1
+                        <!--
+                          AND WR.ACCNT_NO IS NULL
+                          AND CWR.ACCNT_NO IS NULL
+                          AND WRCC.ACCNT_NO IS NULL
+                         -->
+                          AND VAD.ACCNT_NO IS NULL
+                          <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                          </if>
+                          <if test="accnt_no != null and accnt_no != ''">
+                              AND ACCNT.ACCNT_NO = #{accnt_no}
+                          </if>
+                          <if test="mem_nm != null and mem_nm != ''">
+                              AND MEM.MEM_NM = #{mem_nm}
+                          </if>
+                          <if test="mem_no != null and mem_no != ''">
+                              AND MEM.MEM_NO = #{mem_no}
+                          </if>
+                          <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                              AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                        ) TBL
+                WHERE 1=1
+                  AND TBL.EXPR_NO > TBL.LAST_NO
+                  AND TBL.EVT_NM IN ('', '부활')
+                  <if test="join_stat != null and join_stat != ''">
+                      <if test="join_stat == '0001'">
+                          AND TBL.LAST_NO = 0
+                      </if>
+                      <if test="join_stat == '0002'">
+                          AND 1=2
+                      </if>
+                      <if test="join_stat == '0003'">
+                          AND 1=2
+                      </if>
+                      <if test="join_stat == '0004'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                      </if>
+                  </if>
+               ) TBL1
+         WHERE 1=1
+           AND TBL1.EXPR_NO - TBL1.LAST_NO > 0
+           <if test="join_stat != null and join_stat != ''">
+               <if test="join_stat == '0004'">
+                   <if test="yen_stt_dt != null and yen_stt_dt != '' and yen_end_dt != null and yen_end_dt != ''">
+                    AND TBL1.YEN_CHE_NO BETWEEN #{yen_stt_dt} AND #{yen_end_dt}
+                   </if>
+               </if>
+           </if>
+
+        UNION ALL
+
+        SELECT TBL1.ACCNT_NO
+             , TBL1.PAY_MTHD
+             , TBL1.MEM_NM
+             , TBL1.MEM_NO
+             , TBL1.PROD_CL
+             , TBL1.YEN_CHE AS PAY_STAT
+             , CASE WHEN TBL1.EVT_NM = ''
+                    THEN '정상'
+                    ELSE TBL1.EVT_NM
+                END AS JOIN_STAT
+             , TBL1.EXPR_NO
+             , TBL1.LAST_NO
+             , TBL1.MON_PAY_AMT
+             , TBL1.YEN_CHE_NO
+             , 1 AS INV_GUNSU
+             , FN_COM_NM('01', TBL1.PAY_MTHD) AS PAY_MTHD_NM
+             , FN_COM_NM('85', TBL1.PROD_CL) AS PROD_CL_NM
+             , TBL1.EXPR_NO - TBL1.LAST_NO AS ICHAE_LIMIT_GUNSU
+             , TBL1.EVT_NM
+             , TBL1.WDRW_STAT
+          FROM (
+                SELECT TBL.*
+                    , CASE WHEN SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                            THEN TO_NUMBER(REPLACE(TBL.YEN_CHE, '회 연체', ''))
+                            ELSE 0
+                      END YEN_CHE_NO
+                    , CASE WHEN TBL.LAST_NO = 0  THEN AMT1
+                           ELSE AMT
+                      END MON_PAY_AMT
+                  FROM (
+                        SELECT ACCNT.ACCNT_NO
+                            , ACCNT.PAY_MTHD
+                            , MEM.MEM_NM
+                            , MEM.MEM_NO
+                            , PROD.PROD_CL
+                            , FN_YEN_CHE(ACCNT.ACCNT_NO) YEN_CHE
+                            , FN_EVENT(ACCNT.ACCNT_NO) EVT_NM
+                            , (PROD.EXPR_NO - ACCNT.NEW_CHAN_GUNSU) EXPR_NO
+                            , NVL((SELECT COUNT(SEQ)
+                                     FROM PAY_MNG
+                                    WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                      AND DEL_FG = 'N'), 0) LAST_NO
+                            , NVL((SELECT CASE WHEN ALLT.EXPR_NO = PAY1.NO AND PROD.EXPR_NO = PAY.NO THEN 0
+                                              WHEN ALLT.EXPR_NO = PAY1.NO THEN MONTH_PAY_AMT
+                                              WHEN PROD.EXPR_NO = PAY.NO THEN ALLT_AMT + ADD_AMT
+                                              ELSE MONTH_PAY_AMT + ALLT_AMT + ADD_AMT
+                                          END
+                                     FROM PRODUCT_DTL
+                                    WHERE PROD_CD = accnt.PROD_CD
+                                      AND CASE WHEN ALLT.EXPR_NO = PAY1.NO AND PROD.EXPR_NO = PAY.NO THEN 0
+                                                                            WHEN ALLT.EXPR_NO = PAY1.NO THEN PAY.NO + 1
+                                                                            WHEN PROD.EXPR_NO = PAY.NO THEN PAY1.NO + 1
+                                                                            ELSE PAY.NO + 1
+                                                                      END BETWEEN ST_NO AND END_NO), 0) AMT
+                            , CASE WHEN PROD.PAY_TYPE = '001' THEN PROD.MON_PAY_AMT
+                                         ELSE NVL((SELECT MONTH_PAY_AMT + ALLT_AMT + ADD_AMT
+                                                FROM PRODUCT_DTL
+                                               WHERE PROD_CD = ACCNT.PROD_CD AND 1 BETWEEN ST_NO AND END_NO), 0)
+                                     END AMT1
+                            , CASE WHEN prod.PROD_CD IN ('S9', 'T0', 'X6')
+                                   THEN 'true'
+                                   WHEN (
+                                            (
+                                              NVL(ADDAMT.EXPR_NO, 0) > 0 AND
+                                              (
+                                                (PAY.NO = PAY1.NO AND PAY1.NO = PAY2.NO AND PAY.NO != PROD.EXPR_NO)
+                                                OR
+                                                (PAY.NO != PROD.EXPR_NO AND PAY1.NO = ALLT.EXPR_NO AND PAY2.NO = ADDAMT.EXPR_NO)
+                                                OR
+                                                (PAY.NO = PROD.EXPR_NO AND PAY1.NO != ALLT.EXPR_NO AND PAY2.NO != ADDAMT.EXPR_NO AND PAY1.NO = PAY2.NO)
+                                                OR
+                                                (PAY.NO != PROD.EXPR_NO AND PAY1.NO != ALLT.EXPR_NO AND PAY2.NO = ADDAMT.EXPR_NO AND PAY.NO = PAY1.NO)
+                                                OR
+                                                (PAY.NO = PROD.EXPR_NO AND PAY1.NO != ALLT.EXPR_NO AND PAY2.NO = ADDAMT.EXPR_NO)
+                                              )
+                                            )
+                                            OR
+                                            (
+                                              NVL(ADDAMT.EXPR_NO, 0) = 0 AND
+                                              (
+                                                (PAY.NO = PROD.EXPR_NO AND PAY1.NO != ALLT.EXPR_NO)
+                                                OR
+                                                (PAY.NO != PROD.EXPR_NO AND PAY1.NO != ALLT.EXPR_NO AND PAY.NO = PAY1.NO)
+                                                OR
+                                                (PAY.NO != PROD.EXPR_NO AND PAY1.NO = ALLT.EXPR_NO)
+                                              )
+                                            )
+                                            OR
+                                            (
+                                             PAY.NO IS NULL
+                                             AND
+                                             PAY1.NO IS NULL
+                                            )
+                                        )
+                                    THEN 'true'
+                                    ELSE 'false'
+                              END COMB_COND_1
+                             , CASE
+                                WHEN WR.ACCNT_NO IS NOT NULL THEN 'CMS'
+                                WHEN CWR.ACCNT_NO IS NOT NULL THEN 'CARD'
+                                WHEN WRCC.ACCNT_NO IS NOT NULL THEN 'Call'
+                                ELSE ''
+                             END WDRW_STAT
+                          FROM MEM_PROD_ACCNT ACCNT
+                              INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+                              INNER JOIN PRODUCT PROD ON PROD.PROD_CD = ACCNT.PROD_CD AND NVL(PROD.PROD_CL, '00') = '03'
+                              LEFT OUTER JOIN (SELECT * FROM WDRW_REQ WR WHERE WR.STAT IN ('01', '02')) WR ON WR.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (SELECT * FROM CARD_WDRW_REQ CWR WHERE CWR.STAT IN ('01', '02')) CWR ON CWR.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (SELECT * FROM WDRW_REQ_CALL_CENTER WRCC WHERE NVL(WRCC.WDRW_REQ_YN, 'N') = 'N' AND WRCC.DEL_FG IS NULL) WRCC ON WRCC.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (
+                                SELECT VAD.ACCNT_NO
+                                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                                       INNER JOIN NICE_VRTL_ACCNT_WDRW_REQ_MST VAM ON
+                                                VAM.SEQ = VAD.SEQ
+                                                AND (
+                                                        (VAM.STAT = '02'
+                                                            AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS > TO_CHAR(SYSDATE-(1/24), 'YYYYMMDDHH24MISS'))
+                                                        OR
+                                                        VAM.STAT = '01'
+                                                    )
+                              ) VAD ON ACCNT.ACCNT_NO = VAD.ACCNT_NO
+                              LEFT OUTER JOIN PAY_MNG pay
+                                  ON accnt.ACCNT_NO = pay.ACCNT_NO AND pay.DEL_FG = 'N'
+                                      AND pay.NO = (SELECT MAX(NO)
+                                                      FROM PAY_MNG
+                                                    WHERE accnt_no = accnt.accnt_no
+                                                      AND del_fg = 'N')
+                              LEFT OUTER JOIN PAY_MNG_DTL pay1
+                                  ON accnt.ACCNT_NO = pay1.ACCNT_NO
+                                      AND pay1.DEL_FG = 'N'
+                                      AND pay1.NO = (SELECT MAX(NO)
+                                                      FROM PAY_MNG_DTL
+                                                      WHERE accnt_no = accnt.accnt_no
+                                                        AND del_fg = 'N')
+                              LEFT OUTER JOIN PAY_MNG_DTL1 pay2
+                                  ON accnt.ACCNT_NO = pay2.ACCNT_NO
+                                      AND pay2.DEL_FG = 'N'
+                                      AND pay2.NO = (SELECT MAX(NO)
+                                                      FROM PAY_MNG_DTL1
+                                                      WHERE accnt_no = accnt.accnt_no
+                                                        AND del_fg = 'N')
+                              LEFT OUTER JOIN (SELECT sum(PD.end_no - PD.st_no + 1) EXPR_NO
+                                                    , PD.PROD_CD PROD_CD
+                                                  FROM PRODUCT_DTL PD
+                                                WHERE ALLT_AMT > 0
+                                                GROUP BY PD.PROD_CD) ALLT
+                                  ON PROD.PROD_CD = ALLT.PROD_CD
+                              LEFT OUTER JOIN (SELECT sum(PD.end_no - PD.st_no + 1) EXPR_NO
+                                                    , PD.PROD_CD PROD_CD
+                                                  FROM PRODUCT_DTL PD
+                                                WHERE ADD_AMT > 0
+                                                GROUP BY PD.PROD_CD
+                                              ) ADDAMT
+                                  ON PROD.PROD_CD = ADDAMT.PROD_CD
+                        WHERE 1=1
+                        <!--
+                          AND WR.ACCNT_NO IS NULL
+                          AND CWR.ACCNT_NO IS NULL
+                          AND WRCC.ACCNT_NO IS NULL
+                          -->
+                          AND VAD.ACCNT_NO IS NULL
+                          <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                          </if>
+                          <if test="accnt_no != null and accnt_no != ''">
+                              AND ACCNT.ACCNT_NO = #{accnt_no}
+                          </if>
+                          <if test="mem_nm != null and mem_nm != ''">
+                              AND MEM.MEM_NM = #{mem_nm}
+                          </if>
+                          <if test="mem_no != null and mem_no != ''">
+                              AND MEM.MEM_NO = #{mem_no}
+                          </if>
+                          <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                              AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                        ) TBL
+                WHERE TBL.EVT_NM IN ('', '부활')
+                  AND COMB_COND_1 = 'true'
+                  AND TBL.EXPR_NO > TBL.LAST_NO
+                  <if test="join_stat != null and join_stat != ''">
+                      <if test="join_stat == '0001'">
+                          AND TBL.LAST_NO = 0
+                      </if>
+                      <if test="join_stat == '0002'">
+                          AND 1=2
+                      </if>
+                      <if test="join_stat == '0003'">
+                          AND 1=2
+                      </if>
+                      <if test="join_stat == '0004'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                      </if>
+                  </if>
+               ) TBL1
+         WHERE 1=1
+           AND TBL1.EXPR_NO - TBL1.LAST_NO > 0
+           <if test="join_stat != null and join_stat != ''">
+               <if test="join_stat == '0004'">
+                   <if test="yen_stt_dt != null and yen_stt_dt != '' and yen_end_dt != null and yen_end_dt != ''">
+                    AND TBL1.YEN_CHE_NO BETWEEN #{yen_stt_dt} AND #{yen_end_dt}
+                   </if>
+               </if>
+           </if>
+
+        UNION ALL
+
+        SELECT TBL1.ACCNT_NO
+             , TBL1.PAY_MTHD
+             , TBL1.MEM_NM
+             , TBL1.MEM_NO
+             , TBL1.PROD_CL
+             , TBL1.YEN_CHE AS PAY_STAT
+             , CASE WHEN TBL1.EVT_NM = ''
+                    THEN '정상'
+                    ELSE TBL1.EVT_NM
+                END AS JOIN_STAT
+             , TBL1.EXPR_NO
+             , TBL1.LAST_NO
+             , TBL1.MON_PAY_AMT
+             , TBL1.YEN_CHE_NO
+             , 1 AS INV_GUNSU
+             , FN_COM_NM('01', TBL1.PAY_MTHD) AS PAY_MTHD_NM
+             , FN_COM_NM('85', TBL1.PROD_CL) AS PROD_CL_NM
+             , TBL1.EXPR_NO - TBL1.LAST_NO AS ICHAE_LIMIT_GUNSU
+             , TBL1.EVT_NM
+             , TBL1.WDRW_STAT
+          FROM (
+                SELECT TBL.*
+                    , CASE WHEN SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                            THEN TO_NUMBER(REPLACE(TBL.YEN_CHE, '회 연체', ''))
+                            ELSE 0
+                      END YEN_CHE_NO
+                    , AMT MON_PAY_AMT
+                  FROM (
+                        SELECT ACCNT.ACCNT_NO
+                            , ACCNT.PAY_MTHD
+                            , MEM.MEM_NM
+                            , MEM.MEM_NO
+                            , PROD.PROD_CL
+                            , CASE WHEN ADDAMT.EXPR_NO IS NULL THEN CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) THEN ''
+                                                                         ELSE FN_YEN_CHE_COMB(ACCNT.ACCNT_NO)
+                                                                    END
+                                   ELSE CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN ''
+                                             WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO != NVL(PAY1.NO, 0) THEN FN_YEN_CHE_COMB_ADD(ACCNT.ACCNT_NO)
+                                             WHEN ALLT.EXPR_NO != NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN FN_YEN_CHE_COMB(ACCNT.ACCNT_NO)
+                                             ELSE FN_YEN_CHE_COMB(ACCNT.ACCNT_NO)
+                                        END
+                              END YEN_CHE
+                            , FN_EVENT(ACCNT.ACCNT_NO) EVT_NM
+                            , CASE WHEN ADDAMT.EXPR_NO IS NULL THEN CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) THEN 0
+                                                                         ELSE ALLT.EXPR_NO
+                                                                    END
+                                   ELSE CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN 0
+                                             WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO != NVL(PAY1.NO, 0) THEN ADDAMT.EXPR_NO
+                                             WHEN ALLT.EXPR_NO != NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN ALLT.EXPR_NO
+                                             ELSE ALLT.EXPR_NO
+                                        END
+                              END EXPR_NO
+                            , CASE WHEN ADDAMT.EXPR_NO IS NULL THEN CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) THEN 0
+                                                                         ELSE NVL(pay.NO, 0)
+                                                                    END
+                                   ELSE CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN 0
+                                             WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO != NVL(PAY1.NO, 0) THEN NVL(pay1.NO, 0)
+                                             WHEN ALLT.EXPR_NO != NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN NVL(pay.NO, 0)
+                                             ELSE NVL(pay.NO, 0)
+                                        END
+                              END last_no
+                            , NVL((SELECT CASE WHEN ADDAMT.EXPR_NO IS NULL THEN CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) THEN 0
+                                                                              ELSE ALLT_AMT
+                                                                         END
+                                        ELSE CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN 0
+                                                  WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO != NVL(PAY1.NO, 0) THEN ADD_AMT
+                                                  WHEN ALLT.EXPR_NO != NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN ALLT_AMT
+                                                  ELSE ALLT_AMT + ADD_AMT
+                                             END
+                                   END
+                                     FROM PRODUCT_DTL
+                                    WHERE PROD_CD = accnt.PROD_CD AND CASE WHEN ADDAMT.EXPR_NO IS NULL THEN CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) THEN 0
+                                                                                                           ELSE NVL(PAY.NO, 0) + 1
+                                                                                                      END
+                                                                     ELSE CASE WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN 0
+                                                                               WHEN ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO != NVL(PAY1.NO, 0) THEN NVL(PAY1.NO, 0)+1
+                                                                               WHEN ALLT.EXPR_NO != NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) THEN NVL(PAY.NO, 0)+1
+                                                                               ELSE NVL(PAY.NO, 0)+1
+                                                                          END
+                                                                END BETWEEN ST_NO AND END_NO), 0) AMT
+                            , CASE WHEN PROD.PAY_TYPE = '001' THEN PROD.MON_PAY_AMT
+                                         ELSE NVL((SELECT MONTH_PAY_AMT + ALLT_AMT + ADD_AMT
+                                                FROM PRODUCT_DTL
+                                               WHERE PROD_CD = ACCNT.PROD_CD AND 1 BETWEEN ST_NO AND END_NO), 0)
+                                     END AMT1
+                            , CASE WHEN (
+                                            (ADDAMT.EXPR_NO IS NOT NULL AND NVL(PAY.NO, 0) = NVL(PAY1.NO, 0))
+                                            OR
+                                            (ADDAMT.EXPR_NO IS NOT NULL AND NVL(PAY.NO, 0) != NVL(PAY1.NO, 0) AND ALLT.EXPR_NO = NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO != NVL(PAY1.NO, 0))
+                                            OR
+                                            (ADDAMT.EXPR_NO IS NOT NULL AND NVL(PAY.NO, 0) != NVL(PAY1.NO, 0) AND ALLT.EXPR_NO != NVL(PAY.NO, 0) AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0))
+                                            OR
+                                            (ADDAMT.EXPR_NO IS NULL AND ALLT.EXPR_NO != NVL(PAY.NO, 0))
+                                            OR
+                                            (ALLT.EXPR_NO IS NOT NULL AND ADDAMT.EXPR_NO IS NOT NULL AND NVL(PAY.NO, 0) = 0 AND NVL(PAY1.NO, 0) = 0)
+                                            OR
+                                            (ALLT.EXPR_NO IS NOT NULL AND ADDAMT.EXPR_NO IS NOT NULL AND ALLT.EXPR_NO = NVL(PAY.NO, 0) AND NVL(PAY1.NO, 0) = 0)
+                                            OR
+                                            (ALLT.EXPR_NO IS NOT NULL AND ADDAMT.EXPR_NO IS NOT NULL AND ADDAMT.EXPR_NO = NVL(PAY1.NO, 0) AND NVL(PAY.NO, 0) = 0)
+                                      )
+                                    THEN 'true'
+                                    ELSE 'false'
+                              END COMB_COND_1
+                               , CASE
+                                    WHEN WR.ACCNT_NO IS NOT NULL THEN 'CMS'
+                                    WHEN CWR.ACCNT_NO IS NOT NULL THEN 'CARD'
+                                    WHEN WRCC.ACCNT_NO IS NOT NULL THEN 'Call'
+                                    ELSE ''
+                                 END WDRW_STAT
+                          FROM MEM_PROD_ACCNT ACCNT
+                              INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+                              INNER JOIN PRODUCT PROD ON PROD.PROD_CD = ACCNT.PROD_CD AND NVL(PROD.PROD_CL, '00') = '03' AND prod.PROD_CD NOT IN ('S9', 'T0')
+                              LEFT OUTER JOIN (SELECT * FROM WDRW_REQ WR WHERE WR.STAT IN ('01', '02')) WR ON WR.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (SELECT * FROM CARD_WDRW_REQ CWR WHERE CWR.STAT IN ('01', '02')) CWR ON CWR.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (SELECT * FROM WDRW_REQ_CALL_CENTER WRCC WHERE NVL(WRCC.WDRW_REQ_YN, 'N') = 'N' AND WRCC.DEL_FG IS NULL) WRCC ON WRCC.ACCNT_NO = ACCNT.ACCNT_NO
+                              LEFT OUTER JOIN (
+                                SELECT VAD.ACCNT_NO
+                                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL VAD
+                                       INNER JOIN NICE_VRTL_ACCNT_WDRW_REQ_MST VAM ON
+                                                            VAM.SEQ = VAD.SEQ
+                                                            AND (
+                                                                    (VAM.STAT = '02'
+                                                                        AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS > TO_CHAR(SYSDATE-(1/24), 'YYYYMMDDHH24MISS') )
+                                                                    OR VAM.STAT = '01')
+                              ) VAD ON ACCNT.ACCNT_NO = VAD.ACCNT_NO
+                              LEFT OUTER JOIN PAY_MNG_DTL pay
+                                  ON accnt.ACCNT_NO = pay.ACCNT_NO
+                                      AND pay.DEL_FG = 'N'
+                                      AND pay.NO = (SELECT MAX(NO)
+                                                      FROM PAY_MNG_DTL
+                                                      WHERE accnt_no = accnt.accnt_no
+                                                        AND del_fg = 'N')
+                              LEFT OUTER JOIN PAY_MNG_DTL1 pay1
+                                  ON accnt.ACCNT_NO = pay1.ACCNT_NO
+                                      AND pay1.DEL_FG = 'N'
+                                      AND pay1.NO = (SELECT MAX(NO)
+                                                      FROM PAY_MNG_DTL1
+                                                      WHERE accnt_no = accnt.accnt_no
+                                                        AND del_fg = 'N')
+                              LEFT OUTER JOIN (SELECT sum(PD.end_no - PD.st_no + 1) EXPR_NO
+                                                    , PD.PROD_CD PROD_CD
+                                                  FROM PRODUCT_DTL PD
+                                                WHERE ALLT_AMT > 0
+                                                GROUP BY PD.PROD_CD) ALLT
+                                  ON PROD.PROD_CD = ALLT.PROD_CD
+                              LEFT OUTER JOIN (SELECT sum(PD.end_no - PD.st_no + 1) EXPR_NO
+                                                    , PD.PROD_CD PROD_CD
+                                                  FROM PRODUCT_DTL PD
+                                                WHERE ADD_AMT > 0
+                                                GROUP BY PD.PROD_CD
+                                              ) ADDAMT
+                                  ON PROD.PROD_CD = ADDAMT.PROD_CD
+                        WHERE 1=1
+                        <!--
+                          AND WR.ACCNT_NO IS NULL
+                          AND CWR.ACCNT_NO IS NULL
+                          AND WRCC.ACCNT_NO IS NULL
+                         -->
+                          AND VAD.ACCNT_NO IS NULL
+                          AND NVL(PROD.JOIN_TYPE, '') != '0002'
+                          <if test="prod_cd != null and prod_cd != ''">
+                              AND PROD.PROD_CD = #{prod_cd}
+                          </if>
+                          <if test="accnt_no != null and accnt_no != ''">
+                              AND ACCNT.ACCNT_NO = #{accnt_no}
+                          </if>
+                          <if test="mem_nm != null and mem_nm != ''">
+                              AND MEM.MEM_NM = #{mem_nm}
+                          </if>
+                          <if test="mem_no != null and mem_no != ''">
+                              AND MEM.MEM_NO = #{mem_no}
+                          </if>
+                          <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                              AND JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                        ) TBL
+                WHERE 1=1
+                  AND TBL.EVT_NM NOT IN ('', '부활', '청약철회')
+                  AND COMB_COND_1 = 'true'
+                  <if test="join_stat != null and join_stat != ''">
+                      <if test="join_stat == '0001'">
+                          AND 1=2
+                      </if>
+                      <if test="join_stat == '0002'">
+                          AND TBL.EVT_NM = '행사'
+                      </if>
+                      <if test="join_stat == '0003'">
+                          AND TBL.EVT_NM IN ('해약', '무환급해약')
+                      </if>
+                      <if test="join_stat == '0004'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                      </if>
+                  </if>
+               ) TBL1
+         WHERE 1=1
+           AND TBL1.EXPR_NO - TBL1.LAST_NO > 0
+           <if test="join_stat != null and join_stat != ''">
+               <if test="join_stat == '0004'">
+                   <if test="yen_stt_dt != null and yen_stt_dt != '' and yen_end_dt != null and yen_end_dt != ''">
+                    AND TBL1.YEN_CHE_NO BETWEEN #{yen_stt_dt} AND #{yen_end_dt}
+                   </if>
+               </if>
+           </if>
+    </select>
+
+    <!-- 가상계좌 산출 청구금액 -->
+    <select id="DlwVrtlAcntTestMap.getInvAmt" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-cms.selectInvAmt -->
+        SELECT /* DlwVrtlAcntTestMap.getInvAmt */
+               FN_CMS_APP_CNT(#{inv_gunsu}, #{inv_cnt}, #{accnt_no})
+          FROM DUAL
+    </select>
+
+    <!-- 가상계좌 산출 임시저장데이터 삭제 -->
+    <delete id="DlwVrtlAcntTestMap.deleteTempVrtlAccntWdrwReq" parameterType="map" timeout="3">
+    <!-- DM sql-id : sql-cms.deleteTempVrtlAccntWdrwReq -->
+        DELETE /* DlwVrtlAcntTestMap.deleteTempVrtlAccntWdrwReq */
+          FROM NICE_TMP_VRTL_ACCNT_WDRW_REQ
+    </delete>
+
+    <!-- 가상계좌 산출데이터 임시저장 -->
+    <insert id="DlwVrtlAcntTestMap.insertTempVrtlAccntWdrwReq" parameterType="map" timeout="3">
+    <!-- DM sql-id : sql-cms.insertTempVrtlAccntWdrwReq -->
+        INSERT /* DlwVrtlAcntTestMap.insertTempVrtlAccntWdrwReq */
+          INTO NICE_TMP_VRTL_ACCNT_WDRW_REQ
+             ( ACCNT_NO
+             , PAY_MTHD
+             , MEM_NM
+             , MEM_NO
+             , PROD_CL
+             , YEN_CHE
+             , EVT_NM
+             , EXPR_NO
+             , LAST_NO
+             , MON_PAY_AMT
+             , YEN_CHE_NO
+             , INV_GUNSU
+             )
+        VALUES
+             ( #{accnt_no}
+             , #{pay_mthd}
+             , #{mem_nm}
+             , #{mem_no}
+             , #{prod_cl}
+             , #{pay_stat}
+             , #{evt_nm}
+             , #{expr_no}
+             , #{last_no}
+             , #{mon_pay_amt}
+             , #{yen_che_no}
+             , #{inv_gunsu}
+        )
+    </insert>
+
+    <!-- 가상계좌 산출 대상자 등록 -->
+    <parameterMap id="insertVrtlAccntWdrwReqMap" type="resultMap">
+        <parameter property="reg_man" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+        <!--
+        <parameter property="result" mode="INOUT" jdbcType="INTEGER" javaType="java.lang.Integer" />
+         -->
+    </parameterMap>
+
+    <select id="DlwVrtlAcntTestMap.insertVrtlAccntWdrwReq" statementType="CALLABLE" parameterMap="insertVrtlAccntWdrwReqMap">
+        <!-- DM sql-id : sql-cms.insertVrtlAccntWdrwReq -->
+        <!-- /* DlwVrtlAcntTestMap.insertVrtlAccntWdrwReq */ -->
+        <!-- { call SP_VRTL_ACCNT_WDRW_REQ (?) } -->
+        { call SP_VRTL_ACCNT_WDRW_REQ_REFAC (?) }
+    </select>
+
+    <!-- 가상계좌 산출 데이터 삭제 -->
+    <delete id="DlwVrtlAcntTestMap.deleteNiceVrtlAccntWdrwList" parameterType="map">
+    <!-- DM sql-id : sql-cms.deleteNiceVrtlAccntWdrwList -->
+        /* DlwVrtlAcntTestMap.deleteNiceVrtlAccntWdrwList */
+        BEGIN
+        DELETE FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL WHERE to_char(SEQ) = #{seq};
+
+        DELETE FROM NICE_VRTL_ACCNT_WDRW_REQ_MST WHERE to_char(SEQ) = #{seq};
+        END;
+    </delete>
+
+    <!-- 가상계좌 NICE전송 결과 반영 -->
+    <update id="DlwVrtlAcntTestMap.updateNiceVrtlAccntWdrwReq" parameterType="map">
+    <!-- DM sql-id : sql-cms.updateNiceVrtlAccntWdrwReq -->
+        UPDATE /* DlwVrtlAcntTestMap.updateNiceVrtlAccntWdrwReq */
+               NICE_VRTL_ACCNT_WDRW_REQ_MST
+           SET EXPIRY_YYYYMMDD = #{inv_dt}
+             , EXPIRY_HHMMSS = #{inv_time}
+             , RESULT_CODE = #{result_cd}
+             , RESULT_MSG = #{result_msg}
+         <if test="result_cd == '4120'">
+             , STAT = '02'
+             , TID = #{tid}
+         </if>
+         <if test="result_cd != '4120'">
+             , STAT = '03'
+         </if>
+         WHERE SEQ = #{seq}
+    </update>
+
+    <!-- 가상계좌 정보 리스트 조회 Count -->
+    <select id="DlwVrtlAcntTestMap.getVrtlAccntInfoCount" parameterType="map" resultType="int">
+        SELECT /* DlwVrtlAcntTestMap.getVrtlAccntInfoCount */
+               COUNT(*)
+          FROM NICE_VRTL_ACCNT_INFO V_INFO
+          LEFT OUTER JOIN (SELECT * FROM NICE_VRTL_ACCNT_WDRW_REQ_MST VAM
+                                                    WHERE (VAM.STAT = '02' AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS > TO_CHAR(SYSDATE-(1/24), 'YYYYMMDDHH24MISS'))
+                                                        OR VAM.STAT = '01'
+                           ) VAM ON V_INFO.VRTL_ACCNT_NO = VAM.VRTL_ACCNT_NO
+          LEFT OUTER JOIN MEMBER MEM
+            ON MEM.MEM_NO = VAM.MEM_NO
+         WHERE 1=1
+         <if test="del_fg != null and del_fg != ''">
+           AND V_INFO.DEL_FG = #{del_fg}
+         </if>
+         <if test="vrtl_accnt_no != null and vrtl_accnt_no != ''">
+           AND V_INFO.VRTL_ACCNT_NO = #{vrtl_accnt_no}
+         </if>
+    </select>
+
+    <!-- 가상계좌 정보 리스트 조회 -->
+    <select id="DlwVrtlAcntTestMap.getVrtlAccntInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-cms.selectVrtlAccntInfo -->
+        SELECT /* DlwVrtlAcntTestMap.getVrtlAccntInfo */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           '' AS PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT V_INFO.VRTL_ACCNT_NO
+                             , V_INFO.BANK_CD
+                             , FN_COM_NM('63', V_INFO.BANK_CD) AS BANK_NM
+                             , CASE WHEN VAM.STAT IN ('01', '02')
+                                    THEN '사용중'
+                                    ELSE ''
+                                END USE_YN
+                             , VAM.EXPIRY_YYYYMMDD AS EXPIRY_DT
+                             , MEM.MEM_NO
+                             , MEM.MEM_NM
+                             , TO_CHAR(PREV_CLOSE_DT, 'YYYY-MM-DD HH24:MI:SS') AS PREV_CLOSE_DT
+                             , V_INFO.DEL_FG
+                             , V_INFO.SEQ
+                             , '' AS CHK
+                             , 'RR' AS CRUD
+                          FROM NICE_VRTL_ACCNT_INFO V_INFO
+                          LEFT OUTER JOIN (SELECT * FROM NICE_VRTL_ACCNT_WDRW_REQ_MST VAM
+                                                    WHERE (VAM.STAT = '02' AND VAM.EXPIRY_YYYYMMDD || VAM.EXPIRY_HHMMSS > TO_CHAR(SYSDATE-(1/24), 'YYYYMMDDHH24MISS'))
+                                                        OR VAM.STAT = '01'
+                           ) VAM ON V_INFO.VRTL_ACCNT_NO = VAM.VRTL_ACCNT_NO
+                           LEFT OUTER JOIN MEMBER MEM ON MEM.MEM_NO = VAM.MEM_NO
+                         WHERE 1=1
+                         <if test="del_fg != null and del_fg != ''">
+                           AND V_INFO.DEL_FG = #{del_fg}
+                         </if>
+                         <if test="vrtl_accnt_no != null and vrtl_accnt_no != ''">
+                           AND V_INFO.VRTL_ACCNT_NO = #{vrtl_accnt_no}
+                         </if>
+                    ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+
+    <!-- 가상계좌 복원 처리 -->
+    <update id="DlwVrtlAcntTestMap.updateVrtlAccntRecoverProc" parameterType="map">
+    <!-- DM sql-id : sql-cms.vrtlAccntRecoverProc -->
+        UPDATE /* DlwVrtlAcntTestMap.updateVrtlAccntRecoverProc */
+               NICE_VRTL_ACCNT_INFO
+           SET DEL_FG = 'N'
+             , PREV_CLOSE_DT = NULL
+         WHERE SEQ = #{seq}
+    </update>
+
+    <!-- ================================================================== -->
+    <!-- ================================================================== -->
+    <!-- ================================================================== -->
+    <!-- ================================================================== -->
+    <!-- ================================================================== -->
+
+    <!-- 가상계좌 NICE전송 결과 반영 -->
+    <update id="DlwVrtlAcntTestMap.updateVrtlAccntPayApp" parameterType="map">
+    <!-- DM sql-id : sql-cms.updateVrtlAccntPayApp -->
+        UPDATE /* DlwVrtlAcntTestMap.updateVrtlAccntPayApp */
+               NICE_VRTL_ACCNT_WDRW_REQ_MST
+           SET STAT = '04'
+             , RESULT_CODE = #{result_cd}
+             , RESULT_MSG = #{result_msg}
+             , AUTH_DATE = #{auth_dt}
+             <if test="err_pay_proc.equalsIgnoreCase('Y')">
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+             </if>
+        WHERE TID = #{tid}
+          AND STAT = '02'
+    </update>
+
+    <!-- 가상계좌 CARD연체 체크 -->
+    <update id="DlwVrtlAcntTestMap.updateCardYenCheChk" parameterType="map">
+    <!-- DM sql-id : sql-cms.updateCardYenCheChk -->
+        UPDATE /* DlwVrtlAcntTestMap.updateCardYenCheChk */
+               CARD_MEM
+           SET YEN_CHE_PRE_PAY_YN = 'N'
+             , YEN_CHE_PRE_PAY_GUNSU = 0
+        WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- 가상계좌 CMS연체 체크 -->
+    <update id="DlwVrtlAcntTestMap.updateCmsYenCheChk" parameterType="map">
+    <!-- DM sql-id : sql-cms.updateCmsYenCheChk -->
+        UPDATE /* DlwVrtlAcntTestMap.updateCmsYenCheChk */
+               CMS_MEM
+           SET YEN_CHE_PRE_PAY_YN = 'N'
+             , YEN_CHE_PRE_PAY_GUNSU = 0
+        WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- 가상계좌-실입금 1회차 입금일자를 회원가입일자로 수정 -->
+    <update id="DlwVrtlAcntTestMap.updateVrtlAccntJoinDt" parameterType="map" timeout="3">
+    <!-- DM sql-id : sql-cms.updateVrtlAccntJoinDt -->
+
+        UPDATE /* DlwVrtlAcntTestMap.updateVrtlAccntJoinDt */
+           MEM_PROD_ACCNT
+       SET JOIN_DT =  #{pay_day}  /* D.PAY_DAY */
+        WHERE (ACCNT_NO, JOIN_DT)
+         IN (
+         SELECT ACCNT_NO,PAY_DAY
+            FROM PAY_MNG
+            WHERE pay_day =  #{pay_day}
+            AND pay_mthd = '07'
+            AND NO = 1
+            AND DEL_FG = 'N'
+            AND ACCNT_NO = #{accnt_no}
+         )
+
+    </update>
+
+    <!-- EB22 출금의뢰 성공본 - 입금처리 -->
+    <insert id="DlwVrtlAcntTestMap.insertPayMngByCMS" parameterType="map">
+    <!-- DM sql-id : sql-cms.insertPayMngByCMS -->
+        <!-- 작업중... 정출연 -->
+        INSERT /* DlwVrtlAcntTestMap.insertPayMngByCMS */
+          INTO PAY_MNG
+             ( SEQ
+             , ACCNT_NO
+             , NO
+             , PAY_AMT
+             , PAY_DAY
+             , PAY_MTHD
+             , STAT
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             , DEL_FG
+             , NEW_YN
+             <if test="inv_dt != null and inv_dt != ''">
+             , WDRW_INV_DT
+             </if>
+             )
+        SELECT A.SEQ
+             , #{accnt_no}
+             , B.NO
+             , (SELECT CASE WHEN PROD.PAY_TYPE = '002'
+                            THEN NVL((SELECT MONTH_PAY_AMT
+                                           FROM PRODUCT_DTL
+                                          WHERE PROD_CD = MPA.PROD_CD
+                                            AND B.NO BETWEEN ST_NO AND END_NO), 0)
+                            ELSE PROD.MON_PAY_AMT
+                        END
+                  FROM MEM_PROD_ACCNT MPA
+                 INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                 WHERE MPA.ACCNT_NO = #{accnt_no})
+             , TO_CHAR(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             <if test="wdrw_gubun == null or wdrw_gubun == ''">
+             , '04'
+             </if>
+             <if test="wdrw_gubun != null and wdrw_gubun != ''">
+                 <if test="wdrw_gubun == 'Card'" >
+                    , '06'
+                 </if>
+                 <if test="wdrw_gubun == 'Vrtl'" >
+                    , '07'
+                 </if>
+             </if>
+             /*상태값 입력 부분*/
+             , ( CASE WHEN FN_DIFF_MONTH(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),ADD_MONTHS(CASE WHEN B.NO = '1'
+                                                                                               THEN TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS')
+                                                                                               ELSE (SELECT TO_DATE(JOIN_DT, 'YYYYMMDD') FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no})
+                                                                                           END, TO_NUMBER(B.NO)-1)
+                                         ) = 0
+                            THEN 0
+                            ELSE (CASE WHEN FN_DIFF_MONTH(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),ADD_MONTHS(CASE WHEN B.NO = '1'
+                                                                                                          THEN #{pay_day}
+                                                                                                          ELSE (SELECT JOIN_DT FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no})
+                                                                                                      END, TO_NUMBER(B.NO)-1)
+                                                    ) <![CDATA[<]]> 0
+                                       THEN 1
+                                       ELSE 2
+                                   END
+                                 )
+                         END
+                ) AS STAT
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{reg_man}
+             , 'N'
+             , 'Y'
+             <if test="inv_dt != null and inv_dt != ''">
+             , TO_CHAR(TO_DATE(#{inv_dt}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             </if>
+          FROM (SELECT NVL (MAX (SEQ) + 1, '1') AS SEQ
+                  FROM PAY_MNG
+                 WHERE ACCNT_NO = #{accnt_no}) A
+             , (SELECT NVL(MAX(NO),0)+1 NO
+                  FROM PAY_MNG
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N') B
+    </insert>
+
+    <!--EB22 출금의뢰 성공본 - 결합상품금액 입금처리 -->
+    <insert id="DlwVrtlAcntTestMap.insertPayMngDtlByCMS" parameterType="map">
+    <!-- DM sql-id : sql-cms.insertPayMngDtlByCMS -->
+    <!-- /* 수정 : 할부금액 입금처리(결합금을 할부금과 추가금을 나누어서 저장) by lbk_2012_11_27 */ -->
+        INSERT /* DlwVrtlAcntTestMap.insertPayMngDtlByCMS */
+          INTO PAY_MNG_DTL
+             ( SEQ
+             , ACCNT_NO
+             , NO
+             , PAY_AMT
+             , PAY_DAY
+             , PAY_MTHD
+             , STAT
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             , DEL_FG
+             <if test="inv_dt != null and inv_dt != ''">
+             , WDRW_INV_DT
+             </if>
+             )
+        SELECT A.SEQ
+             , #{accnt_no}
+             , B.NO
+             , (SELECT RPOD_DTL.ALLT_AMT
+                  FROM MEM_PROD_ACCNT MPA
+                        INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                        INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                 WHERE B.NO BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                   AND MPA.ACCNT_NO = #{accnt_no})
+             , TO_CHAR(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             <if test="wdrw_gubun == null or wdrw_gubun == ''">
+             , '04'
+             </if>
+             <if test="wdrw_gubun != null and wdrw_gubun != ''">
+                 <if test="wdrw_gubun == 'Card'" >
+                    , '06'
+                 </if>
+                 <if test="wdrw_gubun == 'Vrtl'" >
+                    , '07'
+                 </if>
+             </if>
+             , (CASE WHEN FN_DIFF_MONTH(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),
+                                           ADD_MONTHS(CASE WHEN B.NO = '1' THEN TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS')
+                                                   ELSE (SELECT TO_DATE(JOIN_DT, 'YYYYMMDD') FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no})
+                                                   END, TO_NUMBER(B.NO)-1
+                                                   )
+                                           ) = 0
+                        THEN 0
+                        ELSE (CASE WHEN FN_DIFF_MONTH(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),
+                                                 ADD_MONTHS(CASE WHEN B.NO = '1' THEN TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS')
+                                                         ELSE (SELECT TO_DATE(JOIN_DT, 'YYYYMMDD') FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no})
+                                                         END, TO_NUMBER(B.NO)-1)
+                                                 ) <![CDATA[<]]> 0
+                              THEN 1
+                              ELSE 2
+                              END)
+                        END) AS STAT
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{reg_man}
+             , 'N'
+             <if test="inv_dt != null and inv_dt != ''">
+             , TO_CHAR(TO_DATE(#{inv_dt}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             </if>
+          FROM (SELECT NVL (MAX (SEQ) + 1, '1') SEQ
+                  FROM PAY_MNG_DTL
+                 WHERE ACCNT_NO = #{accnt_no}) A
+             ,(SELECT NVL(MAX(NO),0)+1 NO
+                 FROM PAY_MNG_DTL
+               WHERE ACCNT_NO = #{accnt_no}
+                 AND DEL_FG = 'N') B
+         WHERE (SELECT RPOD_DTL.ALLT_AMT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                       INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                 WHERE B.NO BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                   AND MPA.ACCNT_NO = #{accnt_no}) <![CDATA[>]]> 0
+    </insert>
+
+    <!--EB22 출금의뢰 성공본 - 추가부담금 입금처리 -->
+    <insert id="DlwVrtlAcntTestMap.insertPayMngDtl1ByCMS" parameterType="map">
+    <!-- DM sql-id : sql-cms.insertPayMngDtl1ByCMS -->
+    <!-- /* 수정 : 추가부담금 입금처리(결합금을 할부금과 추가금을 나누어서 저장) by lbk_2012_11_27 */ -->
+        INSERT /* DlwVrtlAcntTestMap.insertPayMngDtl1ByCMS */
+          INTO PAY_MNG_DTL1
+             ( SEQ
+             , ACCNT_NO
+             , NO
+             , PAY_AMT
+             , PAY_DAY
+             , PAY_MTHD
+             , STAT
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             , DEL_FG
+             <if test="inv_dt != null and inv_dt != ''">
+             , WDRW_INV_DT
+             </if>
+             )
+        SELECT A.SEQ
+             , #{accnt_no}
+             , B.NO
+             , (SELECT RPOD_DTL.ADD_AMT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                       INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                 WHERE B.NO BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                   AND MPA.ACCNT_NO = #{accnt_no})
+             , TO_CHAR(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             <if test="wdrw_gubun == null or wdrw_gubun == ''">
+             , '04'
+             </if>
+             <if test="wdrw_gubun != null and wdrw_gubun != ''">
+                 <if test="wdrw_gubun == 'Card'" >
+                    , '06'
+                 </if>
+                 <if test="wdrw_gubun == 'Vrtl'" >
+                    , '07'
+                 </if>
+             </if>
+             , (CASE WHEN FN_DIFF_MONTH(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),
+                                           ADD_MONTHS(CASE WHEN B.NO = '1' THEN TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS')
+                                                   ELSE (SELECT TO_DATE(JOIN_DT, 'YYYYMMDD') FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no})
+                                                   END,
+                                                   CAST(B.NO AS INT)-1
+                                                   )
+                                           ) = 0
+                        THEN 0
+                        ELSE (CASE WHEN FN_DIFF_MONTH(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),
+                                                 ADD_MONTHS(CASE WHEN B.NO = '1' THEN TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS')
+                                                         ELSE (SELECT TO_DATE(JOIN_DT, 'YYYYMMDD') FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no})
+                                                         END, CAST(B.NO AS INT)-1
+                                                         )
+                                                 ) <![CDATA[<]]> 0
+                              THEN 1
+                              ELSE 2
+                              END)
+                        END) AS STAT
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{reg_man}
+             , 'N'
+             <if test="inv_dt != null and inv_dt != ''">
+             , TO_CHAR(TO_DATE(#{inv_dt}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             </if>
+          FROM (SELECT NVL (MAX (SEQ) + 1, '1') SEQ
+                  FROM PAY_MNG_DTL1
+                 WHERE ACCNT_NO = #{accnt_no}) A
+             ,(SELECT NVL(MAX(NO),0)+1 NO
+                 FROM PAY_MNG_DTL1
+               WHERE ACCNT_NO = #{accnt_no}
+                 AND DEL_FG = 'N') B
+         WHERE (SELECT RPOD_DTL.ADD_AMT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                       INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                 WHERE B.NO BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                   AND MPA.ACCNT_NO = #{accnt_no}) <![CDATA[>]]> 0
+
+    </insert>
+
+    <!-- 가수금 등록 -->
+    <update id="DlwVrtlAcntTestMap.saveGasuPayProc" parameterType="map">
+    <!-- DM sql-id : sql-cms.saveGasuPayProc -->
+        INSERT /* DlwVrtlAcntTestMap.saveGasuPayProc */
+          INTO GASU_AMT_REG
+             ( SEQ
+             , ACCNT_NO
+             , PAY_NO
+             , GASU_AMT
+             , PAY_DAY
+             , PAY_MTHD
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             , DEL_FG)
+        SELECT A.SEQ
+             , #{accnt_no}
+             , #{inv_no}
+             , (SELECT CASE WHEN PROD.PAY_TYPE = '002'
+                            THEN NVL((SELECT MONTH_PAY_AMT
+                                           FROM PRODUCT_DTL
+                                          WHERE PROD_CD = MPA.PROD_CD
+                                            AND #{inv_no} BETWEEN ST_NO AND END_NO), 0)
+                            ELSE PROD.MON_PAY_AMT
+                        END
+                  FROM MEM_PROD_ACCNT MPA
+                 INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                 WHERE MPA.ACCNT_NO = #{accnt_no})
+             , TO_CHAR(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+             <if test="wdrw_gubun == null or wdrw_gubun == ''">
+             , '04'
+             </if>
+             <if test="wdrw_gubun != null and wdrw_gubun != ''">
+                 <if test="wdrw_gubun == 'Card'" >
+                    , '06'
+                 </if>
+                 <if test="wdrw_gubun == 'Vrtl'" >
+                    , '07'
+                 </if>
+             </if>
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{reg_man}
+             , 'N'
+      FROM (SELECT NVL (MAX (SEQ) + 1, '1') SEQ
+              FROM GASU_AMT_REG) a
+         , (SELECT NVL(MAX(NO),0)+1 NO
+              FROM PAY_MNG
+             WHERE ACCNT_NO = #{accnt_no}
+               AND DEL_FG = 'N') B
+    </update>
+
+
+    <!--
+    DlwVrtlAcntTestMap.saveGasuPayDtlProc 함수를 2개의 함수로 분리
+    2016-10-18
+    -->
+    <select id="DlwVrtlAcntTestMap.getPayNo" parameterType="map" resultType="string">
+        SELECT /* DlwVrtlAcntTestMap.getPayNo */
+               DECODE(PAY_NO, 0, 'I', 'U') AS IU_GUBUN
+          FROM (SELECT TO_CHAR(NVL(MAX(PAY_NO),0)) AS PAY_NO
+                  FROM GASU_AMT_REG
+                 WHERE DEL_FG = 'N'
+                   AND ACCNT_NO = #{accnt_no}
+                   AND PAY_NO = #{inv_no}
+                )
+    </select>
+
+    <!--
+    가수금 등록 (결합?)
+    DlwVrtlAcntTestMap.saveGasuPayDtlProc 함수를 2개의 함수로 분리
+    2016-10-18
+    -->
+    <update id="DlwVrtlAcntTestMap.saveGasuPayDtlProc" parameterType="map">
+    <!-- DM sql-id : sql-cms.saveGasuPayDtlProc -->
+        <if test="iu_gubun == 'I'.toString()">
+            INSERT /* DlwVrtlAcntTestMap.saveGasuPayDtlProc */
+              INTO GASU_AMT_REG
+                 ( SEQ
+                 , ACCNT_NO
+                 , PAY_NO
+                 , GASU_ALLT_AMT
+                 , PAY_DAY
+                 , PAY_MTHD
+                 , REG_DM
+                 , REG_MAN
+                 , UPD_DM
+                 , UPD_MAN
+                 , DEL_FG)
+            SELECT A.SEQ
+                 , #{accnt_no}
+                 , #{inv_no}
+                 , (SELECT RPOD_DTL.ALLT_AMT
+                      FROM MEM_PROD_ACCNT MPA
+                         INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                         INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                     WHERE #{inv_no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                       AND MPA.ACCNT_NO = #{accnt_no})
+                 , TO_CHAR(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+                 <if test="wdrw_gubun == null or wdrw_gubun == ''">
+                 , '04'
+                 </if>
+                 <if test="wdrw_gubun != null and wdrw_gubun != ''">
+                     <if test="wdrw_gubun == 'Card'" >
+                        , '06'
+                     </if>
+                     <if test="wdrw_gubun == 'Vrtl'" >
+                        , '07'
+                     </if>
+                 </if>
+                 , SYSDATE
+                 , #{reg_man}
+                 , SYSDATE
+                 , #{reg_man}
+                 , 'N'
+              FROM (SELECT NVL (MAX (SEQ) + 1, '1') SEQ
+                      FROM GASU_AMT_REG) A
+                 , (SELECT NVL(MAX(NO),0)+1 NO
+                      FROM PAY_MNG_DTL
+                     WHERE ACCNT_NO = #{accnt_no}
+                       AND DEL_FG = 'N') B
+               END
+        </if>
+        <if test="iu_gubun != 'I'.toString()">
+            UPDATE /* DlwVrtlAcntTestMap.saveGasuPayDtlProc */
+                   GASU_AMT_REG
+               SET GASU_ALLT_AMT = (SELECT RPOD_DTL.ALLT_AMT
+                                      FROM MEM_PROD_ACCNT MPA
+                                            INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                                            INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                                     WHERE #{inv_no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                                       AND MPA.ACCNT_NO = #{accnt_no})
+             WHERE PAY_NO = #{inv_no}
+               AND ACCNT_NO = #{accnt_no}
+               AND DEL_FG = 'N'
+        </if>
+    </update>
+
+    <!-- 가수금 등록 (추가?) -->
+    <update id="DlwVrtlAcntTestMap.saveGasuPayDtl1Proc" parameterType="map">
+    <!-- DM sql-id : sql-cms.saveGasuPayDtl1Proc -->
+        <if test="iu_gubun == 'I'.toString()">
+            INSERT /* DlwVrtlAcntTestMap.saveGasuPayDtl1Proc */
+              INTO GASU_AMT_REG
+                 ( SEQ
+                 , ACCNT_NO
+                 , PAY_NO
+                 , GASU_ADD_AMT
+                 , PAY_DAY
+                 , PAY_MTHD
+                 , REG_DM
+                 , REG_MAN
+                 , UPD_DM
+                 , UPD_MAN
+                 , DEL_FG)
+            SELECT A.SEQ
+                 , #{accnt_no}
+                 , #{inv_no}
+                 , (SELECT RPOD_DTL.ADD_AMT
+                      FROM MEM_PROD_ACCNT MPA
+                           INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                           INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                     WHERE #{inv_no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                       AND MPA.ACCNT_NO = #{accnt_no})
+                 , TO_CHAR(TO_DATE(#{pay_day}, 'YYYYMMDD HH24:MI:SS'),'YYYYMMDD')
+                 <if test="wdrw_gubun == null or wdrw_gubun == ''">
+                 , '04'
+                 </if>
+                 <if test="wdrw_gubun != null and wdrw_gubun != ''">
+                     <if test="wdrw_gubun == 'Card'" >
+                        , '06'
+                     </if>
+                     <if test="wdrw_gubun == 'Vrtl'" >
+                        , '07'
+                     </if>
+                 </if>
+                 , SYSDATE
+                 , #{reg_man}
+                 , SYSDATE
+                 , #{reg_man}
+                 , 'N'
+              FROM (SELECT NVL (MAX (SEQ) + 1, '1') SEQ
+                      FROM GASU_AMT_REG) A
+                 , (SELECT NVL(MAX(NO),0)+1 NO
+                      FROM PAY_MNG_DTL1
+                     WHERE accnt_no = #{accnt_no}
+                       AND DEL_FG = 'N') B
+             WHERE (SELECT RPOD_DTL.ADD_AMT
+                      FROM MEM_PROD_ACCNT MPA
+                     INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                     INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                     WHERE #{inv_no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                       AND MPA.ACCNT_NO = #{accnt_no}) > 0
+        </if>
+        <if test="iu_gubun != 'I'.toString()">
+            UPDATE /* DlwVrtlAcntTestMap.saveGasuPayDtl1Proc */
+                   GASU_AMT_REG
+               SET GASU_ADD_AMT = (SELECT RPOD_DTL.ADD_AMT
+                                     FROM MEM_PROD_ACCNT MPA
+                                    INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                                    INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                                    WHERE #{inv_no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                                      AND MPA.ACCNT_NO = #{accnt_no})
+             WHERE (SELECT RPOD_DTL.ADD_AMT
+                      FROM MEM_PROD_ACCNT MPA
+                     INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                     INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                     WHERE #{inv_no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                       AND MPA.ACCNT_NO = #{accnt_no}) > 0
+               AND PAY_NO = #{inv_no}
+               AND ACCNT_NO = #{accnt_no}
+               AND DEL_FG = 'N'
+        </if>
+    </update>
+
+    <!-- 연체입금구분 -->
+    <select id="DlwVrtlAcntTestMap.getYenCheByPayGubun" parameterType="map" resultType="string">
+    <!-- DM sql-id : sql-cms.selectYenCheByPayGubun -->
+
+
+        /* DlwVrtlAcntTestMap.getYenCheByPayGubun */
+        <if test="pay_gubun == 'pm'">
+            SELECT FN_YEN_CHE(#{accnt_no}) FROM DUAL
+        </if>
+        <if test="pay_gubun == 'pmd'">
+        SELECT FN_YEN_CHE_COMB(#{accnt_no}) FROM DUAL
+        </if>
+        <if test="pay_gubun == 'pmd1'">
+        SELECT FN_YEN_CHE_COMB_ADD(#{accnt_no}) FROM DUAL
+        </if>
+    </select>
+
+    <!-- 가상계좌 입금 성공본 - 조회(실입금처리 대상) -->
+    <select id="DlwVrtlAcntTestMap.getVrtlAccntPayAppComplete" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-cms.selectVrtlAccntPayAppComplete -->
+
+        SELECT /* DlwVrtlAcntTestMap.getVrtlAccntPayAppComplete */
+               TBL.ACCNT_NO
+             , TBL.INV_NO
+             , TBL.INV_GUNSU
+             , TBL.WDRW_REQ_AMT
+             , CASE WHEN NVL(JOIN_CL, '00') = '03' AND TBL.APP_AMT != TBL.WDRW_REQ_AMT THEN 'Y'
+                    ELSE 'N'
+                END EVT_YN
+             , TBL.JOIN_CL
+             , (SELECT NVL(SUM(PD.END_NO - PD.ST_NO + 1) - (TBL.INV_NO - TBL.INV_GUNSU), 0)
+                  FROM PRODUCT_DTL PD
+                 WHERE PD.PROD_CD = (SELECT PROD_CD
+                                       FROM MEM_PROD_ACCNT
+                                      WHERE ACCNT_NO = TBL.ACCNT_NO)
+                   AND CASE WHEN FN_YEN_CHE_COMB(TBL.ACCNT_NO) = '만기'
+                            THEN PD.ADD_AMT
+                            ELSE PD.ALLT_AMT
+                        END > 0) JOIN_EXPR_NO
+             , FN_EVENT(TBL.ACCNT_NO) AS EVT_NM
+             , NVL((SELECT CMS_WDRW_REQ_YN FROM EVENT WHERE ACCNT_NO = TBL.ACCNT_NO AND DEL_FG = 'N'), 'N') AS CMS_WDRW_REQ_YN
+             , #{moid} AS PAYR_NO
+          FROM (
+                SELECT WR.ACCNT_NO
+                     , WR.INV_NO
+                     , WR.INV_GUNSU
+                     , WR.WDRW_REQ_AMT
+                     , FN_CMS_APP_CNT(WR.INV_GUNSU, WR.INV_NO - WR.INV_GUNSU, WR.ACCNT_NO) APP_AMT
+                     , (SELECT NVL(PROD_CL, '') FROM PRODUCT WHERE PROD_CD = (SELECT PROD_CD FROM MEM_PROD_ACCNT WHERE ACCNT_NO = WR.ACCNT_NO)) JOIN_CL
+                     , VAM.MEM_NO
+                  FROM NICE_VRTL_ACCNT_WDRW_REQ_DTL WR
+                       INNER JOIN NICE_VRTL_ACCNT_WDRW_REQ_MST VAM ON WR.SEQ = VAM.SEQ
+                                                                      <if test="err_pay_proc.equalsIgnoreCase('Y')">
+                                                                      AND VAM.STAT = '04'
+                                                                      </if>
+                                                                      AND VAM.MEM_NO = #{moid}
+                                                                      AND VAM.TID = #{tid}
+                 WHERE 1=1
+               ) TBL
+    </select>
+
+    <!-- 연체체크 -->
+    <select id="DlwVrtlAcntTestMap.getYenCheChk" parameterType="map" resultType="string">
+    <!-- DM sql-id : sql-cms.yenCheChk -->
+        WITH /* DlwVrtlAcntTestMap.getYenCheChk */ W_PAY_MNG AS (
+            SELECT MAX(NO) NO
+                 , ACCNT_NO
+              FROM PAY_MNG
+             WHERE del_fg = 'N'
+              <if test="accnt_no != null and accnt_no != ''">
+                  AND ACCNT_NO = #{accnt_no}
+              </if>
+             GROUP BY accnt_no
+        ),
+
+        W_PAY_MNG_DTL AS (
+            SELECT MAX(NO) AS NO
+                 , ACCNT_NO
+             FROM PAY_MNG_DTL
+             WHERE del_fg = 'N'
+              <if test="accnt_no != null and accnt_no != ''">
+                  AND ACCNT_NO = #{accnt_no}
+              </if>
+             GROUP BY accnt_no
+        ),
+
+        W_PAY_MNG_DTL1 AS (
+            SELECT MAX(NO) AS NO
+                 , ACCNT_NO
+             FROM PAY_MNG_DTL1
+             WHERE del_fg = 'N'
+              <if test="accnt_no != null and accnt_no != ''">
+                  AND ACCNT_NO = #{accnt_no}
+              </if>
+             GROUP BY accnt_no
+        )
+
+SELECT
+         CASE
+         WHEN TBL.PROD_CL = '03' THEN
+            CASE
+            WHEN EVT_NM = '' THEN
+                CASE
+                WHEN TBL.ALLT_EXPR_NO = TBL.PAY1_NO AND TBL.EXPR_NO = TBL.PAY_NO THEN FN_YEN_CHE(TBL.ACCNT_NO)
+                WHEN TBL.ALLT_EXPR_NO = TBL.PAY1_NO THEN FN_YEN_CHE(TBL.ACCNT_NO)
+                WHEN TBL.EXPR_NO = TBL.PAY_NO THEN FN_YEN_CHE_COMB(TBL.ACCNT_NO)
+                ELSE FN_YEN_CHE(TBL.ACCNT_NO)
+                END
+            ELSE
+                CASE
+                WHEN TBL.ADDAMT_EXPR_NO IS NULL THEN
+                    CASE
+                    WHEN TBL.ALLT_EXPR_NO = NVL(TBL.PAY_NO, 0) THEN '' ELSE FN_YEN_CHE_COMB(TBL.ACCNT_NO)
+                    END
+                ELSE
+                    CASE
+                    WHEN TBL.ALLT_EXPR_NO = NVL(TBL.PAY1_NO, 0) AND TBL.ADDAMT_EXPR_NO = NVL(TBL.PAY2_NO, 0) THEN ''
+                    WHEN TBL.ALLT_EXPR_NO = NVL(TBL.PAY1_NO, 0) AND TBL.ADDAMT_EXPR_NO != NVL(TBL.PAY2_NO, 0) THEN FN_YEN_CHE_COMB_ADD(TBL.ACCNT_NO)
+                    WHEN TBL.ALLT_EXPR_NO != NVL(TBL.PAY1_NO, 0) AND TBL.ADDAMT_EXPR_NO = NVL(TBL.PAY2_NO, 0) THEN FN_YEN_CHE_COMB(TBL.ACCNT_NO) ELSE FN_YEN_CHE_COMB(TBL.ACCNT_NO)
+                    END
+                END
+            END
+        ELSE
+            CASE
+            WHEN FN_YEN_CHE(TBL.ACCNT_NO) IN ('연체', '미납') THEN '연체' ELSE '정상'
+            END
+        END
+FROM  (
+                SELECT ACCNT.ACCNT_NO
+                     , FN_EVENT(ACCNT.ACCNT_NO) EVT_NM
+                     , NVL(PROD.PROD_CL, '') PROD_CL
+                     , NVL(PAY.NO, 0) PAY_NO
+                     , NVL(PAY1.NO, 0) PAY1_NO
+                     , NVL(PAY2.NO, 0) PAY2_NO
+                     , PROD.EXPR_NO
+                     , NVL(ALLT.EXPR_NO, 0) ALLT_EXPR_NO
+                     , NVL(ADDAMT.EXPR_NO, 0) ADDAMT_EXPR_NO
+                  FROM MEM_PROD_ACCNT ACCNT
+                       INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                       LEFT OUTER JOIN W_PAY_MNG pay ON accnt.ACCNT_NO = pay.ACCNT_NO
+                       LEFT OUTER JOIN W_PAY_MNG_DTL pay1 ON accnt.ACCNT_NO = pay1.ACCNT_NO
+                       LEFT OUTER JOIN W_PAY_MNG_DTL1 pay2 ON accnt.ACCNT_NO = pay2.ACCNT_NO
+                       LEFT OUTER JOIN (
+                               SELECT sum(PD.end_no - PD.st_no + 1) EXPR_NO
+                                    , PD.PROD_CD PROD_CD
+                                 FROM PRODUCT_DTL PD
+                                WHERE ALLT_AMT > 0
+                               GROUP BY PD.PROD_CD
+                       ) ALLT ON prod.PROD_CD = ALLT.PROD_CD
+                       LEFT OUTER JOIN (
+                               SELECT sum(PD.end_no - PD.st_no + 1) EXPR_NO
+                                    , PD.PROD_CD PROD_CD
+                                 FROM PRODUCT_DTL PD
+                                WHERE ADD_AMT > 0
+                               GROUP BY PD.PROD_CD
+                       ) ADDAMT ON prod.PROD_CD = ADDAMT.PROD_CD
+                 WHERE 1=1
+                   AND ACCNT.ACCNT_NO = #{accnt_no}
+               ) TBL
+    </select>
+
+    <!-- 가상계좌 산출 대상자 리스트 조회 -->
+    <select id="DlwVrtlAcntTestMap.getVrtlAccntTargetList" parameterType="map" resultType="resultMap">
+    /*
+    * 1. 가상계좌 입금 대상 회원 기본 정보 산출 로직 기준 데이터
+    * (1). PAY_BIT 설명 NOR : 일반 상품 회차(일반상품정상) REL : 결합만 있는 회차(해약) ADD : 추가만 있는 회차(행사)  NRA : 일반/결합 상품의 회차(결합상품정상)
+    * (2). CMS 출금의뢰가 들어오지 않은 고객, 카드출금의뢰가 들어오지 않은 고객, 출금의뢰신청이 들어오지 않은 고객
+    * (3). 해피콜의 상태가 01, 011, 11인 고객 (01 : 승인, 011 : 재승인, 11 : 정의되지 않음)
+    * (4). CMS출금의뢰 상태가 (01: 신청전, 02:신청중) 인 고객
+    * (5). 카드출금의뢰 테이블(01: 신청전, 02:신청중) 인 고객
+    * (6). 출금의뢰신청_고객만족센터의 청구 상태가 미청구 인 고객
+    * (7). 고객의 상태가 정상인 회원 (KSTBIT = 02)
+    * (8). 삭제되지 아니한 회원
+    */
+    /* 가상 계좌 산출 기준데이터 */
+    WITH VIRTUAL_TAR_LIST
+    AS
+    (
+        SELECT ACCNT_NO
+              ,PAY_MTHD
+              ,MEM_NO
+              ,PROD_CL
+              ,PROD_CD
+              ,MEM_NM
+              ,KSTBIT
+              ,RESN_CNT
+              ,MONTH_COUNT
+              ,(CASE WHEN MONTH_COUNT <![CDATA[>]]> EXPR_NO2 THEN EXPR_NO2 ELSE MONTH_COUNT END) AS MONTH_COUNT2
+              ,LAST_NO + 1 AS LAST_NO
+              ,LAST_NO2 + 1 AS LAST_NO2
+              ,LAST_NO3 + 1 AS LAST_NO3
+              ,EXPR_NO
+              ,EXPR_NO2
+              ,EXPR_NO3
+              ,NEW_CHAN_GUNSU
+              ,ACOYEN_YN
+              ,CASE WHEN RESN_CNT <![CDATA[>=]]> 1 THEN
+                   (CASE WHEN LAST_NO2 + 1 <![CDATA[<]]> EXPR_NO2 AND LAST_NO3 + 1 <![CDATA[<]]> EXPR_NO3 THEN 'REL'
+                         WHEN LAST_NO2 + 1 <![CDATA[>=]]> EXPR_NO2 AND LAST_NO3 + 1 <![CDATA[<]]> EXPR_NO3 THEN 'ADD'
+                    ELSE 'REL' END
+                   )
+               ELSE
+                   (CASE WHEN LAST_NO + 1 <![CDATA[<]]> (EXPR_NO - NEW_CHAN_GUNSU) AND LAST_NO2 + 1 = EXPR_NO2 AND LAST_NO3 + 1 = EXPR_NO3 THEN 'NOR'
+                         WHEN LAST_NO + 1 <![CDATA[>=]]> (EXPR_NO - NEW_CHAN_GUNSU) AND LAST_NO2 + 1 <![CDATA[<]]> EXPR_NO2 AND LAST_NO3 + 1 <![CDATA[<]]> EXPR_NO3 THEN 'REL'
+                         WHEN LAST_NO + 1 <![CDATA[>=]]> (EXPR_NO - NEW_CHAN_GUNSU) AND LAST_NO2 + 1 <![CDATA[>=]]> EXPR_NO2 AND LAST_NO3 + 1 <![CDATA[<]]> EXPR_NO3 THEN 'ADD'
+                    ELSE 'NRA' END
+                   )
+              END AS PAY_BIT
+          FROM (
+                   SELECT MPA.ACCNT_NO
+                         ,MPA.PAY_MTHD
+                         ,MB.MEM_NO
+                         ,MB.MEM_NM
+                         ,PD.PROD_CL
+                         ,PD.PROD_CD
+                         ,MPA.KSTBIT
+                         ,(SELECT COUNT(*) FROM RESCISSION WHERE 1=1 AND ACCNT_NO = MPA.ACCNT_NO AND CMS_WDRW_REQ_YN = 'Y' AND DEL_FG = 'N' AND ACCNT_NO = MPA.ACCNT_NO) AS RESN_CNT
+                         ,(TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),(SUBSTR(MPA.JOIN_DT,0,6) || '01')))+ 1) AS MONTH_COUNT
+                         ,NVL((SELECT COUNT(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'),0) AS LAST_NO
+                         ,NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'),0) AS LAST_NO2
+                         ,NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'),0) AS LAST_NO3
+                         ,NVL((SELECT COUNT(NO) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND AMT > 0),0) AS EXPR_NO
+                         ,NVL((SELECT COUNT(NO) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND REL_AMT > 0),0) AS EXPR_NO2
+                         ,NVL((SELECT COUNT(NO) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND ADD_AMT > 0),0) AS EXPR_NO3
+                         ,NVL(MPA.NEW_CHAN_GUNSU,0) AS NEW_CHAN_GUNSU
+                         ,MPA.ACOYEN_YN
+                         ,(SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS STAT
+                     FROM MEM_PROD_ACCNT MPA
+                     INNER JOIN MEMBER MB
+                             ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+                     INNER JOIN PRODUCT PD
+                             ON MPA.PROD_CD = PD.PROD_CD
+                    WHERE 1=1
+                      AND MPA.DEL_FG = 'N'
+
+                      <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                          AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                      </if>
+
+                      <if test="accnt_no != null and accnt_no != ''">
+                          AND MPA.ACCNT_NO = #{accnt_no}
+                      </if>
+
+                      <if test="mem_nm != null and mem_nm != ''">
+                          AND MB.MEM_NM = #{mem_nm}
+                      </if>
+
+                      <if test="mem_no != null and mem_no != ''">
+                          AND MB.MEM_NO = #{mem_no}
+                      </if>
+
+                      <if test="prod_cd != null and prod_cd != ''">
+                          AND PD.PROD_CD = #{prod_cd}
+                      </if>
+               )
+         WHERE 1=1
+           AND STAT IN  ('01','011','11')
+    )
+    /* 정상 고객 산출 */
+    SELECT VIR_TBL.ACCNT_NO
+          ,PAY_MTHD
+          ,FN_COM_NM('01', PAY_MTHD) AS PAY_MTHD_NM
+          ,MEM_NM
+          ,MEM_NO
+          ,PROD_CL
+          ,FN_COM_NM('85', PROD_CL) AS PROD_CL_NM
+          ,MONTH_COUNT
+          ,EXPR_NO
+          ,LAST_NO
+          ,VIR_TBL.PAY_STAT
+          ,CASE WHEN PAY_BIT = 'NRA' THEN (NVL(AMT,0) + NVL(REL_AMT,0) + NVL(ADD_AMT,0))
+                WHEN PAY_BIT = 'NOR' THEN NVL(AMT,0)
+                WHEN PAY_BIT = 'REL' THEN NVL(REL_AMT,0) + NVL(ADD_AMT,0)
+                WHEN PAY_BIT = 'ADD' THEN NVL(ADD_AMT,0)
+           ELSE (NVL(AMT,0) + NVL(REL_AMT,0) + NVL(ADD_AMT,0)) END AS MON_PAY_AMT
+          ,KSTBIT AS JOIN_STAT
+          ,(MONTH_COUNT - LAST_NO) AS YEN_CHE_NO
+          ,((EXPR_NO - NEW_CHAN_GUNSU) - LAST_NO) + 1 AS ICHAE_LIMIT_GUNSU
+          ,PAY_BIT
+          ,INV_GUNSU
+      FROM (
+               SELECT ACCNT_NO
+                     ,PAY_MTHD
+                     ,MEM_NM
+                     ,MEM_NO
+                     ,PROD_CL
+                     ,CASE WHEN PAY_BIT = 'NRA' THEN MONTH_COUNT
+                           WHEN PAY_BIT = 'NOR' THEN MONTH_COUNT
+                           WHEN PAY_BIT = 'REL' THEN MONTH_COUNT2
+                           WHEN PAY_BIT = 'ADD' THEN MONTH_COUNT2
+                      ELSE MONTH_COUNT END AS MONTH_COUNT
+                     ,CASE WHEN PAY_BIT = 'NRA' THEN EXPR_NO
+                           WHEN PAY_BIT = 'NOR' THEN EXPR_NO
+                           WHEN PAY_BIT = 'REL' THEN EXPR_NO2
+                           WHEN PAY_BIT = 'ADD' THEN EXPR_NO3
+                      ELSE EXPR_NO END AS EXPR_NO
+                     ,CASE WHEN PAY_BIT = 'NRA' THEN LAST_NO
+                           WHEN PAY_BIT = 'NOR' THEN LAST_NO
+                           WHEN PAY_BIT = 'REL' THEN LAST_NO2
+                           WHEN PAY_BIT = 'ADD' THEN LAST_NO3
+                      ELSE LAST_NO END AS LAST_NO
+
+                     ,CASE WHEN PAY_BIT = 'NOR' AND LAST_NO = (EXPR_NO - NEW_CHAN_GUNSU) THEN '05'
+                           WHEN PAY_BIT = 'NOR' AND LAST_NO = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'NOR' AND (LAST_NO + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'NOR' AND (LAST_NO + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'NOR' AND LAST_NO > MONTH_COUNT THEN '04'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 = EXPR_NO2 THEN '05'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND (LAST_NO2) = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND (LAST_NO2 + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND (LAST_NO2 + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND LAST_NO2 > MONTH_COUNT THEN '04'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 = EXPR_NO3 THEN '05'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND (LAST_NO3) = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND (LAST_NO3 + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND (LAST_NO3 + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND LAST_NO3 > MONTH_COUNT THEN '04'
+                           WHEN PAY_BIT = 'NRA' AND LAST_NO = (EXPR_NO - NEW_CHAN_GUNSU) THEN '05'
+                           WHEN PAY_BIT = 'NRA' AND LAST_NO = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'NRA' AND (LAST_NO + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'NRA' AND (LAST_NO + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'NRA' AND LAST_NO > MONTH_COUNT THEN '04'
+                      ELSE '99' END AS PAY_STAT
+                     ,NEW_CHAN_GUNSU
+                     ,DECODE(KSTBIT,'01','접수','02','정상','03','해약','행사') AS KSTBIT
+                     ,1 AS INV_GUNSU
+                     ,FN_COM_NM('01', PAY_MTHD) AS PAY_MTHD_NM
+                     ,FN_COM_NM('85', PROD_CL) AS PROD_CL_NM
+                     --,WDRW_STAT
+                     ,ACOYEN_YN
+                     ,PROD_CD
+                     ,PAY_BIT
+                 FROM VIRTUAL_TAR_LIST
+                WHERE KSTBIT = '02'
+           ) VIR_TBL
+           INNER JOIN PRODUCT_NO_DATA B
+                   ON VIR_TBL.PROD_CD = B.PROD_CD
+                  AND VIR_TBL.LAST_NO = B.NO
+           LEFT OUTER JOIN (SELECT ACCNT_NO FROM WDRW_REQ WR WHERE WR.STAT IN ('01', '02')) WR
+                   ON WR.ACCNT_NO = VIR_TBL.ACCNT_NO
+           LEFT OUTER JOIN (SELECT ACCNT_NO FROM CARD_WDRW_REQ CWR WHERE CWR.STAT IN ('01', '02')) CWR
+                   ON CWR.ACCNT_NO = VIR_TBL.ACCNT_NO
+           LEFT OUTER JOIN (SELECT ACCNT_NO FROM WDRW_REQ_CALL_CENTER WRCC WHERE NVL(WRCC.WDRW_REQ_YN, 'N') = 'N' AND WRCC.DEL_FG IS NULL) WRCC
+                   ON WRCC.ACCNT_NO = VIR_TBL.ACCNT_NO
+     WHERE NVL(WR.ACCNT_NO,'N') = 'N'
+       AND NVL(CWR.ACCNT_NO,'N') = 'N'
+       AND NVL(WRCC.ACCNT_NO,'N') = 'N'
+
+    UNION ALL
+
+    /* 해약 고객 산출 */
+    SELECT VIR_TBL.ACCNT_NO
+          ,PAY_MTHD
+          ,FN_COM_NM('01', PAY_MTHD) AS PAY_MTHD_NM
+          ,MEM_NM
+          ,MEM_NO
+          ,PROD_CL
+          ,FN_COM_NM('85', PROD_CL) AS PROD_CL_NM
+          ,MONTH_COUNT
+          ,EXPR_NO
+          ,LAST_NO
+          ,VIR_TBL.PAY_STAT
+          ,CASE WHEN PAY_BIT = 'NRA' THEN (NVL(AMT,0) + NVL(REL_AMT,0) + NVL(ADD_AMT,0))
+                WHEN PAY_BIT = 'NOR' THEN NVL(AMT,0)
+                WHEN PAY_BIT = 'REL' THEN NVL(REL_AMT,0) + NVL(ADD_AMT,0)
+                WHEN PAY_BIT = 'ADD' THEN NVL(ADD_AMT,0)
+           ELSE (NVL(AMT,0) + NVL(REL_AMT,0) + NVL(ADD_AMT,0)) END AS MON_PAY_AMT
+          ,KSTBIT AS JOIN_STAT
+          ,(MONTH_COUNT - LAST_NO) AS YEN_CHE_NO
+          ,((EXPR_NO - NEW_CHAN_GUNSU) - LAST_NO) + 1 AS ICHAE_LIMIT_GUNSU
+          ,PAY_BIT
+          ,INV_GUNSU
+      FROM (
+               SELECT ACCNT_NO
+                     ,PAY_MTHD
+                     ,MEM_NM
+                     ,MEM_NO
+                     ,PROD_CL
+                     ,CASE WHEN PAY_BIT = 'NRA' THEN MONTH_COUNT
+                           WHEN PAY_BIT = 'NOR' THEN MONTH_COUNT
+                           WHEN PAY_BIT = 'REL' THEN MONTH_COUNT2
+                           WHEN PAY_BIT = 'ADD' THEN MONTH_COUNT2
+                      ELSE MONTH_COUNT END AS MONTH_COUNT
+                     ,CASE WHEN PAY_BIT = 'NRA' THEN EXPR_NO
+                           WHEN PAY_BIT = 'NOR' THEN EXPR_NO
+                           WHEN PAY_BIT = 'REL' THEN EXPR_NO2
+                           WHEN PAY_BIT = 'ADD' THEN EXPR_NO3
+                      ELSE EXPR_NO END AS EXPR_NO
+                     ,CASE WHEN PAY_BIT = 'NRA' THEN LAST_NO
+                           WHEN PAY_BIT = 'NOR' THEN LAST_NO
+                           WHEN PAY_BIT = 'REL' THEN LAST_NO2
+                           WHEN PAY_BIT = 'ADD' THEN LAST_NO3
+                      ELSE LAST_NO END AS LAST_NO
+
+                     ,CASE WHEN PAY_BIT = 'NOR' AND LAST_NO = (EXPR_NO - NEW_CHAN_GUNSU) THEN '05'
+                           WHEN PAY_BIT = 'NOR' AND LAST_NO = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'NOR' AND (LAST_NO + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'NOR' AND (LAST_NO + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'NOR' AND LAST_NO > MONTH_COUNT THEN '04'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 = EXPR_NO2 THEN '05'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND (LAST_NO2) = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND (LAST_NO2 + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND (LAST_NO2 + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'REL' AND LAST_NO2 <![CDATA[<]]> EXPR_NO2 AND LAST_NO2 > MONTH_COUNT THEN '04'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 = EXPR_NO3 THEN '05'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND (LAST_NO3) = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND (LAST_NO3 + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND (LAST_NO3 + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'ADD' AND LAST_NO3 <![CDATA[<]]> EXPR_NO3 AND LAST_NO3 > MONTH_COUNT THEN '04'
+                           WHEN PAY_BIT = 'NRA' AND LAST_NO = (EXPR_NO - NEW_CHAN_GUNSU) THEN '05'
+                           WHEN PAY_BIT = 'NRA' AND LAST_NO = MONTH_COUNT THEN '01'
+                           WHEN PAY_BIT = 'NRA' AND (LAST_NO + 1) = MONTH_COUNT THEN '02'
+                           WHEN PAY_BIT = 'NRA' AND (LAST_NO + 1) <![CDATA[<]]> MONTH_COUNT THEN '03'
+                           WHEN PAY_BIT = 'NRA' AND LAST_NO > MONTH_COUNT THEN '04'
+                      ELSE '99' END AS PAY_STAT
+                     ,NEW_CHAN_GUNSU
+                     ,DECODE(KSTBIT,'01','접수','02','정상','03','해약','행사') AS KSTBIT
+                     ,1 AS INV_GUNSU
+                     ,FN_COM_NM('01', PAY_MTHD) AS PAY_MTHD_NM
+                     ,FN_COM_NM('85', PROD_CL) AS PROD_CL_NM
+                     --,WDRW_STAT
+                     ,ACOYEN_YN
+                     ,PROD_CD
+                     ,PAY_BIT
+                 FROM VIRTUAL_TAR_LIST
+                WHERE KSTBIT = '03'
+           ) VIR_TBL
+           INNER JOIN PRODUCT_NO_DATA B
+                   ON VIR_TBL.PROD_CD = B.PROD_CD
+                  AND VIR_TBL.LAST_NO = B.NO
+           LEFT OUTER JOIN (SELECT ACCNT_NO FROM WDRW_REQ WR WHERE WR.STAT IN ('01', '02')) WR
+                   ON WR.ACCNT_NO = VIR_TBL.ACCNT_NO
+           LEFT OUTER JOIN (SELECT ACCNT_NO FROM CARD_WDRW_REQ CWR WHERE CWR.STAT IN ('01', '02')) CWR
+                   ON CWR.ACCNT_NO = VIR_TBL.ACCNT_NO
+           LEFT OUTER JOIN (SELECT ACCNT_NO FROM WDRW_REQ_CALL_CENTER WRCC WHERE NVL(WRCC.WDRW_REQ_YN, 'N') = 'N' AND WRCC.DEL_FG IS NULL) WRCC
+                   ON WRCC.ACCNT_NO = VIR_TBL.ACCNT_NO
+     WHERE NVL(WR.ACCNT_NO,'N') = 'N'
+       AND NVL(CWR.ACCNT_NO,'N') = 'N'
+       AND NVL(WRCC.ACCNT_NO,'N') = 'N'
+    </select>
+
+
+
+    <!-- 가상계좌 산출데이터 임시저장 -->
+    <insert id="DlwVrtlAcntTestMap.insertNiceVacctNoti" parameterType="map">
+        INSERT /* DlwVrtlAcntTestMap.insertNiceVacctNoti */
+          INTO NICE_VACCT_NOTI
+        (
+               TR_DT           	/* 트랜잭션일자 */
+             , TR_SEQ          	/* 거래일련번호 */
+             , PAY_METHOD      	/* 지불수단 */
+             , MID             	/* 상점ID */
+             , MALL_USER_ID    	/* 회원사 ID */
+             , AMT             	/* 금액 */
+             , NAME            	/* 구매자명 */
+             , GOODS_NAME      	/* 상품명 */
+             , TID             	/* 거래번호 */
+             , MOID            	/* 주문번호 */
+             , AUTH_DATE       	/* 입금일시 (yyMMddHHmmss) */
+             , RESULT_CODE     	/* 결과코드 ("4110" 경우 입금통보) */
+             , RESULT_MSG      	/* 결과메시지 */
+             , VBANK_NUM       	/* 가상계좌번호 */
+             , FN_CD           	/* 가상계좌 은행코드 */
+             , VBANK_NAME      	/* 가상계좌 은행명 */
+             , VBANK_INPUT_NAME	/* 입금자 명 */
+             , RCPT_TID        	/* 현금영수증 거래번호 */
+             , RCPT_TYPE       	/* 현금 영수증 구분(0:미발행, 1:소득공제용, 2:지출증빙용) */
+             , RCPT_AUTH_CODE  	/* 현금영수증 승인번호 */
+             , ERR_PAY_PROC    	/* ERR_PAY_PROC */
+             , REG_DM    	    /* 등록일시 */
+        )
+        VALUES
+        (
+               TO_CHAR(SYSDATE,'YYYYMMDD')
+             , (SELECT NVL(MAX(TR_SEQ),0)+1 FROM NICE_VACCT_NOTI WHERE TR_DT = TO_CHAR(SYSDATE,'YYYYMMDD'))
+             , #{pay_method}
+             , #{mid}
+             , #{mall_user_id}
+             , #{amt}
+             , #{name}
+             , #{goods_name}
+             , #{tid}
+             , #{moid}
+             , #{auth_date}
+             , #{result_code}
+             , #{result_msg}
+             , #{vbank_num}
+             , #{fn_cd}
+             , #{vbank_name}
+             , #{vbank_input_name}
+             , #{rcpt_tid}
+             , #{rcpt_type}
+             , #{rcpt_auth_code}
+             , #{err_pay_proc}
+             , SYSDATE
+        )
+    </insert>
+</mapper>

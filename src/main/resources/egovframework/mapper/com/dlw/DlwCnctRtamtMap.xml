@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCnctRtamtMap">
+
+    <!-- 해약환급금 M 목록 건수 -->
+    <select id="DlwCnctRtamtMap.getResnAmtCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwCnctRtamtMap.getEventCount */
+               COUNT(*)
+          FROM RESNSTD_M M
+         INNER JOIN PRODUCT P
+            ON M.PROD_CD = P.PROD_CD
+         WHERE P.DEL_FG ='N'
+           <if test="prod_cd != null and prod_cd != ''">
+           AND M.PROD_CD = #{prod_cd}
+           </if>
+           <if test="use_yn != null and use_yn != ''">
+           AND M.USE_YN = #{use_yn}
+           </if>
+    </select>
+
+    <!-- 해약환급금 M 목록 -->
+    <select id="DlwCnctRtamtMap.getResnAmtList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-system.xml : selectResnAmtList -->
+
+
+        SELECT /* DlwCnctRtamtMap.getResnAmtList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           '' AS PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT SEQ
+                             , M.PROD_CD
+                             , P.PROD_NM
+                             , M.MODEL_CL_CD
+                             , FN_MODEL_CL_NM(M.MODEL_CL_CD) AS MODEL_CL_NM
+                             , M.APP_DAY AS APP_DAY
+                             , P.PROD_AMT
+                             , P.EXPR_NO
+                             , CASE WHEN P.SALE_CL ='Y' THEN '판매중' ELSE '판매중지' END SALE_CL
+                             , CASE WHEN M.USE_YN ='Y' THEN '사용' ELSE '미사용' END USE_YN
+                          FROM RESNSTD_M M
+                         INNER JOIN PRODUCT P
+                            ON M.PROD_CD = P.PROD_CD
+                         WHERE P.DEL_FG ='N'
+                           <if test="prod_cd != null and prod_cd != ''">
+                           AND M.PROD_CD = #{prod_cd}
+                           </if>
+                           <if test="use_yn != null and use_yn != ''">
+                           AND M.USE_YN = #{use_yn}
+                           </if>
+                       ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+
+    <!-- 해약환급금 D 목록 건수-->
+    <select id="DlwCnctRtamtMap.getResnAmtDetailCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwCnctRtamtMap.getResnAmtDetailCount */
+               COUNT(*)
+          FROM RESNSTD_D D
+         INNER JOIN RESNSTD_M M
+            ON M.SEQ = D.MST_SEQ
+         WHERE D.MST_SEQ = #{mst_seq}
+    </select>
+
+    <!-- 해약환급금 D 목록 -->
+    <select id="DlwCnctRtamtMap.getResnAmtDetailList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-system.xml : selectResnAmtDetailList -->
+
+
+        SELECT /* DlwCnctRtamtMap.getResnAmtDetailList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY to_number(${orderBy}) ${orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           ROW_NUMBER() OVER(ORDER BY NO ASC) PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT M.PROD_CD
+                             , D.NO AS RESN_SEQ
+                             , ROUND(TO_NUMBER(RESN_AMT),0) AS RESN_AMT
+                             , D.NO
+                          /*   , ISNULL(CONVERT(DECIMAL(10,0), ROUND(CONVERT(NUMERIC, RESN_AMT) / (SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO <![CDATA[<=]]>  D.NO) * 100,1,1)), 100.0) AS AMT_PER  */
+                          /* , nvl( TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO   <![CDATA[<=]]>   D.NO) )* 100,0)),100) AS AMT_PER */
+                          /* 2017.09.26 상품코드 : 19, 상품분류 : 0356 일경우 추가 */
+                           , (CASE WHEN M.PROD_CD = '19' AND #{model_cl_cd} = '0356' THEN
+                                         (SELECT TO_NUMBER(PCT) FROM PRODUCT_NO_DATA WHERE PROD_CD = '^9' AND NO = D.NO)
+                         /* 2017.10.23 상품코드 : M1 일경우 추가 */
+                                   WHEN M.PROD_CD = 'M1' THEN
+                                         (SELECT TO_NUMBER(PCT) FROM PRODUCT_NO_DATA WHERE PROD_CD = '^1' AND NO = D.NO)
+                                   WHEN M.PROD_CD = 'ZA' THEN
+                                         (RESN_AMT / (SELECT SUM(CASE WHEN SEQ = 1 THEN END_NO*MONTH_PAY_AMT
+                                                                     WHEN SEQ = 2 THEN (END_NO-ST_NO+1)*MONTH_PAY_AMT
+                                                                ELSE 0 END)
+                                                     FROM PRODUCT_DTL
+                                                     WHERE PROD_CD = M.PROD_CD))*100
+                                   WHEN M.PROD_CD = 'ZB' THEN
+                                        (RESN_AMT / (SELECT PROD_AMT FROM PRODUCT WHERE PROD_CD = M.PROD_CD))*100
+                                   WHEN M.PROD_CD = 'ZC' THEN
+                                        (RESN_AMT / (SELECT PROD_AMT FROM PRODUCT WHERE PROD_CD = M.PROD_CD))*100
+                                   WHEN M.PROD_CD = 'OA' THEN 
+                                       CASE WHEN D.NO >= 119 AND D.NO <![CDATA[<]]> 134 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'KZ' THEN 
+                                       CASE WHEN D.NO >= 119 AND D.NO <![CDATA[<]]> 134 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'ZE' THEN 
+                                       CASE WHEN D.NO >= 1 AND D.NO <![CDATA[<]]> 49 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'ZF' THEN 
+                                       CASE WHEN D.NO >= 1 AND D.NO <![CDATA[<]]> 25 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'ZG' THEN 
+                                       CASE WHEN D.NO >= 1 AND D.NO <![CDATA[<]]> 49 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                    ELSE
+                                         NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO <![CDATA[<=]]> D.NO) )* 100,0)),100)
+                               END) AMT_PER
+                        FROM RESNSTD_D D
+                       INNER JOIN RESNSTD_M M
+                          ON M.SEQ = D.MST_SEQ
+                        LEFT OUTER JOIN PRODUCT_NO_DATA P
+                          ON P.PROD_CD = M.PROD_CD
+                         AND P.NO = D.NO
+                       WHERE D.MST_SEQ = #{mst_seq}
+                       ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+
+    <!-- 해약환급금 등록 M -->
+    <insert id="DlwCnctRtamtMap.insertResnAmtHd" parameterType="map">
+    <!-- DM sql-id : sql-system.xml : insertResnAmtHd -->
+        INSERT /* DlwCnctRtamtMap.insertResnAmtHd */
+          INTO RESNSTD_M
+             ( SEQ
+             , PROD_CD
+             , MODEL_CL_CD
+             , APP_DAY
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             , USE_YN
+             )
+        SELECT A.SEQ
+             , #{prod_cd}
+             , #{model_cl_cd}
+             , #{app_dt}
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{upd_man}
+             , #{use_yn}
+          FROM (SELECT NVL(MAX(SEQ) +1, '1') AS SEQ
+                  FROM RESNSTD_M
+               ) A
+    </insert>
+
+    <!-- 해약환급금 등록 D -->
+    <insert id="DlwCnctRtamtMap.insertResnAmtDt" parameterType="map">
+    <!-- DM sql-id : sql-system.xml : insertResnAmtDt -->
+        <selectKey keyProperty="mstseq" resultType="String" order="BEFORE">
+            SELECT SEQ
+            FROM RESNSTD_M
+            WHERE PROD_CD = #{prod_cd}
+            AND APP_DAY = #{app_dt}
+            <if test="model_cl_cd != null and model_cl_cd != ''">
+            AND MODEL_CL_CD = #{model_cl_cd}
+            </if>
+            <if test="model_cl_cd == null">
+            AND NVL(MODEL_CL_CD, 'N') = 'N'
+            </if>
+        </selectKey>
+        INSERT /* DlwCnctRtamtMap.insertResnAmtDt */
+          INTO RESNSTD_D
+             ( MST_SEQ
+             , NO
+             , RESN_AMT
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             )
+        VALUES
+             ( #{mstseq}
+             , #{resn_seq}
+             , #{resn_amt}
+             , SYSDATE
+             , #{reg_man}
+             , SYSDATE
+             , #{upd_man}
+             )
+
+    </insert>
+
+    <!-- 해약환급금 HD 수정 -->
+    <update id="DlwCnctRtamtMap.updateResnAmtHd" parameterType="map">
+    <!-- DM sql-id : sql-system.xml : updateResnAmtHd -->
+        UPDATE /* DlwCnctRtamtMap.updateResnAmtHd */
+               RESNSTD_M
+           SET APP_DAY   = #{app_dt}
+             , UPD_DM    = SYSDATE
+             , MODEL_CL_CD = #{model_cl_cd}
+             , UPD_MAN   = #{upd_man}
+             , USE_YN    = #{use_yn}
+         WHERE PROD_CD = #{prod_cd}
+           AND SEQ = #{mst_seq}
+    </update>
+
+    <!-- 해약환급금 DT 수정 -->
+    <update id="DlwCnctRtamtMap.updateResnAmtDt" parameterType="map">
+    <!-- DM sql-id : sql-system.xml : updateResnAmtDt -->
+        UPDATE /* DlwCnctRtamtMap.updateResnAmtDt */
+               RESNSTD_D
+           SET RESN_AMT  = TO_NUMBER(#{resn_amt})
+             , UPD_DM    = SYSDATE
+             , UPD_MAN   = #{upd_man}
+         WHERE MST_SEQ = #{mst_seq}
+           AND NO  = #{resn_seq}
+    </update>
+
+    <!-- 해약환급금 등록 중복 체크 -->
+    <select id="DlwCnctRtamtMap.checkResnFg" parameterType="map" resultType="string">
+    <!-- DM sql-id : sql-system.xml : checkResnFg -->
+
+
+        SELECT /* DlwCnctRtamtMap.checkResnFg */
+               CASE WHEN COUNT(PROD_CD) <![CDATA[>]]> 0
+                    THEN 'F'
+                    ELSE 'T'
+                END AS CHFG
+         FROM RESNSTD_M
+         WHERE PROD_CD = #{prod_cd}
+         AND MODEL_CL_CD = #{model_cl_cd}
+         AND APP_DAY = #{app_dt}
+    </select>
+
+    <!-- 해약환급금 마스터 삭제 -->
+    <delete id="DlwCnctRtamtMap.deleteResnAmtM" parameterType="map">
+    <!-- DM sql-id : sql-system.xml : deleteResnAmtM -->
+        DELETE /* DlwCnctRtamtMap.deleteResnAmtM */
+          FROM RESNSTD_M
+         WHERE PROD_CD = #{prod_cd}
+           AND APP_DAY= #{app_dt}
+           AND MODEL_CL_CD = #{model_cl_cd}
+    </delete>
+
+    <!-- 해약환급금 상세 삭제 -->
+    <delete id="DlwCnctRtamtMap.deleteResnAmtD" parameterType="map">
+    <!-- DM sql-id : sql-system.xml : deleteResnAmtD -->
+        /* DlwCnctRtamtMap.deleteResnAmtD */
+        DELETE
+          FROM RESNSTD_D
+         WHERE MST_SEQ = (SELECT SEQ
+                         FROM RESNSTD_M
+                        WHERE prod_cd = #{prod_cd}
+                          AND APP_DAY = #{app_dt}
+                          AND MODEL_CL_CD = #{model_cl_cd}
+                      )
+    </delete>
+
+</mapper>

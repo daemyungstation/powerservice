@@ -1,0 +1,775 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[var gGateID = 0;
+var gInvokeID = 0;
+
+function callCtmpMethod(func) 
+{
+	// CTMP function 호출
+	switch (func) {
+		var ret = 0;
+		//trace("[lib_CTI] " + func + " 시작 ---------------");
+        
+        // CTI 서버 연결
+		case "OpenServer":
+			// gate id->ctmp 초기화 설정
+			CAPI3X.GateId = 1;
+			CAPI3X.LogTrace = "TRUE";
+			CAPI3X.LogPath = "C:\\softphone";
+
+			gGateID = CAPI3X.GateId;       // gate id 생성
+			CAPI3X.ServerName = gCtiIp1;   // active server
+			CAPI3X.ServerName1 = gCtiIp2;  // standby server(이중화)
+			CAPI3X.LinkMode	= 4;           // pbx type(0:none, 1:asai, 2:merdian, 3:csta1, 4:csta2, 5:csta3)
+			CAPI3X.OpenPort	= gCtiPort1;   // port
+			CAPI3X.OpenDevice = gExtnNo;   // DN
+		
+			ret = CAPI3X.ctmpopenserver();		
+		break;
+
+		// CTI 서버 연결 (이중화)
+		//case "OpenServerHA":
+			// gate id->ctmp 초기화 설정
+			//CAPI3X.GateId = 1;
+			//CAPI3X.LogTrace = "TRUE";
+			//CAPI3X.LogPath = "C:\\softphone";
+
+			// gate id 생성
+			//gGateID = CAPI3X.GateId;
+			//CAPI3X.ServerName = gCtiIp1;	// active server 
+			//CAPI3X.ServerNameII	= gCtiIp2;  // standby server(이중화)
+			//CAPI3X.LinkMode	= 4;            // pbx type(0:none, 1:asai, 2:merdian, 3:csta1, 4:csta2, 5:csta3)
+
+			//CAPI3X.OpenPort	= gCtiPort1;    // port
+			//CAPI3X.OpenDevice = gExtnNo;    // DN
+		
+			//ret = CAPI3X.ctmpOpenServerHAX();
+		//break;
+
+		// CTI 모니터링 시작
+		case "MonitorStart":
+			// gate id 생성
+			gGateID = CAPI3X.GateId;
+			ret = CAPI3X.ctmpmonitorstart(gGateID, gInvokeID);
+			gInvokeID++;	
+					
+			// timer start
+			if(ret == 1) {
+				CAPI3XEvt.opengate (gGateID);
+				//(임시)최현식=>CAPI3XEvt.starttimer();
+				func = "TimerStart";
+			}
+		break;
+
+		// CTI 모니터링 중지
+		case "MonitorStop":				
+			gGateID = CAPI3X.GateId;
+			ret = CAPI3X.ctmpmonitorstop(gGateID, gInvokeID);
+			gInvokeID++;
+
+			// timer stop
+			if(ret == 1) {
+				//(임시)최현식=>CAPI3XEvt.stoptimer();
+				func = "TimerStop";
+			}
+		break;
+			
+		// CTI 서버 연결 해제
+		case "CloseServer":
+			gGateID = CAPI3X.GateId;
+			ret = CAPI3X.ctmpcloseserver(gGateID, gInvokeID);
+			gInvokeID++;
+		break;
+
+		// CTI 서버 연결 해제 (이중화)
+		case "CloseServerHA":
+			gGateID = CAPI3X.GateId;
+			ret = CAPI3X.ctmpCloseServerX(gGateID, gInvokeID);
+			gInvokeID++;
+		break;
+			
+		// 전화 끊기
+		case "ClearConnection":
+			gGateID = CAPI3X.GateId;
+			          // ctmpclearconnection(gate, invoke, callRefId, cleardevice, pridata);
+			ret = CAPI3X.ctmpclearconnection(gGateID, gInvokeID, gCallRefId, gMonitorParty, "");
+			gInvokeID++;
+		break;
+
+		// 전화걸기
+		case "MakeCall":
+			var _uui = "";
+            var _uei = "";
+            var _ci = "";
+            var _telno = gfn_makeCallTlno(gTelNo, cbo_tac_cd.value);
+			
+			gGateID = CAPI3X.GateId;
+			          // ctmpmakecall(gate, invoke, callingnumber, callednumber, uui, acccode, authcode, ueidata, cidata, pridata)
+			ret = CAPI3X.ctmpmakecall(gGateID, gInvokeID, gExtnNo, _telno, _uui, "", "", _uei, _ci, "");
+			gInvokeID++;
+		break;
+
+		// 전화받기
+		case "AnswerCall":
+			gGateID = CAPI3X.GateId;
+			          // ctmpanswercall(gate, invoke, callid, answerdevice, pridata);
+			ret = CAPI3X.ctmpanswercall(gGateID, gInvokeID, gCallRefId, gMonitorParty, "");
+			gInvokeID++;
+		break;
+
+		// 전화보류
+		case "Hold":
+			gGateID = CAPI3X.GateId;
+			          // ctmpholdcall(gate, invoke, callid, holddevice);
+			ret = CAPI3X.ctmpholdcall(gGateID, gInvokeID, gCallRefId, gMonitorParty);
+			gInvokeID++;
+		break;
+
+		// 전화보류 해제
+		case "Retrieve":
+			gGateID = CAPI3X.GateId;
+			          // ctmpretrievecall(gate, invoke, callid, retrievedevice);
+			ret = CAPI3X.ctmpretrievecall(gGateID, gInvokeID, gHeldCallId, gHeldDevice);
+			gInvokeID++;
+		break;
+
+		// 호전환 시도
+		case "ConsultationTrans":
+			// pbx type = meridian이면 _callclass 지정 할 것!
+			var _callclass = 0;
+			var _uui = "";
+            var _uei = gArsUei;
+            var _ci = "";
+            var _telno = gfn_makeCallTlno(gTelNo);
+            
+            gGateID = CAPI3X.GateId;
+			          // ctmpconsultationcall(gate, invoke, callid, callingdevice, calleddevice, callclass, uui, acccode, authcode, ueidata, cidata, pridata);
+			ret = CAPI3X.ctmpconsultationcall(gGateID, gInvokeID, gActiveCallId, gActiveDevice, _telno, _callclass,	_uui, "", "", _uei, _ci, "");
+			gInvokeID++;
+		break;
+		
+		// 호전환
+		case "Transfer":
+			gGateID = CAPI3X.GateId;
+			          // ctmptransfercall(gate, invoke, heldcallid, helddevice, activecallid, activedevice, pridata) 
+			ret = CAPI3X.ctmptransfercall(gGateID, gInvokeID, gHeldCallId, gHeldDevice, gActiveCallId, gActiveDevice, "");
+			gInvokeID++;
+		break;
+		
+		// 3자통화 시도
+		case "ConsultationConfe":
+			gGateID = CAPI3X.GateId;
+			// pbx type = meridian이면 _callclass 지정 할 것!
+			var _callclass = 1;
+			var _uui = "";
+            var _uei = gArsUei;
+            var _ci = "";
+            var _telno = gfn_makeCallTlno(gTelNo);
+ 			          // ctmpconsultationcall(gate, invoke, callid, callingdevice, calleddevice, callclass, uui, acccode, authcode, ueidata, cidata, pridata);
+ 			ret = CAPI3X.ctmpconsultationcall(gGateID, gInvokeID, gActiveCallId, gActiveDevice, _telno, _callclass,	_uui, "", "", _uei, _ci, "");
+
+			gInvokeID++;
+        break;
+
+		// 3자통화
+		case "Conference":
+			gGateID = CAPI3X.GateId;
+			          // ctmpconferencecall(gate, invoke, heldCallID, heldDevice, activeCallID, activeDevice, priDate) 
+			ret = CAPI3X.ctmpconferencecall(gGateID, gInvokeID, gHeldCallId, gHeldDevice, gActiveCallId, gActiveDevice, "");
+			gInvokeID++;
+		break;
+		
+		// ctmp reconnect 사용안됨
+		// clearConnection 호출
+		/*// 전환취소
+        case "Reconnect":
+            gGateID = CAPI3X.GateId;
+                      // ctmpreconnectcall(gate, invoke, activecallid, activedevice, gHeldCallId, gHeldDevice)
+            //ret = CAPI3X.ctmpreconnectcall(gGateID, gInvokeID, gHeldCallId, gHeldDevice, "");
+            ret = CAPI3X.ctmpreconnectcall(gGateID, gInvokeID, gHeldCallId, gHeldDevice, gCallRefId, gMonitorParty, "");
+            gInvokeID++;
+		break;*/
+
+		// 대기
+		case "Ready":
+			gGateID = CAPI3X.GateId;
+			// ctmpsetfeatureagentstatus(gate, invoke, device, agentmode, agentid, agentdata, agentgroup, reasoncode, workmode);
+			ret = CAPI3X.ctmpsetfeatureagentstatus(gGateID, gInvokeID, gExtnNo, ctmpV_AgentReady, gCtiId, gCtiParty, gCtiGroup, 0, 0, "");
+			gInvokeID++;
+		break;
+
+		// 로그인
+		case "LogIn":
+			gGateID = CAPI3X.GateId;
+			          // ctmpsetfeatureagentstatus(gate, invoke, device, agentmode, agentid, agentdata, agentgroup, reasoncode, workmode);
+			ret = CAPI3X.ctmpsetfeatureagentstatus(gGateID, gInvokeID, gExtnNo, ctmpV_AgentLogin, gCtiId, gCtiParty, gCtiGroup, 0, 0, "");
+			gInvokeID++;
+		break;
+
+		// 비대기
+		case "NotReady":
+			gGateID = CAPI3X.GateId;
+			          // ctmpsetfeatureagentstatus(gate, invoke, device, agentmode, agentid, agentdata, agentgroup, reasoncode, workmode);
+			ret = CAPI3X.ctmpsetfeatureagentstatus(gGateID, gInvokeID, gExtnNo, ctmpV_AgentNotReady, gCtiId, gCtiParty, gCtiGroup, gReasonCd, 0, "");
+			gInvokeID++;
+		break;
+
+		// 로그아웃
+		case "LogOut":
+			gGateID = CAPI3X.GateId;
+			          // ctmpsetfeatureagentstatus(gate, invoke, device, agentmode, agentid, agentdata, agentgroup, reasoncode, workmode);
+			ret = CAPI3X.ctmpsetfeatureagentstatus(gGateID, gInvokeID, gExtnNo, ctmpV_AgentLogout, gCtiId, gCtiParty, gCtiGroup, 0, 0, "");
+			gInvokeID++;
+		break;
+
+ 		case "OtherWork":
+ 			gGateID = CAPI3X.GateId;
+ 			          // ctmpsetfeatureagentstatus(gate, invoke, device, agentmode, agentid, agentdata, agentgroup, reasoncode, workmode);
+ 			ret = CAPI3X.ctmpsetfeatureagentstatus(gGateID, gInvokeID, gExtnNo, ctmpV_AgentOtherWork, gCtiId, gCtiParty, gCtiGroup, 0, 0, "");
+ 			gInvokeID++;
+ 		break;
+		
+		// 후처리
+		case "AfterCallWork":		
+			gGateID = CAPI3X.GateId;
+			          // ctmpsetfeatureagentstatus(gate, invoke, device, agentmode, agentid, agentdata, agentgroup, reasoncode, workmode);
+			ret = CAPI3X.ctmpsetfeatureagentstatus(gGateID, gInvokeID, gExtnNo, ctmpV_AgentAfterCallWork, gCtiId, gCtiParty, gCtiGroup, 0, 0, "");
+			gInvokeID++;
+		break;
+
+        // 대기 상담사 수
+		case "AgentReadyGet":
+			gGateID = CAPI3X.GateId;
+			          // ctmpagentreadyget(gate, invoke, gCtiGroup, gCtiParty, 0);
+			//ret = CAPI3X.ctmpagentreadyget(gGateID, gInvokeID, gCtiGroup, gCtiParty, 0);
+			ret = CAPI3X.ctmpagentreadyget(gGateID, gInvokeID, gCtiGroup, gCtiParty, 100);
+			gInvokeID++;			
+
+			if(ret >= 0 && ret < 1000) ap_TodoFrame.form.stc_readyUser.text = ret;
+		break;
+		
+		// 대기 고객 수
+		case "WaitTimeGet":
+			gGateID = CAPI3X.GateId;
+			//ctmpwaittimegetevtget(long gate, long invoke, long queuedn)
+			// 대명스테이션 Queue번호 내역
+			// * 테스트 환경
+			//   - 2320 : 테스트Queue번호
+			
+			// * 운영 환경
+			//   - 2597 : 바로Queue로 인입된 전화(미납)
+			//   - 2826 : IVR멘트를 통해서 인입된 전화(상담사)
+			ret = CAPI3X.ctmpwaittimegetevtget(gGateID, gInvokeID, 2826);
+			gInvokeID++;
+
+			if(ret >= 0 && ret < 1000) ap_TodoFrame.form.stc_waitMemberCnt.text = ret;
+		break;
+ 		
+ 		case "OneStepTransfer":
+			gGateID = CAPI3X.GateId;
+			var _telno = gfn_makeCallTlno(gTelNo);
+				      // ctmponesteptransfer(long gate, long invoke, long callid, LPCTSTR callingdevice, LPCTSTR calleddevice, LPCTSTR uui, LPCTSTR ueidata, LPCTSTR cidata)
+			ret = CAPI3X.ctmponesteptransfer(gGateID, gInvokeID, gCallRefId, gMonitorParty, _telno, "", "", "");
+			gInvokeID++;
+		break;
+	}
+
+	// 결과 값 출력(DEBUG용)
+	if (func == "AgentReadyGet" || func == "WaitTimeGet") {
+		if (ret >= 0) {
+			trace("[lib_CTI] " + func + " 성공 ---------------");
+		} else {
+			trace("[lib_CTI] " + func + " 실패 [" + ret + "] ---------------");
+		}
+	} else {
+		if (ret == 1) {
+			trace("[lib_CTI] " + func + " 성공 ---------------");
+		} else {
+			trace("[lib_CTI] " + func + " 실패 [" + ret + "] ---------------");
+		}
+	}
+	return ret;
+}
+
+// =======================================
+// Description : event kind
+// =======================================
+var ctmpEK_CallCleared			= 1;  // 호 끊김
+var ctmpEK_Confernced			= 2;  // 회의통화
+var ctmpEK_ConnectionCleared	= 3;  // 연결 끊김
+var ctmpEK_Delivered			= 4;  // 착신 - 전화벨이 울리는 상태
+var ctmpEK_Diverted				= 5;  // 가로채기
+var ctmpEK_Established			= 6;  // 접속
+var ctmpEK_Failed				= 7;  // 실패
+var ctmpEK_Held					= 8;  // 보류
+var ctmpEK_NetworkReached		= 9;  // 국선점유
+var ctmpEK_Originated			= 10; // 호발생
+var ctmpEK_Queued				= 11; // Queue 발생
+var ctmpEK_Retrieved			= 12; // 보류 해제
+var ctmpEK_ServiceInitated		= 13; // 새로운 호 초기화
+var ctmpEK_Transferred			= 14; // 전환 통화
+var ctmpEK_Route				= 15;
+var ctmpEK_RouteEnded			= 16;
+var ctmpEK_DummyCall			= 17;
+var ctmpEK_eDiverted			= 18;
+var ctmpEK_CallInformation		= 101; // 호 정보
+var ctmpEK_DoNotDisturb			= 102; // 사용불가 모드
+var ctmpEK_Forwarding			= 103; // 착신전환 모드
+var ctmpEK_MessageWaiting		= 104; // 메시지 대기 모드
+var ctmpEK_AutoAnswer			= 105; // 자동 응답 모드
+var ctmpEK_MicrophoneMute		= 106; // 송화 차단 모드
+var ctmpEK_SpeakerMute			= 107; // 스피커 차단 모드
+var ctmpEK_SpeakerVolume		= 108; // 스피커 음량조절
+var ctmpEK_SystemEventIE		= 200;
+var ctmpEK_LoggedOn				= 201; // 로그온
+var ctmpEK_LoggedOff			= 202; // 로그오프
+var ctmpEK_NotReady				= 203; // 휴식, 식사, 교육 
+var ctmpEK_Ready				= 204; // 통화대기
+var ctmpEK_OtherWork			= 205; // 통화중
+var ctmpEK_AfterCallWork		= 206; // 후처리
+var ctmpEK_Popup				= 254;
+
+// =======================================
+// Description : ctmpLocalConnectState_Def
+// =======================================
+var ctmpES_Null = 0;
+var ctmpES_Initiate = 1;
+var ctmpES_Altering = 2;
+var ctmpES_Connect = 3;
+var ctmpES_Hold = 4;
+var ctmpES_Queued = 5;
+var ctmpES_Fail = 6;
+
+// =======================================
+// Description : ctmpEventCallCause_Def
+// =======================================
+var ctmpV_AddedParty = 1;
+var ctmpV_AlertingDevice = 2;
+var ctmpV_AnsweringDevice = 3;
+var ctmpV_CalledNumber = 4;
+var ctmpV_CallingDevice = 5;
+var ctmpV_ConfController = 6;
+var ctmpV_DivertingDevice = 7;
+var ctmpV_FailedDevice = 8;
+var ctmpV_HoldingDevice = 9;
+var ctmpV_LastRedirection = 10;
+var ctmpV_ReleasingDevice = 11;
+var ctmpV_RetrievingDevice = 12;
+var ctmpV_TransferringDevice = 13;
+var ctmpV_TrunkUsed = 14;
+
+// =======================================
+// Description : ctmpAgentMode_Def
+// =======================================
+var ctmpV_AgentLogin = 0;         // 상담원 로그인 상태
+var ctmpV_AgentLogout = 1;        // 상담원 로그아웃 상태
+var ctmpV_AgentNotReady = 2;      // 상담원 휴식 상태
+var ctmpV_AgentReady = 3;         // 상담원 대기 상태
+var ctmpV_AgentOtherWork = 4;     // 상담원 Busy 상태
+var ctmpV_AgentAfterCallWork = 5; // 상담원 호처리 상태
+
+var gCallId        = 0;
+
+var gCallRefId     = 0;  // 콜아이디
+var gActiveCallId  = 0;  // 콜활성아이디
+var gActiveDevice  = "";
+var gHeldCallId    = 0;  // 보류아이디
+var gHeldDevice    = "";
+var gMonitorParty  = "";
+var gOtherParty    = ""; // 인입번호
+var gQueueDn       = "";
+var gArgs          = "";
+var gHeldFlag      = 0;  // 보류여부
+
+//var gHeldCnId      = 0;
+var gInOutFlag     = ""; // 수발신구분 I:inbound O:outbound
+var gMakeCallTlno  = "";
+
+var gRecConsDataTm = 0; // 녹취 상담 데이터 전송 시간(ms)
+
+
+// =======================================
+// Description : 녹취
+// =======================================
+
+// VTMOCX의 함수를 사용하기 위한 초기화 함수
+function gfn_recInit()
+{
+	var ret = VTMAPI.VTMOCXInit();	// 0
+	trace("[lib_CTI] gfn_recInit return [" + ret + "]");
+	return ret;
+}
+
+// VTM CallLink와 접속
+function gfn_recConnect()
+{
+    // 녹취 상담 데이터 전송 시간 30분 경과 시에만 재접속 처리
+    var nCurTm = (new Date()).getTime();
+	trace("[lib_CTI] gfn_recConnect check [" + (nCurTm - gRecConsDataTm) + "]");
+	if (nCurTm - gRecConsDataTm < 1800000) {
+		return false;
+	}
+	gRecConsDataTm = nCurTm;
+	
+	       // VTMAPI.VTMOCXConnect(녹취ip, 녹취port, 0)
+	var ret = VTMAPI.VTMOCXConnect(gRecIp1, gRecPort1, 0);
+	trace("[lib_CTI] gfn_recConnect return [" + ret + "]");
+	return ret;
+}
+
+// VTM CallLink와 접속 종료
+function gfn_recDisconnect()
+{
+	var ret = VTMAPI.VTMOCXDisconnect(0);
+	trace("[lib_CTI] gfn_recDisconnect return [" + ret + "]");
+	return ret;
+}
+
+/*
+// 통화 시작 신호
+function gfn_recStartCall()
+{
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sTlno = "";
+	
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	
+	// VTMAPI.VTMOCXStartCall(0, 내선번호, 상담사ID, callId, 전화번호, I/O...녹취청취키
+	// 회원명, 회원번호, 전화번호, empty
+// 	var ret = VTMAPI.VTMOCXStartCall(0, gExtnNo, sUserId, gCallId, sTlno, gInOutFlag
+//                                    , "", "", "", "", ""
+//                                    , "", "", "", "", ""
+//                                    , "", "", "", "", ""
+//                                    , "", "", "", gv_rec_id, "");
+	var sMemNo = "";
+	var sMemNm = "";
+	var sAccntNo = "";
+	var sProdCd = "";
+	if (gInOutFlag == "I") {
+		trace(ds_incommingCall.saveXML());
+		if (ds_incommingCall.rowcount > 0) {
+			sMemNo = ds_incommingCall.getColumn(0, "mem_no");
+			sMemNm = ds_incommingCall.getColumn(0, "mem_nm");
+		}
+	} else {
+		sMemNo = gv_oMemNo;
+		sMemNm = gv_oMemNm;
+		sAccntNo = gv_oAccntNo;
+		sProdCd = gv_oProdCd;
+	}
+	
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	
+	trace("[lib_CTI] gfn_recStartCall gExtnNo-["+gExtnNo+"] sUserId-["+sUserId+"] gCallId=["+gCallId+"]");
+	trace("sTlno-["+sTlno+"] gInOutFlag-["+gInOutFlag+"] sMemNm=["+sMemNm+"] sMemNo-["+sMemNo+"] sTlno-["+sTlno+"] gv_rec_id-["+gv_rec_id+"]");
+	trace("sAccntNo-["+sAccntNo+"] sProdCd-["+sProdCd+"]");
+	
+	var ret = VTMAPI.VTMOCXStartCall(0, gExtnNo, sUserId, gCallId, sTlno, gInOutFlag
+                                   , sMemNm, sMemNo, sTlno, "", sAccntNo
+                                   , sProdCd, "", "", "", ""
+                                   , "", "", "", "", ""
+                                   , "", "", "", gv_rec_id, "");
+	return ret;
+}
+*/
+
+/*
+// 통화 종료 신호
+function gfn_recEndCall()
+{
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	// VTMAPI.VTMOCXEndCall(0, 내선번호, 상담사ID, callId, 전화번호, I/O...녹취청취키
+	// 회원명, 회원번호, 전화번호, empty
+	var sMemNo = "";
+	var sMemNm = "";
+	var sAccntNo = "";
+	var sProdCd = "";
+	if (gInOutFlag == "I") {
+		for(var i=0;i<ap_WorkFrame.all.length; i++){
+			if (ap_WorkFrame.all[i].prgmCode =='PS020001') {
+				sMemNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; 		// 회원고유번호
+				sMemNm = ap_WorkFrame.all[i].form.div_Work.div_member.mem_nm.value; 		// 회원명
+				sAccntNo = ap_WorkFrame.all[i].form.div_Work.div_product.edt_accnt_no.value;// 회원번호
+				sProdCd = ap_WorkFrame.all[i].form.div_Work.div_product.edt_prod_cd.value; 	// 상품코드
+			}
+		}
+	} else {
+		sMemNo = gv_oMemNo;
+		sMemNm = gv_oMemNm;
+		sAccntNo = gv_oAccntNo;
+		sProdCd = gv_oProdCd;
+	}
+	
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	
+	trace("[lib_CTI] gfn_recStartCall gExtnNo-["+gExtnNo+"] sUserId-["+sUserId+"] gCallId=["+gCallId+"]");
+	trace("sTlno-["+sTlno+"] gInOutFlag-["+gInOutFlag+"] sMemNm=["+sMemNm+"] sMemNo-["+sMemNo+"] sTlno-["+sTlno+"] gv_rec_id-["+gv_rec_id+"]");
+	trace("sAccntNo-["+sAccntNo+"] sProdCd-["+sProdCd+"]");
+	
+	var ret = VTMAPI.VTMOCXEndCall(0, gExtnNo, sUserId, gCallId, sTlno, gInOutFlag
+                                 , sMemNm, sMemNo, sTlno, "", sAccntNo
+                                 , sProdCd, "", "", "", ""
+                                 , "", "", "", "", ""
+                                 , "", "", "", gv_rec_id, "");
+	return ret;
+}
+*/
+
+// 녹취 상담 데이터 전송
+function gfn_recConsData(psCtiStatus)
+{
+    trace("[lib_CTI] gfn_recConsData is Call");
+    // CTI 사용자가 아닌 경우 종료
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sCtiUseYn = gds_UserInfo.getColumn(0, "cti_use_yn");
+	if (sCtiUseYn != "Y" ||
+	    gfn_isNull(gExtnNo) ||
+	    gfn_isNull(gCtiId) ||
+	    gfn_isNull(gv_rec_id)) {
+	    return;
+	}
+
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+
+	// VTMAPI.VTMOCXEndCall(0, 내선번호, 상담사ID, callId, 전화번호, I/O...녹취청취키
+	// 회원명, 회원번호, 전화번호, empty
+	var sMemNo = "";
+	var sMemNm = "";
+	var sAccntNo = "";
+	var sProdCd = "";
+
+	for(var i=0;i<ap_WorkFrame.all.length; i++){
+		if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') {
+			sMemNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; 		// 회원고유번호
+			sMemNm = ap_WorkFrame.all[i].form.div_Work.div_member.mem_nm.value; 		// 회원명
+			sAccntNo = ap_WorkFrame.all[i].form.div_Work.div_product.edt_accnt_no.value;// 회원번호
+			sProdCd = ap_WorkFrame.all[i].form.div_Work.div_product.edt_prod_cd.value; 	// 상품코드
+		}
+	}
+	
+	if (!gfn_isNull(gv_oMemNo)) {
+		sMemNo = gv_oMemNo;
+		sMemNm = gv_oMemNm;
+		sAccntNo = gv_oAccntNo;
+		sProdCd = gv_oProdCd;	
+    }
+    
+/*
+	if (gInOutFlag == "I") {
+		for(var i=0;i<ap_WorkFrame.all.length; i++){
+			if (ap_WorkFrame.all[i].prgmCode =='PS020001') {
+				sMemNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; 		// 회원고유번호
+				sMemNm = ap_WorkFrame.all[i].form.div_Work.div_member.mem_nm.value; 		// 회원명
+				sAccntNo = ap_WorkFrame.all[i].form.div_Work.div_product.edt_accnt_no.value;// 회원번호
+				sProdCd = ap_WorkFrame.all[i].form.div_Work.div_product.edt_prod_cd.value; 	// 상품코드
+			}
+		}
+	} else {
+		if ((gv_oMemNo == "") && (gv_oMemNm == "")) {
+			sMemNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; 		// 회원고유번호
+			sMemNm = ap_WorkFrame.all[i].form.div_Work.div_member.mem_nm.value; 		// 회원명
+			sAccntNo = ap_WorkFrame.all[i].form.div_Work.div_product.edt_accnt_no.value;// 회원번호
+			sProdCd = ap_WorkFrame.all[i].form.div_Work.div_product.edt_prod_cd.value; 	// 상품코드	    
+	    } else {
+			sMemNo = gv_oMemNo;
+			sMemNm = gv_oMemNm;
+			sAccntNo = gv_oAccntNo;
+			sProdCd = gv_oProdCd;
+	    }
+	}
+*/	
+	
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	
+	if (psCtiStatus == null || psCtiStatus == "") {
+	    psCtiStatus = ctiStatus;
+	}
+	
+	trace("[lib_CTI] gfn_recConsData psCtiStatus-["+psCtiStatus+"]");
+	trace("[lib_CTI] gfn_recConsData gExtnNo-["+gExtnNo+"] sUserId-["+sUserId+"] gCallId=["+gCallId+"] sTlno-["+sTlno+"] gInOutFlag-["+gInOutFlag+"]");
+	trace("[lib_CTI] gfn_recConsData sMemNm=["+sMemNm+"] sMemNo-["+sMemNo+"] sTlno-["+sTlno+"] gv_rec_id-["+gv_rec_id+"] sAccntNo-["+sAccntNo+"] sProdCd-["+sProdCd+"]");
+	
+	var ret = null;
+	if (psCtiStatus == CTI_STATUS_BUSY || // 통화중
+	    psCtiStatus == CTI_STATUS_HELD) { // 보류중
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateOpenCall is Call start");
+	    ret = VTMAPI.VTMOCXUpdateOpenCall(
+	            0, gExtnNo,
+	            sMemNm, sMemNo, sTlno, "", sAccntNo,
+	            sProdCd, "", "", "", "",
+                "", "", "", "", "",
+                "", "", "", gv_rec_id, ""
+            );
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateOpenCall is Call end [" + ret + "]");
+    } else {
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateCloseCall is Call start");
+	    ret = VTMAPI.VTMOCXUpdateCloseCall(
+	            0, gExtnNo,
+	            sMemNm, sMemNo, sTlno, "", sAccntNo,
+	            sProdCd, "", "", "", "",
+                "", "", "", "", "",
+                "", "", "", gv_rec_id, ""
+            );
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateCloseCall is Call end [" + ret + "]");
+    }
+    
+    // 녹취 상담 데이터 전송 시간(ms) 저장
+    if (ret == 0) {
+        gRecConsDataTm = (new Date()).getTime();
+    }
+    
+	return ret;
+}
+
+// 녹취 청취
+function gfn_recPlay(rec_id)
+{
+	var recd = rec_id.substring(0, 8);
+	// VTMAPI.VTMOCXWavePlay(녹취서버ip, 검색시작일자YYYYMMDD, 검색종료일자YYYYMMDD, 녹취청취key, 파일저장여부)
+	trace("[lib_CTI] gfn_recPlay : gRecIp1 => " + gRecIp1 + ", recd => " + recd + ", rec_id : " + rec_id);
+	var ret = VTMAPI.VTMOCXWavePlay(gRecIp1, recd, recd, rec_id, 1);
+	return ret;
+}
+
+// 부분녹취 시작
+function gfn_recStartDual(sAccntNo, sMemNo, sProdCd, sMemNm)
+{
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sTeamCd = gds_UserInfo.getColumn(0, "team_cd");
+
+	if (gfn_isNull(sTeamCd)) sTeamCd = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	
+	// 팀코드 "T" 제거
+	if (sTeamCd.length > 1 && sTeamCd.charAt(0) == "T") {
+	    sTeamCd = sTeamCd.substring(1, sTeamCd.length);
+	}
+	
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	
+	trace("[lib_CTI] gfn_recStartDual gRecDualIp-["+gRecDualIp+"] gRecDualPort-["+gRecDualPort+"] gExtnNo-["+gExtnNo+"]");
+	trace("[lib_CTI] gfn_recStartDual sTeamCd=["+sTeamCd+"] sUserId=["+sUserId+"] gCtiId=["+gCtiId+"] sTlno=["+sTlno+"]");
+	trace("[lib_CTI] gfn_recStartDual sAccntNo-["+sAccntNo+"] sMemNo-["+sMemNo+"] sProdCd-["+sProdCd+"] gv_rec_id-["+gv_rec_id+"]");
+
+	var ret = VtmApiCtrl.VTMOCXStartCallDual(
+	        gRecDualIp, "", gRecDualPort, gExtnNo, sTeamCd/*sUserId*/,
+	        sTlno, gInOutFlag,
+	        sMemNm, sMemNo, sTlno, "", sAccntNo,
+	        sProdCd, "", "", "", "",
+	        sTeamCd/*""*/, gCtiId/*""*/, "", "", "",
+	        "", "", "", gv_rec_id, ""
+	    );
+	return ret;
+}
+
+// 부분녹취 종료
+function gfn_recEndDual(sAccntNo, sMemNo, sProdCd, sMemNm, sCancFg)
+{
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sTeamCd = gds_UserInfo.getColumn(0, "team_cd");
+	
+	if (gfn_isNull(sTeamCd)) sTeamCd = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	
+	// 팀코드 "T" 제거
+	if (sTeamCd.length > 1 && sTeamCd.charAt(0) == "T") {
+	    sTeamCd = sTeamCd.substring(1, sTeamCd.length);
+	}
+	
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	if (gfn_isNull(sCancFg)) {
+		sCancFg = "";	// 녹취 취소 여부(1 : 취소)
+		gv_rec_dual_yn = "Y";
+	} else {
+		gv_rec_dual_yn = "N";
+	}
+	
+	trace("[lib_CTI] gfn_recEndDual gRecDualIp-["+gRecDualIp+"] gRecDualPort-["+gRecDualPort+"] gExtnNo-["+gExtnNo+"]");
+	trace("[lib_CTI] gfn_recEndDual sTeamCd=["+sTeamCd+"] sUserId=["+sUserId+"] gCtiId=["+gCtiId+"] sTlno=["+sTlno+"]");
+	trace("[lib_CTI] gfn_recEndDual sAccntNo-["+sAccntNo+"] sMemNo-["+sMemNo+"] sProdCd-["+sProdCd+"] gv_rec_id-["+gv_rec_id+"]");
+	
+	var ret = VtmApiCtrl.VTMOCXEndCallDual(
+	        gRecDualIp, "", gRecDualPort, gExtnNo, sTeamCd/*sUserId*/,
+	        sTlno, gInOutFlag,
+	        sMemNm, sMemNo, sTlno, "", sAccntNo,
+	        sProdCd, "", "", "", sCancFg,
+	        sTeamCd/*""*/, gCtiId/*""*/, "", "", "",
+	        "", "", "", gv_rec_id, ""
+	    );
+	return ret;
+}
+
+// 부분 녹취 청취
+function gfn_recPlayDual(rec_id)
+{
+	var recd = rec_id.substring(0, 8);
+	var ret = VtmApiCtrl.VTMOCXWavePlayDual(gRecDualIp, "", gRecDualPlayPort, recd, recd, rec_id, 0);
+	return ret;
+}
+
+// 부분 녹취 추가정보 저장(끊었을 경우)
+function gfn_recUpdateCloseCallDual(sAccntNo, sMemNo, sProdCd, sMemNm)
+{
+	var sTlno = "";
+
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	
+	trace("[lib_CTI] gfn_recStartDual gRecDualIp-["+gRecDualIp+"] gRecDualPort-["+gRecDualPort+"] gExtnNo-["+gExtnNo+"]");
+	trace("[lib_CTI] gfn_recStartDual sTlno-["+sTlno+"] sAccntNo-["+sAccntNo+"] sProdCd-["+sProdCd+"] gv_rec_id-["+gv_rec_id+"]");
+
+	var ret = VtmApiCtrl.VTMOCXUpdateCloseCallDual(
+	        gRecDualIp, "", gRecDualPort, gExtnNo, 1, 0,
+	        sMemNm, sMemNo, sTlno, "", sAccntNo,
+	        sProdCd, "", "", "", "",
+	        "", "", "", "", "",
+	        "", "", "", gv_rec_dual_id, ""
+	    );
+	return ret;
+}]]></Script>

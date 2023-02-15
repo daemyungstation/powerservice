@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WrdDicMap">
+
+    <sql id="WrdDicMap.selectCondition_fragment">
+        <where>
+            <if test="word_id != null and word_id != ''">
+                AND WORD_ID = #{word_id}
+            </if>
+
+            <!-- UPPER()을 이용하여 데이터를 대문자로 변경하여 검색 -->
+            <if test="word_nm != null and word_nm != ''">
+                <if test="dateType == 'all'">
+                    AND UPPER(WORD_NM) LIKE '%' || UPPER(#{word_nm}) || '%'
+                </if>
+                <if test="dateType == 'back'">
+                    AND UPPER(WORD_NM) LIKE UPPER(#{word_nm}) || '%'
+                </if>
+                <if test="dateType == 'front'">
+                    AND UPPER(WORD_NM) LIKE '%' || UPPER(#{word_nm})
+                </if>
+                <if test="dateType == 'correct'">
+                    AND UPPER(WORD_NM) = UPPER(#{word_nm})
+                </if>
+            </if>
+
+            <if test="word_enlt_nm != null and word_enlt_nm != ''">
+                <if test="dateType2 == 'all'">
+                    AND WORD_ENLT_NM LIKE '%' || #{word_enlt_nm} || '%'
+                </if>
+                <if test="dateType2 == 'back'">
+                    AND WORD_ENLT_NM LIKE #{word_enlt_nm} || '%'
+                </if>
+                <if test="dateType2 == 'front'">
+                    AND WORD_ENLT_NM LIKE '%' || #{word_enlt_nm}
+                </if>
+                <if test="dateType2 == 'correct'">
+                    AND WORD_ENLT_NM = #{word_enlt_nm}
+                </if>
+            </if>
+
+            <if test="startd != null and startd != ''">
+                <![CDATA[
+                AND AMNT_DTTM >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+                ]]>
+            </if>
+
+            <if test="endd != null and endd != ''">
+                <![CDATA[
+                AND AMNT_DTTM <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+                ]]>
+            </if>
+
+            <!-- UPPER()을 이용하여 데이터를 대문자로 변경하여 검색 -->
+            <if test="word_enlt_whl_nm != null and word_enlt_whl_nm != ''">
+                <if test="dateType3 == 'all'">
+                    AND UPPER(WORD_ENLT_WHL_NM) LIKE '%' || UPPER(#{word_enlt_whl_nm}) || '%'
+                </if>
+                <if test="dateType3 == 'back'">
+                    AND UPPER(WORD_ENLT_WHL_NM) LIKE UPPER(#{word_enlt_whl_nm}) || '%'
+                </if>
+                <if test="dateType3 == 'front'">
+                    AND UPPER(WORD_ENLT_WHL_NM) LIKE '%' || UPPER(#{word_enlt_whl_nm})
+                </if>
+                <if test="dateType3 == 'correct'">
+                    AND UPPER(WORD_ENLT_WHL_NM) = UPPER(#{word_enlt_whl_nm})
+                </if>
+            </if>
+        </where>
+    </sql>
+
+    <!-- 단어 건수조회 -->
+    <select id="WrdDicMap.getWrdDicCount" parameterType="map" resultType="int">
+        SELECT /* WrdDicMap.getWrdDicCount */
+               COUNT(*)
+          FROM TB_WORD_DICT
+          <include refid="WrdDicMap.selectCondition_fragment"/>
+    </select>
+    <!-- // 단어 건수조회 -->
+
+    <!-- 용어 구성 내역 건수조회 -->
+    <select id="WrdDicMap.CommonCount" parameterType="map" resultType="int">
+        SELECT /* WrdDicMap.CommonCount */
+               COUNT(*)
+          FROM TB_TERM_COMS_DTL
+          <include refid="WrdDicMap.selectCondition_fragment"/>
+    </select>
+    <!-- // 용어 구성 내역 건수조회 -->
+
+    <!-- 단어 목록조회 -->
+    <select id="WrdDicMap.getWrdDicList" parameterType="map" resultType="resultMap">
+        SELECT /* WrdDicMap.getWrdDicList */
+               PAGE_INDX
+             , WORD_ID, WORD_NM, WORD_ENLT_NM, WORD_ENLT_WHL_NM, WORD_EXPI
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, RGSR_NM, AMND_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM ( SELECT WORD_ID, WORD_NM
+                             , WORD_ENLT_NM, WORD_ENLT_WHL_NM, WORD_EXPI
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                            , (SELECT USER_NM
+                                 FROM TB_USER
+                                WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                        FROM TB_WORD_DICT A
+                        <include refid="WrdDicMap.selectCondition_fragment"/>
+
+                        <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       )B
+               )C
+          <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- // 단어 목록조회 -->
+
+    <!-- 단어 등록 -->
+    <insert id="WrdDicMap.insertWrdDic" parameterType="map">
+        <selectKey keyProperty="word_id" resultType="String" order="BEFORE">
+            SELECT 'DIC' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* WrdDicMap.insertWrdDic */
+            TB_WORD_DICT
+          VALUES ( #{word_id}, #{word_nm}, #{word_enlt_nm}, #{word_enlt_whl_nm}, #{word_expi},
+                   #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // 단어 등록 -->
+
+    <!-- 단어 수정 -->
+    <update id="WrdDicMap.updateWrdDic" parameterType="map">
+        UPDATE /* WrdDicMap.updateWrdDic */
+            TB_WORD_DICT
+          SET WORD_NM = #{word_nm}
+            , WORD_ENLT_NM = #{word_enlt_nm}
+            , WORD_ENLT_WHL_NM = #{word_enlt_whl_nm}
+            , WORD_EXPI = #{word_expi}
+            , AMND_ID = #{amnd_id}
+            , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE WORD_ID = #{word_id}
+    </update>
+    <!-- // 단어 수정 -->
+
+    <!-- 단어 삭제 -->
+    <delete id="WrdDicMap.deleteWrdDic" parameterType="map">
+        DELETE /* WrdDicMap.deleteWrdDic */
+          FROM TB_WORD_DICT
+         WHERE
+         <choose>
+             <when test="word_id == null or word_id == ''">
+                 WORD_ID
+                 <foreach collection="selectcheck" item="item" open="IN (" separator="," close=")">
+                     #{item}
+                 </foreach>
+             </when>
+             <otherwise>
+                 WORD_ID = #{word_id}
+             </otherwise>
+         </choose>
+    </delete>
+    <!-- // 단어 삭제 -->
+
+    <!-- 단어명 중복체크 -->
+    <select id="WrdDicMap.WrdDicCheck" parameterType="map" resultType="int">
+        SELECT /* WrdDicMap.WrdDicCheck */
+            COUNT(*)
+          FROM TB_WORD_DICT WHERE WORD_NM = #{word_nm}
+    </select>
+    <!-- // 단어명 중복체크 -->
+
+    <!-- 단어ID -->
+    <select id="WrdDicMap.WrdDicId" parameterType="String" resultType="String">
+        SELECT /* WrdDicMap.WrdDicId */
+            WORD_ID
+          FROM TB_WORD_DICT WHERE WORD_NM = #{word_nm}
+    </select>
+    <!-- // 단어ID -->
+</mapper>
+

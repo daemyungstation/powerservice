@@ -1,0 +1,216 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_FileUploadExcel_BigData_Popup" classname="Comm_FileUploadExcel_Popup" inheritanceid="" position="absolute 0 0 460 205" titletext="대용량파일업로드(Excel)" onload="Comm_FileUploadExcel_Popup_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_25" class="sta_popupBg1" enable="false" position="absolute 0 0 450 195"/>
+        <Static id="stc_26" text="대용량 엑셀파일 업로드" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 210 28"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 421 8 441 27"/>
+        <Static id="stc_33" class="sta_workSrcBg" position="absolute 11 69 439 111"/>
+        <Static id="stc_32" text="파일찾기" class="sta_workSrcLabel1" position="absolute 23 80 81 100"/>
+        <Edit id="edt_FilePath" taborder="1" position="absolute 84 80 406 100" enable="false"/>
+        <Button id="btn_FileSelect" taborder="1" class="btn_WFSA_workSrcPop" position="absolute 408 80 428 100" onclick="btn_FileSelect_onclick"/>
+        <Static id="Static00" text="※ Xls, xlsx, csv 파일만 등록하실 수 있습니다.&#13;&#10;※ 잘못된 엑셀 파일은 전체 data에 영향을 미칠 수가 있습니다.&#13;&#10;    반드시 먼저 엑셀업로드 양식다운로드 후 다운로드 받은 엑셀파일로 데이터를&#13;&#10;    편집하여 업로드해 주시기 바랍니다." position="absolute 9 113 443 192" style="linespace:5;"/>
+        <Button id="btn_Commit" taborder="1" text="확인" position="absolute 370 45 439 65" onclick="btn_Commit_onclick"/>
+        <Static id="stc_00" text="파일선택" class="sta_workTitle2" position="absolute 12 48 196 68"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_UploadResult" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_FileList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="xRowStatusType" type="STRING" size="256"/>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="fileId" type="STRING" size="256"/>
+          <Column id="fileLPath" type="STRING" size="256"/>
+          <Column id="filePath" type="STRING" size="256"/>
+          <Column id="fileName" type="STRING" size="256"/>
+          <Column id="targetId" type="STRING" size="256"/>
+          <Column id="fileSize" type="STRING" size="256"/>
+          <Column id="fileType" type="STRING" size="256"/>
+          <Column id="detailInfo" type="STRING" size="256"/>
+          <Column id="regDate" type="STRING" size="256"/>
+          <Column id="isUploaded" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ObjDsExcel" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+// 작업된 엑셀파일을 선택해서 확인 버튼을 클릭하면  "엑셀파일명.csv" 파일로 변환 후 서버로 전송
+
+// 부모창으로부터 전달받는 변수
+//var pv_ObjDsExcel;					// Excel File 선택시 Import할 데이타셋
+//var pv_StartRow;						// Excel Import시 시작 행 (default:0)
+
+var fv_FilePath   		= "";			// Default 파일경로
+var fv_FilterFlag		= "EXCEL";		// File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+
+var fv_fileName;		// 파일명(확장자포함)
+var fv_filePath;		// 파일경로
+var fv_fileFullPath;	// 파일경로 + 파일명
+
+function Comm_FileUploadExcel_Popup_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_commPopInit(obj, true);
+	
+	fn_init();
+}
+
+function fn_init()
+{
+	ds_ObjDsExcel.assign(pv_ObjDsExcel);
+
+	trace("pv_StartRow::"+pv_StartRow);
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function btn_FileSelect_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var objFiles = gfn_fileSelect("S", fv_FilePath, fv_FilterFlag);
+	if (!objFiles) return;
+
+// 	trace("filename::"+objFiles.filename);
+// 	trace("filepath::"+objFiles.path);
+// 	trace("filefullpath::"+objFiles.fullpath);
+
+	fv_fileName 	= objFiles.filename;
+	fv_filePath 	= objFiles.path;
+	fv_fileFullPath = objFiles.fullpath;
+	
+	ds_FileList.clearData();
+	this.edt_FilePath.value = fv_fileFullPath;
+}
+
+function btn_Commit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(gfn_getLength(this.edt_FilePath.value) <= 0) {
+		alert("업로드할 파일을 선택하세요!");
+		return;
+	}
+	
+	if(!confirm("파일을 업로드 하시겠습니까?")) return;
+
+	// 파일업로드
+	var sLocalFilePath = this.edt_FilePath.value;
+	
+	// 엑셀파일 Import
+	//gfn_importExcelToDataset(ds_ObjDsExcel.name, null, null, null, sLocalFilePath);
+	gfn_importExcelToDataset(ds_ObjDsExcel.name, pv_StartRow, null, null, sLocalFilePath);
+
+	// Head칼럼 제외기능 추가
+// 	if(pv_StartRow > 0) {
+// 		for(var i=pv_StartRow-1;i>=0;i--)
+// 		{
+// 			//trace("i>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"+i);
+// 			ds_ObjDsExcel.deleteRow(i);
+// 		}	
+// 	}	
+	
+	// undefined 처리
+	for(var i=0;i<ds_ObjDsExcel.rowcount;i++)
+	{
+		for(var j=0;j<ds_ObjDsExcel.getColCount();j++)
+		{
+			if(gfn_isNull(ds_ObjDsExcel.getColumn(i,j))) ds_ObjDsExcel.setColumn(i,j, "");
+		}
+	}
+
+	// Excel File -> CSV 파일로 변환해서 생성처리
+	var objEx = new ExtCommon();
+	var arrFileNmInfo = fv_fileName.split(".");
+	var sFileFullPath = fv_filePath + arrFileNmInfo[0] + ".csv";
+	
+	trace("sFileFullPath::"+sFileFullPath);
+	
+	var rtn = objEx.ds2CsvNF(ds_ObjDsExcel,sFileFullPath,true,false,",","\r\n");	
+	
+	fn_fileUpload(sFileFullPath);
+}
+
+/*****************************************************************************************
+ * 함  수  명	: fn_fileUpload
+ * 입      력	: 1. sfileLocalPath 	: 첨부파일 Local Path
+				  2. sUploadUrl 		: Upload Url
+ * 반      환	:   
+ * 기      능	: 단일파일 업로드 용도
+				  시스템 에러발생시 화면캡쳐 파일업로드 사용
+ *****************************************************************************************/ 
+function fn_fileUpload(sfileLocalPath, sUploadUrl)
+{
+	if(sUploadUrl == null) sUploadUrl = gfn_getFileUploadUrl()+"?UUID="+UUID;
+
+	var objHttp;
+ 	objHttp = objects["httpObject"];
+ 	
+ 	if (objHttp == null) {
+		objHttp = new HttpObject();
+		objHttp.onload.setHandler(fn_httpObject_onload);
+	}    
+	
+	var arrFiles = new Array();
+	var objVirtualFiles = new VirtualFile;
+	var nRtn = objVirtualFiles.open(sfileLocalPath, VirtualFile.openRead | VirtualFile.openBinary);
+	
+	if (!nRtn) {
+		objVirtualFiles.close();
+		return false;
+	}	
+		
+	arrFiles[0] = objVirtualFiles;
+	
+	//trace("sUploadUrl::"+sUploadUrl);
+	
+	var nRtn = objHttp.upload(sUploadUrl, FileDialog.LOAD, arrFiles[0], false);
+	
+	objVirtualFiles.close();	
+	
+	if(!nRtn) {
+		alert("파일 업로드 중 오류발생!!");
+		return false;
+	}
+	
+	return true;
+}
+
+ /*****************************************************************************************
+ * 함  수  명	: fn_httpObject_onload
+ * 입      력	: 1. obj 	: HttpObject
+				  2. e 		: HttpObjLoadEventInfo
+ * 반      환	:   
+ * 기      능	: 단일파일 업로드 콜백
+ *****************************************************************************************/ 
+function fn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo) 
+{
+	if (e.errorcode == 0) {
+		ds_UploadResult.loadXML(e.errormsg);
+		
+		trace("e.errormsg::"+e.errormsg);
+		//trace(ds_UploadResult.saveXML());
+	
+		var nCurRow = gfn_addDs(ds_FileList);
+		ds_FileList.setColumn(nCurRow, "fileId", 		ds_UploadResult.getColumn(0, "fileId"));
+		ds_FileList.setColumn(nCurRow, "fileName", 		ds_UploadResult.getColumn(0, "fileName"));
+		ds_FileList.setColumn(nCurRow, "filePath", 		ds_UploadResult.getColumn(0, "filePath"));
+		ds_FileList.setColumn(nCurRow, "fileSize", 		ds_UploadResult.getColumn(0, "fileSize"));
+		ds_FileList.setColumn(nCurRow, "isUploaded", 	ds_UploadResult.getColumn(0, "isUploaded"));
+		
+		//trace(ds_FileList.saveXML());
+		
+		// 업로드 된 파일정보
+		var objDs = this.removeChild("ds_FileList");
+		
+		close(objDs);
+				
+	} else {
+		alert("파일업로드 실패!!");
+	}
+
+}]]></Script>
+  </Form>
+</FDL>

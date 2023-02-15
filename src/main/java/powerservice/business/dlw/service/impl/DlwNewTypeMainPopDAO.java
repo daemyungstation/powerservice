@@ -1,0 +1,702 @@
+package powerservice.business.dlw.service.impl;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.EgovAbstractMapper;
+
+@Repository
+public class DlwNewTypeMainPopDAO extends EgovAbstractMapper {
+	
+	/**
+     * 대명라이프웨이 고객정보 DB SqlSession을 설정한다.
+     *
+     * @param sqlSession 대명라이프웨이 고객정보 DB SqlSession
+     */
+    @Resource(name="dlwSqlSession")
+    public void setSqlSessionFactory(SqlSessionFactory sqlSession) {
+        super.setSqlSessionFactory(sqlSession);
+    }
+	
+	/** ================================================================
+     * 날짜 : 20190730
+     * 이름 : 김주용
+     * 추가내용 : 회원 필드 검색
+     * 대상 테이블 : LF_DMUSER.TB_USER_OPTION_DATA
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUserOption(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getUserOption", pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190703
+     * 이름 : 김주용
+     * 추가내용 : 회원 필드 등록
+     * 대상 테이블 : LF_DMUSER.TB_USER_OPTION_DATA
+     * ================================================================
+     * */
+    public int mergeUserOption(Map<String, Object> pmParam) {
+        return update("DlwNewTypeMainPopMap.mergeUserOption", pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190703
+     * 이름 : 김주용
+     * 추가내용 : 회원 필드 삭제
+     * 대상 테이블 : LF_DMUSER.TB_USER_OPTION_DATA
+     * ================================================================
+     * */
+    public int deleteUserOption(Map<String, Object> pmParam) {
+        return delete("DlwNewTypeMainPopMap.deleteUserOption", pmParam);
+    }
+    
+    /**
+     * 고객-제품 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 고객-제품 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCustPrdtList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCustPrdtList", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 금일 부가서비스 등록이력 건수를 조회한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 등록이력 정보 건수
+     * @throws Exception
+     */
+    public int getDlwCmsAplcDtlCount(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getDlwCmsAplcDtlCount", pmParam);
+    }
+
+    /**
+     * 대명라이프웨이 CMS 금일 부가서비스 등록이력을 조회한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 등록이력 정보
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCmsAplcDtl(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCmsAplcDtl", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이의 Cms 산출중 여부 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 산출 여부 정보
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCmsWdrwChk(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCmsWdrwChk", pmParam);
+    }
+    
+    /**
+     *  구좌별 CMS 정보조회
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getCMSInfoByAccnt(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getCMSInfoByAccnt", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 해당구좌 CMS회원여부 검사
+     *
+     * @param pmParam 검색 조건
+     * @return 등록이력 정보
+     * @throws Exception
+     */
+    //public List<Map<String, Object>> getDltnFlagCmsMmbr(Map<String, ?> pmParam) throws Exception {
+    public String getDltnFlagCmsMmbr(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getDltnFlagCmsMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 부가서비스 등록
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwCmsAnxtSrvc(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwCmsAnxtSrvc", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 카드 부가서비스 등록
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwCardAnxtSrvc(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwCardAnxtSrvc", pmParam);
+    }
+
+    /**
+     * 대명라이프웨이 CMS 회원 등록
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwCmsMmbr(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwCmsMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 회원 등록
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwCardMmbr(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwCardMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 신청 실패 로그 등록
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwCmsHistoryLogs(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwCmsHistoryLogs", pmParam);
+    }
+        
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : 빌키 MID 와 KEY 조회
+     * ================================================================
+     * */
+    public String getAccntMid(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getAccntMid", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 납입방법 수정
+     *
+     * @param pmParam 검색 조건
+     * @return 수정 여부
+     * @throws Exception
+     */
+    public int updateDlwCmsPymtMthd(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateDlwCmsPymtMthd", pmParam);
+    }
+    
+    /**
+     * 생일, 해피콜 건수 조회
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+
+
+    public List<Map<String, Object>> getCardAndMemberBirth(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getCardAndMemberBirth", pmParam);
+    }
+    
+    /**
+     * 해피콜 변경
+     *
+     * @param 해피콜 정보
+     * @return 변경건수
+     * @throws Exception
+     */
+    public int updateHpCall(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateHpCall", pmParam);
+    }
+
+    /**
+     * 해피콜 마스터 등록
+     *
+     * @param 해피콜 정보
+     * @return 등록건수
+     * @throws Exception
+     */
+    public int insertHpCall(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertHpCall", pmParam);
+    }
+
+    /**
+     * 해피콜 이력 등록
+     *
+     * @param 해필콜 이력
+     * @return 등록건수
+     * @throws Exception
+     */
+    public int insertHpCallHist(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertHpCallHist", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 회원 수정
+     *
+     * @param pmParam 검색 조건
+     * @return 수정 여부
+     * @throws Exception
+     */
+    public int updateDlwCmsMmbr(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateDlwCmsMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CARD 회원 수정
+     *
+     * @param pmParam 검색 조건
+     * @return 수정 여부
+     * @throws Exception
+     */
+    public int updateDlwCardMmbr(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateDlwCardMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 회원 삭제
+     *
+     * @param pmParam 검색 조건
+     * @return 삭제여부
+     * @throws Exception
+     */
+    public int deleteDlwCmsMmbr(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.deleteDlwCmsMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CARD 회원 삭제
+     *
+     * @param pmParam 검색 조건
+     * @return 삭제여부
+     * @throws Exception
+     */
+    public int deleteDlwCardMember(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.deleteDlwCardMember", pmParam);
+    }    
+    
+    /**
+     * 대명라이프웨이 CMS 접수방법 수정
+     *
+     * @param pmParam 검색 조건
+     * @return 수정 여부
+     * @throws Exception
+     */
+    public int updateDlwCmsAcpgMthd(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateDlwCmsAcpgMthd", pmParam);
+    }
+    
+    /**
+     * 고객 정보를 검색한다. (상담테이블 설정)
+     *
+     * @param pmParam 고객ID
+     * @return 고객 정보(1건)
+     * @throws Exception
+     */
+    public Map<String, Object> getCustBasiConsInfo(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getCustBasiConsInfo", pmParam);
+    }
+    
+    /**
+     * 상담 정보를 등록한다.
+     *
+     * @param pmParam 상담 정보
+     * @throws Exception
+     */
+    public int insertCons(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertCons", pmParam);
+    }
+    
+    /**
+     * 상담이력 정보를 등록한다.
+     *
+     * @param pmParam 상담이력 정보
+     * @throws Exception
+     */
+    public int insertConsHstr(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertConsHstr", pmParam);
+    }
+    
+    /**
+     * 온라인 가입회원 구좌번호로 카드정보조회
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwOnlineMemberCardInfo(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwOnlineMemberCardInfo", pmParam);
+    }
+    
+    /**
+     * 온라인 가입회원 구좌번호로 계좌정보조회
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwOnlineMemberCmsInfo(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwOnlineMemberCmsInfo", pmParam);
+    }
+    
+    /**
+     * CMS정보 Idn_no 추출
+     *
+     * @param pmParam 검색 조건
+     * @return 등록이력 정보
+     * @throws Exception
+     */
+    public String getNcaIdnNo(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getNcaIdnNo", pmParam);
+    }
+    
+    /**
+     * 고객-구좌 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getDlwCustAcntCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) selectOne("DlwNewTypeMainPopMap.getDlwCustAcntCount", pmParam);
+    }
+
+    /**
+     * 고객-구좌 정보를 검색한다. (CMS)
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCustAcntList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCustAcntList", pmParam);
+    }
+    
+    /**
+     * 고객-구좌 정보를 검색한다. (CARD)
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCustAcntListCard(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCustAcntListCard", pmParam);
+    }
+    
+    /**
+     * 장기 할부 고객-구좌 정보를 검색한다. (CARD)
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCustLongTermList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCustLongTermList", pmParam);
+    }
+    
+    
+    /**
+     * 사원 상세정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 사원 상세정보
+     * @throws Exception
+     */
+    public Map<String, Object> getDlwEmplDtpt(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getDlwEmplList", pmParam);
+    }
+    
+    /**
+     * 코드 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 코드 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getDlwCdCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) selectOne("DlwNewTypeMainPopMap.getDlwCdCount", pmParam);
+    }
+
+    /**
+     * 코드 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 코드 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCdList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwCdList", pmParam);
+    }
+    
+    /**
+     * 특수회원 카운트조회
+     * 정승철
+     * 20181019
+    */
+    public int getCntSpecialAcntList(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getCntSpecialAcntList", pmParam);
+    }
+
+    /**
+     * 특수회원 조회
+     * 정승철
+     * 20181018
+    */
+    public List<Map<String, Object>> getSpecialAcntList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getSpecialAcntList", pmParam);
+    }
+    
+    /**
+     * 특수회원 입력체크
+     * 정승철
+     * 20181113
+    */
+    public int getChkSpecialAcntList(Map<String, ?> pmParam) throws Exception {
+        return selectOne("DlwNewTypeMainPopMap.getChkSpecialAcntList", pmParam);
+    }
+
+    /**
+     * 특수회원 입력
+     * 정승철
+     * 20181019
+    */
+    public int insertExtSpecial(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertExtSpecial", pmParam);
+    }
+
+    /**
+     * 특수회원 수정
+     * 정승철
+     * 20181019
+    */
+    public int updateExtSpecial(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateExtSpecial", pmParam);
+    }
+
+    /**
+     * 특수회원 삭제
+     * 정승철
+     * 20181019
+    */
+    public int deleteExtSpecial(Map<String, ?> pmParam) throws Exception {
+        return delete("DlwNewTypeMainPopMap.deleteExtSpecial", pmParam);
+    }
+    
+    /**
+     * CMS 변경 정보 업데이트 
+     * 임동진
+     * 20190903
+    */
+    public int updateCmsInfo(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateCmsInfo", pmParam);
+    }    
+    
+    /**
+     * CARD 변경 정보 업데이트 
+     * 임동진
+     * 20190903
+    */
+    public int updateCardInfo(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateCardInfo", pmParam);
+    }    
+    
+    /** ================================================================
+     * 날짜 : 20190924
+     * 이름 : 송준빈
+     * 추가내용 : 고객 자유결제 NICE 전문 발송시 필요한 기타 데이터 조회
+     * 대상 테이블 : LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getNiceProtocolMemberInfo(Map<String, Object> pmParam) {
+		return selectList("DlwNewTypeMainPopMap.getNiceProtocolMemberInfo", pmParam);
+	}
+
+	/** ================================================================
+     * 날짜 : 20190924
+     * 이름 : 송준빈
+     * 추가내용 : 자유결제 카드 요청, 결과데이터 INSERT
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT
+     * ================================================================
+     * */
+	public int insertFreeRealTimeCardResult(Map<String, ?> pmParam) {
+		return insert("DlwNewTypeMainPopMap.insertFreeRealTimeCardResult", pmParam);
+	}
+
+	/** ================================================================
+     * 날짜 : 20190924
+     * 이름 : 송준빈
+     * 추가내용 : 전환결제 취소
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * */
+	public int sendCancelNicePayment(Map<String, Object> pmParam) {
+		return insert("DlwNewTypeMainPopMap.sendCancelNicePayment", pmParam);
+	}        
+	
+	/** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객 조회수
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+	public int getSendCertfAccntAddrCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) selectOne("DlwNewTypeMainPopMap.getSendCertfAccntAddrCount", pmParam);
+    }
+    
+	/** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getSendCertfAccntAddrList", pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송 고객 기본정보 불러오기 
+     * 대상 테이블 : LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberAccntDtlInfo(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getMemberAccntDtlInfo", pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객정보 수정
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public int updateSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateSendCertfAccntAddrList", pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객정보 입력
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public int insertSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertSendCertfAccntAddrList", pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20210715
+     * 이름 : 송준빈
+     * 추가내용 : 우편발송용 고객정보 삭제
+     * 대상 테이블 : LF_DMUSER.TB_CERTF_SEND_ADDR
+     * ================================================================
+     * */
+    public int deleteSendCertfAccntAddrList(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.deleteSendCertfAccntAddrList", pmParam);
+    }
+    
+    
+    /**
+     * 장기 할부 고객-구좌 정보를 검색한다. (CARD)(복사_20220822)
+     *
+     * @param pmParam 검색 조건
+     * @return 부서 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwNewTypeCustLongTermList(Map<String, ?> pmParam) throws Exception {
+        return selectList("DlwNewTypeMainPopMap.getDlwNewTypeCustLongTermList", pmParam);
+    }
+    
+    /**
+     * CARD 변경 정보 업데이트 (복사_20220822)
+     * 임동진
+     * 20190903
+    */
+    public int updateNewTypeCardInfo(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateNewTypeCardInfo", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 카드 부가서비스 등록(복사_20220822)
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwNewTypeCardAnxtSrvc(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwNewTypeCardAnxtSrvc", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CARD 회원 삭제(복사_20220822)
+     *
+     * @param pmParam 검색 조건
+     * @return 삭제여부
+     * @throws Exception
+     */
+    public int deleteDlwNewTypeCardMember(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.deleteDlwNewTypeCardMember", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 회원 등록(복사_20220822)
+     *
+     * @param pmParam 검색 조건
+     * @return 등록 여부
+     * @throws Exception
+     */
+    public int insertDlwNewTypeCardMmbr(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertDlwNewTypeCardMmbr", pmParam);
+    }
+    
+    /**
+     * 대명라이프웨이 CARD 회원 수정(복사_20220822)
+     *
+     * @param pmParam 검색 조건
+     * @return 수정 여부
+     * @throws Exception
+     */
+    public int updateDlwNewTypeCardMmbr(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateDlwNewTypeCardMmbr", pmParam);
+    }
+    
+    /**
+     * 해피콜 변경(복사_20220822)
+     *
+     * @param 해피콜 정보
+     * @return 변경건수
+     * @throws Exception
+     */
+    public int updateNewTypeHpCall(Map<String, ?> pmParam) throws Exception {
+        return update("DlwNewTypeMainPopMap.updateNewTypeHpCall", pmParam);
+    }
+    
+    /**
+     * 해피콜 이력 등록(복사_20220822)
+     *
+     * @param 해필콜 이력
+     * @return 등록건수
+     * @throws Exception
+     */
+    public int insertNewTypeHpCallHist(Map<String, ?> pmParam) throws Exception {
+        return insert("DlwNewTypeMainPopMap.insertNewTypeHpCallHist", pmParam);
+    }
+}

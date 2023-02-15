@@ -1,0 +1,726 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwIvrMgmtMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : IVR관리 조회수
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MAIN_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getIvrMgmtExtCount" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.getIvrMgmtExtCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_MAIN_MNG IMM
+        WHERE 1=1
+        AND IMM.DEL_FG = 'N'
+        <if test="seq != null and seq != ''">
+            AND IMM.SEQ = #{seq}
+        </if>
+        <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+            AND IMM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : IVR관리 조회리스트
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MAIN_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getIvrMgmtExtList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwIvrMgmtMap.getIvrMgmtExtList */
+        	MAIN_TBL.*  
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY IMM.SEQ ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                '' AS CHK,  
+		        IMM.MEMO,
+		        (SELECT IMN.MASTER_NO FROM PS_WILLVI.TB_IVR_MASTER_NO IMN WHERE 1=1 AND IMN.DEL_FG = 'N' AND IMN.MST_SEQ = IMM.MST_SEQ) AS MASTER_NO,
+		        (SELECT IMN.INFO FROM PS_WILLVI.TB_IVR_MASTER_NO IMN WHERE 1=1 AND IMN.DEL_FG = 'N' AND IMN.MST_SEQ = IMM.MST_SEQ) AS MASTER_NO_NM,        
+		        (SELECT IWM.TIME_NAME FROM PS_WILLVI.TB_IVR_WORK_MNG IWM WHERE 1=1 AND IWM.DEL_FG = 'N' AND IWM.TIME_SEQ = IMM.TIME_SEQ) AS TIME_NAME,    
+		        (SELECT MAX(IHM.HOLI_GROUP) FROM PS_WILLVI.TB_IVR_HOLIDAY_MNG IHM WHERE 1=1 AND IHM.DEL_FG = 'N' AND IHM.HOLI_SEQ = IMM.HOLI_SEQ) AS HOLI_GROUP,
+		        IMM.SEQ,
+		        IMM.MST_SEQ,
+		        IMM.TIME_SEQ,
+		        IMM.HOLI_SEQ,
+		        IMM.STT_DAY,
+		        IMM.END_DAY,
+		        IMM.REG_MAN,  
+		        IMM.REG_DM,    
+		        IMM.DEL_FG
+		    FROM PS_WILLVI.TB_IVR_MAIN_MNG IMM
+		    WHERE 1=1 
+		    AND IMM.DEL_FG = 'N'
+            <if test="seq != null and seq != ''">
+                AND IMM.SEQ = #{seq}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+	<!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : WORK관리 조회수
+     * 대상 테이블 : PS_WILLVI.TB_IVR_WORK_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getWorkMgmtExtCount" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.getWorkMgmtExtCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_WORK_MNG IWM
+        WHERE 1=1
+        AND IWM.DEL_FG = 'N'
+        <if test="time_seq != null and time_seq != ''">
+            AND IWM.TIME_SEQ = #{time_seq}
+        </if>
+        <if test="time_name != null and time_name != ''">
+            AND IWM.TIME_NAME LIKE '%' || #{time_name} || '%'
+        </if>
+        <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+            AND IWM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : WORK관리 조회리스트
+     * 대상 테이블 : PS_WILLVI.TB_IVR_WORK_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getWorkMgmtExtList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwIvrMgmtMap.getWorkMgmtExtList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY IWM.TIME_SEQ ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                '' AS CHK,
+                IWM.TIME_SEQ,
+                IWM.WORK_STT_TIME,
+                IWM.WORK_END_TIME,
+                IWM.LUNCH_STT_TIME,
+                IWM.LUNCH_END_TIME,
+                IWM.HOLIDAY_YN,
+                IWM.RUNCH_YN,
+                IWM.CALLBACK_YN,
+                IWM.REG_MAN,
+                IWM.REG_DM,
+                IWM.DEL_FG,
+                IWM.TIME_NAME,
+                IWM.SAT_STT_TIME,
+                IWM.SAT_END_TIME,
+                IWM.SUN_HOLIDAY_YN,
+                IWM.SUN_STT_TIME,
+                IWM.SUN_END_TIME
+            FROM PS_WILLVI.TB_IVR_WORK_MNG IWM
+            WHERE 1=1
+            AND IWM.DEL_FG = 'N'
+            <if test="time_seq != null and time_seq != ''">
+                AND IWM.TIME_SEQ = #{time_seq}
+            </if>
+            <if test="time_name != null and time_name != ''">
+                AND IWM.TIME_NAME LIKE '%' || #{time_name} || '%'
+            </if>
+            <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+                AND IWM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 대표번호관리 조회수
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MASTER_NO
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getGenenumMgmtExtCount" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.getGenenumMgmtExtCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_MASTER_NO IMN
+        WHERE 1=1
+        AND IMN.DEL_FG = 'N'
+        <if test="mst_seq != null and mst_seq != ''">
+            AND IMN.MST_SEQ = #{mst_seq}
+        </if>
+        <if test="master_no != null and master_no != ''">
+            AND IMN.MASTER_NO LIKE '%' || #{master_no} || '%'
+        </if>
+        <if test="info != null and info != ''">
+            AND IMN.INFO LIKE '%' || #{info} || '%'
+        </if>
+        <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+            AND IMN.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 대표번호관리 조회리스트
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MASTER_NO
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getGenenumMgmtExtList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwIvrMgmtMap.getGenenumMgmtExtList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY IMN.MST_SEQ ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                '' AS CHK,
+                IMN.MST_SEQ,
+                IMN.MASTER_NO,
+                IMN.CALL_GROUP,
+                IMN.CALL_PART,
+                IMN.INFO,
+                IMN.MESSAGE_ID,
+                IMN.CALLBACK_GBN,
+                IMN.REG_MAN,
+                IMN.REG_DM,
+                IMN.DEL_FG
+            FROM PS_WILLVI.TB_IVR_MASTER_NO IMN
+            WHERE 1=1
+            AND IMN.DEL_FG = 'N'
+            <if test="mst_seq != null and mst_seq != ''">
+                AND IMN.MST_SEQ = #{mst_seq}
+            </if>
+            <if test="master_no != null and master_no != ''">
+                AND IMN.MASTER_NO LIKE '%' || #{master_no} || '%'
+            </if>
+            <if test="info != null and info != ''">
+                AND IMN.INFO LIKE '%' || #{info} || '%'
+            </if>
+            <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+                AND IMN.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 휴일관리 조회수
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getHolydayMgmtExtCount" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.getHolydayMgmtExtCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_HOLIDAY_MNG IHM
+        WHERE 1=1
+        AND IHM.DEL_FG = 'N'
+        <if test="holi_seq != null and holi_seq != ''">
+            AND IHM.HOLI_SEQ = #{holi_seq}
+        </if>
+        <if test="holi_group != null and holi_group != ''">
+            AND IHM.HOLI_GROUP = #{holi_group}
+        </if>
+        <if test="holi_part != null and holi_part != ''">
+            AND IHM.HOLI_PART = #{holi_part}
+        </if>
+        <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+            AND IHM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 휴일관리 조회리스트
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getHolydayMgmtExtList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwIvrMgmtMap.getHolydayMgmtExtList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY IHM.HOLI_SEQ ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                '' AS CHK,
+                IHM.HOLI_SEQ,
+                IHM.HOLI_DAY,
+                IHM.HOLI_GBN, 
+                IHM.REG_MAN,
+                IHM.REG_DM,  
+                IHM.DEL_FG,
+                IHM.HOLI_GROUP,
+                IHM.HOLI_INFO
+            FROM PS_WILLVI.TB_IVR_HOLIDAY_MNG IHM
+            WHERE 1=1
+            AND IHM.DEL_FG = 'N'
+            <if test="holi_seq != null and holi_seq != ''">
+                AND IHM.HOLI_SEQ = #{holi_seq}
+            </if>
+            <if test="holi_group != null and holi_group != ''">
+                AND IHM.HOLI_GROUP = #{holi_group}
+            </if>
+            <if test="holi_part != null and holi_part != ''">
+                AND IHM.HOLI_PART = #{holi_part}
+            </if>
+            <!-- 
+            <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+                AND IHM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+            </if>
+             -->
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 스크립트관리 조회수
+     * 대상 테이블 : PS_WILLVI.TB_IVR_SCRIPT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getScriptMgmtExtCount" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.getScriptMgmtExtCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_SCRIPT_MNG ISM
+        WHERE 1=1
+        AND ISM.DEL_FG = 'N'
+        <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+            AND ISM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 스크립트관리 조회리스트
+     * 대상 테이블 : PS_WILLVI.TB_IVR_SCRIPT_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.getScriptMgmtExtList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwIvrMgmtMap.getScriptMgmtExtList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ISM.SCRIPT_MST ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                '' AS CHK,
+                ISM.SCRIPT_MST,
+                ISM.SCRIPT_DTL,
+                ISM.SCRIPT_TITLE,
+                ISM.SCRIPT_CONTENTS,
+                ISM.REG_MAN,
+                ISM.REG_DM,
+                ISM.DEL_FG
+            FROM PS_WILLVI.TB_IVR_SCRIPT_MNG ISM
+            WHERE 1=1
+            AND ISM.DEL_FG = 'N'
+            <if test="stt_reg_dm != null and stt_reg_dm != '' and end_reg_dm != null and end_reg_dm != ''">
+                AND ISM.REG_DM BETWEEN TO_DATE(#{stt_reg_dm} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_reg_dm} || '235959', 'YYYYMMDDHH24MISS')
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : IVR관리 기본정보 수정
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MAIN_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.updateIvrMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.updateIvrMgmtExtList */
+            PS_WILLVI.TB_IVR_MAIN_MNG
+        SET MST_SEQ = #{mst_seq}, 
+            TIME_SEQ = #{time_seq}, 
+            HOLI_SEQ = #{holi_seq}, 
+            STT_DAY = #{stt_day}, 
+            END_DAY = #{end_day}, 
+            MEMO = #{memo}
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND SEQ = #{seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : IVR관리 기본정보 중복 저장여부
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MAIN_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.existIvrMgmtExtList" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.existIvrMgmtExtList */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_MAIN_MNG IMM
+        WHERE 1=1
+        AND IMM.DEL_FG = 'N'
+        AND IMM.MST_SEQ = #{mst_seq}
+        AND IMM.TIME_SEQ = #{time_seq}
+        AND IMM.HOLI_SEQ = #{holi_seq}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : IVR관리 기본정보 입력
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MAIN_MNG
+     * ================================================================
+     * -->
+    <insert id="DlwIvrMgmtMap.insertIvrMgmtExtList" parameterType="map">
+        INSERT INTO /* DlwIvrMgmtMap.insertIvrMgmtExtList */
+            PS_WILLVI.TB_IVR_MAIN_MNG(SEQ, MST_SEQ, TIME_SEQ, HOLI_SEQ, STT_DAY, END_DAY, MEMO, REG_MAN, REG_DM, DEL_FG)
+        VALUES
+            ((SELECT NVL(MAX(SEQ) + 1, 0) AS SEQ FROM PS_WILLVI.TB_IVR_MAIN_MNG WHERE 1=1), #{mst_seq}, #{time_seq}, #{holi_seq}, 
+             #{stt_day}, #{end_day}, #{memo}, #{reg_man}, SYSDATE, 'N')
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : WORK관리 기본정보 수정
+     * 대상 테이블 : PS_WILLVI.TB_IVR_WORK_MNG 
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.updateWorkMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.updateWorkMgmtExtList */
+            PS_WILLVI.TB_IVR_WORK_MNG
+        SET WORK_STT_TIME = #{work_stt_time},
+            WORK_END_TIME = #{work_end_time},
+            LUNCH_STT_TIME = #{lunch_stt_time},
+            LUNCH_END_TIME = #{lunch_end_time},
+            HOLIDAY_YN = #{holiday_yn},
+            RUNCH_YN = #{runch_yn},
+            CALLBACK_YN = #{callback_yn},
+            TIME_NAME = #{time_name},
+            SAT_STT_TIME = #{sat_stt_time},
+            SAT_END_TIME = #{sat_end_time},
+            SUN_HOLIDAY_YN = #{sun_holiday_yn},
+            SUN_STT_TIME = #{sun_stt_time},
+            SUN_END_TIME = #{sun_end_time}
+        WHERE 1=1
+        AND DEL_FG = 'N' 
+        AND TIME_SEQ = #{time_seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : WORK관리 기본정보 중복 저장여부
+     * 대상 테이블 : PS_WILLVI.TB_IVR_WORK_MNG 
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.existWorkMgmtExtList" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.existWorkMgmtExtList */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_WORK_MNG IWM
+        WHERE 1=1
+        AND IWM.DEL_FG = 'N'
+        AND IWM.WORK_STT_TIME = #{work_stt_time}
+        AND IWM.WORK_END_TIME = #{work_end_time}
+        AND IWM.LUNCH_STT_TIME = #{lunch_stt_time}
+        AND IWM.LUNCH_END_TIME = #{lunch_end_time}
+        AND IWM.SAT_STT_TIME = #{sat_stt_time}
+        AND IWM.SAT_END_TIME = #{sat_end_time}
+        AND IWM.SUN_HOLIDAY_YN = #{sun_holiday_yn}
+        AND IWM.SUN_STT_TIME = #{sun_stt_time}
+        AND IWM.SUN_END_TIME = #{sun_end_time}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : WORK관리 기본정보 입력
+     * 대상 테이블 : PS_WILLVI.TB_IVR_WORK_MNG 
+     * ================================================================
+     * -->
+    <insert id="DlwIvrMgmtMap.insertWorkMgmtExtList" parameterType="map">
+        INSERT INTO /* DlwIvrMgmtMap.insertWorkMgmtExtList */
+            PS_WILLVI.TB_IVR_WORK_MNG(TIME_SEQ, WORK_STT_TIME, WORK_END_TIME, LUNCH_STT_TIME, LUNCH_END_TIME, HOLIDAY_YN, RUNCH_YN, CALLBACK_YN, REG_MAN, REG_DM, DEL_FG, TIME_NAME,
+                SAT_STT_TIME, SAT_END_TIME, SUN_HOLIDAY_YN, SUN_STT_TIME, SUN_END_TIME)
+        VALUES
+            ((SELECT NVL(MAX(TIME_SEQ) + 1, 0) AS TIME_SEQ FROM PS_WILLVI.TB_IVR_WORK_MNG WHERE 1=1), #{work_stt_time}, #{work_end_time}, 
+             #{lunch_stt_time}, #{lunch_end_time}, #{holiday_yn}, #{runch_yn}, #{callback_yn}, #{reg_man}, SYSDATE, 'N', #{time_name}, 
+             #{sat_stt_time}, #{sat_end_time}, #{sun_holiday_yn}, #{sun_stt_time}, #{sun_end_time})
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 대표번호관리 기본정보 수정
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MASTER_NO
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.updateGenenumMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.updateGenenumMgmtExtList */
+            PS_WILLVI.TB_IVR_MASTER_NO
+        SET MASTER_NO = #{master_no},
+            CALL_GROUP = #{call_group},
+            CALL_PART = #{call_part},
+            INFO = #{info},
+            MESSAGE_ID = #{message_id},
+            CALLBACK_GBN = #{callback_gbn}
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND MST_SEQ = #{mst_seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 대표번호관리 기본정보 중복 저장여부
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MASTER_NO
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.existGenenumMgmtExtList" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.existGenenumMgmtExtList */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_MASTER_NO IMN
+        WHERE 1=1
+        AND IMN.DEL_FG = 'N'
+        AND IMN.MASTER_NO = #{master_no}
+        AND IMN.CALL_GROUP = #{call_group}
+        AND IMN.CALL_PART = #{call_part}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 대표번호관리 기본정보 입력
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MASTER_NO
+     * ================================================================
+     * -->
+    <insert id="DlwIvrMgmtMap.insertGenenumMgmtExtList" parameterType="map">
+        INSERT INTO /* DlwIvrMgmtMap.insertGenenumMgmtExtList */
+            PS_WILLVI.TB_IVR_MASTER_NO(MST_SEQ, MASTER_NO, CALL_GROUP, CALL_PART, INFO, MESSAGE_ID, CALLBACK_GBN, REG_MAN, REG_DM, DEL_FG)
+        VALUES
+            ((SELECT NVL(MAX(MST_SEQ) + 1, 0) AS MST_SEQ FROM PS_WILLVI.TB_IVR_MASTER_NO WHERE 1=1), #{master_no}, #{call_group}, #{call_part}, 
+             #{info}, #{message_id}, #{callback_gbn}, #{reg_man}, SYSDATE, 'N')
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 휴일관리 기본정보 수정
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.updateHolydayMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.updateHolydayMgmtExtList */
+            PS_WILLVI.TB_IVR_HOLIDAY_MNG
+        SET 	HOLI_INFO = #{holi_info},
+            HOLI_GBN = #{holi_gbn},
+            HOLI_GROUP = #{holi_group} 
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND HOLI_SEQ = #{holi_seq}  
+        AND HOLI_DAY = #{holi_day}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 휴일관리 기본정보 중복 저장여부
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG
+     * ================================================================
+     * -->
+    <select id="DlwIvrMgmtMap.existHolydayMgmtExtList" parameterType="map" resultType="int">
+        SELECT /* DlwIvrMgmtMap.existHolydayMgmtExtList */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_IVR_HOLIDAY_MNG IHM
+        WHERE 1=1
+        AND IHM.DEL_FG = 'N'
+        AND IHM.HOLI_GROUP = #{holi_group}
+        AND IHM.HOLI_DAY = #{holi_day}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 휴일관리 기본정보 입력
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG
+     * ================================================================
+     * -->
+    <insert id="DlwIvrMgmtMap.insertHolydayMgmtExtList" parameterType="map">
+        INSERT INTO /* DlwIvrMgmtMap.insertHolydayMgmtExtList */
+            PS_WILLVI.TB_IVR_HOLIDAY_MNG(HOLI_SEQ, HOLI_DAY, HOLI_GBN, REG_MAN, REG_DM, DEL_FG, HOLI_GROUP,HOLI_INFO)
+        VALUES 
+            ((SELECT NVL(MAX(HOLI_SEQ) + 1, 0) AS HOLI_SEQ FROM PS_WILLVI.TB_IVR_HOLIDAY_MNG WHERE 1=1),  
+             #{holi_day}, #{holi_gbn}, #{reg_man}, SYSDATE, 'N', #{holi_group}, #{holi_info})  
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 스크립트관리 기본정보 수정
+     * 대상 테이블 : PS_WILLVI.TB_IVR_SCRIPT_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.updateScriptMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.updateScriptMgmtExtList */
+            PS_WILLVI.TB_IVR_SCRIPT_MNG
+        SET SCRIPT_TITLE = #{script_title},
+            SCRIPT_CONTENTS = #{script_contents}
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND SCRIPT_MST = #{script_mst}
+        AND SCRIPT_DTL = #{script_dtl}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 스크립트관리 기본정보 입력
+     * 대상 테이블 : PS_WILLVI.TB_IVR_SCRIPT_MNG
+     * ================================================================
+     * -->
+    <insert id="DlwIvrMgmtMap.insertScriptMgmtExtList" parameterType="map">
+        INSERT INTO /* DlwIvrMgmtMap.insertScriptMgmtExtList */
+            PS_WILLVI.TB_IVR_SCRIPT_MNG(SCRIPT_MST, SCRIPT_DTL, SCRIPT_TITLE, SCRIPT_CONTENTS, REG_MAN, REG_DM, DEL_FG)
+        VALUES
+            (#{script_mst}, (SELECT NVL(MAX(SCRIPT_DTL) + 1, 0) AS SCRIPT_DTL FROM PS_WILLVI.TB_IVR_SCRIPT_MNG WHERE 1=1 AND SCRIPT_MST = #{script_mst}), 
+             #{script_title}, #{script_contents}, #{reg_man}, SYSDATE, 'N')
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : IVR관리 기본정보 삭제
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MAIN_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.deleteIvrMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.deleteIvrMgmtExtList */
+            PS_WILLVI.TB_IVR_MAIN_MNG
+        SET DEL_FG = 'Y'
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND SEQ = #{seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : WORK관리 기본정보 삭제
+     * 대상 테이블 : PS_WILLVI.TB_IVR_WORK_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.deleteWorkMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.deleteWorkMgmtExtList */
+            PS_WILLVI.TB_IVR_WORK_MNG
+        SET DEL_FG = 'Y'
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND TIME_SEQ = #{time_seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 대표번호관리 기본정보 삭제
+     * 대상 테이블 : PS_WILLVI.TB_IVR_MASTER_NO
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.deleteGenenumMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.deleteGenenumMgmtExtList */
+            PS_WILLVI.TB_IVR_MASTER_NO
+        SET DEL_FG = 'Y'
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND MST_SEQ = #{mst_seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 휴일관리 기본정보 삭제
+     * 대상 테이블 : PS_WILLVI.TB_IVR_HOLIDAY_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.deleteHolydayMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.deleteHolydayMgmtExtList */
+            PS_WILLVI.TB_IVR_HOLIDAY_MNG
+        SET DEL_FG  = 'Y'
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND HOLI_SEQ = #{holi_seq}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20210810
+     * 이름 : 송준빈
+     * 추가내용 : 스크립트관리 기본정보 삭제
+     * 대상 테이블 : PS_WILLVI.TB_IVR_SCRIPT_MNG
+     * ================================================================
+     * -->
+    <update id="DlwIvrMgmtMap.deleteScriptMgmtExtList" parameterType="map">
+        UPDATE /* DlwIvrMgmtMap.deleteScriptMgmtExtList */
+            PS_WILLVI.TB_IVR_SCRIPT_MNG
+        SET DEL_FG = 'Y'
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND SCRIPT_MST = #{script_mst}
+        AND SCRIPT_DTL = #{script_dtl}
+    </update>
+</mapper>

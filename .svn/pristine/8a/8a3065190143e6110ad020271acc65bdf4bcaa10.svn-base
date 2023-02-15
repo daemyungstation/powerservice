@@ -1,0 +1,125 @@
+/*
+ * (@)# WrkScdlDtlController.java
+ *
+ * @author 이희철
+ * @version 1.0
+ * @date 2015/04/01
+ * Copyright (c) 2015 by Inwoo tech inc, KOREA. All Rights Reserved.
+ *
+ * http://www.inwoo.co.kr
+ *
+ * NOTICE! This software is the confidential and proprietary
+ * information of
+ * Inwoo Tech Inc. You shall not disclose such Confidential
+ * Information and shall use it only in accordance with the terms
+ * of the license agreement you
+ * entered into with Inwoo Tech Inc.
+ *
+ */
+
+package powerservice.business.sch.web;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
+import powerservice.business.sch.service.WrkScdlDtlService;
+import powerservice.core.bean.ActionList;
+import powerservice.core.bean.ActionResult;
+import powerservice.core.util.ParamUtils;
+
+/**
+ * 근무유형 관리를 한다.
+ *
+ * Copyright (c) 2015 Company Inwoo Tech Inc.
+ *
+ * @author 이희철
+ * @version 1.0
+ * @date 2015/04/01
+ * @프로그램ID WrkScdlDtl
+ */
+@Controller
+@RequestMapping(value = "/scdl/wrk-scdl-dtl")
+public class WrkScdlDtlController {
+
+    @Resource
+    private WrkScdlDtlService wrkScdlDtlService;
+
+    /**
+     * 근무 스케줄 정보를 검색한다.
+     *
+     * @pmParam pmParam Map<String, String>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/list")
+    public ModelAndView getWrkScdlDtlList(@RequestBody Map<String, Object> pmParam) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("actionResultView");
+
+        ActionResult oResult = new ActionResult();
+        ActionList oData = new ActionList();
+
+        ParamUtils.addPagingParam(pmParam);
+        ParamUtils.addCenterParam(pmParam);
+        List<Map<String, Object>> mList = wrkScdlDtlService.getWrkScdlDtlList(pmParam);
+
+        oData.setTotal(mList.size());
+        oData.setList(mList);
+        oResult.setData(oData);
+
+        modelAndView.addObject(oResult);
+        return modelAndView;
+    }
+
+    /**
+     * 근무 스케줄 개별배정 정보를 저장한다.
+     *
+     * @pmParam pmModelList List<Map<String, Object>>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/save-part")
+    public ModelAndView saveWrkScdlDtlPart(@RequestBody List<Map<String, Object>> pmModelList) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("actionResultView");
+
+        ActionResult oResult = new ActionResult();
+
+        if (pmModelList != null && pmModelList.size() > 0) {
+            Map<String, Object> mParam = new HashMap<String, Object>();
+            ParamUtils.addSaveParam(mParam);
+            wrkScdlDtlService.saveWrkScdlDtlPart(pmModelList, mParam);
+        }
+
+        modelAndView.addObject(oResult);
+        return modelAndView;
+    }
+
+
+    /**
+     * 근무 스케줄 일괄배정 정보를 저장한다.
+     *
+     * @pmParam pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/save-all")
+    public ModelAndView saveWrkScdlDtlAll(@RequestBody Map<String, Object> pmParam) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("actionResultView");
+
+        ActionResult oResult = new ActionResult();
+
+        ParamUtils.addSaveParam(pmParam);
+        wrkScdlDtlService.saveWrkScdlDtlAll(pmParam);
+
+        modelAndView.addObject(oResult);
+        return modelAndView;
+    }
+
+}

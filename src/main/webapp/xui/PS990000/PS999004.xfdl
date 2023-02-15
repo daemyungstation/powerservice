@@ -1,0 +1,236 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="srch_empl_pop" classname="srch_empl_pop" inheritanceid="" position="absolute 0 0 1000 700" titletext="모집인계약서PDF보기" onload="Addr_api_onload" onactivate="PS992000_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 1000 700"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 968 5 988 24"/>
+        <Static id="stc_30" text="PDF확인" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <WebBrowser id="WebBrowser00" text="WebBrowser00" position="absolute 4 36 996 697" anchor="default" taborder="2" useautobitmapcache="1" url="http://192.168.220.84:8080/powerservice/common/file/2022KF000053,2022KE000052,2022KB000058_김송현_220629.pdf"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="emple_no" type="STRING" size="10"/>
+          <Column id="emple_nm" type="STRING" size="50"/>
+          <Column id="grpEmpYn" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+          <Column id="not_in_emple_no" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_empl" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ret" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_sin_addr" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="post" type="STRING" size="256"/>
+          <Column id="addr" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs"; // 공통라이브러리
+
+var gv_empl_nm = "";
+var gv_pageTyp = "";
+var gv_typ = "";
+
+var gv_accnt_no = "";
+var gv_url = "";
+
+var fv_not_in_emple_no = "";
+
+var gv_file_nm = "";
+
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var tc_empl = 0;
+
+/***************************************************************************
+ * 함  수  명		: Empl_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function Addr_api_onload(obj:Form, e:LoadEventInfo)
+{
+	//var parentPdfFilePath = pdfFilePath;
+	var sServiceUrl = application.services["SVC"].url;
+	//var webViewPdfFilePath = pdfFilePath.substring(9, pdfFilePath.length);
+	var webViewPdfFilePath = "powerservice/common/dm_sign/";
+	var URL = "";
+	
+	/* 참고 : URL이 참조하는 기본 PATH 는 /app 이다. */
+	
+	if(sServiceUrl.indexOf("192.168.220.52") >= 0) // 대명DLCC사설IP(운영서버WAS1)
+	{
+		URL = "http://192.168.220.52:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("183.111.69.174") >= 0) // 대명DLCC공인IP(운영서버WAS1)
+	{
+		URL = "http://183.111.69.174:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("https://dmdlcc.com") >= 0) // 대명DLCC도메인SSL(운영서버WAS1에연결)
+	{
+		URL = "https://dmdlcc.com:8443/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("http://dmdlcc.com") >= 0) // 대명DLCC도메인HTTP(운영서버WAS1에연결)
+	{
+		URL = "http://dmdlcc.com:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("192.168.220.56") >= 0) // 대명DLCC사설IP(운영서버WAS2)
+	{
+		URL = "http://192.168.220.56:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("183.111.69.188") >= 0) // 대명DLCC공인IP(운영서버WAS2)
+	{
+		URL = "http://183.111.69.188:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("https://devdlcc.com") >= 0) // 대명DLCC도메인SSL(운영서버WAS2에연결)
+	{
+		URL = "https://devdlcc.com:8443/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("http://devdlcc.com") >= 0) // 대명DLCC도메인HTTP(운영서버WAS2에연결)
+	{
+		URL = "http://devdlcc.com:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("192.168.220.58") >= 0) // 대명DLCC사설IP(개발서버)
+	{
+		URL = "http://192.168.220.58:8080/" + webViewPdfFilePath;
+	}
+	else if(sServiceUrl.indexOf("183.111.69.196") >= 0) // 대명DLCC공인IP(개발서버)
+	{
+		URL = "http://183.111.69.196:8080/" + webViewPdfFilePath;
+	}
+// 	else // 확인되지아니한IP
+// 	{
+// 		alert("PDF를 열람할수 있는 IP 대역이 아닙니다.");
+// 		return false;
+// 	}
+	
+	//URL = "http://192.168.220.58:8080/powerservice/common/dm_sign/"; //개발테스트
+	URL = "http://192.168.220.84:8080/powerservice/common/dm_sign/"; //예비용테스트
+	//URL = "file:///C:/Users/daemyung/Desktop/DLCC/file/"; //로컬테스트
+	
+	gv_url = URL;
+
+	
+	gv_accnt_no = pAccntNo;
+	//WebBrowser00.url = "http://192.168.220.84:8080/powerservice/install_dlcc.jsp"; //pdf url링크 
+	
+//	fn_commSearch();
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd < 0) 
+	{
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+			case "getAccntContract" :
+				trace("gv_file_nm:"+gv_file_nm);
+				if(gfn_isNull(gv_file_nm)) {
+					alert('선택된 회원번호 모집인계약서 파일이 없습니다.');
+					close();
+				}
+				
+				WebBrowser00.url = gv_url+gv_file_nm;
+				
+// 				if(ds_file_recv.getRowCount() <= 0)
+// 				{
+// 					alert("조회결과가 없습니다.");
+// 					return false;
+// 				}
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//  조회
+function fn_commSearch() 
+{
+   	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+	szSvcid       = "getAccntContract";
+	szController  = "/dlw/rcrtCntr/getAccntContract";
+	szInDs        = "";
+	szOutDs       = "";
+	szParam       = "accnt_no=" + gv_accnt_no;
+	szRetCallback = "fn_callBack";
+	
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

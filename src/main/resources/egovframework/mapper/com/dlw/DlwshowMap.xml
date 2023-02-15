@@ -1,0 +1,534 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwshowMap">
+
+
+
+ <select id="DlwshowMap.getDlwshowCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwshowMap.getDlwshowCount */
+              count(*)
+        from  CM_PFMC_RSVTN_MST@dmweb CPRM
+         WHERE 1 = 1
+          <if test="accnt_no != null and accnt_no != ''">
+                  AND CPRM.ACCNT_NO = #{accnt_no}
+           </if>
+
+          <if test="rsvtn_seq != null and rsvtn_seq != ''">
+                  AND CPRM.rsvtn_seq = #{rsvtn_seq}
+          </if>
+           <if test="fyymmdd != null and fyymmdd != ''">
+                  AND to_char(last_rsvtn_dtm,'yyyymmdd') >= #{fyymmdd}
+          </if>
+           <if test="tyymmdd != null and tyymmdd != ''">
+                  AND to_char(last_rsvtn_dtm,'yyyymmdd')  <![CDATA[ <= #{tyymmdd} ]]>
+          </if>
+          <if test="prcs_cd != null and prcs_cd != ''">
+                  AND CPRM.prcs_cd = #{prcs_cd}
+          </if>
+            <if test="gbit != null and gbit != ''">
+                   AND nvl(gbit,'2') = #{gbit}
+             </if>
+    </select>
+
+
+
+  <select id="DlwshowMap.getDlwshownmCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwshowMap.getDlwshownmCount */
+              count(*)
+        from  cm_pfmc_mst@dmweb
+
+
+    </select>
+
+
+
+ <select id="DlwshowMap.getshowList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwshowMap.getshowList */
+               B.*
+          FROM (SELECT
+                                ROW_NUMBER() OVER(ORDER BY RSVTN_SEQ DESC) PAGE_INDX
+
+                     , A.*
+                  FROM (SELECT CPRM.RSVTN_SEQ
+                                 ,CPRM.PFMC_SEQ,ID
+                                 ,CPRM.ACCNT_NO
+                                 ,CPRM.SEAT_CNT
+                                 ,CPRM.SEAT_GB
+                                 ,CPRM.FST_RSVTN_DTM
+                                 ,CPRM.SECN_RSVTN_DTM
+                                 ,CPRM.LAST_RSVTN_DTM
+                                 ,TO_CHAR(CPRM.REQN) REQN
+                                 ,CPRM.PRCS_CD,CPRM.REG_ID
+                                 ,CPRM.REG_IP
+                                 ,to_char(CPRM.REG_DTM,'YYYYMMDDHH24MISS') REG_DTM
+                                 ,CPRM.MOD_ID
+                                 ,CPRM.MOD_IP
+                                 ,CPRM.MOD_DTM
+                                 ,NVL(CPRM.GUBUN,'2') GUBUN
+                                 ,MB.MEM_NM
+                                 ,MB.CELL
+                                 ,CASE WHEN  CPRM.FST_RSVTN_DTM = CPRM.LAST_RSVTN_DTM THEN '1' ELSE '0' END  CHK1
+                                 ,CASE WHEN  CPRM.SECN_RSVTN_DTM = CPRM.LAST_RSVTN_DTM THEN '1' ELSE '0' END  CHK2
+                             <![CDATA[     ,replace(replace(CPM.PFMC_NM,'&lt;','<'),'&gt;','>') PFMC_NM   ]]>
+                                ,NVL(CPRM.REBIT,' ') REBIT
+                                ,NVL(CPRM.GBIT,'2') GBIT
+                         from CM_PFMC_RSVTN_MST@dmweb  CPRM
+                            LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON  CPRM.ACCNT_NO=MPA.ACCNT_NO
+                            LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO=MB.MEM_NO
+                            LEFT OUTER JOIN cm_pfmc_mst@dmweb   CPM ON CPRM.PFMC_SEQ=CPM.PFMC_SEQ
+
+                          WHERE 1 = 1
+                               <if test="accnt_no != null and accnt_no != ''">
+                                   AND CPRM.ACCNT_NO = #{accnt_no}
+                               </if>
+                               <if test="rsvtn_seq != null and rsvtn_seq != ''">
+                                   AND CPRM.rsvtn_seq = #{rsvtn_seq}
+                               </if>
+                               <if test="fyymmdd != null and fyymmdd != ''">
+                                      AND to_char(last_rsvtn_dtm,'yyyymmdd') >= #{fyymmdd}
+                              </if>
+                               <if test="tyymmdd != null and tyymmdd != ''">
+                                      AND to_char(last_rsvtn_dtm,'yyyymmdd')  <![CDATA[ <= #{tyymmdd} ]]>
+                              </if>
+                              <if test="prcs_cd != null and prcs_cd != ''">
+                                      AND CPRM.prcs_cd = #{prcs_cd}
+                               </if>
+                                 <if test="gbit != null and gbit != ''">
+                                       AND nvl(gbit,'2') = #{gbit}
+                                 </if>
+
+                        ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+
+    </select>
+
+
+
+ <select id="DlwshowMap.getshownmList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwshowMap.getshownmList */
+               B.*
+          FROM (SELECT
+                                ROW_NUMBER() OVER(ORDER BY pfmc_seq DESC) PAGE_INDX
+
+                     , A.*
+         <![CDATA[          FROM (select pfmc_seq,pfmc_gb,replace(replace(PFMC_NM,'&lt;','<'),'&gt;','>')  pfmc_nm    ]]>
+                                 ,pfmc_strt_dt,pfmc_end_dt,dscnt_pct
+                           from  cm_pfmc_mst@dmweb
+
+
+                        ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+
+
+
+
+
+ <!-- DM sql-id : DlwshowMap.insertshow-->
+    <insert id="DlwshowMap.insertshow"  parameterType="map">
+        INSERT /* DlwshowMap.insertshow */
+          INTO CM_PFMC_RSVTN_MST@dmweb
+        (
+                RSVTN_SEQ
+                ,PFMC_SEQ
+                ,ID
+                ,ACCNT_NO
+                ,SEAT_CNT
+                ,SEAT_GB
+                ,FST_RSVTN_DTM
+                ,SECN_RSVTN_DTM
+                  <if test='chk1 == "1"  or  chk1 == "true" '>
+                  , LAST_RSVTN_DTM
+                 </if>
+                <if test='chk2 == "1"  or  chk2 == "true"'>
+                  , LAST_RSVTN_DTM
+                 </if>
+                ,REQN
+                ,PRCS_CD
+                ,REG_ID
+                ,REG_IP
+                ,REG_DTM
+                ,MOD_ID
+                ,MOD_IP
+                ,MOD_DTM
+                ,GUBUN
+                ,GBIT
+                ,REBIT
+        ) values (
+               (SELECT NVL(MAX(RSVTN_SEQ),0)+1 FROM CM_PFMC_RSVTN_MST@dmweb)
+             , #{pfmc_seq}
+             , #{reg_man}
+             , #{accnt_no}
+             , #{seat_cnt}
+             , #{seat_gb}
+             , to_date(substr(#{fst_rsvtn_dtm},1,14),'YYYYMMDDHH24MISS')
+             , to_date(substr(#{secn_rsvtn_dtm},1,14),'YYYYMMDDHH24MISS')
+            <if test='chk1 == "1"  or  chk1 == "true" '>
+              , to_date(substr(#{fst_rsvtn_dtm},1,14),'YYYYMMDDHH24MISS')
+             </if>
+             <if test='chk2 == "1"  or  chk2 == "true"'>
+              , to_date(substr(#{secn_rsvtn_dtm},1,14),'YYYYMMDDHH24MISS')
+             </if>
+
+             , #{reqn}
+             , #{prcs_cd}
+             , #{reg_man}
+             , ''
+             , sysdate
+             , #{upd_man}
+             , ''
+             , sysdate
+             , '1'
+             ,'2'
+             , #{rebit}
+            )
+
+    </insert>
+
+
+     <select id="DlwshowMap.getDlwshowselect" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwshowMap.getDlwshowselect */
+               B.*
+          FROM (SELECT
+                                ROW_NUMBER() OVER(ORDER BY rsvtn_dtm DESC) PAGE_INDX
+
+                     , TO_CHAR(A.RSVTN_DTM,'YYYYMMDDHH24MISS')  RSVTN_DTM
+               from cm_rsvtn_dtm_inf@dmweb A
+                where pfmc_seq =  #{pfmc_seq}  and
+                     to_char(rsvtn_dtm,'yyyymmdd') >= TO_CHAR(SYSDATE +7, 'YYYYMMDD')
+
+
+
+               <!--  and  to_char(rsvtn_dtm,'yyyymmdd')  -->
+                ) B
+
+    </select>
+
+
+
+    <update id="DlwshowMap.showupdate" parameterType="map">
+
+        <!--
+        UPDATE /* DlwshowMap.showupdate */
+               CM_PFMC_RSVTN_MST@dmweb
+            set pfmc_seq = #{pfmc_seq}
+               , seat_cnt = #{seat_cnt}
+               , seat_gb = #{seat_gb}
+               , fst_rsvtn_dtm =  to_date(substr(#{fst_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               , secn_rsvtn_dtm =  to_date(substr(#{secn_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               <if test='chk1 == "1"  or  chk1 == "true" '>
+                  , last_rsvtn_dtm = to_date(substr(#{fst_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               </if>
+               <if test='chk2 == "1"  or  chk2 == "true"'>
+                  , last_rsvtn_dtm = to_date(substr(#{secn_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               </if>
+               , reqn = #{reqn}
+               , prcs_cd = #{prcs_cd}
+               , mod_id = #{upd_man}
+               , mod_dtm = sysdate
+        where   rsvtn_seq = #{rsvtn_seq}
+         -->
+         UPDATE /* DlwshowMap.showupdate */
+               CM_PFMC_RSVTN_MST@dmweb
+            set rebit =  #{rebit}
+            ,	mod_id = #{upd_man}
+               ,mod_dtm = sysdate
+        where   rsvtn_seq = #{rsvtn_seq}
+
+    </update>
+
+    <!-- 연체가 아닌경우.-->
+    <select id="DlwshowMap.getshowChk1" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck -->
+
+         select  /* DlwshowMap.getshowChk1 */
+                 count(1)
+              from mem_prod_accnt mpa
+              where  mpa.accnt_no=#{accnt_no}
+               and substr(fn_yen_che(#{accnt_no}),-2) = '연체'
+    </select>
+
+     <!-- 입금이 없을경우 실납입회차'0'.-->
+    <select id="DlwshowMap.getshowChk2" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck -->
+
+         select  /* DlwshowMap.getshowChk2 */
+                 count(1)
+              from pay_mng
+              where  accnt_no=#{accnt_no}
+               and  del_fg ='N'
+    </select>
+
+
+      <!-- 청약철회 ,해약-->
+    <select id="DlwshowMap.getshowChk3" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck -->
+
+         select  /* DlwshowMap.getshowChk3 */
+                 count(1)
+              from mem_prod_accnt mpa
+              where  mpa.accnt_no=#{accnt_no}  and
+               FN_EVENT(mpa.ACCNT_NO) in ('청약철회','해약') and
+               del_fg ='N'
+    </select>
+
+
+      <!-- 행사자 5년이상 지난자.. 제외-->
+    <select id="DlwshowMap.getshowChk4" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck4 -->
+
+         select  /* DlwshowMap.getshowChk4 */
+                 count(1)
+            from event
+           where  accnt_no=#{accnt_no}  and  del_fg ='N'
+              and    to_char(ADD_MONTHS(to_date(EVENT_PROC_DAY),60),'yyyymmdd')  <![CDATA[   <= ]]> to_char(sysdate,'yyyymmdd')
+    </select>
+
+      <!--다구좌 회원의 경우, 동일일시에 복수좌석 예매는 불가합니다-->
+    <select id="DlwshowMap.getshowChk5" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck5 -->
+
+             SELECT  COUNT(1)
+              FROM   CM_PFMC_RSVTN_MST@dmweb
+             WHERE ACCNT_NO  IN (  SELECT ACCNT_NO
+                                    FROM MEM_PROD_ACCNT
+                                     WHERE MEM_NO IN (
+                                        SELECT MEM_NO
+                                        FROM MEM_PROD_ACCNT
+                                        WHERE ACCNT_NO= #{accnt_no} )
+                                      )
+              AND PFMC_sEQ = #{pfmc_seq}
+                AND  REBIT NOT IN ('3')
+               <if test='chk1 == "1"  or  chk1 == "true" '>
+                  and last_rsvtn_dtm = to_date(substr(#{fst_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               </if>
+               <if test='chk2 == "1"  or  chk2 == "true"'>
+                  and   last_rsvtn_dtm = to_date(substr(#{secn_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               </if>
+                  and accnt_no  not in (#{accnt_no})
+
+
+    </select>
+
+       <!--동일 회원의 경우, 동일일시에 복수좌석 예매는 불가합니다-->
+    <select id="DlwshowMap.getshowChk6" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck6 -->
+
+             SELECT  COUNT(1)
+              FROM   CM_PFMC_RSVTN_MST@dmweb
+             WHERE ACCNT_NO  IN ( #{accnt_no} )
+              AND  REBIT NOT IN ('3')
+              AND PFMC_sEQ = #{pfmc_seq}
+               <if test='chk1 == "1"  or  chk1 == "true" '>
+                  and last_rsvtn_dtm = to_date(substr(#{fst_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               </if>
+               <if test='chk2 == "1"  or  chk2 == "true"'>
+                  and   last_rsvtn_dtm = to_date(substr(#{secn_rsvtn_dtm},1,14),'yyyymmddhh24miss')
+               </if>
+
+
+
+
+    </select>
+
+       <!-- 확정된 공연혜택은 수정불가 처리!!! (확정된공연혜택 조회)-->
+    <select id="DlwshowMap.getshowChk7" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.eventCheck7 -->
+
+             SELECT  COUNT(1)
+              FROM   CM_PFMC_RSVTN_MST@dmweb
+             WHERE rsvtn_seq  IN ( #{rsvtn_seq} )
+               and gbit ='1'
+    </select>
+
+
+    <update id="DlwshowMap.updateshowsave"  parameterType="map">
+        <!-- DM sql-id : updateshowsave -->
+            update /* DlwshowMap.updateshowsave */
+                    CM_PFMC_RSVTN_MST@dmweb
+            set  GBIT ='1'
+            WHERE  1 = 1
+
+             <if test="accnt_no != null and accnt_no != ''">
+                  AND ACCNT_NO = #{accnt_no}
+              </if>
+           <if test="rsvtn_seq != null and rsvtn_seq != ''">
+                  AND rsvtn_seq = #{rsvtn_seq}
+              </if>
+
+              <!--
+              <if test="fyymmdd != null and fyymmdd != ''">
+                   AND to_char(last_rsvtn_dtm,'yyyymmdd') >= #{fyymmdd}
+             </if>
+              <if test="tyymmdd != null and tyymmdd != ''">
+                   AND to_char(last_rsvtn_dtm,'yyyymmdd')  <![CDATA[ <= #{tyymmdd} ]]>
+             </if>
+             <if test="prcs_cd != null and prcs_cd != ''">
+                   AND prcs_cd = #{prcs_cd}
+             </if>
+             <if test="gbit != null and gbit != ''">
+                   AND nvl(gbit,'2') = #{gbit}
+             </if>
+              -->
+
+    </update>
+
+
+
+ <select id="DlwshowMap.getDlwmagazineCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwshowMap.getDlwmagazineCount */
+              count(*)
+         from ps_willvi.tb_magazine_admin  tma
+                             left outer join mem_prod_accnt mpa on tma.accnt_no = mpa.accnt_no
+                             left outer join member mb on mpa.mem_no=mb.mem_no
+                             left outer join PRODUCT pd on mpa.prod_cd=pd.prod_cd
+                          where tma.YYMM  =#{yymm}
+                              <!--  and  mpa.join_Dt >=#{fyymmdd} and mpa.join_dt  <![CDATA[ <= ]]> #{tyymmdd}   -->
+                              <if test="prod_nm != null and prod_nm != ''">
+                                        AND pd.PROD_NM LIKE '%' || #{prod_nm} || '%'
+                                </if>
+
+    </select>
+
+
+
+ <select id="DlwshowMap.getDlwmagazineList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwshowMap.getDlwmagazineList */
+               B.*
+          FROM (SELECT
+                                ROW_NUMBER() OVER(ORDER BY A.JOIN_DT DESC) PAGE_INDX
+
+                     , A.*
+                  FROM (
+                             select replace('',chr(0),'') chk
+                                ,replace(tma.YYMM,chr(0),'') YYMM
+                                ,replace(mpa.mem_no,chr(0),'') mem_no
+                                ,replace(tma.accnt_no,chr(0),'') accnt_no
+                                ,replace(mb.mem_nm,chr(0),'') mem_nm
+                                ,replace(nvl(mb.cell,''),chr(0),'') cell
+                                ,replace(mpa.prod_cd,chr(0),'')  prod_cd
+                                ,replace(pd.prod_nm,chr(0),'') prod_nm
+                                ,replace(mpa.join_dt,chr(0),'')  join_dt
+                                ,replace(tma.kstbit,chr(0),'') kstbit
+                                ,replace(tma.res_yn,chr(0),'') res_yn
+                                ,replace(tma.eventday,chr(0),'')  eventday
+                                <!-- 주소(통합)을  '우편번호, 주소1, 주소2' 로 분할하여 표시 - 2017.12.14 정승철 (조미애 매니저 요청) -->
+                                <!-- ,replace(tma.addr,chr(0),'')   addr -->
+                                ,replace(mb.home_zip,chr(0),'')    home_zip
+                                ,replace(mb.home_addr,chr(0),'')   home_addr
+                                ,replace(mb.home_addr2,chr(0),'')  home_addr2
+                                ,replace(tma.ma_yn,chr(0),'')   ma_yn
+                                 ,replace(nvl(tma.hbit,'1'),chr(0),'') HBIT
+                                 ,replace(fdate,chr(0),'')  fdate
+                                 ,replace(tdate,chr(0),'')   tdate
+
+                         from ps_willvi.tb_magazine_admin  tma
+                             left outer join mem_prod_accnt mpa on tma.accnt_no = mpa.accnt_no
+                             left outer join member mb on mpa.mem_no=mb.mem_no
+                             left outer join PRODUCT pd on mpa.prod_cd=pd.prod_cd
+                          where tma.YYMM  =#{yymm}
+                              <!--  and  mpa.join_Dt >=#{fyymmdd} and mpa.join_dt  <![CDATA[ <= ]]> #{tyymmdd}   -->
+                                <if test="prod_nm != null and prod_nm != ''">
+                                        AND pd.PROD_NM LIKE '%' || #{prod_nm} || '%'
+                                </if>
+
+
+                        ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+
+    </select>
+
+
+     <insert id="DlwshowMap.insertmagazinesave"  parameterType="map">
+       insert into  /* DlwshowMap.insertmagazinesave  */
+           ps_willvi.tb_magazine_admin
+               (YYMM,ACCNT_NO,KSTBIT,RES_yN,EVENTDAY,ADDR,CNT,MA_YN,REG_DM,REG_MAN,FDATE,TDATE)
+
+        select  #{yymm}
+            ,mpa.accnt_no
+            ,mpa.kstbit
+            ,res.RESN_PROC_YN
+            ,ev.EVENT_PROC_DAY
+            , (mb.HOME_ADDR || mb.HOME_ADDR2)  as taddr1
+            ,LF_DMUSER.FN_PAY_MNG(mpa.accnt_no)
+            , mb.markt_agr_yn
+            ,sysdate
+            ,#{reg_man}
+            ,#{fyymmdd}
+            ,#{tyymmdd}
+        from mem_prod_accnt mpa
+                           inner join ( select mem_no ,max(join_dt) join_dt
+                                        from mem_prod_accnt
+                                        where nvl(LF_DMUSER.FN_PAY_MNG(accnt_no),0) > 0
+                                        group by mem_no ) o_mpa on mpa.mem_no= o_mpa.mem_no and mpa.join_dt=o_mpa.join_dt
+                           left outer join member mb on mpa.mem_no=mb.mem_no
+                           left outer join PRODUCT pd on mpa.prod_cd=pd.prod_cd
+                           left outer join RESCISSION res  on   mpa.accnt_no=res.accnt_no and res.del_fg ='N'
+                           left outer join event ev on   mpa.accnt_no=ev.accnt_no and ev.del_fg ='N'
+                           left join ( select accnt_no ,max(no)no , max(pay_day) pay_day from pay_mng where  del_fg ='N' group by accnt_no) pm on  mpa.accnt_no=pm.accnt_no
+                        where      mpa.join_Dt >=#{fyymmdd} and mpa.join_dt  <![CDATA[ <= ]]> #{tyymmdd} AND
+                           ( mpa.kstbit in ('02','04','09')   or (mpa.kstbit ='03' and res.RESN_PROC_YN ='N') ) and
+                           <!--  LENGTH(mb.IDN_NO) != 10  and  --><!-- 법인구좌 제외 -->
+                        <!--      pd.prod_cd  not in ( select prod_nm from product where  like '%법인%')   -->
+
+                           <!--  mpa.prod_cd not in ('I6','I5','I4','H3','F3','67') and   즉발상품제외-->
+                            mb.markt_agr_yn ='Y' and
+                          <!--  NVL(mb.dm_yn,'N')='Y' and   DM구분  -->
+                            nvl(TRUNC(MONTHS_BETWEEN('201704'||'01', substr(mpa.JOIN_dt,1,6)||'01' ) ) ,0) -  pm.no   <![CDATA[  <  ]]>   2
+
+
+
+    </insert>
+
+      <delete id="DlwshowMap.del_magazine"  parameterType="map">
+       delete  /* DlwshowMap.del_magazine  */
+       from  ps_willvi.tb_magazine_admin  tba
+       where  tba.yymm=#{yymm} and nvl(tba.hbit,'1') !='2'
+        <if test="accnt_no != null and accnt_no != ''">
+                   AND accnt_no = #{accnt_no}
+        </if>
+    </delete>
+
+
+       <update id="DlwshowMap.updatemagazine_magam"  parameterType="map">
+        <!-- DM sql-id : updatemagazine_magam -->
+            update /* DlwshowMap.updatemagazine_magam */
+                    ps_willvi.tb_magazine_admin  tba
+                    set  tba.HBIT ='2'
+            WHERE  1 = 1
+              <if test="accnt_no != null and accnt_no != ''">
+                AND  tba.yymm= #{yymm}
+              </if>
+       </update>
+
+
+</mapper>

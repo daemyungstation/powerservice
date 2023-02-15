@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CompBasiMap">
+
+    <!-- 고객사/협력사 검색 조건 -->
+    <sql id="CompBasiMap.selectCondition_fragment">
+     <where>
+        <if test="comp_id != null and comp_id != ''">
+                AND COMP_ID = #{comp_id}
+        </if>
+        <if test="comp_conm_nm != null and comp_conm_nm != ''">
+            COMP_CONM_NM LIKE '%' || #{comp_conm_nm} || '%'
+        </if>
+        <if test="use_yn != null and use_yn != ''">
+            AND USE_YN LIKE '%' || #{use_yn} || '%'
+        </if>
+        <if test="csco_yn != null and csco_yn != ''">
+            AND CSCO_YN LIKE '%' || #{csco_yn} || '%'
+        </if>
+        <if test="cprt_comp_yn != null and cprt_comp_yn != ''">
+            AND CPRT_COMP_YN LIKE '%' || #{cprt_comp_yn} || '%'
+        </if>
+      </where>
+    </sql>
+    <!--//고객사/협력사 검색 조건 -->
+
+     <!-- 고객사/협력사 팝업검색 조건 -->
+    <sql id="CompBasiMap.popSelectCondition_fragment">
+     WHERE  USE_YN  = 'Y'
+        <if test="comp_id != null and comp_id != ''">
+            AND COMP_ID = #{comp_id}
+        </if>
+        <if test="comp_conm_nm != null and comp_conm_nm != ''">
+            AND COMP_CONM_NM LIKE '%' || #{comp_conm_nm} || '%'
+        </if>
+        <if test="csco_yn != null and csco_yn != ''">
+            AND CSCO_YN LIKE '%' || #{csco_yn} || '%'
+        </if>
+        <if test="cprt_comp_yn != null and cprt_comp_yn != ''">
+            AND CPRT_COMP_YN LIKE '%' || #{cprt_comp_yn} || '%'
+        </if>
+    </sql>
+    <!--//고객사/협력사 검색 조건 -->
+
+
+    <!-- 고객사/협력사 건수 조회 -->
+    <select id="CompBasiMap.getCompBasiCount" parameterType="map" resultType="int">
+        SELECT /* CompBasiMap.getCompBasiCount */
+               COUNT(*)
+          FROM TB_COMP_BASI
+         <include refid="CompBasiMap.selectCondition_fragment" />
+    </select>
+    <!-- //고객사/협력사 건수 조회 -->
+
+
+
+    <!-- 고객사/협력사 목록 조회 -->
+    <select id="CompBasiMap.getCompBasiList" parameterType="map" resultType="resultMap">
+        SELECT /* CompBasiMap.getCompBasiList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT COMP_ID
+                             , COMP_CONM_NM
+                             , RPPR_NM
+                             , COMP_LCTN_BASI_ADDR
+                             , COMP_LCTN_DTPT_ADDR
+                             , HMPG_ADDR
+                             , CSCO_YN
+                             , CPRT_COMP_YN
+                             , USE_YN
+                             , COMP_EXPI_CNTN
+                             , CNTR_CD
+                             , RGSR_ID
+                             , RGSN_DTTM
+                             , AMND_ID
+                             , AMNT_DTTM
+                             , A.COMP_LCTN_ZPCD
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                             , (SELECT NVL2(A.COMP_LCTN_ZPCD,'[' || A.COMP_LCTN_ZPCD || '] ','') || COMP_LCTN_BASI_ADDR || ' ' || COMP_LCTN_DTPT_ADDR
+                                  FROM TB_COMP_BASI
+                                 WHERE COMP_ID = A.COMP_ID ) AS TOTAL_ADDR
+                             , CASE
+                               WHEN LENGTH( A.BRNO_NO ) BETWEEN 4 AND 5
+                               THEN (SUBSTR(A.BRNO_NO, 1, 3) || '-' || SUBSTR(A.BRNO_NO, 4, 2))
+                               WHEN LENGTH( A.BRNO_NO ) BETWEEN 6 AND 10
+                               THEN (SUBSTR(A.BRNO_NO, 1, 3) || '-' || SUBSTR(A.BRNO_NO, 4, 2) || '-' || SUBSTR(A.BRNO_NO, 6, 10))
+                               ELSE  A.BRNO_NO END AS BRNO_NO
+                          FROM TB_COMP_BASI A
+                        <include refid="CompBasiMap.selectCondition_fragment"/>
+                        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       ) B
+                )C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+    <!-- //고객사/협력사 목록 조회 -->
+
+    <!-- 고객사/협력사 등록 -->
+    <insert id="CompBasiMap.insertCompBasi">
+        <selectKey keyProperty="comp_id" resultType="String" order="BEFORE">
+            SELECT 'COMP' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* CompBasiMap.insertCompBasi */
+          INTO  TB_COMP_BASI
+                (COMP_ID
+                ,COMP_CONM_NM
+                ,BRNO_NO
+                ,RPPR_NM
+                ,COMP_LCTN_BASI_ADDR
+                ,COMP_LCTN_DTPT_ADDR
+                ,COMP_LCTN_ZPCD
+                ,HMPG_ADDR
+                ,CSCO_YN
+                ,CPRT_COMP_YN
+                ,USE_YN
+                ,COMP_EXPI_CNTN
+                ,CNTR_CD
+                ,RGSR_ID
+                ,RGSN_DTTM
+                ,AMND_ID
+                ,AMNT_DTTM)
+        VALUES (#{comp_id}
+                ,#{comp_conm_nm}
+                ,REPLACE(#{brno_no},'-','')
+                ,#{rppr_nm}
+                ,#{comp_lctn_basi_addr}
+                ,#{comp_lctn_dtpt_addr}
+                ,REPLACE(#{comp_lctn_zpcd},'-','')
+                ,#{hmpg_addr}
+                ,#{csco_yn}
+                ,#{cprt_comp_yn}
+                ,DECODE(#{use_yn},null,'N','N','N','Y')
+                ,#{comp_expi_cntn}
+                ,#{cntr_cd}
+                ,#{rgsr_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                ,#{amnd_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- //고객사/협력사 등록 -->
+
+    <!-- 고객사/협력사 수정 -->
+    <update id="CompBasiMap.updateCompBasi" parameterType="map">
+      UPDATE /* CompBasiMap.updateCompBasi */
+          TB_COMP_BASI
+         SET COMP_CONM_NM = #{comp_conm_nm}
+            ,BRNO_NO = REPLACE(#{brno_no},'-','')
+            ,RPPR_NM = #{rppr_nm}
+            ,COMP_LCTN_BASI_ADDR = #{comp_lctn_basi_addr}
+            ,COMP_LCTN_DTPT_ADDR = #{comp_lctn_dtpt_addr}
+            ,COMP_LCTN_ZPCD =REPLACE(#{comp_lctn_zpcd},'-','')
+            ,HMPG_ADDR = #{hmpg_addr}
+            ,CSCO_YN =#{csco_yn}
+            ,CPRT_COMP_YN = #{cprt_comp_yn}
+            ,USE_YN = #{use_yn}
+            ,COMP_EXPI_CNTN =#{comp_expi_cntn}
+            ,AMND_ID = #{amnd_id}
+            ,AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+       WHERE COMP_ID = #{comp_id}
+    </update>
+    <!-- //고객사/협력사 수정 -->
+
+    <!-- 고객사/협력사 팝업 목록 조회 -->
+    <select id="CompBasiMap.getCompBasiPopupList" parameterType="map" resultType="resultMap">
+      SELECT /* CompBasiMap.getCompBasiPopupList */
+           C.*
+        FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                FROM (SELECT COMP_ID
+                            ,COMP_CONM_NM
+                            ,RPPR_NM
+                            ,COMP_LCTN_BASI_ADDR
+                            ,COMP_LCTN_DTPT_ADDR
+                            ,HMPG_ADDR
+                            ,CSCO_YN
+                            ,CPRT_COMP_YN
+                            ,USE_YN
+                            ,COMP_EXPI_CNTN
+                            ,CNTR_CD
+                            ,RGSR_ID
+                            ,RGSN_DTTM
+                            ,AMND_ID
+                            ,AMNT_DTTM
+                            ,(SELECT USER_NM
+                               FROM TB_USER
+                              WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                            ,(SELECT USER_NM
+                               FROM TB_USER
+                              WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                            ,(SELECT (SUBSTR(A.COMP_LCTN_ZPCD, 1, 3) || '-' || SUBSTR(A.COMP_LCTN_ZPCD, 4, 6))||' '||comp_lctn_basi_addr||' '||comp_lctn_dtpt_addr
+                                FROM TB_COMP_BASI
+                               WHERE COMP_ID = A.COMP_ID ) AS TOTAL_ADDR
+                            ,   CASE
+                                WHEN LENGTH(A.COMP_LCTN_ZPCD) BETWEEN 4 AND 6
+                                THEN (SUBSTR(A.COMP_LCTN_ZPCD, 1, 3) || '-' || SUBSTR(A.COMP_LCTN_ZPCD, 4, 6))
+                                ELSE  A.COMP_LCTN_ZPCD END AS COMP_LCTN_ZPCD
+                            ,   CASE
+                                WHEN LENGTH( A.BRNO_NO ) BETWEEN 4 AND 5
+                                THEN (SUBSTR(A.BRNO_NO, 1, 3) || '-' || SUBSTR(A.BRNO_NO, 4, 2))
+                                WHEN LENGTH( A.BRNO_NO ) BETWEEN 6 AND 10
+                                THEN (SUBSTR(A.BRNO_NO, 1, 3) || '-' || SUBSTR(A.BRNO_NO, 4, 2) || '-' || SUBSTR(A.BRNO_NO, 6, 10))
+                                ELSE  A.BRNO_NO END AS BRNO_NO
+                        FROM TB_COMP_BASI A
+        <include refid="CompBasiMap.popSelectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                       ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    ) B
+                   )C
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- //고객사/협력사 팝업 목록 조회 -->
+
+    <!-- 고객사/협력사 팝업 건수 조회 -->
+    <select id="CompBasiMap.getCompBasiPopupCount" parameterType="map" resultType="int">
+        SELECT /* CompBasiMap.getCompBasiPopupCount */
+               COUNT(*)
+          FROM TB_COMP_BASI
+         <include refid="CompBasiMap.popSelectCondition_fragment" />
+    </select>
+    <!-- //고객사/협력사 팝업 건수 조회 -->
+
+</mapper>

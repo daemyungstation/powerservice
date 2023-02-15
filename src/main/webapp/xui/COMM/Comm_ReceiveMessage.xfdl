@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_ReceiveMessage" classname="Comm_ReceiveMessage" inheritanceid="" position="absolute 0 0 600 348" titletext="수신메세지상세보기(Push)" onload="Comm_ReceiveMessage_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_12" class="sta_popupBg1" enable="false" position="absolute 0 0 600 348"/>
+        <Button id="btn_Close07" taborder="1" text="확인" class="Btn_crud" position="absolute 544 45 589 65" visible="false"/>
+        <Button id="btn_Close08" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 571 8 591 27"/>
+        <Static id="stc_16" text="수신메세지" class="sta_popupTitle" position="absolute 10 8 185 28" transparenthittest="true"/>
+        <Static id="stc_14" text="제목" class="sta_workLabel1" position="absolute 11 68 106 94"/>
+        <Static id="sta_Title" text="10월 SP입회마스터 오픈합니다." class="sta_workData" position="absolute 105 68 589 94" style="font:Dotum,9,bold;"/>
+        <Static id="stc_17" text="상세내용" class="sta_workTitle2" position="absolute 12 48 196 68"/>
+        <Static id="stc_18" text="발신인" class="sta_workLabel1" position="absolute 11 93 106 119"/>
+        <Static id="sta_Sender" text="홍길동" class="sta_workData" position="absolute 105 93 301 119"/>
+        <Static id="sta_SendDate" text="2012-10-22 17:46" class="sta_workData" position="absolute 394 93 589 119"/>
+        <Static id="stc_21" text="발신일시" class="sta_workLabel1" position="absolute 300 93 395 119"/>
+        <Static id="stc_22" class="sta_workData" position="absolute 11 118 589 337"/>
+        <TextArea id="txa_Contents" taborder="1" position="absolute 14 121 586 334" readonly="true"/>
+        <Static id="sta_GrayLine00" class="sta_WF_Line2" position="absolute 12 68 589 69"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Input" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="recpUserId" type="STRING" size="256"/>
+          <Column id="dpmsNo" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_Output" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="dpmsUserId" type="STRING" size="255"/>
+          <Column id="msgDpmsDttm" type="STRING" size="255"/>
+          <Column id="msgCntn" type="STRING" size="255"/>
+          <Column id="auditTrmlId" type="STRING" size="255"/>
+          <Column id="auditId" type="STRING" size="255"/>
+          <Column id="recpCnftYn" type="STRING" size="255"/>
+          <Column id="xRowStatusType" type="STRING" size="255"/>
+          <Column id="msgNm" type="STRING" size="255"/>
+          <Column id="auditDttm" type="STRING" size="255"/>
+          <Column id="dpmsNo" type="STRING" size="255"/>
+          <Column id="recpUserId" type="STRING" size="255"/>
+          <Column id="dpmsOrgzCd" type="STRING" size="255"/>
+          <Column id="recpCnftDttm" type="STRING" size="255"/>
+          <Column id="auditIp" type="STRING" size="255"/>
+          <Column id="_chk" type="STRING" size="255"/>
+          <Column id="dpmsUserNm" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item0" compid="sta_Title" propid="text" datasetid="ds_Output" columnid="msgNm"/>
+      <BindItem id="item1" compid="txa_Contents" propid="value" datasetid="ds_Output" columnid="msgCntn"/>
+      <BindItem id="item3" compid="sta_Sender" propid="text" datasetid="ds_Output" columnid="dpmsUserId"/>
+      <BindItem id="item2" compid="sta_SendDate" propid="text" datasetid="ds_Output" columnid="msgDpmsDttm"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function Comm_ReceiveMessage_onload(obj:Form, e:LoadEventInfo)
+{
+	// 시스템 공통함수 호출
+	gfn_commPopInit(obj, true);
+	
+	fn_Init();	
+}
+
+function fn_Init()
+{
+	// Object 내용 확인
+	//gfn_viewObjectInfo(objMessage);
+	
+	// 메세지 처리
+// 	this.sta_Title.text 	= objMessage.SND_TITLE;
+// 	this.sta_Sender.text 	= objMessage.SND_USER_NM + "(" + objMessage.SND_USER_ID + ")";
+// 	this.sta_SendDate.text 	= gfn_getDateFormat(objMessage.SND_DATE);
+// 	this.txa_Contents.value = objMessage.SND_CONTENTS;
+	
+	// TO-DO : 메세지확인 처리(Transaction 처리)
+	if(objMessage.MSG_KIND == "NT" 				// 공지사항
+		|| objMessage.MSG_KIND == "PM") {		// 쪽지
+		fn_Search();
+	} else if(objMessage.MSG_KIND == "BT") {	// 배치처리 결과
+		fn_ShowMessage();
+	} else if(objMessage.MSG_KIND == "DM") {	// 문서스캔 결과
+		fn_ShowMessage();
+	} else if(objMessage.MSG_KIND == "EX") {	// 기타 APP에서 정의한 구분
+		fn_ShowMessage();
+	}
+}
+
+
+function fn_ShowMessage(){
+
+	ds_Output.clearData();
+	var nRow = ds_Output.addRow();
+	ds_Output.setColumn(nRow,"msgNm", 		objMessage.SND_TITLE);
+	ds_Output.setColumn(nRow,"msgCntn", 	objMessage.SND_CONTENTS);
+	ds_Output.setColumn(nRow,"dpmsUserNm", 	objMessage.SND_USER_NM);
+	ds_Output.setColumn(nRow,"msgDpmsDttm", gfn_getFullDateFormat(objMessage.SND_DATE));
+
+}
+
+// 메세지정보 조회 및 수신확인 처리
+function fn_Search()
+{
+	// Input 정보 설정
+	ds_Input.setColumn(0, "recpUserId", gds_UserInfo.getColumn(0, "userId"));
+	//ds_Input.setColumn(0, "recpUserId", "6000");
+	
+	if(objMessage.MSG_CALL_DIV == "XPUSH") {
+		ds_Input.setColumn(0, "dpmsNo", 	objMessage.DPMS_NO);
+	} else if(objMessage.MSG_CALL_DIV == "MAIN") {
+		ds_Input.setColumn(0, "dpmsNo", 	objMessage.dpmsNo);
+	}
+	
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_trscCode("SYS00002R18");	
+
+	gfn_tranNMCI("PushMessage" 
+				, "ds_Input=ds_Input"
+				, "ds_Output=ds_Output"
+				, "fn_callBack");	
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return false;
+	}
+	
+	ap_BottomFrame.form.fn_setMsgCnt(ds_Output.getColumn(0, "cnftCnt"));
+	
+	//trace(ds_Output.saveXML());
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

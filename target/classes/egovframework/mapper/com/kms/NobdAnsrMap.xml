@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="NobdAnsrMap">
+
+    <sql id="NobdAnsrMap.selectCondition_fragment">
+            <if test="nobd_ansr_id != null and nobd_ansr_id != ''">
+                AND NOBD_ANSR_ID = #{nobd_ansr_id}
+            </if>
+            <if test="nobd_id != null and nobd_id != ''">
+                AND NOBD_ID = #{nobd_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+    </sql>
+
+    <select id="NobdAnsrMap.getNobdAnsrCount" parameterType="map" resultType="int">
+        SELECT /* NobdAnsrMap.getNobdAnsrCount */
+               COUNT(*)
+          FROM TB_NOBD_ANSR_DTL A
+         WHERE DLTN_YN = 'N'
+        <include refid="NobdAnsrMap.selectCondition_fragment" />
+    </select>
+
+    <select id="NobdAnsrMap.getNobdAnsrList" parameterType="map" resultType="resultMap">
+        SELECT /* NobdAnsrMap.getNobdAnsrList */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , (SELECT FILE_ID
+                  FROM TB_FILE
+                 WHERE RLTN_ITEM_ID = C.RGSR_ID) AS FILE_ID
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT NOBD_ANSR_ID, NOBD_ID, NOBD_ANSR_CNTN, CNTR_CD, RGSR_ID
+                             , RGSN_DTTM, AMND_ID, AMNT_DTTM
+                          FROM TB_NOBD_ANSR_DTL A
+                         WHERE DLTN_YN = 'N'
+        <include refid="NobdAnsrMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="NobdAnsrMap.insertNobdAnsr" parameterType="map">
+        <selectKey keyProperty="nobd_ansr_id" resultType="String" order="BEFORE">
+            SELECT 'NBA' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* NobdAnsrMap.insertNobdAnsr */
+                    TB_NOBD_ANSR_DTL
+                    (NOBD_ANSR_ID, NOBD_ID, NOBD_ANSR_CNTN, CNTR_CD, RGSR_ID, DLTN_YN
+                  , RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{nobd_ansr_id}, #{nobd_id}, #{nobd_ansr_cntn}, #{cntr_cd}, #{rgsr_id}, 'N'
+                  , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="NobdAnsrMap.updateNobdAnsr" parameterType="map">
+        UPDATE /* NobdAnsrMap.updateNobdAnsr */
+               TB_NOBD_ANSR_DTL
+           SET NOBD_ANSR_CNTN = #{nobd_ansr_cntn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE NOBD_ANSR_ID = #{nobd_ansr_id}
+    </update>
+
+    <update id="NobdAnsrMap.deleteNobdAnsr" parameterType="map">
+        UPDATE /* NobdAnsrMap.deleteNobdAnsr */
+               TB_NOBD_ANSR_DTL
+           SET DLTN_YN = 'Y'
+         WHERE NOBD_ANSR_ID = #{nobd_ansr_id}
+    </update>
+
+</mapper>

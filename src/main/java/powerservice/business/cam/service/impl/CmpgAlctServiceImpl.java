@@ -1,0 +1,217 @@
+/*
+ * (@)# CmpgAlctServiceImpl.java
+ *
+ * @author 이희철
+ * @version 1.0
+ * @date 2015/04/01
+ * Copyright (c) 2015 by Inwoo tech inc, KOREA. All Rights Reserved.
+ *
+ * http://www.inwoo.co.kr
+ *
+ * NOTICE! This software is the confidential and proprietary
+ * information of
+ * Inwoo Tech Inc. You shall not disclose such Confidential
+ * Information and shall use it only in accordance with the terms
+ * of the license agreement you
+ * entered into with Inwoo Tech Inc.
+ *
+ */
+
+package powerservice.business.cam.service.impl;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Service;
+
+import powerservice.business.cam.service.CmpgAlctService;
+import powerservice.business.cam.service.ExtcMstTrgtService;
+import powerservice.business.cam.service.TrgtCustAlctService;
+import powerservice.business.onln.service.impl.ExtcTrgtDAO;
+import powerservice.core.util.ParamUtils;
+import egovframework.rte.cmmn.ria.xplatform.map.DataSetMap;
+import egovframework.rte.fdl.cmmn.EgovAbstractServiceImpl;
+
+/**
+ * 캠페인할당 관리를 한다.
+ * Copyright (c) 2015 Company Inwoo Tech Inc.
+ *
+ * @author 차건호
+ * @version 1.0
+ * @date 2015/04/30
+ * @프로그램ID CmpgAlct
+ */
+
+@Service
+public class CmpgAlctServiceImpl extends EgovAbstractServiceImpl implements CmpgAlctService {
+
+    @Resource
+    public CmpgAlctDAO cmpgAlctDAO;
+
+    @Resource
+    public ExtcTrgtDAO extcTrgtDAO;
+
+    @Resource
+    public ExtcMstTrgtService extcMstTrgtService;
+
+    @Resource
+    private TrgtCustAlctService trgtCustAlctService;
+
+    @Resource
+    public TrgtCustDAO trgtCustDAO;
+
+    /**
+     * 캠페인할당 정보의 검색 수를 반환한다. 사용
+     *
+     * @param pmParam 검색 조건
+     * @return 캠페인할당 정보의 검색 수
+     * @throws Exception
+     */
+    public int getCmpgAlctCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer)cmpgAlctDAO.getCmpgAlctCount(pmParam);
+    }
+
+    /**
+     * 캠페인할당 정보를 검색한다. 사용
+     *
+     * @param pmParam 검색 조건
+     * @return 캠페인할당 리스트
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getCmpgAlctList(Map<String, ?> pmParam) throws Exception {
+        return cmpgAlctDAO.getCmpgAlctList(pmParam);
+    }
+
+    /**
+     * 나에게 할당된 캠페인조회.
+     *
+     * @param pmParam 검색 조건
+     * @return 캠페인할당 리스트
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getMainCmpgAlctList(Map<String, ?> pmParam) throws Exception {
+        return cmpgAlctDAO.getMainCmpgAlctList(pmParam);
+    }
+
+    /**
+     * 캠페인할당 정보를 등록한다.(ajax) !
+     *
+     * @param pmParam 캠페인할당 정보
+     * @throws Exception
+     */
+    public int insertCmpgAlct(DataSetMap dsMap, Map<String, ?> pmParam) throws Exception {
+        int nResult = 0;
+        for(int i =0; dsMap.size() > i; i++){
+            Map hmParam = dsMap.get(i);
+            hmParam.putAll(pmParam);
+            hmParam.put("cnsr_id",hmParam.get("user_id"));
+            nResult += cmpgAlctDAO.insertCmpgAlct(hmParam);
+        }
+        return nResult;
+    }
+
+    /**
+     * 캠페인할당 정보를 캠페인ID 기준으로 삭제한다.
+     *
+     * @param pmParamHash 캠페인할당 정보
+     * @throws Exception
+     */
+    public int deleteCmpgAlctbyCmpgId(HashMap<String, Object> pmParamHash) throws Exception {
+        return cmpgAlctDAO.deleteCmpgAlctbyCmpgId(pmParamHash);
+    }
+
+    /**
+     * 캠페인할당 정보를 삭제한다. !>>>>
+     *
+     * @param pmParam 캠페인할당 정보
+     * @throws Exception
+     */
+    public int deleteCmpgAlct(Map<String, Object> pmParam) throws Exception {
+
+        int nErrCnt = 0;
+
+        String[] sUserIds = StringUtils.defaultString((String) pmParam.get("selectcheck")).split(",");
+        String sCmpgId = StringUtils.defaultString((String) pmParam.get("cmpg_id"));
+        String sTrgtListId =StringUtils.defaultString((String) pmParam.get("trgt_list_id"));
+
+        String sCmpgDivCd = StringUtils.defaultString((String)pmParam.get("cmpg_div_cd"));
+        String sCmpgTypCd = StringUtils.defaultString((String)pmParam.get("cmpg_typ_cd"));
+
+        ParamUtils.addCenterParam(pmParam);
+        ParamUtils.addSaveParam(pmParam);
+
+        for (String user_id : sUserIds) {
+
+            pmParam.put("user_id", user_id);
+
+            int nCnt = trgtCustAlctService.getTrgtCustAlctCount(pmParam);
+
+            if (nCnt == 0) {
+                if(sCmpgId.equals(sTrgtListId) || "CMP202102268151057".equals(sCmpgId) || "CMP202105119262676".equals(sCmpgId) || "CMP202202223900655".equals(sCmpgId) 
+                		|| "CMP202202223900650".equals(sCmpgId) || "CMP202207135923265".equals(sCmpgId) || "CMP202207286104304".equals(sCmpgId)){
+                    pmParam.put("cnsr_id", user_id);
+                    List<Map<String, Object>> mOnlineIds = trgtCustDAO.onlineId(pmParam);
+                    for (Map<String, Object> trgt : mOnlineIds) {
+                        if("TAR99999999999999".equals(sCmpgId) || "CMP202202223900655".equals(sCmpgId) || "CMP202202223900650".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "SMART");
+                        }else if("TAR99999999999998".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "LGB2B");
+                        }else if("TAR99999999999997".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "DAEKYO");
+                        }else if("TAR99999999999996".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "GSSUPER");
+
+                        // 추가생성
+                        }else if("TAR99999999999995".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "LGU");
+                        }else if("TAR99999999999994".equals(sCmpgId)){
+                            //pmParam.put("b2b_stts", "GSSUPER");  //변경 >>>
+                        }else if("TAR99999999999993".equals(sCmpgId)){
+                            //pmParam.put("b2b_stts", "GSSUPER");  //변경 >>>
+                        }else if("TAR99999999999992".equals(sCmpgId)){
+                            //pmParam.put("b2b_stts", "GSSUPER");  //변경 >>>
+                        }else if("TAR99999999999991".equals(sCmpgId)){
+                            //pmParam.put("b2b_stts", "GSSUPER");  //변경 >>>
+                        }else if("CMP202102268151057".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "LGU");
+                        }else if("CMP202105119262676".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "LGB2B");
+                        }else if("CMP202207135923265".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "DLIVE");
+                        }else if("CMP202207286104304".equals(sCmpgId)){
+                            pmParam.put("b2b_stts", "CUCKOO");
+                        }
+
+                        pmParam.put("osc_cnsl_seq", trgt.get("prmv_id"));
+                        pmParam.put("call_stts", "할당대기");
+
+                        // 온라인 상담사 등록 처리상태 변경
+                        extcTrgtDAO.updateOnlineStatAlct(pmParam);
+                    }
+                }
+
+                if(sCmpgDivCd.equals("2000") || sCmpgDivCd.equals("3000")){ //미납
+                    if(sCmpgTypCd.equals("2100")||sCmpgTypCd.equals("2200")||sCmpgTypCd.equals("2300")||sCmpgTypCd.equals("2400")
+                            ||sCmpgTypCd.equals("3100")||sCmpgTypCd.equals("3200")||sCmpgTypCd.equals("3400")){
+                        pmParam.put("del_cnsr_id", user_id);
+                        pmParam.put("updateOption", "alct_d");
+                        pmParam.put("alct_yn", "N");
+
+                        extcMstTrgtService.updateUnpy(pmParam);
+                    }
+                }
+                cmpgAlctDAO.deleteCmpgAlct(pmParam);
+            } else {
+                nErrCnt++;
+            }
+        }
+
+
+        return  nErrCnt;
+    }
+
+}

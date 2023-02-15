@@ -1,0 +1,192 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL410406_02" classname="DL460603_01" inheritanceid="" position="absolute 0 0 600 119" titletext="이니시스매입업로드" onload="DL410406_02_onload" style="font:arial,11,bold;">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 600 119"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 572 8 592 27"/>
+        <Static id="stc_30" text="이니시스 매입 업로드" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 490 28"/>
+        <Static id="stc_23" class="sta_workSrcBg" position2="absolute l:10 r:10 t:46 h:37" positiontype="position2"/>
+        <Static id="stc_22" text="승인일" class="sta_workSrcLabel1" position="absolute 26 57 87 75"/>
+        <Button id="btn_Search01" taborder="3" onclick="btn_Search_onclick" class="btn_WF_Search" position2="absolute r:95 w:72 t:53 h:20" positiontype="position2" tooltiptext="조회" style="shadow:drop 0,0 0 #00000033;"/>
+        <Button id="btn_Upload" taborder="4" position2="absolute r:21 w:72 t:53 h:20" positiontype="position2" tooltiptext="초기화" text="가져오기" onclick="btn_Upload_onclick"/>
+        <Calendar id="cal_selDay" taborder="5" displaynulltext="____-__-__" dateformat="yyyy-MM-dd" position2="absolute l:76 w:89 t:56 h:20" positiontype="position2" onchanged="cal_selDay_onchanged"/>
+        <Static id="stc_02" text="이니시스 업로드" visible="true" position2="absolute l:20 w:570 t:92 h:20" positiontype="position2" style="color:red;font:arial,9,bold;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_file_recv" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="256"/>
+          <Column id="file_name" type="STRING" size="256"/>
+          <Column id="count" type="STRING" size="256"/>
+          <Column id="date" type="STRING" size="256"/>
+          <Column id="calc_yn" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item1" compid="cal_selDay" propid="value" datasetid="ds_cmpg" columnid="cmpg_stt_dt"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+var stt_dt;
+
+var resultCnt = 0;
+var result_Cd = "";
+var result_Msg = "";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function DL410406_02_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	
+	var sToday = gfn_getToday();
+	cal_selDay.value = sToday;	
+	
+	fn_commSearch("recvfilelist",""); // 조회
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd < 0) 
+	{
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+			case "recvfilelist" :				
+				if(resultCnt > 0){
+					btn_Upload.enable = false;	
+					stc_02.text = "이미 업로드된 매입데이터가 존재 합니다.!!"
+					return false;
+				} else  {
+					btn_Upload.enable = true;	
+					stc_02.text = "최초 등록입니다(가져오기 가능)"
+				}
+			break;
+			
+			case "insertAcquResultData" :
+				if(result_Cd =="00"){
+					alert("정상적으로 업로드 하였습니다.");
+					btn_Upload.enable = false;	
+					return;
+				} else {
+					alert("정상적으로 업로드하지 못하였습니다.(" + result_Msg + ")");
+					return;
+				}
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//  조회
+function fn_commSearch(searchInfo, param) 
+{
+   	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+
+    switch(searchInfo){
+		case "recvfilelist" :				
+			szSvcid       = "recvfilelist";
+			szController  = "/req/reqCust/InicisResultCnt";
+			szInDs        = "";
+			szOutDs       = "ds_file_recv=ds_output";
+			szParam       = "stt_dt=" + cal_selDay.value;
+			szRetCallback = "fn_callBack";
+		break;
+	}
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+function fn_commSave(saveInfo, param)
+{
+	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(saveInfo) {
+		case "insertAcquResultData" :			
+			szSvcid       = "insertAcquResultData";
+			szController  = "/req/reqCust/InicisResultUpload";
+			szInDs        = "";
+			szOutDs       = "ds_file_recv=ds_output";
+			szParam       = "stt_dt=" + cal_selDay.value;
+			szRetCallback = "fn_callBack";
+		break;
+	}
+	// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch("recvfilelist",""); // 조회
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close("1");
+}
+
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	div_monthCal.setDate("");
+	ds_file_recv.clearData();
+}
+
+function btn_Upload_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSave("insertAcquResultData","");
+}
+
+function cal_selDay_onchanged(obj:Calendar, e:ChangeEventInfo)
+{
+	fn_commSearch("recvfilelist",""); // 조회
+}
+]]></Script>
+  </Form>
+</FDL>

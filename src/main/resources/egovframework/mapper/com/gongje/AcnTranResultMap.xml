@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+
+
+
+<mapper namespace="AcnTranResultMap">
+
+<!-- 전송월로 검색한 처리구분 검색결과 count  -->
+
+    <select id="AcnTranResultMap.getTranResulCount" parameterType="map" resultType="int">
+     SELECT /* AcnTranResultMap.getTranResulCount */
+             COUNT(*)
+     FROM MEM_SEND_AC
+     GROUP BY  JDATE,GUBUN
+     </select>
+
+
+<!-- 전송월로 검색한 처리구분 검색결과 list  -->
+    <select id="AcnTranResultMap.getTranResultList" parameterType="map" resultType="resultMap" timeout="5">
+     SELECT /* AcnTranResultMap.getTranResultList */
+             JDATE
+             ,GDATE
+          , GUBUN
+       FROM MEM_SEND_AC
+     WHERE JDATE LIKE CONCAT(SUBSTR(#{j_yy_mm},1,6), '%')
+     GROUP BY  JDATE,GUBUN,GDATE
+    </select>
+
+<!-- 전송월로 검색한 처리구분 검색결과 list  -->
+    <select id="AcnTranResultMap.getTranResultListSunab" parameterType="map" resultType="resultMap" timeout="5">
+     SELECT /* AcnTranResultMap.getTranResultListSunab */
+             JDATE
+          , GUBUN
+       FROM MEMBER_IPSEND_AC
+     WHERE JDATE LIKE CONCAT(substr(#{j_yy_mm},1,6), '%')
+     GROUP BY  JDATE,GUBUN
+    </select>
+
+<!-- [ [메인산출 탭] ] 검색결과 list  -->
+        <select id="AcnTranResultMap.getTranMonResultList" parameterType="map" resultType="resultMap" timeout="5">
+
+
+                SELECT /* AcnTranResultMap.getTranMonResultList */
+                       ROW_NUMBER() OVER(order by cnt ) AS SEQ
+                        ,MEM_SEND_AC.JDATE
+                        ,MEM_SEND_AC.GDATE
+                           ,MEM_SEND_AC.CNT
+                          ,MEM_SEND_AC.ACCNT_NO
+                        ,MEM_SEND_AC.GUBUN
+                        ,MEM_SEND_AC.KYDATE
+                           ,MEM_SEND_AC.GGUBUN
+                           ,MEM_SEND_AC.CTEL
+                           ,MEM_SEND_AC.CPOST
+                           ,MEM_SEND_AC.CADDR1
+                           ,MEM_SEND_AC.CADDR2
+                           ,MEM_SEND_AC.CADDRGUBUN
+                           ,MEM_SEND_AC.PCHANNEL
+                           ,MEM_SEND_AC.BDATE
+                           ,MEM_SEND_AC.BCNT
+                           ,MEM_SEND_AC.JCODE
+                           ,MEM_SEND_AC.PCODE
+                           ,MEM_SEND_AC.MODELNAME
+                           ,MEM_SEND_AC.KMODELNAME
+                           ,NVL(MEM_SEND_AC.HAL_AMT,0) as HAL_AMT
+                           ,NVL(MEM_SEND_AC.HAL_CNT,0) as HAL_CNT
+                           ,MEM_SEND_AC.HAL_FDATE
+                           ,MEM_SEND_AC.HAL_EDATE
+                           ,MEM_SEND_AC.CDATE
+                           ,MEM_SEND_AC.HAEJI_DATE
+                           ,MEM_SEND_AC.HBIGO
+                           ,NVL(MEM_SEND_AC.HAL_SUSU,0) as HAL_SUSU
+                           ,MEM_SEND_AC.KDAY
+                           ,MEM_SEND_AC.KBANK
+                           ,NVL(MEM_SEND_AC.KBNO ,0)as   KBNO
+                           ,MEM_SEND_AC.M_YN
+                           ,MEM_SEND_AC.M_YN1
+                           ,MEM_SEND_AC.M_YN2
+                           ,MEM_SEND_AC.M_YN3
+                           ,MEM_SEND_AC.M_YN4
+                           ,MEM_SEND_AC.M_YN5
+                           ,MEM_SEND_AC.M_YN6
+                           ,MEM_SEND_AC.M_YN7
+                           ,MEM_SEND_AC.M_YN8
+                           ,MEM_SEND_AC.M_YN9
+                           ,MEM_SEND_AC.M_YN10
+                           ,MEM_SEND_AC.NICE_JDDATE
+                           ,MEM_SEND_AC.NICE_JGUBUN
+                           ,MEM_SEND_AC.NICE_JDATE
+                           ,MEM_SEND_AC.NICE_CB
+                           ,MEM_SEND_AC.NICE_SP
+                           ,MEM_SEND_AC.NICE_SAFEKEY
+                           ,NVL(MEM_SEND_AC.NICE_NCNT,0) as NICE_NCNT
+                           ,MEM_SEND_AC.NICE_YN
+                           ,MEM_SEND_AC.GS_YN1
+                           ,MEM_SEND_AC.GS_YN2
+                           ,MEM_SEND_AC.GS_YN3
+                           ,NVL(MEM_SEND_AC.NAPBU_GCNT,0) as NAPBU_GCNT
+                           ,MEM_SEND_AC.MEM_KDAY
+                           ,MEM_SEND_AC.MINAP
+                           ,MEM_SEND_AC.YEOUNCHE
+                           ,MEM_SEND_AC.HAL_SILAMT
+                           ,MEM_SEND_AC.HAL_GUBUN
+                           ,MEM_SEND_AC.HAL_REJECT
+                           ,REPLACE(MEMBER.MEM_NM,' ','')as MEM_NM
+                           ,MEMBER.MEM_NO
+                           ,SUBSTR(MEMBER.BRTH_MON_DAY,-6) || SUBSTR(SEX,-1)  AS BRTH_MON_DAY
+                           ,CC.CD_NM
+                           ,CASE WHEN hal_reject ='Q720000' THEN HAL_AMT ELSE 0 END  AS YAMT
+                           ,CASE WHEN  hal_reject ='Q720000' THEN  0 ELSE (case when hal_reject is null then 0 else  HAL_AMT end) END  AS NAMT
+                  FROM MEM_SEND_AC
+                       LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEM_SEND_AC.ACCNT_NO =MPA.ACCNT_NO
+                       LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+                       LEFT OUTER JOIN  COM_CD CC  ON  CC.GRP_CD='S007' AND  SUBSTR(REPLACE(MEM_SEND_AC.HAL_REJECT,' ',''),-4) = CC.COM_CD
+                 WHERE JDATE = #{j_date}
+                   <if test="j_gubun != null and j_gubun != ''">
+                       <if test = 'j_gubun =="Y"' >
+                          AND  replace(hal_reject,' ','') ='Q720000'
+                       </if>
+                       <if test = 'j_gubun =="N"' >
+                          AND  replace( nvl(hal_reject,'99'),' ','') not in ('Q720000','99')
+                       </if>
+                   </if>
+                   <if test="j_ggubun != null and j_ggubun != ''">
+                       AND MEM_SEND_AC.GGUBUN = #{j_ggubun}
+                   </if>
+    </select>
+
+
+    <!-- 메인 변환 -->
+    <update id="AcnTranResultMap.convertTranMonMainResult" parameterType="map">
+        BEGIN
+         <foreach item="item" index="index" collection="list" open="" separator=";" close=";">
+        UPDATE  MEM_SEND_AC
+           SET HAL_REJECT = trim(#{item.hal_reject})
+             , GUBUN = '3'
+         WHERE GDATE	=  trim(#{item.gdate})
+            AND ACCNT_NO	=  trim(#{item.accnt_no})
+            AND GUBUN  <![CDATA[ <  ]]> '4'
+        </foreach>
+        END ;
+
+
+     <!--   <foreach item="item" index="index" collection="list" open="" separator="" close=";">
+        UPDATE /* AcnTranResultMap.convertTranMonMainResult */
+               MEM_SEND_AC
+           SET HAL_REJECT = '33'
+             , GUBUN = '3'
+         WHERE GDATE	= '33'
+            AND ACCNT_NO	= '33'
+        </foreach> -->
+    </update>
+
+    <!-- 메인 결과처리 -->
+    <update id="AcnTranResultMap.processTranMonMainResult" parameterType="map">
+        {CALL SINIT_ACUON_SEND_RESULT(#{jdate})}
+    </update>
+    
+    
+    <!-- 연체회차 리스트  -->
+        <select id="AcnTranResultMap.getacoyencheResultList" parameterType="map" resultType="resultMap" timeout="5">
+
+
+                 SELECT  /* AcnTranResultMap.getacoyencheResultList */
+                            ROW_NUMBER() OVER(order by cnt ) AS SEQ
+                        ,MEM_KWN_AC_YENCHE_HIST.JDATE
+                        ,MEM_KWN_AC_YENCHE_HIST.GDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.CNT
+                          ,MEM_KWN_AC_YENCHE_HIST.ACCNT_NO
+                        ,case when MEM_KWN_AC_YENCHE_HIST.GUBUN ='1' then '생성'
+                              when MEM_KWN_AC_YENCHE_HIST.GUBUN ='2' then '전송'
+                              when MEM_KWN_AC_YENCHE_HIST.GUBUN ='3' then '결과처리'
+                              when MEM_KWN_AC_YENCHE_HIST.GUBUN ='4' then '완료'
+                              else '' end as GUBUN
+                        ,MEM_KWN_AC_YENCHE_HIST.KYDATE
+                           , MEM_KWN_AC_YENCHE_HIST.GGUBUN
+                           ,MEM_KWN_AC_YENCHE_HIST.CTEL
+                           ,MEM_KWN_AC_YENCHE_HIST.CPOST
+                           ,MEM_KWN_AC_YENCHE_HIST.CADDR1
+                           ,MEM_KWN_AC_YENCHE_HIST.CADDR2
+                        ,MEM_KWN_AC_YENCHE_HIST.CADDRGUBUN
+                           ,MEM_KWN_AC_YENCHE_HIST.PCHANNEL
+                          ,MEM_KWN_AC_YENCHE_HIST.BDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.BCNT
+                           ,MEM_KWN_AC_YENCHE_HIST.JCODE
+                           ,MEM_KWN_AC_YENCHE_HIST.PCODE
+                           ,MEM_KWN_AC_YENCHE_HIST.MODELNAME
+                           ,MEM_KWN_AC_YENCHE_HIST.KMODELNAME
+                           ,nvl(MEM_KWN_AC_YENCHE_HIST.HAL_AMT,0) as HAL_AMT
+                           ,nvl(MEM_KWN_AC_YENCHE_HIST.HAL_CNT,0) as HAL_CNT
+                           ,MEM_KWN_AC_YENCHE_HIST.HAL_FDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.HAL_EDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.CDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.HAEJI_DATE
+                           ,MEM_KWN_AC_YENCHE_HIST.HBIGO
+                           ,nvl(MEM_KWN_AC_YENCHE_HIST.HAL_SUSU,0) as HAL_SUSU
+                           ,MEM_KWN_AC_YENCHE_HIST.KDAY
+                           ,MEM_KWN_AC_YENCHE_HIST.KBANK
+                           ,nvl(MEM_KWN_AC_YENCHE_HIST.KBNO ,0)as   KBNO
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN1
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN2
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN3
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN4
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN5
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN6
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN7
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN8
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN9
+                           ,MEM_KWN_AC_YENCHE_HIST.M_YN10
+                           ,MEM_KWN_AC_YENCHE_HIST.NICE_JDDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.NICE_JGUBUN
+                           ,MEM_KWN_AC_YENCHE_HIST.NICE_JDATE
+                           ,MEM_KWN_AC_YENCHE_HIST.NICE_CB
+                          , MEM_KWN_AC_YENCHE_HIST.NICE_SP
+                           ,MEM_KWN_AC_YENCHE_HIST.NICE_SAFEKEY
+                          , nvl(MEM_KWN_AC_YENCHE_HIST.NICE_NCNT,0) as NICE_NCNT
+                           ,MEM_KWN_AC_YENCHE_HIST.NICE_YN
+                           ,MEM_KWN_AC_YENCHE_HIST.GS_YN1
+                           ,MEM_KWN_AC_YENCHE_HIST.GS_YN2
+                           ,MEM_KWN_AC_YENCHE_HIST.GS_YN3
+                           ,nvl(MEM_KWN_AC_YENCHE_HIST.NAPBU_GCNT,0) as NAPBU_GCNT
+                           ,MEM_KWN_AC_YENCHE_HIST.MEM_KDAY
+                           ,NVL(MEM_KWN_AC_YENCHE_HIST.MINAP,0) MINAP
+                           ,NVL(MEM_KWN_AC_YENCHE_HIST.YEOUNCHE,0) YEOUNCHE
+                           ,MEM_KWN_AC_YENCHE_HIST.HAL_SILAMT
+                           ,MEM_KWN_AC_YENCHE_HIST.HAL_GUBUN
+                           ,replace(MEM_KWN_AC_YENCHE_HIST.HAL_REJECT,' ','') HAL_REJECT
+                           ,REPLACE(MEMBER.MEM_NM,' ','')as MEM_NM
+                           ,MEMBER.MEM_NO
+                           ,substr(MEMBER.BRTH_MON_DAY,-6) || substr(SEX,-1)  AS BRTH_MON_DAY
+                           ,MEM_KWN_AC_YENCHE_HIST.CAMT
+                           ,MEM_KWN_AC_YENCHE_HIST.SUAMT
+                           ,MEM_KWN_AC_YENCHE_HIST.CSUAMT
+                           ,MEM_KWN_AC_YENCHE_HIST.IP_DATE
+                           ,MEM_KWN_AC_YENCHE_HIST.IP_AMT
+                           ,MEM_KWN_AC_YENCHE_HIST.IP_NO
+                           ,CC.CD_NM
+						   ,YENCHE_DATE
+                           ,YEN_CHE YENCHE
+                  FROM MEM_KWN_AC_YENCHE_HIST
+                        LEFT OUTER JOIN  MEM_PROD_ACCNT MPA ON MEM_KWN_AC_YENCHE_HIST.ACCNT_NO =MPA.ACCNT_NO
+                        LEFT OUTER JOIN  MEMBER ON MPA.MEM_NO =MEMBER.MEM_NO
+                        LEFT OUTER JOIN  COM_CD CC  ON  CC.GRP_CD='S007' AND  SUBSTR(REPLACE(MEM_KWN_AC_YENCHE_HIST.HAL_REJECT,' ',''),-4) = CC.COM_CD
+
+                  where 1 = 1
+                   	 AND  YENCHE_DATE = #{j_date} 
+                   	 AND  YEN_CHE     = ${j_yenche} 
+    </select>
+
+</mapper>
+

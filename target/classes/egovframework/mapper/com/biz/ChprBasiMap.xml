@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ChprBasiMap">
+    <!-- 담당자 검색 조건 -->
+    <sql id="ChprBasiMap.selectCondition_fragment">
+        <where>
+            <if test="chpr_id != null and chpr_id != ''">
+                AND CHPR_ID = #{chpr_id}
+            </if>
+            <if test="chpr_nm != null and chpr_nm != ''">
+                AND CHPR_NM LIKE '%' || #{chpr_nm} || '%'
+            </if>
+            <if test="comp_conm_nm != null and comp_conm_nm != ''">
+                AND COMP_CONM_NM LIKE '%' || #{comp_conm_nm} || '%'
+            </if>
+            <if test="comp_id != null and comp_id != ''">
+                AND A.COMP_ID  = #{comp_id}
+            </if>
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'comp_conm_nm'">
+                    AND COMP_CONM_NM LIKE '%' || #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'chpr_nm'">
+                    AND CHPR_NM LIKE '%' || #{searchValue} || '%'
+                </if>
+             </if>
+        </where>
+    </sql>
+    <!-- //END -담당자 검색 조건 -->
+
+
+
+    <!-- 담당자 팝업 검색 조건 -->
+    <sql id="ChprBasiMap.popSelectCondition_fragment">
+        WHERE D.USE_YN = 'Y'
+            <if test="chpr_id != null and chpr_id != ''">
+                AND CHPR_ID = #{chpr_id}
+            </if>
+            <if test="chpr_nm != null and chpr_nm != ''">
+                AND CHPR_NM LIKE '%' || #{chpr_nm} || '%'
+            </if>
+            <if test="comp_conm_nm != null and comp_conm_nm != ''">
+                AND COMP_CONM_NM LIKE '%' || #{comp_conm_nm} || '%'
+            </if>
+            <if test="comp_id != null and comp_id != ''">
+                AND A.COMP_ID  = #{comp_id}
+            </if>
+    </sql>
+    <!-- //END -담당자 팝업 검색 조건 -->
+
+
+
+
+    <!-- 담당자 건수 조회 -->
+    <select id="ChprBasiMap.getChprBasiPopupCount" parameterType="map" resultType="int">
+        SELECT /* ChprBasiMap.getChprBasiCount */
+               COUNT(*)
+          FROM TB_CHPR_BASI A JOIN TB_COMP_BASI D
+            ON (A.COMP_ID = D.COMP_ID)
+         <include refid="ChprBasiMap.popSelectCondition_fragment" />
+    </select>
+    <!-- //END - 담당자 건수 조회 -->
+
+    <!-- 담당자 목록 조회 -->
+    <select id="ChprBasiMap.getChprBasiPopupList" parameterType="map" resultType="resultMap">
+      SELECT /* ChprBasiMap.getChprBasiList */
+            C.*
+        FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                FROM (SELECT A.CHPR_ID
+                            ,A.COMP_ID
+                            ,A.CHPR_NM
+                            ,A.CHPR_BLNG_TEAM_NM
+                            ,A.CHPR_PSTN_NM
+                            ,A.TLNO,CLPH_NO
+                            ,A.FAX_NO
+                            ,A.EMIL_ADDR
+                            ,A.CHPR_EXPI_CNTN
+                            ,A.CNTR_CD
+                            ,A.RGSR_ID
+                            ,A.RGSN_DTTM
+                            ,A.AMND_ID,A.AMNT_DTTM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                            ,D.COMP_CONM_NM,D.RPPR_NM
+                        FROM TB_CHPR_BASI A JOIN TB_COMP_BASI D ON A.COMP_ID = D.COMP_ID
+        <include refid="ChprBasiMap.popSelectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                       ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    ) B
+                   )C
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+               WHERE PAGE_INDX >= #{startLine}
+                 AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- //  담당자 목록 조회 --> <!-- 담당자 건수 조회 -->
+    <select id="ChprBasiMap.getChprBasiCount" parameterType="map" resultType="int">
+        SELECT /* ChprBasiMap.getChprBasiCount */
+               COUNT(*)
+          FROM TB_CHPR_BASI A JOIN TB_COMP_BASI D
+            ON (A.COMP_ID = D.COMP_ID)
+         <include refid="ChprBasiMap.selectCondition_fragment" />
+    </select>
+    <!-- //END - 담당자 건수 조회 -->
+
+    <!-- 담당자 목록 조회 -->
+    <select id="ChprBasiMap.getChprBasiList" parameterType="map" resultType="resultMap">
+      SELECT /* ChprBasiMap.getChprBasiList */
+            C.*
+        FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                FROM (SELECT A.CHPR_ID
+                            ,A.COMP_ID
+                            ,A.CHPR_NM
+                            ,A.CHPR_BLNG_TEAM_NM
+                            ,A.CHPR_PSTN_NM
+                            ,A.TLNO,CLPH_NO
+                            ,A.FAX_NO
+                            ,A.EMIL_ADDR
+                            ,A.CHPR_EXPI_CNTN
+                            ,A.CNTR_CD
+                            ,A.RGSR_ID
+                            ,A.RGSN_DTTM
+                            ,A.AMND_ID,A.AMNT_DTTM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                            ,D.COMP_CONM_NM,D.RPPR_NM
+                        FROM TB_CHPR_BASI A JOIN TB_COMP_BASI D ON A.COMP_ID = D.COMP_ID
+        <include refid="ChprBasiMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                       ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    ) B
+                   )C
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+               WHERE PAGE_INDX >= #{startLine}
+                 AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- //  담당자 목록 조회 -->
+
+
+      <!-- 담당자 등록 -->
+    <insert id="ChprBasiMap.insertChprBasi">
+    <selectKey keyProperty="chpr_id" resultType="String" order="BEFORE">
+        SELECT 'CHPR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+    </selectKey>
+        INSERT /* ChprBasiMap.insertChprBasi */
+          INTO  TB_CHPR_BASI
+               (CHPR_ID
+                ,COMP_ID
+                ,CHPR_NM
+                ,CHPR_BLNG_TEAM_NM
+                ,CHPR_PSTN_NM
+                ,TLNO
+                ,CLPH_NO
+                ,FAX_NO
+                ,EMIL_ADDR
+                ,CHPR_EXPI_CNTN
+                ,CNTR_CD
+                ,RGSR_ID
+                ,RGSN_DTTM
+                ,AMND_ID
+                ,AMNT_DTTM)
+        VALUES (#{chpr_id}
+                ,#{comp_id}
+                ,#{chpr_nm}
+                ,#{chpr_blng_team_nm}
+                ,#{chpr_pstn_nm}
+                ,REPLACE(#{tlno},'-','')
+                ,REPLACE(#{clph_no},'-','')
+                ,REPLACE(#{fax_no},'-','')
+                ,#{emil_addr}
+                ,#{chpr_expi_cntn}
+                ,#{cntr_cd}
+                ,#{rgsr_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                ,#{amnd_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // -담당자 등록 -->
+
+
+    <!-- 담당자 수정 -->
+    <update id="ChprBasiMap.updateChprBasi" parameterType="map">
+        UPDATE /* ChprBasiMap.updateChprBasi */
+                TB_CHPR_BASI
+           SET COMP_ID = #{comp_id}
+               , TLNO= REPLACE(#{tlno},'-','')
+               , CHPR_NM = #{chpr_nm}
+               , CHPR_BLNG_TEAM_NM = #{chpr_blng_team_nm}
+               , CHPR_PSTN_NM = #{chpr_pstn_nm}
+               , CLPH_NO =REPLACE(#{clph_no},'-','')
+               , EMIL_ADDR = #{emil_addr}
+               , CHPR_EXPI_CNTN = #{chpr_expi_cntn}
+               , AMND_ID = #{amnd_id}
+               , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE CHPR_ID = #{chpr_id}
+    </update>
+    <!-- // -담당자 수정 -->
+
+</mapper>

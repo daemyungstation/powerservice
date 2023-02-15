@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwAccntRecordMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20200731
+     * 이름 : 송준빈
+     * 추가내용 : 고객 녹취파일 업로드 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_RECORD
+     * ================================================================
+     * -->
+    <select id="DlwAccntRecordMap.getFileUploadList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwAccntRecordMap.getFileUploadList */
+        	'' AS CHK,
+            MAR.ACCNT_NO,
+            MB.MEM_NM,
+            MB.CELL,
+            MAR.RECORT_DT,
+            MAR.RECORD_SEQ,
+            MAR.RECORD_SRC,
+            MAR.RECORD_MEMO,
+            MAR.REG_DM,
+            '' AS LISTEN_REC,
+            '' AS DOWNLOAD_REC
+        FROM LF_DMUSER.TB_MEM_ACCNT_RECORD MAR INNER JOIN
+            LF_DMUSER.MEM_PROD_ACCNT MPA ON MAR.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+        WHERE 1=1
+        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+            AND MAR.RECORT_DT BETWEEN #{stt_dt} AND #{end_dt}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND MAR.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="record_seq != null and record_seq != ''">
+            AND MAR.RECORD_SEQ = #{record_seq}
+        </if>
+        ORDER BY MAR.RECORT_DT, MAR.ACCNT_NO
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200731
+     * 이름 : 송준빈
+     * 추가내용 : 고객 녹취파일 삭제
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_RECORD
+     * ================================================================
+     * -->
+    <delete id="DlwAccntRecordMap.deleteUploadRecData" parameterType="map">
+        /* DlwAccntRecordMap.deleteUploadRecData */
+        DELETE FROM LF_DMUSER.TB_MEM_ACCNT_RECORD
+        WHERE 1=1
+        AND ACCNT_NO = #{accnt_no}
+		AND RECORT_DT = #{recort_dt}
+		AND RECORD_SEQ = #{record_seq}
+    </delete>
+    
+    <!-- ================================================================
+     * 날짜 : 20200731
+     * 이름 : 송준빈
+     * 추가내용 : 고객 녹취파일 업로드 권한 확인
+     * 대상 테이블 : LF_DMUSER.EMPLOYEE
+     * ================================================================
+     * -->
+    <select id="DlwAccntRecordMap.getUploadAuthConfirm" parameterType="map" resultType="String">
+        SELECT /* DlwAccntRecordMap.getUploadAuthConfirm */
+            NVL(HSF_UPLOAD_AUTH_YN, 'N')
+        FROM EMPLOYEE
+        WHERE 1=1
+        AND EMPLE_NO = #{emple_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200731
+     * 이름 : 송준빈
+     * 추가내용 : 고객 녹취파일 업로드 중복여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_RECORD
+     * ================================================================
+     * -->
+    <select id="DlwAccntRecordMap.getRecFileDuplicateConfirm" parameterType="map" resultType="int">
+        SELECT /* DlwAccntRecordMap.getRecFileDuplicateConfirm */
+        	COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_MEM_ACCNT_RECORD MAR
+        WHERE 1=1 
+        AND MAR.ACCNT_NO = #{accnt_no}
+        AND MAR.RECORD_SEQ = #{record_seq}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200731
+     * 이름 : 송준빈
+     * 추가내용 : 고객 녹취파일 업로드 정보 인서트
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_RECORD
+     * ================================================================
+     * -->
+    <insert id="DlwAccntRecordMap.insertRecUploadFile" parameterType="map">
+        /* DlwAccntRecordMap.insertRecUploadFile */
+        INSERT INTO LF_DMUSER.TB_MEM_ACCNT_RECORD(ACCNT_NO, RECORT_DT, RECORD_SRC, RECORD_SEQ, RECORD_MEMO, REG_DM)
+        VALUES(#{accnt_no}, #{recort_dt}, #{record_src}, #{record_seq}, #{record_memo}, SYSDATE)
+    </insert>
+</mapper>

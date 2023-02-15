@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvltAckdDtlMap">
+
+    <sql id="EvltAckdDtlMap.selectCondition_fragment">
+        <if test="evlt_plan_id != null and evlt_plan_id != ''">
+            AND C.EVLT_PLAN_ID = #{evlt_plan_id}
+        </if>
+        <if test="evlt_ackd_stat_cd != null and evlt_ackd_stat_cd != ''">
+            AND A.EVLT_ACKD_STAT_CD = #{evlt_ackd_stat_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+    </sql>
+
+    <select id="EvltAckdDtlMap.getEvltAckdDtlCount" parameterType="map" resultType="int">
+        SELECT /* EvltAckdDtlMap.getEvltAckdDtlCount */
+               COUNT(*)
+          FROM TB_EVLT_ACKD_DTL A
+             , TB_EVLT_RESL_DTL B
+             , TB_EVLT_PLAN C
+         WHERE A.EVLT_RESL_ID = B.EVLT_RESL_ID
+           AND B.EVLT_PLAN_ID = C.EVLT_PLAN_ID
+           AND B.EVLP_ID = #{evlp_id}
+           AND C.EVLT_PRGR_STAT_CD = '30'
+        <include refid="EvltAckdDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EvltAckdDtlMap.getEvltAckdDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltAckdDtlMap.getEvltAckdDtlList */
+               *
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY RGSN_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , EVLT_ACKD_STAT_CD, DMND_TRPR_ID, EVLT_RESL_ID, DIST_CNTN
+                     , RGSN_DTTM, EVLT_ACKD_STAT_NM, DMND_TRPR_NM, EVLT_ACKD_ID, EVLT_PLAN_ID
+                     , CONSNO, LEDN_DMND_CALL_YN, RCMD_TRGT_CALL_YN, EVLT_PLAN_NM, EVST_ID
+                     , EVLT_BAS_YRMN, RGSR_NM  ,ACCNT_NO
+                  FROM (SELECT A.EVLT_ACKD_STAT_CD, A.DMND_TRPR_ID, A.EVLT_RESL_ID, A.DIST_CNTN
+                             , A.RGSN_DTTM, A.EVLT_ACKD_ID, B.EVLT_PLAN_ID, B.CONSNO, B.LEDN_DMND_CALL_YN
+                             , B.RCMD_TRGT_CALL_YN, C.EVLT_PLAN_NM, C.EVST_ID, C.EVLT_BAS_YRMN
+                             , GETCODENM('EVL020', A.EVLT_ACKD_STAT_CD, A.CNTR_CD) AS EVLT_ACKD_STAT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.DMND_TRPR_ID) AS DMND_TRPR_NM
+                             , (SELECT USER_NM
+                                   FROM TB_USER
+                                  WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                             ,(select accnt_no from tb_cons where consno=b.CONSNO) ACCNT_NO
+                          FROM TB_EVLT_ACKD_DTL A
+                             , TB_EVLT_RESL_DTL B
+                             , TB_EVLT_PLAN C
+                         WHERE A.EVLT_RESL_ID = B.EVLT_RESL_ID
+                           AND B.EVLT_PLAN_ID = C.EVLT_PLAN_ID
+                           AND B.EVLP_ID = #{evlp_id}
+                           AND C.EVLT_PRGR_STAT_CD = '30'
+                        <include refid="EvltAckdDtlMap.selectCondition_fragment"/>
+                       )
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EvltAckdDtlMap.insertEvltAckdDtl" parameterType="map">
+        <selectKey keyProperty="evlt_ackd_id" resultType="String" order="BEFORE">
+            SELECT 'EAD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* EvltAckdDtlMap.insertEvltAckdDtl */
+               TB_EVLT_ACKD_DTL
+               (EVLT_ACKD_ID, EVLT_ACKD_STAT_CD, DMND_TRPR_ID, EVLT_RESL_ID, DIST_CNTN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{evlt_ackd_id}, #{evlt_ackd_stat_cd}, #{dmnd_trpr_id}, #{evlt_resl_id}, #{dist_cntn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="EvltAckdDtlMap.updateEvltAckdDtl" parameterType="map">
+        UPDATE /* EvltAckdDtlMap.updateEvltAckdDtl */
+               TB_EVLT_ACKD_DTL A
+           SET A.EVLT_ACKD_STAT_CD     	= #{evlt_ackd_stat_cd}
+             , A.EVLT_ACKD_RESL_CNTN  	= #{evlt_ackd_resl_cntn}
+             , A.AMND_ID      			= #{amnd_id}
+             , A.AMNT_DTTM          	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , A.CNTR_CD       			= #{cntr_cd}
+         WHERE A.EVLT_ACKD_ID     		= #{evlt_ackd_id}
+    </update>
+
+    <select id="EvltAckdDtlMap.getApprRequsetCount" parameterType="map" resultType="int">
+        SELECT /* EvltAckdDtlMap.getApprRequsetCount*/
+               COUNT(*)
+          FROM TB_EVLT_RESL_DTL A, TB_EVLT_ACKD_DTL B
+         WHERE A.EVLT_PLAN_ID = #{evlt_plan_id}
+           AND B.EVLT_RESL_ID = A.EVLT_RESL_ID
+           AND B.EVLT_ACKD_STAT_CD = '10'
+           AND A.CNTR_CD = #{cntr_cd}
+           AND A.CNTR_CD = B.CNTR_CD
+    </select>
+
+    <select id="EvltAckdDtlMap.getApprCnt" parameterType="map" resultType="int">
+        SELECT /* EvltAckdDtlMap.getApprCnt */
+               COUNT(*)
+          FROM TB_EVLT_ACKD_DTL A
+         WHERE A.EVLT_RESL_ID = #{evlt_resl_id}
+           AND A.CNTR_CD = #{cntr_cd}
+    </select>
+
+</mapper>

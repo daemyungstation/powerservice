@@ -1,0 +1,1125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMangiMemberMap">   
+    
+    <!-- ================================================================
+     * 날짜 : 20210215
+     * 이름 : 송준빈
+     * 추가내용 : 일일종합현황데이터 조회 조회건수
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_ALTR_HIST
+     * ================================================================
+     * -->
+    <select id="DlwMangiMemberMap.getMangiMemberCount" parameterType="map" resultType="int">
+        SELECT /* DlwMangiMemberMap.getMangiMemberCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT 
+                MB.MEM_NO,
+                MPA.ACCNT_NO,
+                MB.MEM_NM,
+                FN_AGE_LVL2(MB.BRTH_MON_DAY) AS AGE,
+                CASE WHEN MB.SEX = '0001' THEN '남성'
+                     WHEN MB.SEX = '0002' THEN '여성'
+                     ELSE '' END AS SEX_NM,
+                MB.HOME_ZIP || ' ' || MB.HOME_ADDR || ' ' || MB.HOME_ADDR2 AS HOME_ADDR,
+                MB.CELL,
+                FN_COM_NM('0194', MPA.MAIN_CONTRACT) AS MAIN_CONTRACT_NM,
+                PD.PROD_CD,
+                PD.PROD_NM,
+                MPA.KSTBIT,
+                (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = 'S014' AND CC.COM_CD = MPA.KSTBIT) AS KSTBIT_NM,
+                HC.STAT,
+                (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '81' AND CC.COM_CD = HC.STAT) AS STAT_NM,
+                PD.SECTION_THR,
+                (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0189' AND CC.COM_CD = PD.SECTION_THR) AS SECTION_THR_NM,
+                MPA.JOIN_DT,
+                (SELECT PTIV.STAT_TRUE FROM PAY_TOT_INFO_VIEW PTIV WHERE 1=1 AND PTIV.ACCNT_NO = MPA.ACCNT_NO) AS STAT_TRUE,
+                TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMMDD') AS MANGI_DATE,
+                MB.MARKT_AGR_YN,
+                NVL((SELECT 'Y' FROM TB_MEMBER_DLWMALL WHERE MEMBER_ID = MPA.MEM_NO AND GOODS_ID = MPA.ACCNT_NO), 'N') AS MALL_YN,
+                (SELECT USE_AMT FROM TB_MEMBER_DLWMALL WHERE MEMBER_ID = MPA.MEM_NO AND GOODS_ID = MPA.ACCNT_NO) AS USE_AMT
+            FROM LF_DMUSER.MEM_PROD_ACCNT MPA INNER JOIN
+                LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' AND MPA.DEL_FG = 'N' INNER JOIN
+                LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N' INNER JOIN
+                LF_DMUSER.HP_CALL HC ON MPA.ACCNT_NO = HC.ACCNT_NO LEFT OUTER JOIN
+                LF_DMUSER.TB_MEMBER_MANGI_EXT MME ON MPA.ACCNT_NO = MME.ACCNT_NO AND MME.DEL_FG = 'N'
+            WHERE 1=1
+            <if test="prod_cd != null and prod_cd != ''">
+                AND PD.PROD_CD = #{prod_cd}
+            </if>
+            <if test="kstbit != null and kstbit != ''">
+                AND MPA.KSTBIT = #{kstbit}
+            </if>
+            <if test="stat != null and stat != ''">
+                AND HC.STAT = #{stat}
+            </if>
+        ) SUB_TBL
+        WHERE 1=1
+        <if test="mangi_date_stt != null and mangi_date_stt != '' and mangi_date_end != null and mangi_date_end != ''">
+            AND SUB_TBL.MANGI_DATE BETWEEN #{mangi_date_stt} AND #{mangi_date_end}
+        </if>
+        <if test="stat_true != null and stat_true != '' and stat_true.equalsIgnoreCase('N')">
+            AND SUB_TBL.STAT_TRUE IN ('당월미납', '완납', '정상납입')
+        </if>
+        <if test="stat_true != null and stat_true != '' and stat_true.equalsIgnoreCase('Y')">
+            AND SUB_TBL.STAT_TRUE NOT IN ('당월미납', '완납', '정상납입')
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20210215
+     * 이름 : 송준빈
+     * 추가내용 : 일일종합현황데이터 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEM_ACCNT_ALTR_HIST
+     * ================================================================
+     * -->
+    <select id="DlwMangiMemberMap.getMangiMemberList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwMangiMemberMap.getMangiMemberList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY SUB_TBL.ACCNT_NO ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                SUB_TBL.*
+            FROM
+            (
+                SELECT 
+                    MB.MEM_NO,
+                    MPA.ACCNT_NO,
+                    MB.MEM_NM,
+                    FN_AGE_LVL2(MB.BRTH_MON_DAY) AS AGE,
+                    CASE WHEN MB.SEX = '0001' THEN '남성'
+                         WHEN MB.SEX = '0002' THEN '여성'
+                         ELSE '' END AS SEX_NM,
+                    MB.HOME_ZIP || ' ' || MB.HOME_ADDR || ' ' || MB.HOME_ADDR2 AS HOME_ADDR,
+                    MB.CELL,
+                    FN_COM_NM('0194', MPA.MAIN_CONTRACT) AS MAIN_CONTRACT_NM,
+                    PD.PROD_CD,
+                    PD.PROD_NM,
+                    MPA.KSTBIT,
+                    (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = 'S014' AND CC.COM_CD = MPA.KSTBIT) AS KSTBIT_NM,
+                    HC.STAT,
+                    (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '81' AND CC.COM_CD = HC.STAT) AS STAT_NM,
+                    PD.SECTION_THR,
+                    (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0189' AND CC.COM_CD = PD.SECTION_THR) AS SECTION_THR_NM,
+                    MPA.JOIN_DT,
+                    (SELECT PTIV.STAT_TRUE FROM PAY_TOT_INFO_VIEW PTIV WHERE 1=1 AND PTIV.ACCNT_NO = MPA.ACCNT_NO) AS STAT_TRUE,
+                    TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMMDD') AS MANGI_DATE,
+                    MB.MARKT_AGR_YN,
+                    NVL((SELECT 'Y' FROM TB_MEMBER_DLWMALL WHERE MEMBER_ID = MPA.MEM_NO AND GOODS_ID = MPA.ACCNT_NO), 'N') AS MALL_YN,
+                    (SELECT USE_AMT FROM TB_MEMBER_DLWMALL WHERE MEMBER_ID = MPA.MEM_NO AND GOODS_ID = MPA.ACCNT_NO) AS USE_AMT
+                FROM LF_DMUSER.MEM_PROD_ACCNT MPA INNER JOIN
+                    LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' AND MPA.DEL_FG = 'N' INNER JOIN
+                    LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N' INNER JOIN
+                    LF_DMUSER.HP_CALL HC ON MPA.ACCNT_NO = HC.ACCNT_NO LEFT OUTER JOIN
+                    LF_DMUSER.TB_MEMBER_MANGI_EXT MME ON MPA.ACCNT_NO = MME.ACCNT_NO AND MME.DEL_FG = 'N'
+                WHERE 1=1
+                <if test="prod_cd != null and prod_cd != ''">
+                    AND PD.PROD_CD = #{prod_cd}
+                </if>
+                <if test="kstbit != null and kstbit != ''">
+                    AND MPA.KSTBIT = #{kstbit}
+                </if>
+                <if test="stat != null and stat != ''">
+                    AND HC.STAT = #{stat}
+                </if>
+            ) SUB_TBL
+            WHERE 1=1
+            <if test="mangi_date_stt != null and mangi_date_stt != '' and mangi_date_end != null and mangi_date_end != ''">
+                AND SUB_TBL.MANGI_DATE BETWEEN #{mangi_date_stt} AND #{mangi_date_end}
+            </if>
+            <if test="stat_true != null and stat_true != '' and stat_true.equalsIgnoreCase('N')">
+                AND SUB_TBL.STAT_TRUE IN ('당월미납', '완납', '정상납입')
+            </if>
+            <if test="stat_true != null and stat_true != '' and stat_true.equalsIgnoreCase('Y')">
+                AND SUB_TBL.STAT_TRUE NOT IN ('당월미납', '완납', '정상납입')
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20220105
+     * 이름 : 임동
+     * 추가내용 : 만기방어를 위한 주간 만기현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+    * -->
+    <select id="DlwMangiMemberMap.getMangiLIst" parameterType="map" resultType="resultMap">
+			WITH MANGI_TBL
+			AS
+			(
+			     SELECT 
+			        MBID.ACCNT_NO,
+			        MBID.KSTBIT,
+			        MBID.PROD_CD,
+			        MBID.TRUE_CNT,
+			        PD.EXPR_NO,
+			        TO_CHAR(ADD_MONTHS(MBID.JOIN_DT, PD.EXPR_NO - MBID.NEW_CHAN_GUNSU - 1 +
+			        NVL((SELECT 
+			        NVL(MME.EXT_PERIOD, 0) 
+			        FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME 
+			        WHERE 1=1 
+			        AND DEL_FG = 'N' 
+			        AND MME.ACCNT_NO = MBID.ACCNT_NO), 0) * 12 ),'YYYYMM') AS MAN_DAY,
+			        (((CASE WHEN MONTH_COUNT <![CDATA[< ]]> EXPR_NO THEN MONTH_COUNT  ELSE EXPR_NO END) - MBID.NEW_CHAN_GUNSU) - TRUE_CNT) AS DIFF_CNT,
+			        NVL(RS.RESON,'00') AS RESON, 
+			        NVL(RESN_PROC_YN,'N') AS RESN_PROC_YN,
+			        RESN_CL,
+			        SORT,
+			        TRUE_DAY,
+			        (CASE WHEN TRUE_DAY BETWEEN SUBSTR(#{mangi_stt_date},0,6) || '01' AND TO_CHAR(LAST_DAY(#{mangi_stt_date}),'YYYYMMDD') THEN 'Y' ELSE 'N' END) AS ETC_YN,
+			        (SELECT COUNT(*) FROM TB_MEMBER_MANGI_DTL WHERE ACCNT_NO = MBID.ACCNT_NO AND GIFT_CODE = '10004' AND DEL_FG = 'N') AS VIP_CNT,
+			         SUBSTR(RS.RESN_PROC_DAY,0,6) AS RESN_PROC_DAY
+			    FROM TB_CLOSE_MEMBER_MON MBID INNER JOIN
+			        PRODUCT PD ON MBID.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			        RESCISSION RS ON MBID.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+			        EVENT EV ON MBID.ACCNT_NO = EV.ACCNT_NO AND EV.DEL_FG = 'N' LEFT OUTER JOIN
+			        TB_MEMBER_DLWMALL DLW ON MBID.ACCNT_NO = DLW.GOODS_ID
+			    WHERE 1=1
+			        AND EXT_DT = SUBSTR(#{mangi_stt_date},0,6)
+			        AND TRUE_CNT > 0
+			        AND NVL(RESN_CL,'00') != '02' 
+			        <if test="mangi_imi=='false'">
+			        AND PD.EXPR_NO NOT IN (1,2,5)
+			        </if>
+			           			       
+			)
+			
+			SELECT
+			    EXT_DT,
+			    ACCNT_CNT,
+			    (RESN_CNT - RESN_MAN_CNT) AS RESN_CNT,
+			    EVENT_CNT,
+			    ACCNT_CNT - ((RESN_CNT - RESN_MAN_CNT) + EVENT_CNT) AS TRUE_CNT,
+			    RESN_MAN_CNT ,
+			    VIP_CNT,
+			    (ACCNT_CNT - ((RESN_CNT - RESN_MAN_CNT) + EVENT_CNT)) - RESN_MAN_CNT AS REMAIN_CNT,
+			    NORMAL_CNT,
+			    YEN_CNT,
+			    RESN_PROC_CNT
+			FROM
+			(
+			    SELECT
+			        '200001' AS EXT_DT,
+			        COUNT(*) AS ACCNT_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') != '00' THEN 1 ELSE 0 END) AS RESN_CNT,
+			        SUM(CASE WHEN NVL(SORT,'00') != '00' THEN 1 ELSE 0 END) AS EVENT_CNT, 
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' THEN 1 ELSE 0 END) AS RESN_MAN_CNT,    
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND (DIFF_CNT <![CDATA[< ]]> 3 OR DIFF_CNT >= 3 AND ETC_YN = 'Y') THEN 1 ELSE 0 END) AS NORMAL_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND DIFF_CNT >= 3 AND ETC_YN = 'N' THEN 1 ELSE 0 END) AS YEN_CNT,
+			        SUM(VIP_CNT) AS VIP_CNT,
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' AND RESN_PROC_DAY = MAN_DAY+1 THEN 1 ELSE 0 END) AS RESN_PROC_CNT
+			    FROM MANGI_TBL
+			    WHERE 1=1
+			    	<if test="mangi_date_gbn=='01'">
+			        	AND MAN_DAY   <![CDATA[< ]]>   TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',-1),'YYYYMM')
+			        </if>
+			
+					<if test="mangi_date_gbn=='02'">
+						AND MAN_DAY <![CDATA[< ]]> #{mangi_date}									        
+			        </if>
+			    UNION ALL 
+			
+			    SELECT
+		    		<if test="mangi_date_gbn=='01'">
+			        	TO_CHAR(ADD_MONTHS(MAN_DAY||'01',1),'YYYYMM') AS EXT_DT,
+			        </if>			    
+			    	<if test="mangi_date_gbn=='02'">
+			        	MAN_DAY AS EXT_DT,
+			        </if>
+			        COUNT(*) AS ACCNT_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') != '00' THEN 1 ELSE 0 END) AS RESN_CNT,
+			        SUM(CASE WHEN NVL(SORT,'00') != '00' THEN 1 ELSE 0 END) AS EVENT_CNT, 
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' THEN 1 ELSE 0 END) AS RESN_MAN_CNT,    
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND (DIFF_CNT <![CDATA[< ]]> 3 OR DIFF_CNT >= 3 AND ETC_YN = 'Y') THEN 1 ELSE 0 END) AS NORMAL_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND DIFF_CNT >= 3 AND ETC_YN = 'N' THEN 1 ELSE 0 END) AS YEN_CNT,
+			        SUM(VIP_CNT) AS VIP_CNT,
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' AND RESN_PROC_DAY LIKE MAN_DAY+1 || '%' THEN 1 ELSE 0 END) AS RESN_PROC_CNT
+			    FROM MANGI_TBL
+			    WHERE 1=1
+			    	<if test="mangi_date_gbn=='01'">
+			    		AND MAN_DAY BETWEEN TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',-1),'YYYYMM') AND TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',10),'YYYYMM')
+			    	</if>
+			    	<if test="mangi_date_gbn=='02'">
+			        	AND MAN_DAY BETWEEN #{mangi_date} AND TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',11),'YYYYMM')
+			        </if>
+			        
+			    GROUP BY MAN_DAY
+			) MAIN 
+			ORDER BY EXT_DT ASC
+    </select>
+    
+        <!-- ================================================================
+     * 날짜 : 20220105
+     * 이름 : 임동진
+     * 추가내용 : 만기방어를 위한 주간 만기현황 리스트 (금액)
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+    * -->
+    <select id="DlwMangiMemberMap.getMangiAmtLIst" parameterType="map" resultType="resultMap">
+			WITH MANGI_TBL 
+			AS
+			(
+			     SELECT 
+			        MBID.ACCNT_NO,
+			        MBID.KSTBIT,
+			        MBID.PROD_CD,
+			        NVL((SELECT SUM(AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD),0) AS TRUE_AMT,
+			        NVL((SELECT SUM(REL_AMT) + SUM(ADD_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MBID.PROD_CD),0) AS REL_AMT,        
+			        NVL(DLW.USE_AMT,0) AS USE_AMT,
+			        PD.EXPR_NO,
+			        TO_CHAR(ADD_MONTHS(MBID.JOIN_DT, PD.EXPR_NO - MBID.NEW_CHAN_GUNSU - 1 +
+			        NVL((SELECT 
+			        NVL(MME.EXT_PERIOD, 0) 
+			        FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME 
+			        WHERE 1=1 
+			        AND DEL_FG = 'N' 
+			        AND MME.ACCNT_NO = MBID.ACCNT_NO), 0) * 12 ),'YYYYMM') AS MAN_DAY,
+			        (((CASE WHEN MONTH_COUNT <![CDATA[< ]]> EXPR_NO THEN MONTH_COUNT  ELSE EXPR_NO END) - MBID.NEW_CHAN_GUNSU) - TRUE_CNT) AS DIFF_CNT,
+			        NVL(RS.RESON,'00') AS RESON, 
+			        NVL(RESN_PROC_YN,'N') AS RESN_PROC_YN,
+			        RESN_CL, 
+			        SORT,
+			        TRUE_DAY, 
+			        (CASE WHEN TRUE_DAY BETWEEN SUBSTR(#{mangi_stt_date},0,6) || '01' AND TO_CHAR(LAST_DAY(#{mangi_stt_date}),'YYYYMMDD') THEN 'Y' ELSE 'N' END) AS ETC_YN,
+			        SUBSTR(RS.RESN_PROC_DAY,0,6) AS RESN_PROC_DAY
+			    FROM TB_CLOSE_MEMBER_MON MBID INNER JOIN
+			        PRODUCT PD ON MBID.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			        RESCISSION RS ON MBID.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+			        EVENT EV ON MBID.ACCNT_NO = EV.ACCNT_NO AND EV.DEL_FG = 'N' LEFT OUTER JOIN
+			        TB_MEMBER_DLWMALL DLW ON MBID.ACCNT_NO = DLW.GOODS_ID
+			    WHERE 1=1
+			        AND EXT_DT = SUBSTR(#{mangi_stt_date},0,6)
+			        AND TRUE_CNT > 0
+			        AND NVL(RESN_CL,'00') != '02'     
+			        <if test="mangi_imi=='false'">
+			        	AND	PD.EXPR_NO NOT IN (1,2,5)
+			        </if>
+			)
+			
+			SELECT
+			    EXT_DT,
+			    ACCNT_CNT,
+			    (RESN_CNT - RESN_MAN_CNT) AS RESN_CNT,
+			    EVENT_CNT,
+			    ACCNT_CNT - ((RESN_CNT - RESN_MAN_CNT) + EVENT_CNT) AS TRUE_CNT,
+			    RESN_MAN_CNT ,
+			    (ACCNT_CNT - ((RESN_CNT - RESN_MAN_CNT) + EVENT_CNT)) - RESN_MAN_CNT AS REMAIN_CNT,
+			    NORMAL_CNT,
+			    YEN_CNT,
+			    RESN_PROC_CNT
+			FROM
+			(
+			
+			    SELECT
+			        '200001' AS EXT_DT,
+			        SUM(TRUE_AMT) + SUM(REL_AMT) - SUM(USE_AMT)  AS ACCNT_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') != '00' THEN (TRUE_AMT + REL_AMT)-USE_AMT ELSE 0 END) AS RESN_CNT,
+			        SUM(CASE WHEN NVL(SORT,'00') != '00' THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS EVENT_CNT, 
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS RESN_MAN_CNT,    
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND (DIFF_CNT <![CDATA[< ]]> 3 OR DIFF_CNT >= 3 AND ETC_YN = 'Y') THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS NORMAL_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND DIFF_CNT >= 3 AND ETC_YN = 'N'  THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS YEN_CNT,
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' AND RESN_PROC_DAY = MAN_DAY+1 THEN (TRUE_AMT + REL_AMT)-USE_AMT ELSE 0 END) AS RESN_PROC_CNT
+			    FROM MANGI_TBL
+			    WHERE 1=1
+			    	<if test="mangi_date_gbn=='01'">
+			        	AND MAN_DAY   <![CDATA[< ]]>   TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',-1),'YYYYMM')
+			        </if>
+			
+					<if test="mangi_date_gbn=='02'">
+						AND MAN_DAY <![CDATA[< ]]> #{mangi_date}									        
+			        </if>
+			    
+			    UNION ALL
+			    
+			    SELECT
+		    		<if test="mangi_date_gbn=='01'">
+			        	TO_CHAR(ADD_MONTHS(MAN_DAY||'01',1),'YYYYMM') AS EXT_DT,
+			        </if>			    
+			    	<if test="mangi_date_gbn=='02'">
+			        	MAN_DAY AS EXT_DT,
+			        </if>
+			        SUM(TRUE_AMT) + SUM(REL_AMT) - SUM(USE_AMT) AS ACCNT_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') != '00' THEN (TRUE_AMT + REL_AMT)-USE_AMT ELSE 0 END) AS RESN_CNT,
+			        SUM(CASE WHEN NVL(SORT,'00') != '00' THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS EVENT_CNT, 
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS RESN_MAN_CNT,    
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND (DIFF_CNT <![CDATA[< ]]> 3 OR DIFF_CNT >= 3 AND ETC_YN = 'Y') THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS NORMAL_CNT,
+			        SUM(CASE WHEN NVL(RESN_CL,'00') = '00' AND NVL(SORT,'00') = '00' AND DIFF_CNT >= 3 AND ETC_YN = 'N' THEN (TRUE_AMT + REL_AMT)-USE_AMT  ELSE 0 END) AS YEN_CNT,
+			        SUM(CASE WHEN RESON  = '23' AND RESN_PROC_YN = 'Y' AND RESN_PROC_DAY LIKE MAN_DAY+1 || '%' THEN (TRUE_AMT + REL_AMT)-USE_AMT ELSE 0 END) AS RESN_PROC_CNT
+			    FROM MANGI_TBL
+			    WHERE 1=1 
+			       	<if test="mangi_date_gbn=='01'">
+			    		AND MAN_DAY BETWEEN TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',-1),'YYYYMM') AND TO_CHAR(ADD_MONTHS(#{mangi_date}||'01',10),'YYYYMM')
+			    	</if>
+			    	<if test="mangi_date_gbn=='02'">
+			        	AND MAN_DAY BETWEEN #{mangi_date} AND TO_CHAR(ADD_MONTHS(#{mangi_date} ||'01',11),'YYYYMM')
+			        </if>
+			    GROUP BY MAN_DAY
+			) MAIN
+			ORDER BY EXT_DT ASC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20220929
+     * 이름 : 김주용
+     * 추가내용 : 만기해약현황
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+    * -->
+    <select id="DlwMangiMemberMap.getMangiResnLIst1" parameterType="map" resultType="resultMap">
+			WITH MANGI_TBL 
+			AS
+			(
+                SELECT 
+                       MPA.ACCNT_NO
+                      ,PD.PROD_NM
+                      ,MB.MEM_NM
+                      ,TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMMDD') AS MANGI_DATE
+                      ,SUBSTR(RS.RESN_PROC_DAY, 1,8) AS RESN_PROC_DAY
+                      ,CASE WHEN TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMM')+1 = SUBSTR(RS.RESN_PROC_DAY, 1,6) THEN 1
+                            ELSE 0 END CNT1
+                      ,CASE WHEN TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMM')+1 = SUBSTR(RS.RESN_PROC_DAY, 1,6) THEN 0
+                            ELSE 1 END CNT2
+                      ,CASE WHEN PD.SECTION_F IN ('0001', '0002') THEN '결합'
+                            WHEN PD.SECTION_F = '0003' THEN '일반'
+                            ELSE '' END SECTION_F_NM
+                      ,PM.T21
+                      ,PM.T32
+                      ,PM.T33
+                      ,(PM.T21 + PM.T33) - (PM.F8 + PM.F10 + PM.F7 + PM.F11) AS SUM_AMT
+                      ,(SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD ) AS TOT_REL_AMT
+                      ,RS.RESN_PAY_AMT
+                      ,(SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0188' AND CC.COM_CD = PD.SECTION_T) AS SECTION_T_NM
+                      ,DGA.DGNS_AMT
+                FROM MEM_PROD_ACCNT MPA INNER JOIN
+                        LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                        LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N' INNER JOIN
+                        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' AND RS.RESON = '23' AND RS.RESN_PROC_YN = 'Y' LEFT OUTER JOIN
+                        LF_DMUSER.TB_MEMBER_MANGI_EXT MME ON MPA.ACCNT_NO = MME.ACCNT_NO AND MME.DEL_FG = 'N' LEFT OUTER JOIN
+                        (SELECT ACCNT_NO
+                               , NVL(SUM(T21),0) T21
+                               , NVL(SUM(T32),0) T32
+                               , NVL(SUM(T33),0) T33
+                               , NVL(SUM(F7),0) F7
+                               , NVL(SUM(F8),0) F8
+                               , NVL(SUM(F10),0) F10
+                               , NVL(SUM(F11),0) F11
+                               , NVL(SUM(F12),0) F12
+                               , NVL(MAX(PAY_NO),0) PAY_NO
+                               , NVL(MAX(HIST_YN),'N') HIST_YN
+                            FROM (SELECT ACCNT_NO
+                                       , PAY_NO
+                                       , CASE WHEN ALOW_CD='T21' THEN NVL(AMT,0) ELSE 0 END T21
+                                       , CASE WHEN ALOW_CD='T32' THEN NVL(AMT,0) ELSE 0 END T32
+                                       , CASE WHEN ALOW_CD='T33' THEN NVL(AMT,0) ELSE 0 END T33
+                                       , CASE WHEN ALOW_CD='F7' THEN NVL(AMT,0) ELSE 0 END F7
+                                       , CASE WHEN ALOW_CD='F8' THEN NVL(AMT,0) ELSE 0 END F8
+                                       , CASE WHEN ALOW_CD='F10' THEN NVL(AMT,0) ELSE 0 END F10
+                                       , CASE WHEN ALOW_CD='F11' THEN NVL(AMT,0) ELSE 0 END F11
+                                       , CASE WHEN ALOW_CD='F12' THEN NVL(AMT,0) ELSE 0 END F12
+                                       , HIST_YN
+                                    FROM (SELECT ACCNT_NO
+                                               , AMT
+                                               , ALOW_CD
+                                               , ALOW_DT
+                                               , NOTE
+                                               , DTL_SEQ
+                                               , PAY_NO
+                                               , HIST_YN
+                                            FROM ALOW_DA_DTL AD
+                                           WHERE 1=1
+                                              AND ALOW_CD IN ('T21', 'T32', 'T33', 'F7', 'F8', 'F10', 'F11', 'F12')
+                                              AND dtl_seq = (SELECT max(dtl_seq)
+                                                               FROM ALOW_DA_DTL
+                                                              WHERE ACCNT_NO= AD.ACCNT_NO
+                                                                AND EMPLE_NO=AD.EMPLE_NO
+                                                                AND PAY_NO = AD.PAY_NO
+                                                                AND ALOW_DT=AD.ALOW_DT
+                                                                AND ALOW_CD=AD.ALOW_CD
+                                                                )
+                                              AND ( AMT > 0 OR HIST_YN='Y')
+                                          ) F
+                                 )
+                           GROUP BY accnt_no
+                         ) pm ON pm.accnt_no = mpa.accnt_no
+                         LEFT OUTER JOIN (SELECT ACCNT_NO
+                                                ,SUM(AMT) AS DGNS_AMT
+                                          FROM TEMP_ACCNT_DGNS_AMT 
+                                          GROUP BY ACCNT_NO) DGA ON MPA.ACCNT_NO = DGA.ACCNT_NO
+                WHERE MPA.DEL_FG = 'N'
+                AND RS.RESN_PROC_DAY BETWEEN SUBSTR(#{stt_dt}, 0,6) || '01' AND SUBSTR(#{end_dt}, 0,6) || '31'
+            )
+            SELECT CASE WHEN DAY IS NULL THEN '190001'
+                        ELSE DAY END MAN_RESN_DAY,
+                   CASE WHEN SECTION_F_NM IS NULL THEN '총 계'
+                        ELSE SECTION_F_NM END AS SECTION_F_NM,
+                   MAN_S,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  NVL(ROUND((MAN_S/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F = A.SECTION_F_NM))*100, 1), 0)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN NVL(ROUND((MAN_S/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F IS NOT NULL))*100, 1), 0)
+                        ELSE NVL(ROUND((MAN_S/DECODE(TEMP_CNT, 0, NULL, TEMP_CNT))*100, 1), 0) END AS MAN_SP,
+                   MAN_A,
+                   ROUND((MAN_A/MAN_S)*100, 1) AS MAN_AP,
+                   MAN_B,
+                   ROUND((MAN_B/MAN_S)*100, 1) AS MAN_BP,
+                   SUM_AMT1,
+                   SUM_PAY,
+                   TOT_REL_AMT,
+                   RESN_PAY_AMT,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F = A.SECTION_F_NM)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F IS NOT NULL)
+                        ELSE TEMP_CNT END AS TEMP_CNT,
+                   DGNS_AMT
+            FROM (
+            SELECT '190001' AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(CNT1+CNT2) AS MAN_S
+                  ,SUM(CNT1) AS MAN_A --만기도래월
+                  ,SUM(CNT2) AS MAN_B --만기도래월외
+                  ,SUM(NVL(SUM_AMT, 0)+NVL(TOT_REL_AMT, 0)) AS SUM_AMT1
+                  ,SUM(SUM_AMT) AS SUM_PAY
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT
+                  ,SUM(SUM_AMT) - SUM(NVL(DGNS_AMT, SUM_AMT)) AS DGNS_AMT
+            FROM MANGI_TBL
+            GROUP BY SECTION_F_NM
+            
+            UNION ALL
+            
+            SELECT SUBSTR(RESN_PROC_DAY, 0,6) AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(CNT1+CNT2) AS MAN_S
+                  ,SUM(CNT1) AS MAN_A --만기도래월
+                  ,SUM(CNT2) AS MAN_B --만기도래월외
+                  ,SUM(NVL(SUM_AMT, 0)+NVL(TOT_REL_AMT, 0)) AS SUM_AMT1
+                  ,SUM(SUM_AMT) AS SUM_PAY
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT
+                  ,SUM(SUM_AMT) - SUM(NVL(DGNS_AMT, SUM_AMT)) AS DGNS_AMT
+            FROM MANGI_TBL
+            GROUP BY ROLLUP(SUBSTR(RESN_PROC_DAY, 0,6), SECTION_F_NM)
+            ) A
+            LEFT OUTER JOIN (SELECT EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_F
+                                   ,SUM(CNT) AS TEMP_CNT
+                             FROM TEMP_MANGI_RESN
+                             GROUP BY EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_F
+                                   ) B ON A.DAY = B.EXT_DT AND B.GUBUN = '01' AND NVL(A.SECTION_F_NM, 'N') = NVL(B.SECTION_F, 'N')
+            ORDER BY NVL(DAY, '190001'), DECODE(SECTION_F_NM, '일반', 1, '결합', 2,'총 계', 3)
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20220929
+     * 이름 : 김주용
+     * 추가내용 : 만기해약현황
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+    * -->
+    <select id="DlwMangiMemberMap.getMangiResnLIst2" parameterType="map" resultType="resultMap">
+			WITH MANGI_TBL 
+			AS
+			(
+                SELECT 
+                       MPA.ACCNT_NO
+                      ,PD.PROD_NM
+                      ,MB.MEM_NM
+                      ,TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMMDD') AS MANGI_DATE
+                      ,SUBSTR(RS.RESN_PROC_DAY, 1,8) AS RESN_PROC_DAY
+                      ,CASE WHEN TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMM')+1 = SUBSTR(RS.RESN_PROC_DAY, 1,6) THEN 1
+                            ELSE 0 END CNT1
+                      ,CASE WHEN TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL(MME.EXT_PERIOD, 0) * 12 ),'YYYYMM')+1 = SUBSTR(RS.RESN_PROC_DAY, 1,6) THEN 0
+                            ELSE 1 END CNT2
+                      ,CASE WHEN PD.SECTION_F = '0003' THEN '일반'
+                            WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR = '0007' THEN 'LGB'
+                            WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR = '0010' THEN 'SDP'
+                            WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR = '0008' THEN 'LGU'
+                            WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR NOT IN ('0007', '0010', '0008') THEN '결합 외'
+                            ELSE '' END SECTION_F_NM
+                      ,PM.T21
+                      ,PM.T32
+                      ,PM.T33
+                      ,(PM.T21 + PM.T33) - (PM.F8 + PM.F10 + PM.F7 + PM.F11) AS SUM_AMT
+                      ,(SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD ) AS TOT_REL_AMT
+                      ,RS.RESN_PAY_AMT
+                      ,(SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0188' AND CC.COM_CD = PD.SECTION_T) AS SECTION_T_NM
+                      ,DGA.DGNS_AMT
+                FROM MEM_PROD_ACCNT MPA INNER JOIN
+                        LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                        LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N' INNER JOIN
+                        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' AND RS.RESON = '23' AND RS.RESN_PROC_YN = 'Y' LEFT OUTER JOIN
+                        LF_DMUSER.TB_MEMBER_MANGI_EXT MME ON MPA.ACCNT_NO = MME.ACCNT_NO AND MME.DEL_FG = 'N' LEFT OUTER JOIN
+                        (SELECT ACCNT_NO
+                               , NVL(SUM(T21),0) T21
+                               , NVL(SUM(T32),0) T32
+                               , NVL(SUM(T33),0) T33
+                               , NVL(SUM(F7),0) F7
+                               , NVL(SUM(F8),0) F8
+                               , NVL(SUM(F10),0) F10
+                               , NVL(SUM(F11),0) F11
+                               , NVL(SUM(F12),0) F12
+                               , NVL(MAX(PAY_NO),0) PAY_NO
+                               , NVL(MAX(HIST_YN),'N') HIST_YN
+                            FROM (SELECT ACCNT_NO
+                                       , PAY_NO
+                                       , CASE WHEN ALOW_CD='T21' THEN NVL(AMT,0) ELSE 0 END T21
+                                       , CASE WHEN ALOW_CD='T32' THEN NVL(AMT,0) ELSE 0 END T32
+                                       , CASE WHEN ALOW_CD='T33' THEN NVL(AMT,0) ELSE 0 END T33
+                                       , CASE WHEN ALOW_CD='F7' THEN NVL(AMT,0) ELSE 0 END F7
+                                       , CASE WHEN ALOW_CD='F8' THEN NVL(AMT,0) ELSE 0 END F8
+                                       , CASE WHEN ALOW_CD='F10' THEN NVL(AMT,0) ELSE 0 END F10
+                                       , CASE WHEN ALOW_CD='F11' THEN NVL(AMT,0) ELSE 0 END F11
+                                       , CASE WHEN ALOW_CD='F12' THEN NVL(AMT,0) ELSE 0 END F12
+                                       , HIST_YN
+                                    FROM (SELECT ACCNT_NO
+                                               , AMT
+                                               , ALOW_CD
+                                               , ALOW_DT
+                                               , NOTE
+                                               , DTL_SEQ
+                                               , PAY_NO
+                                               , HIST_YN
+                                            FROM ALOW_DA_DTL AD
+                                           WHERE 1=1
+                                              AND ALOW_CD IN ('T21', 'T32', 'T33', 'F7', 'F8', 'F10', 'F11', 'F12')
+                                              AND dtl_seq = (SELECT max(dtl_seq)
+                                                               FROM ALOW_DA_DTL
+                                                              WHERE ACCNT_NO= AD.ACCNT_NO
+                                                                AND EMPLE_NO=AD.EMPLE_NO
+                                                                AND PAY_NO = AD.PAY_NO
+                                                                AND ALOW_DT=AD.ALOW_DT
+                                                                AND ALOW_CD=AD.ALOW_CD
+                                                                )
+                                              AND ( AMT > 0 OR HIST_YN='Y')
+                                          ) F
+                                 )
+                           GROUP BY accnt_no
+                         ) pm ON pm.accnt_no = mpa.accnt_no
+                         LEFT OUTER JOIN (SELECT ACCNT_NO
+                                                ,SUM(AMT) AS DGNS_AMT
+                                          FROM TEMP_ACCNT_DGNS_AMT 
+                                          GROUP BY ACCNT_NO) DGA ON MPA.ACCNT_NO = DGA.ACCNT_NO
+                WHERE MPA.DEL_FG = 'N'
+                AND RS.RESN_PROC_DAY BETWEEN SUBSTR(#{stt_dt}, 0,6) || '01' AND SUBSTR(#{end_dt}, 0,6) || '31'
+            )
+            SELECT CASE WHEN DAY IS NULL THEN '190001'
+                        ELSE DAY END MAN_RESN_DAY,
+                   CASE WHEN SECTION_F_NM IS NULL THEN '총 계'
+                        ELSE SECTION_F_NM END AS SECTION_F_NM,
+                   MAN_S,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  NVL(ROUND((MAN_S/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6)  
+                                                                             AND SECTION_F = A.SECTION_F_NM))*100, 1), 0)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN NVL(ROUND((MAN_S/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6)  
+                                                                             AND SECTION_F IS NOT NULL))*100, 1), 0)
+                        ELSE NVL(ROUND((MAN_S/DECODE(TEMP_CNT, 0, NULL, TEMP_CNT))*100, 1), 0) END AS MAN_SP,
+                   MAN_A,
+                   ROUND((MAN_A/MAN_S)*100, 1) AS MAN_AP,
+                   MAN_B,
+                   ROUND((MAN_B/MAN_S)*100, 1) AS MAN_BP,
+                   SUM_AMT1,
+                   SUM_PAY,
+                   TOT_REL_AMT,
+                   RESN_PAY_AMT,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_THR = A.SECTION_F_NM)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '01'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_THR IS NOT NULL)
+                        ELSE TEMP_CNT END AS TEMP_CNT,
+                   DGNS_AMT
+            FROM (
+            SELECT '190001' AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(CNT1+CNT2) AS MAN_S
+                  ,SUM(CNT1) AS MAN_A --만기도래월
+                  ,SUM(CNT2) AS MAN_B --만기도래월외
+                  ,SUM(NVL(SUM_AMT, 0)+NVL(TOT_REL_AMT, 0)) AS SUM_AMT1
+                  ,SUM(SUM_AMT) AS SUM_PAY
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT
+                  ,SUM(SUM_AMT) - SUM(NVL(DGNS_AMT, SUM_AMT)) AS DGNS_AMT
+            FROM MANGI_TBL
+            GROUP BY SECTION_F_NM
+            
+            UNION ALL
+            
+            SELECT SUBSTR(RESN_PROC_DAY, 0,6) AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(CNT1+CNT2) AS MAN_S
+                  ,SUM(CNT1) AS MAN_A --만기도래월
+                  ,SUM(CNT2) AS MAN_B --만기도래월외
+                  ,SUM(NVL(SUM_AMT, 0)+NVL(TOT_REL_AMT, 0)) AS SUM_AMT1
+                  ,SUM(SUM_AMT) AS SUM_PAY
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT
+                  ,SUM(SUM_AMT) - SUM(NVL(DGNS_AMT, SUM_AMT)) AS DGNS_AMT
+            FROM MANGI_TBL
+            GROUP BY ROLLUP(SUBSTR(RESN_PROC_DAY, 0,6), SECTION_F_NM)
+            ) A
+            LEFT OUTER JOIN (SELECT EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_THR
+                                   ,SUM(CNT) AS TEMP_CNT
+                             FROM TEMP_MANGI_RESN
+                             GROUP BY EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_THR
+                                   ) B ON A.DAY = B.EXT_DT AND B.GUBUN = '01' AND NVL(A.SECTION_F_NM, 'N') = NVL(B.SECTION_THR, 'N')
+            ORDER BY NVL(DAY, '190001'), DECODE(SECTION_F_NM, '일반', 1, 'LGB', 2,'SDP', 3,'LGU', 4,'결합 외', 5,'총 계', 6)
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20220929
+     * 이름 : 김주용
+     * 추가내용 : 만기추정집계
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+    * -->
+    <select id="DlwMangiMemberMap.getMangiResnLIst3" parameterType="map" resultType="resultMap">
+			WITH MANGI_TBL 
+			AS
+			(   
+                SELECT MAIN_TBL.*
+                --,PM.SUM_AMT
+                ,PMD.AMT2
+                --,CASE WHEN NVL(PMD.AMT2, 0) != 0 OR PMD.AMT1 IS NULL THEN PM.SUM_AMT
+                --      ELSE PMD.AMT1-PMD.AMT2 END AS SUM_AMT
+                FROM (
+                    SELECT 
+                           MPA.ACCNT_NO
+                          ,MPA.PROD_CD
+                          ,PD.PROD_NM
+                          ,MB.MEM_NM
+                          ,MPA.JOIN_DT
+                          ,FN_GET_MANDAY(MPA.ACCNT_NO, MPA.JOIN_DT, PD.EXPR_NO, MPA.NEW_CHAN_GUNSU,'NEW') AS MAN_DAY
+                          ,CASE WHEN PD.SECTION_F IN ('0001', '0002') THEN '결합'
+                                WHEN PD.SECTION_F = '0003' THEN '일반'
+                                ELSE '' END SECTION_F_NM
+                          ,(SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD ) AS TOT_REL_AMT
+                          ,PD.PROD_AMT AS RESN_PAY_AMT
+                          ,(SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0188' AND CC.COM_CD = PD.SECTION_T) AS SECTION_T_NM
+                          ,(SELECT BEF_EMPLE_CD FROM MEM_PROD_ACCNT WHERE ACCNT_NO = MPA.ACCNT_NO) AS BEF_EMPLE_CD
+                          ,(SELECT (SELECT CASE WHEN NVL(OCP_CLUSTER,'X')='X' THEN (SELECT OCP_CLUSTER FROM DEPARTMENT WHERE DEPT_CD = EMP.DEPT_CD)
+                                            ELSE OCP_CLUSTER
+                                            END AS OCP_CLUSTER
+                                   FROM EMPLOYEE EMP
+                                   WHERE EMP.EMPLE_NO = A.BEF_EMPLE_CD )
+                            FROM MEM_PROD_ACCNT A
+                            WHERE ACCNT_NO = MPA.ACCNT_NO) AS OCP_CLUSTER
+                          ,1 AS CNT
+                    FROM TB_MEMBER_BASIC_INFO_DAY MPA INNER JOIN
+                            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                            LF_DMUSER.TB_MEMBER_MANGI_EXT MME ON MPA.ACCNT_NO = MME.ACCNT_NO AND MME.DEL_FG = 'N' LEFT OUTER JOIN
+                            RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+                    WHERE MPA.TRUE_CNT > 0
+                    AND NVL(RESN_CL,'00') != '02' 
+                    AND MPA.KSTBIT = '02'
+                ) MAIN_TBL LEFT OUTER JOIN
+                (SELECT ACCNT_NO
+                       , SUM(CASE WHEN ALOW_CD IN ('T21', 'T32', 'T33') THEN AMT
+                             ELSE 0 END) AMT1
+                       , SUM(CASE WHEN ALOW_CD IN ('F7', 'F8', 'F10', 'F11', 'F12') THEN AMT
+                             ELSE 0 END) AMT2
+                    FROM alow_da_dtl ad
+                   WHERE 1=1
+                      AND ALOW_CD IN ('T21', 'T32', 'T33', 'F7', 'F8', 'F10', 'F11', 'F12')
+                      AND dtl_seq = (SELECT max(dtl_seq)
+                                       FROM ALOW_DA_DTL
+                                      WHERE ACCNT_NO= AD.ACCNT_NO
+                                        AND EMPLE_NO=AD.EMPLE_NO
+                                        AND PAY_NO = AD.PAY_NO
+                                        AND ALOW_DT=AD.ALOW_DT
+                                        AND ALOW_CD=AD.ALOW_CD)
+                       and ( amt > 0 or hist_yn='Y')
+                  GROUP BY ACCNT_NO)
+                  PMD ON MAIN_TBL.ACCNT_NO = PMD.ACCNT_NO
+                WHERE 1=1
+                AND MAIN_TBL.MAN_DAY BETWEEN SUBSTR(#{stt_dt}, 0,6) || '01' AND SUBSTR(#{end_dt}, 0,6) || '31'
+                
+            ),
+            
+            MANGI_TBL_ALOW 
+            AS 
+            (
+                SELECT 
+                    *
+                FROM (SELECT ACCNT_NO,
+                           MBID.PROD_CD,
+                           PD.SECTION_T,
+                           TRUE_CNT,
+                           PD.EXPR_NO,
+                           TO_CHAR(ADD_MONTHS(MBID.JOIN_DT, PD.EXPR_NO - MBID.NEW_CHAN_GUNSU - 1 + NVL((SELECT NVL(MME.EXT_PERIOD, 0)
+                                                      FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME
+                                                     WHERE 1=1
+                                                       AND DEL_FG = 'N'
+                                                       AND MME.ACCNT_NO = MBID.ACCNT_NO), 0) * 12 ), 'YYYYMM') AS LAST_DATE,
+                           ASM.AMT
+                      FROM TB_CLOSE_MEMBER_MON MBID 
+                           INNER JOIN PRODUCT PD ON MBID.PROD_CD = PD.PROD_CD 
+                           INNER JOIN B2BCOMCD B2B ON MBID.B2B_COMP_CD = B2B.COM_CD 
+                           INNER JOIN ALOW_SET_MST ASM ON MBID.PROD_CD = ASM.PROD_CD
+                       AND B2B.SALE_TYPE = ASM.SALE_TYPE
+                     WHERE 1=1
+                       AND EXT_DT = SUBSTR(#{ext_dt}, 0,6)
+                       AND KSTBIT = '02'
+                       AND STAT IN ('01','11','011')
+                       AND (MONTH_COUNT - TRUE_CNT) <![CDATA[<]]> 4
+                       AND ASM.ALOW_CD = 'T33'
+                       AND MBID.JOIN_DT >= REPLACE(NVL(PROD_JOIN_DT_STR, '2100-01') || '-01', '-', '')
+                       AND MBID.JOIN_DT <![CDATA[<=]]> TO_CHAR(LAST_DAY(REPLACE(NVL(PROD_JOIN_DT_END, '2100-01') || '-01', '-', '')), 'YYYYMMDD') ) 
+             ),
+                       
+            MANGI_COMM_TBL 
+            AS 
+            (
+              SELECT *
+              FROM (SELECT ACCNT_NO,
+                           MBID.PROD_CD,
+                           PD.SECTION_T,
+                           TRUE_CNT,
+                           PD.EXPR_NO,
+                           TO_CHAR(ADD_MONTHS(MBID.JOIN_DT, PD.EXPR_NO - MBID.NEW_CHAN_GUNSU - 1), 'YYYYMM') AS LAST_DATE,
+                           ASM.AMT * ((PAY_NO_END - PAY_NO) + 1) AS AMT
+                      FROM TB_CLOSE_MEMBER_MON MBID 
+                           INNER JOIN PRODUCT PD ON MBID.PROD_CD = PD.PROD_CD 
+                           INNER JOIN EMPLOYEE EMP ON MBID.EMPLE_NO = EMP.EMPLE_NO AND NVL(EMP.ALOW_YN, 'Y') != 'N' 
+                           INNER JOIN DEPARTMENT DEP ON EMP.DEPT_CD = DEP.DEPT_CD 
+                           INNER JOIN ALOW_SET_MST ASM ON ALOW_CD = 'T21'
+                       AND MBID.PROD_CD = ASM.PROD_CD
+                       AND NVL(DEP.OCP_CLUSTER, EMP.OCP_CLUSTER) = ASM.OCP_CLUSTER
+                       AND MBID.JOIN_DT >= REPLACE(NVL(PROD_JOIN_DT_STR, '2100-01') || '-01', '-', '')
+                       AND MBID.JOIN_DT <![CDATA[<=]]> TO_CHAR(LAST_DAY(REPLACE(NVL(PROD_JOIN_DT_END, '2100-01') || '-01', '-', '')), 'YYYYMMDD')
+                     WHERE 1=1
+                       AND EXT_DT = SUBSTR(#{ext_dt}, 0,6)
+                       AND KSTBIT = '02'
+                       AND STAT IN ('01','11','011')
+                       AND (MONTH_COUNT - TRUE_CNT) <![CDATA[<]]> 4 ) )
+            
+            
+            SELECT CASE WHEN DAY IS NULL THEN '190001'
+                        ELSE DAY END MAN_RESN_DAY,
+                   CASE WHEN SECTION_F_NM IS NULL THEN '총 계'
+                        ELSE SECTION_F_NM END AS SECTION_F_NM,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  ROUND((ROUND(SUM_CNT*NVL(#{rf_rate}, '0'))/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F = A.SECTION_F_NM))*100, 1)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN ROUND((ROUND(SUM_CNT*NVL(#{rf_rate}, '0'))/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F IS NOT NULL))*100, 1)
+                        ELSE ROUND((ROUND(SUM_CNT*NVL(#{rf_rate}, '0'))/TEMP_CNT)*100, 1) END AS SUM_CNTP,
+                   SUM_PAY+TOT_REL_AMT AS SUM_AMT1,
+                   SUM_PAY,
+                   TOT_REL_AMT,
+                   RESN_PAY_AMT,
+                   ROUND(SUM_CNT*NVL(#{rf_rate}, '0')) AS SUM_CNT,
+                   ROUND(SUM_PAY*NVL(#{rf_rate}, '0')) AS SUM_PAY_P,
+                   ROUND(TOT_REL_AMT*NVL(#{rf_rate}, '0')) AS TOT_REL_AMT_P,
+                   ROUND((SUM_PAY*NVL(#{rf_rate}, '0')) + (TOT_REL_AMT*NVL(#{rf_rate}, '0'))) AS SUM_AMT2,
+                   AMT2,
+                   ROUND(AMT2*NVL(#{rf_rate}, '0')) AS AMT2_P,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F = A.SECTION_F_NM)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F IS NOT NULL)
+                        ELSE TEMP_CNT END AS TEMP_CNT
+            FROM (
+            SELECT '190001' AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(NVL(B.AMT, 0)+NVL(C.AMT, 0)) AS SUM_PAY --모집수당
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT --광고선전비 결합금
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT --해약환급금
+                  ,SUM(CNT) AS SUM_CNT
+                  ,SUM(AMT2) AS AMT2
+            FROM MANGI_TBL A
+                LEFT OUTER JOIN MANGI_TBL_ALOW B ON A.ACCNT_NO = B.ACCNT_NO AND A.MAN_DAY = B.LAST_DATE
+                LEFT OUTER JOIN MANGI_COMM_TBL C ON A.ACCNT_NO = C.ACCNT_NO 
+            GROUP BY SECTION_F_NM
+            
+            UNION ALL
+            
+            SELECT SUBSTR(MAN_DAY, 0,6) AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(NVL(B.AMT, 0)+NVL(C.AMT, 0)) AS SUM_PAY
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT
+                  ,SUM(CNT) AS SUM_CNT
+                  ,SUM(AMT2) AS AMT2
+            FROM MANGI_TBL A
+                LEFT OUTER JOIN MANGI_TBL_ALOW B ON A.ACCNT_NO = B.ACCNT_NO AND A.MAN_DAY = B.LAST_DATE
+                LEFT OUTER JOIN MANGI_COMM_TBL C ON A.ACCNT_NO = C.ACCNT_NO 
+            GROUP BY ROLLUP(SUBSTR(MAN_DAY, 0,6), SECTION_F_NM)
+            ) A
+            LEFT OUTER JOIN (SELECT EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_F
+                                   ,SUM(CNT) AS TEMP_CNT
+                             FROM TEMP_MANGI_RESN
+                             GROUP BY EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_F
+                                   ) B ON A.DAY = B.EXT_DT AND B.GUBUN = '02' AND NVL(A.SECTION_F_NM, 'N') = NVL(B.SECTION_F, 'N')
+            ORDER BY NVL(DAY, '190001'), DECODE(SECTION_F_NM, '일반', 1, '결합', 2,'총 계', 3)
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20220929
+     * 이름 : 김주용
+     * 추가내용 : 만기추정상세
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+    * -->
+    <select id="DlwMangiMemberMap.getMangiResnLIst4" parameterType="map" resultType="resultMap">
+			WITH MANGI_TBL 
+			AS
+			(   
+                SELECT MAIN_TBL.*
+                --,PM.SUM_AMT
+                ,PMD.AMT2
+                --,CASE WHEN NVL(PMD.AMT2, 0) != 0 OR PMD.AMT1 IS NULL THEN PM.SUM_AMT
+                --      ELSE PMD.AMT1-PMD.AMT2 END AS SUM_AMT
+                FROM (
+                    SELECT 
+                           MPA.ACCNT_NO
+                          ,MPA.PROD_CD
+                          ,PD.PROD_NM
+                          ,MB.MEM_NM
+                          ,MPA.JOIN_DT
+                          ,FN_GET_MANDAY(MPA.ACCNT_NO, MPA.JOIN_DT, PD.EXPR_NO, MPA.NEW_CHAN_GUNSU,'NEW') AS MAN_DAY
+                          ,CASE WHEN PD.SECTION_F = '0003' THEN '일반'
+                                WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR = '0007' THEN 'LGB'
+                                WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR = '0010' THEN 'SDP'
+                                WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR = '0008' THEN 'LGU'
+                                WHEN PD.SECTION_F IN ('0001', '0002') AND SECTION_THR NOT IN ('0007', '0010', '0008') THEN '결합 외'
+                                ELSE '' END SECTION_F_NM
+                          ,(SELECT SUM(REL_AMT) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD ) AS TOT_REL_AMT
+                          ,PD.PROD_AMT AS RESN_PAY_AMT
+                          ,(SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0188' AND CC.COM_CD = PD.SECTION_T) AS SECTION_T_NM
+                          ,(SELECT BEF_EMPLE_CD FROM MEM_PROD_ACCNT WHERE ACCNT_NO = MPA.ACCNT_NO) AS BEF_EMPLE_CD
+                          ,(SELECT (SELECT CASE WHEN NVL(OCP_CLUSTER,'X')='X' THEN (SELECT OCP_CLUSTER FROM DEPARTMENT WHERE DEPT_CD = EMP.DEPT_CD)
+                                            ELSE OCP_CLUSTER
+                                            END AS OCP_CLUSTER
+                                   FROM EMPLOYEE EMP
+                                   WHERE EMP.EMPLE_NO = A.BEF_EMPLE_CD )
+                            FROM MEM_PROD_ACCNT A
+                            WHERE ACCNT_NO = MPA.ACCNT_NO) AS OCP_CLUSTER
+                          ,1 AS CNT
+                    FROM TB_MEMBER_BASIC_INFO_DAY MPA INNER JOIN
+                            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                            LF_DMUSER.TB_MEMBER_MANGI_EXT MME ON MPA.ACCNT_NO = MME.ACCNT_NO AND MME.DEL_FG = 'N' LEFT OUTER JOIN
+                            RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+                    WHERE MPA.TRUE_CNT > 0
+                    AND NVL(RESN_CL,'00') != '02' 
+                    AND MPA.KSTBIT = '02'
+                ) MAIN_TBL 
+                LEFT OUTER JOIN
+                 (SELECT ACCNT_NO
+                       , SUM(CASE WHEN ALOW_CD IN ('T21', 'T32', 'T33') THEN AMT
+                             ELSE 0 END) AMT1
+                       , SUM(CASE WHEN ALOW_CD IN ('F7', 'F8', 'F10', 'F11', 'F12') THEN AMT
+                             ELSE 0 END) AMT2
+                    FROM alow_da_dtl ad
+                   WHERE 1=1
+                      AND ALOW_CD IN ('T21', 'T32', 'T33', 'F7', 'F8', 'F10', 'F11', 'F12')
+                      AND dtl_seq = (SELECT max(dtl_seq)
+                                       FROM ALOW_DA_DTL
+                                      WHERE ACCNT_NO= AD.ACCNT_NO
+                                        AND EMPLE_NO=AD.EMPLE_NO
+                                        AND PAY_NO = AD.PAY_NO
+                                        AND ALOW_DT=AD.ALOW_DT
+                                        AND ALOW_CD=AD.ALOW_CD)
+                       and ( amt > 0 or hist_yn='Y')
+                  GROUP BY ACCNT_NO)
+                  PMD ON MAIN_TBL.ACCNT_NO = PMD.ACCNT_NO
+                WHERE 1=1
+                AND MAIN_TBL.MAN_DAY BETWEEN SUBSTR(#{stt_dt}, 0,6) || '01' AND SUBSTR(#{end_dt}, 0,6) || '31'
+                
+            ),
+            
+            MANGI_TBL_ALOW 
+            AS 
+            (
+                SELECT 
+                    *
+                FROM (SELECT ACCNT_NO,
+                           MBID.PROD_CD,
+                           PD.SECTION_T,
+                           TRUE_CNT,
+                           PD.EXPR_NO,
+                           TO_CHAR(ADD_MONTHS(MBID.JOIN_DT, PD.EXPR_NO - MBID.NEW_CHAN_GUNSU - 1 + NVL((SELECT NVL(MME.EXT_PERIOD, 0)
+                                                      FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME
+                                                     WHERE 1=1
+                                                       AND DEL_FG = 'N'
+                                                       AND MME.ACCNT_NO = MBID.ACCNT_NO), 0) * 12 ), 'YYYYMM') AS LAST_DATE,
+                           ASM.AMT
+                      FROM TB_CLOSE_MEMBER_MON MBID 
+                           INNER JOIN PRODUCT PD ON MBID.PROD_CD = PD.PROD_CD 
+                           INNER JOIN B2BCOMCD B2B ON MBID.B2B_COMP_CD = B2B.COM_CD 
+                           INNER JOIN ALOW_SET_MST ASM ON MBID.PROD_CD = ASM.PROD_CD
+                       AND B2B.SALE_TYPE = ASM.SALE_TYPE
+                     WHERE 1=1
+                       AND EXT_DT = SUBSTR(#{ext_dt}, 0,6)
+                       AND KSTBIT = '02'
+                       AND STAT IN ('01','11','011')
+                       AND (MONTH_COUNT - TRUE_CNT) <![CDATA[<]]> 4
+                       AND ASM.ALOW_CD = 'T33'
+                       AND MBID.JOIN_DT >= REPLACE(NVL(PROD_JOIN_DT_STR, '2100-01') || '-01', '-', '')
+                       AND MBID.JOIN_DT <![CDATA[<=]]> TO_CHAR(LAST_DAY(REPLACE(NVL(PROD_JOIN_DT_END, '2100-01') || '-01', '-', '')), 'YYYYMMDD') ) 
+             ),
+                       
+            MANGI_COMM_TBL 
+            AS 
+            (
+              SELECT *
+              FROM (SELECT ACCNT_NO,
+                           MBID.PROD_CD,
+                           PD.SECTION_T,
+                           TRUE_CNT,
+                           PD.EXPR_NO,
+                           TO_CHAR(ADD_MONTHS(MBID.JOIN_DT, PD.EXPR_NO - MBID.NEW_CHAN_GUNSU - 1), 'YYYYMM') AS LAST_DATE,
+                           ASM.AMT * ((PAY_NO_END - PAY_NO) + 1) AS AMT
+                      FROM TB_CLOSE_MEMBER_MON MBID 
+                           INNER JOIN PRODUCT PD ON MBID.PROD_CD = PD.PROD_CD 
+                           INNER JOIN EMPLOYEE EMP ON MBID.EMPLE_NO = EMP.EMPLE_NO AND NVL(EMP.ALOW_YN, 'Y') != 'N' 
+                           INNER JOIN DEPARTMENT DEP ON EMP.DEPT_CD = DEP.DEPT_CD 
+                           INNER JOIN ALOW_SET_MST ASM ON ALOW_CD = 'T21'
+                       AND MBID.PROD_CD = ASM.PROD_CD
+                       AND NVL(DEP.OCP_CLUSTER, EMP.OCP_CLUSTER) = ASM.OCP_CLUSTER
+                       AND MBID.JOIN_DT >= REPLACE(NVL(PROD_JOIN_DT_STR, '2100-01') || '-01', '-', '')
+                       AND MBID.JOIN_DT <![CDATA[<=]]> TO_CHAR(LAST_DAY(REPLACE(NVL(PROD_JOIN_DT_END, '2100-01') || '-01', '-', '')), 'YYYYMMDD')
+                     WHERE 1=1
+                       AND EXT_DT = SUBSTR(#{ext_dt}, 0,6)
+                       AND KSTBIT = '02'
+                       AND STAT IN ('01','11','011')
+                       AND (MONTH_COUNT - TRUE_CNT) <![CDATA[<]]> 4 ) )
+            
+            
+            SELECT CASE WHEN DAY IS NULL THEN '190001'
+                        ELSE DAY END MAN_RESN_DAY,
+                   CASE WHEN SECTION_F_NM IS NULL THEN '총 계'
+                        ELSE SECTION_F_NM END AS SECTION_F_NM,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  ROUND((ROUND(SUM_CNT*NVL(#{rf_rate}, '0'))/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F = A.SECTION_F_NM))*100, 1)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN ROUND((ROUND(SUM_CNT*NVL(#{rf_rate}, '0'))/(SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_F IS NOT NULL))*100, 1)
+                        ELSE ROUND((ROUND(SUM_CNT*NVL(#{rf_rate}, '0'))/TEMP_CNT)*100, 1) END AS SUM_CNTP,
+                   SUM_PAY+TOT_REL_AMT AS SUM_AMT1,
+                   SUM_PAY,
+                   TOT_REL_AMT,
+                   RESN_PAY_AMT,
+                   ROUND(SUM_CNT*NVL(#{rf_rate}, '0')) AS SUM_CNT,
+                   ROUND(SUM_PAY*NVL(#{rf_rate}, '0')) AS SUM_PAY_P,
+                   ROUND(TOT_REL_AMT*NVL(#{rf_rate}, '0')) AS TOT_REL_AMT_P,
+                   ROUND((SUM_PAY*NVL(#{rf_rate}, '0')) + (TOT_REL_AMT*NVL(#{rf_rate}, '0'))) AS SUM_AMT2,
+                   AMT2,
+                   ROUND(AMT2*NVL(#{rf_rate}, '0')) AS AMT2_P,
+                   CASE WHEN DAY = '190001' AND SECTION_F_NM IS NOT NULL THEN  (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_THR = A.SECTION_F_NM)
+                        WHEN DAY IS NULL AND SECTION_F_NM IS NULL THEN (SELECT SUM(CNT)
+                                                                             FROM TEMP_MANGI_RESN
+                                                                             WHERE GUBUN = '02'
+                                                                             AND EXT_DT BETWEEN SUBSTR(#{stt_dt}, 0,6) AND SUBSTR(#{end_dt}, 0,6) 
+                                                                             AND SECTION_THR IS NOT NULL)
+                        ELSE TEMP_CNT END AS TEMP_CNT
+            FROM (
+            SELECT '190001' AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(NVL(B.AMT, 0)+NVL(C.AMT, 0)) AS SUM_PAY --모집수당
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT --광고선전비 결합금
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT --해약환급금
+                  ,SUM(CNT) AS SUM_CNT
+                  ,SUM(AMT2) AS AMT2
+            FROM MANGI_TBL A
+                LEFT OUTER JOIN MANGI_TBL_ALOW B ON A.ACCNT_NO = B.ACCNT_NO AND A.MAN_DAY = B.LAST_DATE
+                LEFT OUTER JOIN MANGI_COMM_TBL C ON A.ACCNT_NO = C.ACCNT_NO 
+            GROUP BY SECTION_F_NM
+            
+            UNION ALL
+            
+            SELECT SUBSTR(MAN_DAY, 0,6) AS DAY
+                  ,SECTION_F_NM
+                  ,SUM(NVL(B.AMT, 0)+NVL(C.AMT, 0)) AS SUM_PAY
+                  ,SUM(TOT_REL_AMT) AS TOT_REL_AMT
+                  ,SUM(RESN_PAY_AMT) AS RESN_PAY_AMT
+                  ,SUM(CNT) AS SUM_CNT
+                  ,SUM(AMT2) AS AMT2
+            FROM MANGI_TBL A
+                LEFT OUTER JOIN MANGI_TBL_ALOW B ON A.ACCNT_NO = B.ACCNT_NO AND A.MAN_DAY = B.LAST_DATE
+                LEFT OUTER JOIN MANGI_COMM_TBL C ON A.ACCNT_NO = C.ACCNT_NO 
+            GROUP BY ROLLUP(SUBSTR(MAN_DAY, 0,6), SECTION_F_NM)
+            ) A
+            LEFT OUTER JOIN (SELECT EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_THR
+                                   ,SUM(CNT) AS TEMP_CNT
+                             FROM TEMP_MANGI_RESN
+                             GROUP BY EXT_DT
+                                   ,GUBUN
+                                   ,SECTION_THR
+                                   ) B ON A.DAY = B.EXT_DT AND B.GUBUN = '02' AND NVL(A.SECTION_F_NM, 'N') = NVL(B.SECTION_THR, 'N')
+            ORDER BY NVL(DAY, '190001'), DECODE(SECTION_F_NM, '일반', 1, 'LGB', 2,'SDP', 3,'LGU', 4,'결합 외', 5,'총 계', 6)
+    </select>
+    
+</mapper>

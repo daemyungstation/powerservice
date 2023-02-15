@@ -1,0 +1,2722 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwEvntReceiptMap">
+
+    <!-- 행사현황 건수 조회 -->
+    <select id="DlwEvntReceiptMap.getEventReceiptCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvntReceiptMap.getEventReceiptCount */
+               COUNT(*)
+          FROM (SELECT ER.ACCNT_NO,
+				       ER.RECEIPT_DAY,
+				       ER.RECEIPT_DAY_H,
+				       ER.RECEIPT_DAY_M,
+				       ER.LOC,
+				       ER.FUNRL_HALL,
+				       ER.ETC_ZIP,
+				       ER.ETC_ADDR1,
+				       ER.ETC_ADDR2,
+				       ER.EVENT_MAN,
+				       ER.DEATHDAY,
+				       ER.DECEASED,
+				       ER.CP_EMPLE_NO,
+				       ER.REG_DM,
+				       ER.REG_MAN,
+				       ER.DEL_FG,
+				       ER.EVENT_PLACE_CL,
+				       ER.MEM_NM
+				FROM TB_EVENT_RECEIPT ER LEFT OUTER JOIN
+				     MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = ER.ACCNT_NO LEFT OUTER JOIN
+				     MEMBER MB ON MPA.MEM_NO = MB.MEM_NO LEFT OUTER JOIN
+                     EVENT_MANAGER_MNG EMM ON ER.CP_EMPLE_NO = EMM.REAL_EVT_MNGR_CD LEFT OUTER JOIN
+                     EVENT_MANAGER_MNG EMM2 ON ER.BRANCH_MANAG = EMM2.REAL_EVT_MNGR_CD
+				WHERE 1=1
+				<if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    AND ER.RECEIPT_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                </if>
+                <if test="del_fg != null and del_fg != ''">
+                    AND ER.DEL_FG = #{del_fg}
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND ER.ACCNT_NO = #{accnt_no}
+                </if>
+                <if test="mem_no != null and mem_no != ''">
+                    AND ER.MEM_NO = #{mem_no}
+                </if>
+                <if test="cell != null and cell != ''">
+                    AND ER.CELL = #{cell}
+                </if>
+                ) TBL
+            WHERE 1=1
+    </select>
+
+    <!-- 행사현황 조회 -->
+    <select id="DlwEvntReceiptMap.getEventReceiptList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-task.xml : selectEventList -->
+        SELECT /* DlwEvntReceiptMap.getEventReceiptList */
+               *
+          FROM (SELECT ROW_NUMBER() OVER(ORDER BY ER.RECEIPT_DAY DESC) PAGE_INDX,
+					   ER.SEQ,
+					   ER.ACCNT_NO,	
+					   ER.MEM_NM,
+				       ER.RECEIPT_DAY,
+				       ER.RECEIPT_DAY_H,
+				       ER.RECEIPT_DAY_M,
+				       ER.LOC,
+				       ER.FUNRL_HALL,
+				       ER.ETC_ZIP,
+				       ER.ETC_ADDR1,
+				       ER.ETC_ADDR2,
+				       ER.EVENT_MAN,
+				       ER.DEATHDAY,
+				       ER.DECEASED,
+				       ER.CP_EMPLE_NO,
+				       EMM.EVT_MNGR_NM AS CP_EMPLE_NM,
+				       EMM.CELL AS CP_EMPLE_CELL,
+                       EMM.JOB_DUTY,
+				       ER.REG_DM,
+				       ER.REG_MAN,
+				       ER.DEL_FG,
+				       ER.CELL,
+				       ER.EVENT_PLACE_CL,
+                       NVL2((SELECT MAX(DEL_FG) FROM EVENT WHERE ER.ACCNT_NO = ACCNT_NO AND DEL_FG = 'N'), 'Y', 'N') AS EVENT_COMPLETE,
+                       EMM.EVT_MNGR_CD,
+                       ER.MEM_NO,
+                       ER.AREA,
+                       FN_COM_NM('0229', ER.AREA) AS AREA_NM,
+                       ER.BRANCH_MANAG,
+                       EMM2.EVT_MNGR_NM AS BRANCH_MANAG_NM,
+                       EMM2.CELL AS BRANCH_MANAG_CELL,
+                       ER.MANAG,
+                       EMM3.EVT_MNGR_NM AS MANAG_NM,
+                       EMM3.CELL AS MANAG_CELL,
+                       ER.RMK
+				FROM TB_EVENT_RECEIPT ER LEFT OUTER JOIN
+				     MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = ER.ACCNT_NO LEFT OUTER JOIN
+				     MEMBER MB ON MPA.MEM_NO = MB.MEM_NO LEFT OUTER JOIN
+                     EVENT_MANAGER_MNG EMM ON ER.CP_EMPLE_NO = EMM.REAL_EVT_MNGR_CD LEFT OUTER JOIN
+                     EVENT_MANAGER_MNG EMM2 ON ER.BRANCH_MANAG = EMM2.REAL_EVT_MNGR_CD LEFT OUTER JOIN
+                     EVENT_MANAGER_MNG EMM3 ON ER.MANAG = EMM3.REAL_EVT_MNGR_CD
+				WHERE 1=1
+				<if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    AND ER.RECEIPT_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                </if>
+                <if test="del_fg != null and del_fg != ''">
+                    AND ER.DEL_FG = #{del_fg}
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND ER.ACCNT_NO = #{accnt_no}
+                </if>
+                <if test="mem_no != null and mem_no != ''">
+                    AND ER.MEM_NO = #{mem_no}
+                </if>
+                <if test="cell != null and cell != ''">
+                    AND ER.CELL = #{cell}
+                </if>
+               ) TBL
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+
+    <!-- 행사등록 -->
+    <insert id="DlwEvntReceiptMap.insertEventReceipt" parameterType="map">
+    <!-- DM sql-id : sql-task.xml : insertEvent -->
+        /* DlwEvntReceiptMap.insertEventReceipt */
+        INSERT INTO TB_EVENT_RECEIPT
+        (
+        	SEQ,
+			ACCNT_NO,
+			RECEIPT_DAY,
+			RECEIPT_DAY_H,
+			RECEIPT_DAY_M,
+			LOC,
+			FUNRL_HALL,
+			ETC_ZIP,
+			ETC_ADDR1,
+			ETC_ADDR2,
+			EVENT_MAN,
+			DEATHDAY,
+			DECEASED,
+			CP_EMPLE_NO,
+			REG_DM,
+			REG_MAN,
+			DEL_FG,
+			CELL,
+			EVENT_PLACE_CL,
+			MEM_NM,
+			MEM_NO,
+			AREA,
+			BRANCH_MANAG,
+			MANAG,
+			RMK
+        )
+        SELECT A.SEQ,
+               #{accnt_no},
+			   #{receipt_day},
+			   #{receipt_day_h},
+			   #{receipt_day_m},
+			   #{loc},
+			   #{funrl_hall},
+			   #{etc_zip},
+			   #{etc_addr1},
+			   #{etc_addr2},
+			   #{event_man},
+			   #{deathday},
+			   #{deceased},
+			   #{cp_emple_no},
+			   SYSDATE,
+			   #{reg_man},
+			   'N',
+			   #{cell},
+			   #{event_place_cl},
+			   #{mem_nm},
+			   #{mem_no},
+			   #{area},
+			   #{branch_manag},
+			   #{manag},
+			   #{rmk}
+        FROM (SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+                  FROM TB_EVENT_RECEIPT
+               ) A
+    </insert>
+
+    <!-- 행사수정 -->
+    <update id="DlwEvntReceiptMap.updateEventReceipt" parameterType="map">
+    <!-- DM sql-id : sql-task.xml : updateEvent -->
+        /* DlwEvntReceiptMap.updateEvent */
+        UPDATE TB_EVENT_RECEIPT
+        SET ACCNT_NO = #{accnt_no},
+            RECEIPT_DAY = #{receipt_day},
+			RECEIPT_DAY_H = #{receipt_day_h},
+			RECEIPT_DAY_M = #{receipt_day_m},
+			LOC = #{loc},
+			FUNRL_HALL = #{funrl_hall},
+			ETC_ZIP = #{etc_zip},
+			ETC_ADDR1 = #{etc_addr1},
+			ETC_ADDR2 = #{etc_addr2},
+			EVENT_MAN = #{event_man},
+			DEATHDAY = #{deathday},
+			DECEASED = #{deceased},
+			CP_EMPLE_NO = #{cp_emple_no},
+			CELL = #{cell},
+			EVENT_PLACE_CL = #{event_place_cl},
+			MEM_NM = #{mem_nm},
+			AREA = #{area},
+			BRANCH_MANAG = #{branch_manag},
+			MANAG = #{manag},
+			RMK = #{rmk}
+        WHERE SEQ = #{seq}
+    </update>
+    
+    <!-- 행사삭제 -->
+    <update id="DlwEvntReceiptMap.deleteEventReceipt" parameterType="map">
+    <!-- DM sql-id : sql-task.xml : updateEvent -->
+        /* DlwEvntReceiptMap.updateEvent */
+        UPDATE TB_EVENT_RECEIPT
+        SET DEL_FG = 'Y'
+        WHERE SEQ = #{seq}
+    </update>
+    
+    <!-- 행사등록 -->
+    <insert id="DlwEvntReceiptMap.insertEventReceiptComplete" parameterType="map">
+        /* DlwEvntReceiptMap.insertEventReceiptComplete */
+        DECLARE
+            SI                  VARCHAR2(20);
+            ETC_PRN_SI_NM       VARCHAR2(20);
+            ETC_LOC_NM          VARCHAR2(20);
+            FUNRL_PRN_SI_NM     VARCHAR2(20);
+            FUNRL_LOC_NM        VARCHAR2(20);
+        BEGIN
+
+        <if test="event_place_cl == 0001">
+            ETC_PRN_SI_NM   := '';
+            ETC_LOC_NM      := '';
+
+            SELECT SUBSTR(NVL(MAX(B.FUNRL_ADDR),' '), 1, 3)
+              INTO SI
+              FROM FUNRL_HALL B
+             WHERE B.FUNRL_CD = #{funrl_hall};
+
+            FUNRL_PRN_SI_NM := CASE SI WHEN '강원도' THEN '강원'
+                                            WHEN '경기도' THEN '경기'
+                                            WHEN '경상남' THEN '경남'
+                                            WHEN '경상북' THEN '경북'
+                                            WHEN '광주광' THEN '광주'
+                                            WHEN '대구광' THEN '대구'
+                                            WHEN '대전광' THEN '대전'
+                                            WHEN '부산광' THEN '부산'
+                                            WHEN '서울특' THEN '서울'
+                                            WHEN '세종특' THEN '세종'
+                                            WHEN '울산광' THEN '울산'
+                                            WHEN '인천광' THEN '인천'
+                                            WHEN '전라남' THEN '전남'
+                                            WHEN '전라북' THEN '전북'
+                                            WHEN '제주특' THEN '제주'
+                                            WHEN '충청남' THEN '충남'
+                                            WHEN '충청북' THEN '충북'
+                                            ELSE CASE SUBSTR(SI, 1, 2) WHEN '강원' THEN '강원'
+                                                                   WHEN '경기' THEN '경기'
+                                                                   WHEN '경남' THEN '경남'
+                                                                   WHEN '경북' THEN '경북'
+                                                                   WHEN '광주' THEN '광주'
+                                                                   WHEN '대구' THEN '대구'
+                                                                   WHEN '대전' THEN '대전'
+                                                                   WHEN '부산' THEN '부산'
+                                                                   WHEN '서울' THEN '서울'
+                                                                   WHEN '세종' THEN '세종'
+                                                                   WHEN '울산' THEN '울산'
+                                                                   WHEN '인천' THEN '인천'
+                                                                   WHEN '전남' THEN '전남'
+                                                                   WHEN '전북' THEN '전북'
+                                                                   WHEN '제주' THEN '제주'
+                                                                   WHEN '충남' THEN '충남'
+                                                                   WHEN '충북' THEN '충북'
+                                                                   ELSE ''
+                                                  END
+                                    END;
+
+            FUNRL_LOC_NM := CASE FUNRL_PRN_SI_NM WHEN '강원' THEN '강원'
+                                                      WHEN '경기' THEN '경기'
+                                                      WHEN '경남' THEN '경남'
+                                                      WHEN '경북' THEN '경북'
+                                                      WHEN '광주' THEN '전남'
+                                                      WHEN '대구' THEN '경북'
+                                                      WHEN '대전' THEN '충남'
+                                                      WHEN '부산' THEN '경남'
+                                                      WHEN '서울' THEN '서울'
+                                                      WHEN '세종' THEN '충북'
+                                                      WHEN '울산' THEN '경남'
+                                                      WHEN '인천' THEN '인천'
+                                                      WHEN '전남' THEN '전남'
+                                                      WHEN '전북' THEN '전북'
+                                                      WHEN '제주' THEN '제주'
+                                                      WHEN '충남' THEN '충남'
+                                                      WHEN '충북' THEN '충북'
+                                                      ELSE ''
+                                 END;
+        </if>
+        <if test="event_place_cl == 0002">
+
+            SI              := NVL(SUBSTR(#{etc_addr1},1,3), ' ');
+            FUNRL_PRN_SI_NM := '';
+            FUNRL_LOC_NM    := '';
+            ETC_PRN_SI_NM   := CASE SI WHEN '강원도' THEN '강원'
+                                          WHEN '경기도' THEN '경기'
+                                          WHEN '경상남' THEN '경남'
+                                          WHEN '경상북' THEN '경북'
+                                          WHEN '광주광' THEN '광주'
+                                          WHEN '대구광' THEN '대구'
+                                          WHEN '대전광' THEN '대전'
+                                          WHEN '부산광' THEN '부산'
+                                          WHEN '서울특' THEN '서울'
+                                          WHEN '세종특' THEN '세종'
+                                          WHEN '울산광' THEN '울산'
+                                          WHEN '인천광' THEN '인천'
+                                          WHEN '전라남' THEN '전남'
+                                          WHEN '전라북' THEN '전북'
+                                          WHEN '제주특' THEN '제주'
+                                          WHEN '충청남' THEN '충남'
+                                          WHEN '충청북' THEN '충북'
+                                          ELSE CASE SUBSTR(SI, 1, 2) WHEN '강원' THEN '강원'
+                                                                 WHEN '경기' THEN '경기'
+                                                                 WHEN '경남' THEN '경남'
+                                                                 WHEN '경북' THEN '경북'
+                                                                 WHEN '광주' THEN '광주'
+                                                                 WHEN '대구' THEN '대구'
+                                                                 WHEN '대전' THEN '대전'
+                                                                 WHEN '부산' THEN '부산'
+                                                                 WHEN '서울' THEN '서울'
+                                                                 WHEN '세종' THEN '세종'
+                                                                 WHEN '울산' THEN '울산'
+                                                                 WHEN '인천' THEN '인천'
+                                                                 WHEN '전남' THEN '전남'
+                                                                 WHEN '전북' THEN '전북'
+                                                                 WHEN '제주' THEN '제주'
+                                                                 WHEN '충남' THEN '충남'
+                                                                 WHEN '충북' THEN '충북'
+                                                                 ELSE ''
+                                                END
+                                  END;
+
+            ETC_LOC_NM := CASE ETC_PRN_SI_NM WHEN '강원' THEN '강원'
+                                                  WHEN '경기' THEN '경기'
+                                                  WHEN '경남' THEN '경남'
+                                                  WHEN '경북' THEN '경북'
+                                                  WHEN '광주' THEN '전남'
+                                                  WHEN '대구' THEN '경북'
+                                                  WHEN '대전' THEN '충남'
+                                                  WHEN '부산' THEN '경남'
+                                                  WHEN '서울' THEN '서울'
+                                                  WHEN '세종' THEN '충북'
+                                                  WHEN '울산' THEN '경남'
+                                                  WHEN '인천' THEN '인천'
+                                                  WHEN '전남' THEN '전남'
+                                                  WHEN '전북' THEN '전북'
+                                                  WHEN '제주' THEN '제주'
+                                                  WHEN '충남' THEN '충남'
+                                                  WHEN '충북' THEN '충북'
+                                                  ELSE ''
+                               END;
+        </if>
+
+
+        INSERT INTO EVENT
+             ( SEQ
+             , ACCNT_NO
+             , EVENT_REG_DAY
+             , EVENT_PROC_DAY
+             , EVENT_COMP_DAY
+             , EVENT_MAN
+             , SORT
+             , VAL1
+             , VAL2
+             , VAL7
+             , VAL8
+             , VAL8_H
+             , VAL8_M
+             , VAL9
+             , ANNV
+             , REG_DM
+             , REG_MAN
+             , NEW_YN
+             , LOC
+             , CFN_DT
+             , ARRIVE_DT
+             , EVENT_PLACE_CL
+             , FUNRL_HALL
+             , ETC_ZIP
+             , ETC_ADDR1
+             , ETC_ADDR2
+             , DEATHDAY
+             , DEL_FG
+             , ETC_PRN_SI_NM
+             , ETC_LOC_NM
+             )
+        SELECT A.SEQ
+             , #{accnt_no}
+             , #{receipt_day}
+             , #{receipt_day}
+             , TO_CHAR(TO_DATE(#{receipt_day})+2, 'YYYYMMDD')
+             , #{event_man}
+             , '01'
+             , #{deceased}
+             , ''
+             , TO_CHAR(TO_DATE(#{receipt_day})+1, 'YYYYMMDD')
+             , #{receipt_day}
+             , #{receipt_day_h}
+             , #{receipt_day_m}
+             , #{receipt_day}
+             , #{receipt_day}
+             , SYSDATE
+             , #{reg_man}
+             , 'Y'
+             , #{loc}
+             , TO_CHAR(TO_DATE(#{receipt_day})+2, 'YYYYMMDD')
+             , #{receipt_day}
+             , #{event_place_cl}
+             , #{funrl_hall}
+             <if test="event_place_cl == '0001'">
+             , ''
+             , ''
+             , ''
+             </if>
+             <if test="event_place_cl == '0002'">
+             , #{etc_zip}
+             , #{etc_addr1}
+             , #{etc_addr2}
+             </if>
+             , #{deathday}
+             , 'N'
+             <if test="event_place_cl == '0001'">
+             , FUNRL_PRN_SI_NM
+             , FUNRL_LOC_NM
+             </if>
+             <if test="event_place_cl == '0002'">
+             , ETC_PRN_SI_NM
+             , ETC_LOC_NM
+             </if>
+             <if test="event_place_cl == null or event_place_cl == ''">
+             , ''
+             , ''
+             </if>
+          FROM (SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+                  FROM EVENT
+               ) A
+         WHERE (SELECT COUNT(*)
+                  FROM EVENT
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N') <![CDATA[<=]]> 0;
+                   
+         UPDATE TB_EVENT_RECEIPT
+         SET DEL_FG = 'C'
+         WHERE SEQ = #{seq};
+        END;
+    </insert>
+    
+    <!-- 행사현황 건수 조회 -->
+    <!--
+           2017.07.27 김준호
+         관리업무>행사조회>모니터링>모니터링 결과 보고서
+        중복 입력시 오류건으로 인해 저장전 회원번호로 EVENT TABLE확인후 저장
+     -->
+    <select id="DlwEvntReceiptMap.countEventReceipt" parameterType="map" resultType="int">
+         SELECT
+             COUNT(ACCNT_NO)
+         FROM TB_EVENT_RECEIPT
+         WHERE DEL_FG IN ('N', 'C')
+         AND ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- 행사자 등록 -->
+    <insert id="DlwEvntReceiptMap.insertevntMngr" parameterType="map">
+		BEGIN
+	        INSERT /* DlwEvntMap.insertevntMngr */
+	        INTO EVENT_MNGR_REG(EVT_SEQ, EVT_MNGR_GUBUN, EVT_MNGR_CD, WORK_DM,
+	                            START_TIME, END_TIME, NUMBER_OF_DAY, OVER_TIME,
+	                            PAY_AMT, PAY_ADD_AMT, GIVE_PAY_DM, NOTE, REG_DM, REG_MAN, DEL_FG)
+	        VALUES(#{evt_seq}, #{job_duty}, #{evt_mngr_cd}, #{receipt_day},
+	               #{start_time}, #{end_time}, 0, 0,
+	               0, 0, #{receipt_day}, #{note}, SYSDATE,  #{reg_man}, 'N') ;
+
+        END;
+    </insert>
+    
+    <select id="DlwEvntReceiptMap.getEventSeq" parameterType="map" resultType="resultMap">
+    
+        SELECT /* DlwEvntReceiptMap.getEventSeq */
+               SEQ
+          FROM EVENT
+          WHERE ACCNT_NO = #{accnt_no}
+          AND DEL_FG = 'N'
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getDlwCustAcntCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwEvntReceiptMap.getDlwCustAcntCount */
+               COUNT(*)
+          FROM MEM_PROD_ACCNT A JOIN MEMBER B
+                                  ON A.MEM_NO = B.MEM_NO
+                                 AND B.DEL_FG = 'N'
+                                JOIN PRODUCT C
+                                  ON A.PROD_CD = C.PROD_CD
+                                JOIN EMPLOYEE EMP
+                                  ON EMP.EMPLE_NO = A.EMPLE_NO
+                     LEFT OUTER JOIN CMS_MEM D
+                                  ON A.ACCNT_NO = D.ACCNT_NO
+                                 AND D.DEL_FG = 'N'
+                     LEFT OUTER JOIN CARD_MEM E
+                                  ON A.ACCNT_NO = E.ACCNT_NO
+                                 AND E.DEL_FG = 'N'
+         WHERE A.DEL_FG = 'N'
+         AND   A.KSTBIT IN ('01', '02')
+        <if test="dataAthrQury != null and dataAthrQury != '' and user_athrCd != 'TM40'">	 <!-- 2018.03.20 TM40이면 제외  -->
+             ${dataAthrQury}
+         </if>
+         <if test="ns_yn != null and ns_yn.equalsIgnoreCase('Y')">
+             AND EMP.DEPT_CD = '1602'
+         </if>
+         <if test="idly != null and idly.equalsIgnoreCase('Y')">
+             AND C.PROD_NM LIKE '%즉발%'
+         </if>
+         <if test="srch_vl != null and srch_vl != ''">
+             <if test="srch_typ == 'all'">
+                 AND (A.ACCNT_NO = #{srch_vl}
+                      OR  A.MEM_NO = #{srch_vl}
+                      OR  B.MEM_NM LIKE '%' || #{srch_vl} || '%'
+                      OR  B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+                      OR  D.BANK_ACCNT_NO = #{srch_vl}
+                      )
+             </if>
+             <if test="srch_typ == 'mem_nm'">
+                 AND B.MEM_NM LIKE #{srch_vl} || '%'
+             </if>
+             <if test="srch_typ == 'accnt_no'">
+                 AND A.ACCNT_NO = #{srch_vl}
+             </if>
+             <if test="srch_typ == 'mem_no'">
+                 AND A.MEM_NO = #{srch_vl}
+             </if>
+             <if test="srch_typ == 'birth'">
+                 AND B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+             </if>
+             <if test="srch_typ == 'bank_accnt_no'">
+                 AND  D.BANK_ACCNT_NO LIKE '%' || #{srch_vl} || '%'
+             </if>
+             <if test="srch_typ == 'pre_accnt_no'">
+                 AND A.OLD_MID LIKE '%' || #{srch_vl} || '%'
+             </if>
+         </if>
+         <if test="srch_typ == 'ichae_dt'">
+             <if test="ichae_stt_dt != null and ichae_stt_dt != '' and ichae_end_dt != null and ichae_end_dt != ''">
+                 AND  TO_NUMBER(A.ICHAE_DT) <![CDATA[>=]]> #{ichae_stt_dt}
+                 AND  TO_NUMBER(A.ICHAE_DT) <![CDATA[<=]]> #{ichae_end_dt}
+             </if>
+         </if>
+
+         <if test="option == 'cms_non'">
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM NEW_CANCL_APP
+                                     WHERE stat IN ('01', '02'))
+         </if>
+         <if test="option == 'cms'">
+             AND a.accnt_no IN (SELECT accnt_no
+                                  FROM CMS_MEM
+                                 WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM wdrw_req
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM card_wdrw_req
+                                     WHERE stat IN ('01', '02'))
+         </if>
+
+         <if test="option == 'card_non'">
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CARD_MEM
+                                     WHERE del_fg = 'N')
+         </if>
+         <if test="option == 'card'">
+             AND a.accnt_no IN (SELECT accnt_no
+                                  FROM CARD_MEM
+                                 WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM card_wdrw_req
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM card_wdrw_req
+                                     WHERE stat IN ('01', '02'))
+         </if>
+         <if test="option == 'call'">
+             <!-- 수정 : 고객만족센터 파일 산출에 카드산출 포함 by lbk_2013_06_19  -->
+             AND
+             (
+                 (
+                 a.PAY_MTHD = '04'
+                 AND a.accnt_no IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+                 AND a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM wdrw_req
+                                         WHERE stat IN ('01', '02'))
+                 and a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM wdrw_req_call_center
+                                         WHERE WDRW_REQ_YN = 'N'
+                                           AND DEL_FG IS NULL)
+                 )
+                 OR
+                 (
+                 a.PAY_MTHD = '06'
+                 AND a.accnt_no IN (SELECT accnt_no
+                                      FROM CARD_MEM
+                                     WHERE del_fg = 'N')
+                 AND a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM card_wdrw_req
+                                         WHERE stat IN ('01', '02'))
+                 and a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM wdrw_req_call_center
+                                         WHERE WDRW_REQ_YN = 'N'
+                                           AND DEL_FG IS NULL)
+                 )
+             )
+
+         </if>
+         <if test="option == 'pay_able'">
+             <!-- AND FN_ACCNT_STAT(a.accnt_no) in ('Y','E') //청약철회가 아니면 조회되도록 수정 by lbk_2012_07_31 -->
+             AND FN_EVENT(a.accnt_no) != '청약철회'
+         </if>
+         <if test="option == 'cms_card_non'">
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM NEW_CANCL_APP
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CARD_MEM
+                                     WHERE del_fg = 'N')
+         </if>
+         <if test="option == 'event'">
+             AND a.accnt_no IN (SELECT accnt_no
+                                      FROM EVENT
+                                     WHERE del_fg = 'N')
+         </if>
+         <if test="option == 'prod_trans'">
+             <!-- 상품변경은 정상 구좌이면서 출금이체 신청전,중이 아니면서 양도양수 공제 신고된건만 조회  -->
+             AND FN_ACCNT_STAT(a.accnt_no) = 'Y'
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM NEW_CANCL_APP
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT ACCNT_NO FROM TRANSFER_BRKDN WHERE NEW_YN IN ('Y', 'S', 'E'))
+         </if>
+         <!-- ORDER BY b.mem_nm -->
+    </select>
+
+    <select id="DlwEvntReceiptMap.getDlwCustAcntList" parameterType="map" resultType="resultMap">
+        <!-- sql-common.xml selectAccntInfo -->
+
+        SELECT /* DlwEvntReceiptMap.getDlwCustAcntList */
+               B.*
+          FROM (SELECT A.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY UPD_DM DESC) AS PAGE_INDX
+                        </otherwise>
+                    </choose>
+                 FROM (SELECT A.ACCNT_NO
+                            , A.MEM_NO
+                            , A.RESORT_NO
+                            , B.MEM_NM
+                            , B.HOME_TEL
+                            , B.CELL AS CELL
+                            , B.WRPL_TEL
+                            , CASE WHEN LENGTH(NVL(TO_CHAR(B.IDN_NO), '')) = 10
+                                   THEN B.IDN_NO
+                                   ELSE SUBSTR(B.BRTH_MON_DAY, -6)
+                               END IDN_NO
+                            , A.PROD_CD
+                            , C.PROD_NM
+                            , C.PROD_AMT
+                            , C.MON_PAY_AMT
+                            , C.EXPR_NO
+                            , A.EMPLE_NO
+                            , EMP.EMPLE_NM
+                            , A.APPFM_NO
+                            , JOIN_DT
+                            , COMPT_DT
+                            , A.BEF_EMPLE_CD
+                            , A.PAY_PERD
+                            , A.PAY_MTHD
+                            , A.JOIN_PROD
+                            , A.NEW_CHAN_GUNSU
+                            , A.CERTF_RCV_CHK
+                            , A.PAY_STAT_1NO
+                            , D.ICHAE_DT
+                            , A.BANK_ACCNT_NO AS BANK_ACCNT_NO
+                            , A.OLD_MID
+                            , A.REG_DM
+                            , A.REG_MAN
+                            , A.UPD_DM
+                            , A.UPD_MAN
+                              , FN_ACCNT_STAT(A.ACCNT_NO) AS ACCNT_STAT
+                            , (SELECT NVL(MAX (NO),1)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') * C.MON_PAY_AMT AS TOTAL_PAY
+                            , (SELECT NVL(MAX (NO),1)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') LAST_NO
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') REAL_PAY_NO
+                            , A.DED_NO
+                            , NVL(A.JOIN_CL,'01') AS JOIN_CL
+                            , CASE WHEN (SELECT COUNT(ACCNT_NO) FROM TRANSFER_BRKDN WHERE ACCNT_NO = A.ACCNT_NO) > 0
+                                   THEN 'Y'
+                                   ELSE 'N'
+                               END AS TRANS_GUBUN
+                            , B.BRTH_MON_DAY
+                            , NVL((SELECT CELL
+                                        FROM EMPLOYEE
+                                       WHERE EMPLE_NO = A.EMPLE_NO), '') AS EMP_CELL
+                            , FN_EVENT(A.ACCNT_NO) AS JOIN_STAT
+                            , FN_EVENT(A.ACCNT_NO) AS STAT
+                            , FN_YEN_CHE(A.ACCNT_NO) AS PAY_STAT
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_NO
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG_DTL
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ALLT_NO
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG_DTL1
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ADD_NO
+                            , (SELECT NVL(SUM (PAY_AMT),0)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_AMT
+                            , (SELECT NVL(SUM (PAY_AMT),0)
+                                 FROM PAY_MNG_DTL
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ALLT_AMT
+                            , (SELECT NVL(SUM (PAY_AMT),0)
+                                 FROM PAY_MNG_DTL1
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ADD_AMT
+                            , NVL((SELECT MODEL_CL_NM
+                                        FROM PRODUCT_MODEL_CL_CD
+                                       WHERE MODEL_CL_CD = A.PROD_MODEL_KIND), '') AS MODEL_CL_NM
+                             , CASE WHEN A.KSTBIT = '01' THEN '대기'
+                                    WHEN A.KSTBIT = '02' THEN '가입'
+                                    WHEN A.KSTBIT = '03' THEN '해약'
+                                    WHEN A.KSTBIT = '04' THEN '행사'
+                                    WHEN A.KSTBIT = '09' THEN '만기' ELSE A.KSTBIT END KSTBIT
+                              , FN_CMS_CARD_MEM(A.ACCNT_NO) YN
+                         FROM MEM_PROD_ACCNT A
+                         JOIN MEMBER B
+                              ON A.MEM_NO = B.MEM_NO
+                             AND B.DEL_FG = 'N'
+                         JOIN PRODUCT C
+                              ON A.PROD_CD = C.PROD_CD
+                         JOIN EMPLOYEE EMP
+                              ON EMP.EMPLE_NO = A.EMPLE_NO
+              LEFT OUTER JOIN CMS_MEM D
+                              ON A.ACCNT_NO = D.ACCNT_NO
+                              AND D.DEL_FG = 'N'
+              LEFT OUTER JOIN CARD_MEM E
+                              ON A.ACCNT_NO = E.ACCNT_NO
+                              AND E.DEL_FG = 'N'
+                         <!-- 2018.02.08 임의 등록시 고객 선택 할 때 해피콜 상태가 01,011 인것만 조회 -->
+                         <!-- 2018.02.13 임의 등록시 고객 선택 할 때만 해피콜 조인 / hp_join_gb 구분자 추가 -->
+                        <if test="hp_join_gb != null and hp_join_gb != ''">
+                         INNER JOIN HP_CALL HP
+                              ON A.ACCNT_NO = HP.ACCNT_NO AND HP.STAT IN ('01', '011')
+                        </if>
+
+                         <!-- 2018.03.20 TM40:MG권한 일 경우 -->
+                         <if test="user_athrCd != null and user_athrCd == 'TM40'">
+                                  INNER JOIN LF_DMUSER.RESN_CREDIT_LIST K
+                                  ON K.ACCNT_NO = A.ACCNT_NO
+                                  AND K.DEL_FG = 'N'
+                                  AND K.TARGET_YM = TO_CHAR(SYSDATE, 'YYYYMM')
+                         </if>
+
+                        WHERE A.DEL_FG = 'N'
+                        AND   A.KSTBIT IN ('01', '02')
+                        <if test="dataAthrQury != null and dataAthrQury != '' and user_athrCd != 'TM40'">	 <!-- 2018.03.20 TM40이면 제외  -->
+
+                            ${dataAthrQury}
+                        </if>
+                        <if test="ns_yn != null and ns_yn.equalsIgnoreCase('Y')">
+                            AND EMP.DEPT_CD = '1602'
+                        </if>
+                        <if test="idly != null and idly.equalsIgnoreCase('Y')">
+				            AND C.PROD_NM LIKE '%즉발%'
+				        </if>
+                        <if test="srch_vl != null and srch_vl != ''">
+                            <if test="srch_typ == 'all'">
+                                AND (A.ACCNT_NO = #{srch_vl}
+                                     OR  A.MEM_NO = #{srch_vl}
+                                     OR  B.MEM_NM LIKE '%' || #{srch_vl} || '%'
+                                     OR  B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+                                     OR  D.BANK_ACCNT_NO = #{srch_vl}
+                                     )
+                            </if>
+                            <if test="srch_typ == 'mem_nm'">
+                                AND B.MEM_NM LIKE #{srch_vl} || '%'
+                            </if>
+                            <if test="srch_typ == 'accnt_no'">
+                                AND A.ACCNT_NO = #{srch_vl}
+                            </if>
+                            <if test="srch_typ == 'mem_no'">
+                                AND A.MEM_NO = #{srch_vl}
+                            </if>
+                            <if test="srch_typ == 'birth'">
+                                AND B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+                            </if>
+                            <if test="srch_typ == 'bank_accnt_no'">
+                                AND D.BANK_ACCNT_NO LIKE '%' || #{srch_vl} || '%'
+                            </if>
+                            <if test="srch_typ == 'pre_accnt_no'">
+                                AND A.OLD_MID LIKE '%' || #{srch_vl} || '%'
+                            </if>
+                        </if>
+                        <if test="srch_typ == 'ichae_dt'">
+                            <if test="ichae_stt_dt != null and ichae_stt_dt != '' and ichae_end_dt != null and ichae_end_dt != ''">
+                                AND TO_NUMBER(A.ICHAE_DT) <![CDATA[>=]]> #{ichae_stt_dt}
+                                AND TO_NUMBER(A.ICHAE_DT) <![CDATA[<=]]> #{ichae_end_dt}
+                            </if>
+                        </if>
+
+
+                        <if test="option == 'cms_non'">
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM NEW_CANCL_APP
+                                                    WHERE stat IN ('01', '02'))
+                        </if>
+                        <if test="option == 'cms'">
+                            AND a.accnt_no IN (SELECT accnt_no
+                                                 FROM CMS_MEM
+                                                WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM card_wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                        </if>
+
+                        <if test="option == 'card_non'">
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CARD_MEM
+                                                    WHERE del_fg = 'N')
+                        </if>
+                        <if test="option == 'card'">
+                            AND a.accnt_no IN (SELECT accnt_no
+                                                 FROM CARD_MEM
+                                                WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM card_wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM card_wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                        </if>
+                        <if test="option == 'call'">
+                            <!-- 수정 : 고객만족센터 파일 산출에 카드산출 포함 by lbk_2013_06_19  -->
+                            AND
+                            (
+                                (
+                                a.PAY_MTHD = '04'
+                                AND a.accnt_no IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                                AND a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM wdrw_req
+                                                        WHERE stat IN ('01', '02'))
+                                and a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM wdrw_req_call_center
+                                                        WHERE WDRW_REQ_YN = 'N'
+                                                          AND DEL_FG IS NULL)
+                                )
+                                OR
+                                (
+                                a.PAY_MTHD = '06'
+                                AND a.accnt_no IN (SELECT accnt_no
+                                                     FROM CARD_MEM
+                                                    WHERE del_fg = 'N')
+                                AND a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM card_wdrw_req
+                                                        WHERE stat IN ('01', '02'))
+                                and a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM wdrw_req_call_center
+                                                        WHERE WDRW_REQ_YN = 'N'
+                                                          AND DEL_FG IS NULL)
+                                )
+                            )
+
+                        </if>
+                        <if test="option == 'pay_able'">
+                            <!-- AND FN_ACCNT_STAT(a.accnt_no) in ('Y','E') //청약철회가 아니면 조회되도록 수정 by lbk_2012_07_31 -->
+                            AND FN_EVENT(a.accnt_no) != '청약철회'
+                        </if>
+                        <if test="option == 'cms_card_non'">
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM NEW_CANCL_APP
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CARD_MEM
+                                                    WHERE del_fg = 'N')
+                        </if>
+                        <if test="option == 'event'">
+                            AND a.accnt_no IN (SELECT accnt_no
+                                                     FROM EVENT
+                                                    WHERE del_fg = 'N')
+                        </if>
+                        <if test="option == 'prod_trans'">
+                            <!-- 상품변경은 정상 구좌이면서 출금이체 신청전,중이 아니면서 양도양수 공제 신고된건만 조회  -->
+                            AND FN_ACCNT_STAT(a.accnt_no) = 'Y'
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM NEW_CANCL_APP
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT ACCNT_NO FROM TRANSFER_BRKDN WHERE NEW_YN IN ('Y', 'S', 'E'))
+                        </if>
+                        <!-- ORDER BY b.mem_nm -->
+                       ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <!-- 행사현황 조회 -->
+    <select id="DlwEvntReceiptMap.getEventCancelList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-task.xml : selectEventList -->
+        SELECT /* DlwEvntReceiptMap.getEventCancelList */
+               *
+          FROM (SELECT ROW_NUMBER() OVER(ORDER BY EVT_SEQ DESC) PAGE_INDX,
+					   EVT_SEQ,
+					   CNL_REASON_CD,
+			           CNL_RESON,
+			           CNL_WORK_YN,
+			           CANCL_REG_MAN,
+			           CANCL_REG_MAN AS CNL_EMPLE_NO,
+			           FN_EMPLE_NM(CANCL_REG_MAN) AS CNL_EMPLE_NM,
+			           NVL(TO_CHAR(CANCL_REG_DM,'YYYYMMDD'), '') AS CANCEL_ACCEPT_DAY,
+			           NVL(TO_CHAR(CANCL_REG_DM,'HH24'), '') AS CA_TM,
+			           NVL(TO_CHAR(CANCL_REG_DM,'MI'), '') AS CA_MM,
+			           CANCL_REG_DM,
+			           CANCL_NOTE
+				FROM TB_EVENT_RECEIPT_CANCEL
+				WHERE 1=1
+				AND EVT_SEQ = #{seq}
+               ) TBL
+    </select>
+
+    <!-- 행사등록 -->
+    <insert id="DlwEvntReceiptMap.insertEventCancel" parameterType="map">
+    <!-- DM sql-id : sql-task.xml : insertEvent -->
+        /* DlwEvntReceiptMap.insertEventCancel */
+        INSERT INTO TB_EVENT_RECEIPT_CANCEL
+        (
+        	EVT_SEQ,
+			CNL_REASON_CD,
+            CNL_RESON,
+            CNL_WORK_YN,
+            CANCL_REG_MAN,
+            CANCL_REG_DM,
+            CANCL_NOTE
+        )
+        VALUES
+        (
+        	#{evt_seq},
+        	#{cnl_reason_cd},
+        	#{cnl_reson},
+        	#{cnl_work_yn},
+        	#{cnl_emple_no},
+        	<if test="cancl_reg_dm != null and cancl_reg_dm != ''">
+            	TO_DATE(#{cancl_reg_dm},'YYYYMMDDHH24MI'),
+            </if>
+            <if test="cancl_reg_dm == null or cancl_reg_dm == ''">
+            	NULL,
+            </if>
+        	#{cancl_note}
+        )
+    </insert>
+    
+    <!--
+     * APP푸쉬알림시 메시지 정보 가져오기
+     * 임동진 20190327
+    -->
+    <select id="DlwEvntReceiptMap.getSendPushInfo" parameterType="map" resultType="resultMap">
+            SELECT
+            	/* DlwEvntReceiptMap.getSendPushInfo */
+			    REAL_EVT_MNGR_CD,
+			    NVL(MNG_BRANCH_CD,'0000000000') AS MNG_BRANCH_CD,
+			    ('■ 행사접수 : ' || MEM_NM || ' 회원 / ' || BRANCH_NM || '지부 / ' || EVT_MNGR_NM || 'CP / ' || FUNRL_NM) AS SEND_MSG
+			FROM
+			(
+			    SELECT
+			        REAL_EVT_MNGR_CD,
+			        (SELECT MAX(REAL_EVT_MNGR_CD) FROM LF_DMUSER.EVENT_MANAGER_MNG WHERE WH_CD = WM.WH_CD AND ADMIN_AUTH = '0004' AND DEL_FG = 'N') AS MNG_BRANCH_CD,
+			        --(SELECT FUNRL_NM FROM LF_DMUSER.FUNRL_HALL WHERE FUNRL_CD = TBL.FUNRL_HALL ) AS FUNRL_NM,
+			        BM.BRANCH_NM,
+			        MNG.EVT_MNGR_NM,
+			        NVL(#{accnt_no}, #{mem_no}) AS ACCNT_NO,
+			        (SELECT FUNRL_NM FROM LF_DMUSER.FUNRL_HALL WHERE FUNRL_CD = #{funrl_hall}) AS FUNRL_NM
+			        --('■ 행사접수 : ' || MEM_NM || ' 회원 / ' || BRANCH_NM || '지부 / ' || EVT_MNGR_NM || 'CP / ' || FUNRL_NM) AS SEND_MSG
+			    FROM LF_DMUSER.EVENT_MANAGER_MNG MNG INNER JOIN
+			        LF_DMUSER.WAREHOUSE_MNG WM ON MNG.WH_CD = WM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+			        LF_DMUSER.BRANCH_MNG BM ON WM.BRANCH = BM.BRANCH_CD AND BM.DEL_FG = 'N'
+			    WHERE 1=1
+			    AND MNG.EVT_MNGR_CD = ${evt_mngr_cd}
+			    AND JOB_DUTY = '0001'
+			) TBL INNER JOIN
+				<choose>
+                    <when test="accnt_no != null and accnt_no != ''">
+                        LF_DMUSER.MEM_PROD_ACCNT MPA ON (TBL.ACCNT_NO = MPA.ACCNT_NO OR TBL.ACCNT_NO = MPA.MEM_NO) AND MPA.DEL_FG = 'N' INNER JOIN
+			    		LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+                    </when>
+                    <otherwise>
+                        LF_DMUSER.MEMBER MB ON TBL.ACCNT_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+                    </otherwise>
+                </choose>
+
+       	<!--
+		SELECT
+			/* DmWebSenderMap.getSendPushInfo */
+		    REAL_EVT_MNGR_CD,
+		    NVL(MNG_BRANCH_CD,'0000000000') AS MNG_BRANCH_CD,
+		    ('■ 행사접수 : ' || MEM_NM || ' 회원 / ' || BRANCH_NM || '지부 / ' || EVT_MNGR_NM || 'CP / ' || FUNRL_NM) AS SEND_MSG
+
+		FROM
+		(
+		    SELECT
+		        EVT_SEQ,
+		        MB.MEM_NM,
+		        WORK_DM,
+		        REAL_EVT_MNGR_CD,
+		        EVT_MNGR_NM,
+		        EVT.ACCNT_NO,
+		        MNG.WH_CD,
+		        BM.BRANCH_NM,
+		        (SELECT REAL_EVT_MNGR_CD FROM LF_DMUSER.EVENT_MANAGER_MNG WHERE WH_CD = WM.WH_CD AND ADMIN_AUTH = '0004' AND DEL_FG = 'N') AS MNG_BRANCH_CD,
+		        (SELECT FUNRL_NM FROM LF_DMUSER.FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL ) AS FUNRL_NM
+		    FROM LF_DMUSER.EVENT_MNGR_REG REG INNER JOIN
+		        LF_DMUSER.EVENT_MANAGER_MNG MNG ON REG.EVT_MNGR_CD = MNG.EVT_MNGR_CD AND MNG.DEL_FG = 'N' INNER JOIN
+		        LF_DMUSER.EVENT EVT ON REG.EVT_SEQ = EVT.SEQ AND EVT.DEL_FG = 'N' LEFT OUTER JOIN
+		        LF_DMUSER.WAREHOUSE_MNG WM ON MNG.WH_CD = WM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+		        LF_DMUSER.BRANCH_MNG BM ON WM.BRANCH = BM.BRANCH_CD AND BM.DEL_FG = 'N' LEFT OUTER JOIN
+		        LF_DMUSER.MEM_PROD_ACCNT MPA ON EVT.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+		        LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+		    WHERE 1=1
+		    AND MNG.DEL_FG = 'N'
+		    AND EVT_SEQ = ${evt_seq}
+		    AND EVT_MNGR_GUBUN = '0001'
+		)
+
+		 -->
+    </select>
+    
+    <!-- 지역 공통코드 조회 -->
+    <select id="DlwEvntReceiptMap.getComCd" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-task.xml : selectEventList -->
+        SELECT /* DlwEvntReceiptMap.getComCd */
+               *
+          FROM (SELECT A.GRP_CD
+                      ,A.COM_CD
+                      ,A.HIGH_COM_CD
+                      ,A.CD_NM
+                      ,A.ORDR_TURN
+                      ,A.USE_YN
+                 	  ,FN_COM_NM('0229', A.HIGH_COM_CD) HIGH_COM_NM
+	            FROM COM_CD A
+	            WHERE GRP_CD = #{grp_cd}
+	            <if test="cd_nm != null and cd_nm != ''">
+                    AND CD_NM LIKE '%' || #{cd_nm} || '%'
+                </if>
+               ) TBL
+               WHERE 1=1
+               <if test="high_com_nm != null and high_com_nm != ''">
+                    AND HIGH_COM_NM LIKE '%' || #{high_com_nm} || '%'
+               </if>
+               ORDER BY ORDR_TURN
+    </select>
+    
+    <!-- 행사자 조회 -->
+    <select id="DlwEvntReceiptMap.getManagerList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-task.xml : selectEventList -->
+        SELECT /* DlwEvntReceiptMap.getManagerList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY CNT) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           '' AS PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT
+                              ROW_NUMBER() OVER (ORDER BY A.EVT_MNGR_CD) AS CNT,
+                              FN_COM_NM('0138', A.JOB_DUTY) GUBUN,
+                              A.EVT_MNGR_NM AS MNGR_NM,
+                              A.IDN_NO,
+                              A.CELL,
+                              A.REAL_EVT_MNGR_CD AS MNGR_CD,
+                              A.JOB_DUTY,
+                              A.EVT_MNGR_CD,
+                              B.HMH_ADAY,
+                              B.HMM_ADAY,
+                              B.HMM_ADD_TIME,
+                              A.EMP_GUBUN,
+                              CASE WHEN NVL((SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = A.EVT_MNGR_CD), '') = '' THEN NVL(A.BRANCH, '')
+                                  ELSE C.BRANCH_CD 
+                              END AS BRANCH,
+                              CASE WHEN NVL((SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = A.EVT_MNGR_CD), '') = '' THEN NVL(A.BRANCH, '')
+                                  ELSE C.BRANCH_NM 
+                              END AS BRANCH_NM,
+                              CASE WHEN A.ADMIN_AUTH = '0001' THEN '지도사(C.P)'
+                                   WHEN A.ADMIN_AUTH = '0002' THEN '내근관리직'
+                                   WHEN A.ADMIN_AUTH = '0003' THEN '부 지부장'
+                                   WHEN A.ADMIN_AUTH = '0004' THEN '지부장'
+                                   ELSE '' END AS ADMIN_AUTH_NM
+                        FROM EVENT_MANAGER_MNG A
+                            LEFT OUTER JOIN EVT_MNGR_ALOW_DATA B ON A.JOB_DUTY = B.EVT_MNGR_CL AND B.DEL_FG = 'N'
+                            LEFT OUTER JOIN (SELECT Z.BRANCH_CD,
+                                                    Z.BRANCH_NM,
+                                                    X.WH_CD,
+                                                    Z.AREA_SEQ
+                                             FROM BRANCH_MNG Z INNER JOIN 
+                                                  WAREHOUSE_MNG X ON Z.BRANCH_CD = X.BRANCH) C ON A.WH_CD = C.WH_CD
+                         WHERE A.DEL_FG = 'N'
+                           AND A.USE_YN = 'Y'
+                         <if test="mngr_nm != null and mngr_nm != ''">
+                             AND A.EVT_MNGR_NM LIKE '%' || #{mngr_nm} ||'%'
+                         </if>
+                         <if test="reg != null and reg != ''">
+                             <if test="reg = 'CP' ">
+                                 AND A.JOB_DUTY = '0001'
+                             </if>
+                         </if>
+                         <if test="admin_auth != null and admin_auth != ''">
+                             AND A.ADMIN_AUTH = #{admin_auth}
+                         </if>
+                         <if test="area_seq != null and area_seq != ''">
+                             AND C.AREA_SEQ = #{area_seq}
+                         </if>
+                       ) X
+                ) Z
+    </select>
+    
+    <!-- 행사접수완료 파라미터 -->
+    <parameterMap id="ResultInfoMap" type="resultMap">
+        <parameter property="accnt_no" mode="IN" jdbcType="VARCHAR"  javaType="java.lang.String" />
+    </parameterMap>
+
+    <!-- 행사접수완료 -->
+    <select id="DlwEvntReceiptMap.eventReceiptComplete" statementType="CALLABLE" parameterMap="ResultInfoMap">
+           {call SP_EVENT_RECEIPT_COMPLET( ?)}
+    </select>
+    
+    <!-- 콜현황 조회 -->
+    <select id="DlwEvntReceiptMap.getEventCallCount" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getEventCallCount */
+               COUNT(*)
+          FROM (SELECT
+                       ROW_NUMBER() OVER (ORDER BY IN_DATE DESC, IN_TIME DESC) AS PAGE_INDX,
+                       CONNID,
+                       CELL,
+                       IN_DATE,
+                       IN_TIME,
+                       COMP_YN,
+                       COMP_DT,
+                       COMP_USER
+                FROM PS_WILLVI.TB_IVR_CALL_HSTR
+                  WHERE 1=1
+                  <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    AND IN_DATE BETWEEN #{stt_dt} AND #{end_dt}
+                  </if>
+                  <if test="comp_yn != null and comp_yn != ''">
+                      AND COMP_YN = #{comp_yn}
+                  </if>
+                ) Z
+    </select>
+    
+    <!-- 콜현황 조회 -->
+    <select id="DlwEvntReceiptMap.getEventCallList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getEventCallList */
+               *
+          FROM (SELECT
+                       ROW_NUMBER() OVER (ORDER BY IN_DATE DESC, IN_TIME DESC) AS PAGE_INDX,
+                       CONNID,
+                       CELL,
+                       IN_DATE,
+                       IN_TIME,
+                       COMP_YN,
+                       COMP_DT,
+                       COMP_USER
+                FROM PS_WILLVI.TB_IVR_CALL_HSTR
+                  WHERE 1=1
+                  <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    AND IN_DATE BETWEEN #{stt_dt} AND #{end_dt}
+                  </if>
+                  <if test="comp_yn != null and comp_yn != ''">
+                      AND COMP_YN = #{comp_yn}
+                  </if>
+                ) Z
+    </select>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <select id="DlwEvntReceiptMap.getEventMainCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvntReceiptMap.getEventMainCount */
+            COUNT(*) AS ICNT
+        FROM 
+        (
+            SELECT 
+                ROW_NUMBER() OVER(ORDER BY EV.ACCNT_NO ASC) AS PAGE_INDX,
+                EV.ACCNT_NO,
+                MB.MEM_NM,
+                TO_CHAR(TO_DATE(EV.VAL8),'YYYY-MM-DD') || ' ' || NVL(EV.VAL8_H,'00') || ':' || NVL(EV.VAL8_M,'00') AS VAL8,
+                TO_CHAR(TO_DATE(EV.ARRIVE_DT),'YYYY-MM-DD') || ' ' || NVL(EV.ARR_H,'00') || ':' || NVL(EV.ARR_M,'00') AS ARRIVE_DT,
+                CASE WHEN EV.DEL_FG = 'N' THEN TRUNC(MOD((CA_DT.A - CA_DT.B), 1) * 24) || '시간 ' || TRUNC(ROUND(MOD((CA_DT.A - CA_DT.B) * 24, 1) * 60)) || '분'
+                    ELSE TRUNC(MOD((CA_DT.C - CA_DT.B), 1) * 24) || '시간 ' || TRUNC(ROUND(MOD((CA_DT.C - CA_DT.B) * 24, 1) * 60)) || '분' 
+                END AS CADT,
+                EV.DEL_FG,
+                MB.MEM_NO,
+                EV.SEQ,
+                PD.PROD_CD,
+                PD.PROD_CL,
+                EV.SORT,
+                EMM.EVT_MNGR_NM,
+                BM.BRANCH_CD,
+                BM.BRANCH_NM
+            FROM EVENT EV INNER JOIN 
+                MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = EV.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD INNER JOIN
+                MEMBER MB ON MB.MEM_NO = MPA.MEM_NO LEFT OUTER JOIN 
+                (
+                    SELECT 
+                        TO_DATE(VAL8 || ' ' || NVL(VAL8_H,'00') || ':' || NVL(VAL8_M,'00'), 'YYYYMMDDHH24:MI') AS B,
+                        TO_DATE(ARRIVE_DT || ' ' || NVL(ARR_H,'00') || ':' || NVL(ARR_M,'00'), 'YYYYMMDDHH24:MI') AS A,
+                        TO_DATE(NVL(TO_CHAR(CANCL_REG_DM, 'YYYYMMDD'),'99991231') || ' ' || NVL(TO_CHAR(CANCL_REG_DM,'HH24'),'00') || ':' || NVL(TO_CHAR(CANCL_REG_DM,'MI'),'00'), 'YYYYMMDDHH24:MI') AS C,
+                        ACCNT_NO,
+                        SEQ
+                    FROM EVENT 
+                ) CA_DT ON EV.ACCNT_NO = CA_DT.ACCNT_NO AND EV.SEQ = CA_DT.SEQ LEFT OUTER JOIN 
+                EVENT_MNGR_REG EMR ON EMR.EVT_SEQ = EV.SEQ AND EMR.EVT_MNGR_GUBUN = '0001' AND EMR.DEL_FG = 'N' LEFT OUTER JOIN 
+                EVENT_MANAGER_MNG EMM ON EMR.EVT_MNGR_CD = EMM.EVT_MNGR_CD AND EMM.DEL_FG = 'N' LEFT OUTER JOIN
+                WAREHOUSE_MNG WM ON WM.WH_CD = EMM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+                BRANCH_MNG BM ON BM.BRANCH_CD = WM.BRANCH AND BM.DEL_FG = 'N'
+            WHERE 1=1
+            <if test="dt_typ != null and dt_typ != ''">
+                <if test="dt_typ == '01'">
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND EV.EVENT_REG_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+                <if test="dt_typ == '02'">
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND EV.EVENT_PROC_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+                <if test="dt_typ == '03'">
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND EV.EVENT_COMP_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MB.MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND EV.ACCNT_NO like '%' || #{accnt_no} || '%'
+            </if>
+            <if test="event_yn != null and event_yn != '' and event_yn.equalsIgnoreCase('N')">
+                AND (EV.DEL_FG = 'N' OR (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') IN ('003', '02')))
+            </if>
+            <if test="event_yn != null and event_yn != '' and event_yn.equalsIgnoreCase('Y')">
+                AND (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') NOT IN ('003', '02'))
+            </if>
+            <if test="sort != null and sort != ''">
+                AND EV.SORT = #{sort}
+            </if>
+            <if test="evt_mngr_nm != null and evt_mngr_nm != ''">
+                AND EMM.EVT_MNGR_NM LIKE '%' || #{evt_mngr_nm} || '%'
+            </if>
+            <if test="branch_cd != null and branch_cd != ''">
+                AND BM.BRANCH_CD = #{branch_cd}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getEventMainList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getEventMainList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT 
+                ROW_NUMBER() OVER(ORDER BY EV.ACCNT_NO ASC) AS PAGE_INDX,
+                EV.ACCNT_NO,
+                MB.MEM_NM,
+                TO_CHAR(TO_DATE(EV.VAL8),'YYYY-MM-DD') || ' ' || NVL(EV.VAL8_H,'00') || ':' || NVL(EV.VAL8_M,'00') AS VAL8,
+                TO_CHAR(TO_DATE(EV.ARRIVE_DT),'YYYY-MM-DD') || ' ' || NVL(EV.ARR_H,'00') || ':' || NVL(EV.ARR_M,'00') AS ARRIVE_DT,
+                CASE WHEN EV.DEL_FG = 'N' THEN TRUNC(MOD((CA_DT.A - CA_DT.B), 1) * 24) || '시간 ' || TRUNC(ROUND(MOD((CA_DT.A - CA_DT.B) * 24, 1) * 60)) || '분'
+                    ELSE TRUNC(MOD((CA_DT.C - CA_DT.B), 1) * 24) || '시간 ' || TRUNC(ROUND(MOD((CA_DT.C - CA_DT.B) * 24, 1) * 60)) || '분' 
+                END AS CADT,
+                EV.DEL_FG,
+                MB.MEM_NO,
+                EV.SEQ,
+                PD.PROD_CD,
+                PD.PROD_CL,
+                EV.SORT,
+                EMM.EVT_MNGR_NM,
+                BM.BRANCH_CD,
+                BM.BRANCH_NM
+            FROM EVENT EV INNER JOIN 
+                MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = EV.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                PRODUCT PD ON PD.PROD_CD = MPA.PROD_CD INNER JOIN
+                MEMBER MB ON MB.MEM_NO = MPA.MEM_NO LEFT OUTER JOIN 
+                (
+                    SELECT 
+                        TO_DATE(NVL(VAL8, '99991231') || ' ' || NVL(VAL8_H,'00') || ':' || NVL(VAL8_M,'00'), 'YYYYMMDDHH24:MI') AS B,
+                        TO_DATE(NVL(ARRIVE_DT, '99991231') || ' ' || NVL(ARR_H,'00') || ':' || NVL(ARR_M,'00'), 'YYYYMMDDHH24:MI') AS A,
+                        TO_DATE(NVL(TO_CHAR(CANCL_REG_DM, 'YYYYMMDD'),'99991231') || ' ' || NVL(TO_CHAR(CANCL_REG_DM,'HH24'),'00') || ':' || NVL(TO_CHAR(CANCL_REG_DM,'MI'),'00'), 'YYYYMMDDHH24:MI') AS C,
+                        ACCNT_NO,
+                        SEQ
+                    FROM EVENT
+                ) CA_DT ON EV.ACCNT_NO = CA_DT.ACCNT_NO AND EV.SEQ = CA_DT.SEQ LEFT OUTER JOIN 
+                EVENT_MNGR_REG EMR ON EMR.EVT_SEQ = EV.SEQ AND EMR.EVT_MNGR_GUBUN = '0001' AND EMR.DEL_FG = 'N' LEFT OUTER JOIN 
+                EVENT_MANAGER_MNG EMM ON EMR.EVT_MNGR_CD = EMM.EVT_MNGR_CD AND EMM.DEL_FG = 'N' LEFT OUTER JOIN
+                WAREHOUSE_MNG WM ON WM.WH_CD = EMM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+                BRANCH_MNG BM ON BM.BRANCH_CD = WM.BRANCH AND BM.DEL_FG = 'N' 
+            WHERE 1=1
+            <if test="dt_typ != null and dt_typ != ''">
+                <if test="dt_typ == '01'">
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND EV.EVENT_REG_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+                <if test="dt_typ == '02'">
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND EV.EVENT_PROC_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+                <if test="dt_typ == '03'">
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND EV.EVENT_COMP_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MB.MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND EV.ACCNT_NO like '%' || #{accnt_no} || '%'
+            </if>
+            <if test="event_yn != null and event_yn != '' and event_yn.equalsIgnoreCase('N')">
+                AND (EV.DEL_FG = 'N' OR (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') IN ('003', '02')))
+            </if>
+            <if test="event_yn != null and event_yn != '' and event_yn.equalsIgnoreCase('Y')">
+                AND (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') NOT IN ('003', '02'))
+            </if>
+            <if test="sort != null and sort != ''">
+                AND EV.SORT = #{sort}
+            </if>
+            <if test="evt_mngr_nm != null and evt_mngr_nm != ''">
+                AND EMM.EVT_MNGR_NM LIKE '%' || #{evt_mngr_nm} || '%'
+            </if>
+            <if test="branch_cd != null and branch_cd != ''">
+                AND BM.BRANCH_CD = #{branch_cd}
+            </if>
+            ORDER BY MB.MEM_NM ASC
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getEventDetailList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getEventDetailList */
+            EV.ACCNT_NO,
+            FN_MEM_NM(MPA.MEM_NO) AS MEM_NM,
+            (SELECT MB.BRTH_MON_DAY FROM MEMBER MB WHERE 1=1 AND MB.DEL_FG = 'N' AND MB.MEM_NO = MPA.MEM_NO) AS BRTH_MON_DAY,
+            (SELECT MB.CELL FROM MEMBER MB WHERE 1=1 AND MB.DEL_FG = 'N' AND MB.MEM_NO = MPA.MEM_NO) AS CELL,
+            NVL(EV.VAL8, '') AS ACCEPT_DAY,
+            NVL(EV.VAL8_H, '') AS VAL8_H,
+            NVL(EV.VAL8_M, '') AS VAL8_M,
+            CASE WHEN EV.DEL_FG = 'N' THEN 
+                    TRUNC(MOD((TO_DATE(NVL(EV.ARRIVE_DT, '99991231') || ' ' || NVL(EV.ARR_H,'00') || ':' || NVL(EV.ARR_M,'00'), 'YYYYMMDDHH24:MI') - TO_DATE(NVL(EV.VAL8, '99991231') || ' ' || NVL(EV.VAL8_H,'00') || ':' || NVL(EV.VAL8_M,'00'), 'YYYYMMDDHH24:MI')), 1) * 24) || '시간 ' || TRUNC(ROUND(MOD((TO_DATE(NVL(EV.ARRIVE_DT, '99991231') || ' ' || NVL(EV.ARR_H,'00') || ':' || NVL(EV.ARR_M,'00'), 'YYYYMMDDHH24:MI') - TO_DATE(NVL(EV.VAL8, '99991231') || ' ' || NVL(EV.VAL8_H,'00') || ':' || NVL(EV.VAL8_M,'00'), 'YYYYMMDDHH24:MI')) * 24, 1) * 60)) || '분'
+                ELSE TRUNC(MOD((TO_DATE(NVL(TO_CHAR(EV.CANCL_REG_DM, 'YYYYMMDD'),'99991231') || ' ' || NVL(TO_CHAR(EV.CANCL_REG_DM,'HH24'),'00') || ':' || NVL(TO_CHAR(EV.CANCL_REG_DM,'MI'),'00'), 'YYYYMMDDHH24:MI') - TO_DATE(NVL(EV.VAL8, '99991231') || ' ' || NVL(EV.VAL8_H,'00') || ':' || NVL(EV.VAL8_M,'00'), 'YYYYMMDDHH24:MI')), 1) * 24) || '시간 ' || TRUNC(ROUND(MOD((TO_DATE(NVL(TO_CHAR(EV.CANCL_REG_DM, 'YYYYMMDD'),'99991231') || ' ' || NVL(TO_CHAR(EV.CANCL_REG_DM,'HH24'),'00') || ':' || NVL(TO_CHAR(EV.CANCL_REG_DM,'MI'),'00'), 'YYYYMMDDHH24:MI') - TO_DATE(NVL(EV.VAL8, '99991231') || ' ' || NVL(EV.VAL8_H,'00') || ':' || NVL(EV.VAL8_M,'00'), 'YYYYMMDDHH24:MI')) * 24, 1) * 60)) || '분' 
+            END AS CADT,
+            NVL(EV.VAL9, '') AS MOVE_DAY,
+            NVL(EV.VAL9_H, '') AS VAL9_H,
+            NVL(EV.VAL9_M, '') AS VAL9_M,
+            NVL(EV.ARRIVE_DT,'') AS ARRIVE_DAY,
+            NVL(EV.ARR_H, '') AS ARR_H,
+            NVL(EV.ARR_M, '') AS ARR_M,
+            NVL(EV.EVENT_REG_DAY, '') AS EVENT_REG_DAY,
+            NVL(EV.EVENT_PROC_DAY, '') AS EVENT_PROC_DAY,
+            NVL(EV.EVENT_COMP_DAY, '') AS EVENT_COMP_DAY,
+            NVL(EV.COMP_H, '') AS COMP_H,
+            NVL(EV.COMP_M, '') AS COMP_M,
+            NVL(EV.VAL7, '') AS ENT_DAY,
+            NVL(EV.VAL7_H, '') AS VAL7_H,
+            NVL(EV.VAL7_M, '') AS VAL7_M,
+            NVL(EV.CFN_DT, '') AS CFN_DAY,
+            NVL(EV.CFN_H, '') AS CFN_H,
+            NVL(EV.CFN_M, '') AS CFN_M,
+            EV.VAL1,
+            EV.SEX,
+            EV.AGERNG,
+            EV.DIE_RESON,
+            EV.REL,
+            EV.BRPLOT,
+            EV.LOC,
+            EV.DEATHDAY AS DEATH_DAY,
+            EV.EVENT_PLACE_CL,
+            EV.FUNRL_HALL,
+            (SELECT FH.FUNRL_NM FROM FUNRL_HALL FH WHERE FH.FUNRL_CD = EV.FUNRL_HALL) AS FUNRL_NM,
+            (SELECT FH.FUNRL_ZIP_CD || ')' || FH.FUNRL_ADDR || NVL(' ' || FH.FUNRL_ADDR2, '') FROM FUNRL_HALL FH WHERE FH.FUNRL_CD = EV.FUNRL_HALL) AS FUNRL_ADDR,
+            EV.VAL2,
+            EV.VAL4,
+            EV.ERG_TEL,
+            EV.CEMETERY,
+            EV.NOTE,
+            EV.FUNRL_PROC_YN,
+            EV.BUR_CRE_CL,
+            EV.CREMATION_CD,
+            FN_COM_NM('0140', EV.CREMATION_CD) AS CREMATION_NM,
+            EV.SEQ, 
+            MPA.MEM_NO,
+            EV.DEL_FG,
+            EV.CANCL_REG_MAN AS CNL_EMPLE_NO,
+            FN_EMPLE_NM(EV.CANCL_REG_MAN) AS CNL_EMPLE_NM,
+            NVL(EV.CANCL_REG_DM, '') AS CANCL_REG_DM,
+            NVL(TO_CHAR(EV.CANCL_REG_DM,'YYYYMMDD'), '') AS CANCEL_ACCEPT_DAY,
+            NVL(TO_CHAR(EV.CANCL_REG_DM,'HH24'), '') AS CA_TM,
+            NVL(TO_CHAR(EV.CANCL_REG_DM,'MI'), '') AS CA_MM,
+            EV.CNL_REASON_CD,
+            EV.CNL_RESON,
+            NVL(EV.CNL_WORK_YN, 'N') AS CNL_WORK_YN,
+            EV.CANCL_NOTE AS CNL_RESULT
+        FROM EVENT EV INNER JOIN 
+            MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = EV.ACCNT_NO
+        WHERE 1=1 
+        AND EV.ACCNT_NO = #{accnt_no}
+        AND EV.SEQ = #{seq}
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getSuppliesClsfcDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getSuppliesClsfcDtlList */
+            '' AS CHK,
+            FSD.FUNRL_OUTSRC_NO,
+            FSD.DTL_SEQ,
+            FSD.SERVICE_CONTENT,
+            FSD.SERVICE_GDS,
+            FSD.CUSTMR_NM,
+            FSD.ADD_SERVICE,
+            FSD.ALTERNATIVE_PROVIDERS,
+            FOM.SEQ
+        FROM FUNRL_OUTSRC_MST FOM INNER JOIN 
+            FUNRL_SERVICE_DTL FSD ON FOM.FUNRL_OUTSRC_NO = FSD.FUNRL_OUTSRC_NO AND FOM.DEL_FG = 'N'
+        WHERE 1=1
+        AND FOM.SEQ = #{seq}
+        ORDER BY FSD.DTL_SEQ
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getAddSales1List" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getAddSales1List */
+            '' AS CHK,
+            FOG.FUNRL_OUTSRC_NO,
+            FOG.DTL_SEQ,
+            FOG.GDS_CD,
+            (SELECT MAX(EGMM.GDS_NM) AS GDS_NM FROM EVENT_GOODS_MNG_MST EGMM WHERE 1=1 AND EGMM.GDS_CD = FOG.GDS_CD) AS GDS_NM,
+            FOG.QTY,
+            FOG.UNIT_COST,
+            FOG.AMT,
+            FOG.BYUING_CD,
+            (SELECT MAX(CSTM.CUSTMR_NM) AS CUSTMR_NM FROM CUSTMR_MNG CSTM WHERE 1=1 AND CSTM.CUSTMR_CD = FOG.BYUING_CD) AS BYUING_NM,
+            FOG.PAY_OPT,
+            FOG.ADD_SALES_YN,
+            FOG.SALES_AMT,
+            FOG.MARGIN,
+            FOG.FOG_CL,
+            FOG.NOTE,
+            FOM.SEQ
+        FROM FUNRL_OUTSRC_MST FOM INNER JOIN 
+            FUNRL_OUTSRC_GOODS FOG ON FOM.FUNRL_OUTSRC_NO = FOG.FUNRL_OUTSRC_NO AND FOM.DEL_FG = 'N'
+        WHERE 1=1 
+        AND FOG.FOG_CL = '0001'
+        AND FOM.SEQ = #{seq}
+        ORDER BY FOG.DTL_SEQ 
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getAddSales2List" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getAddSales2List */
+            '' AS CHK,
+            FOG.FUNRL_OUTSRC_NO,
+            FOG.DTL_SEQ,
+            FOG.GDS_CD,
+            (SELECT MAX(EGMM.GDS_NM) AS GDS_NM FROM EVENT_GOODS_MNG_MST EGMM WHERE 1=1 AND EGMM.GDS_CD = FOG.GDS_CD) AS GDS_NM,
+            FOG.QTY,
+            FOG.UNIT_COST,
+            FOG.AMT,
+            FOG.BYUING_CD,
+            (SELECT MAX(CSTM.CUSTMR_NM) AS CUSTMR_NM FROM CUSTMR_MNG CSTM WHERE 1=1 AND CSTM.CUSTMR_CD = FOG.BYUING_CD) AS BYUING_NM,
+            FOG.PAY_OPT,
+            FOG.ADD_SALES_YN,
+            FOG.SALES_AMT,
+            FOG.MARGIN,
+            FOG.FOG_CL,
+            FOG.NOTE,
+            FOM.SEQ
+        FROM FUNRL_OUTSRC_MST FOM INNER JOIN 
+            FUNRL_OUTSRC_GOODS FOG ON FOM.FUNRL_OUTSRC_NO = FOG.FUNRL_OUTSRC_NO AND FOM.DEL_FG = 'N'
+        WHERE 1=1 
+        AND FOG.FOG_CL = '0002'
+        AND FOM.SEQ = #{seq}
+        ORDER BY FOG.DTL_SEQ 
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getPaymentInfoList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getPaymentInfoList */
+            '' AS CHK,
+            FOP.RPT_NO,
+            FOP.DTL_SEQ,
+            FOP.PAY_OPT,
+            FOP.CARD_CD,
+            FOP.APPR_NO,
+            FOP.AMT,
+            FOP.CARD_APPR_MTH,
+            FOP.CARD_APP_DT,
+            FOP.PAY_DT,
+            FOP.PAY_AMT_CASH,
+            FOP.ISU_NO,
+            FOM.SEQ
+        FROM FUNRL_OUTSRC_MST FOM INNER JOIN
+            FUNRL_OUTSRC_PAYMENT FOP ON FOM.FUNRL_OUTSRC_NO = FOP.RPT_NO AND FOM.DEL_FG = 'N'
+        WHERE 1=1 
+        AND FOM.SEQ = #{seq}
+        AND FOP.DEL_FG = 'N'
+        ORDER BY FOP.DTL_SEQ
+    </select>
+    
+    <update id="DlwEvntReceiptMap.updateEventBasicInfo" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.updateEventBasicInfo */
+            EVENT
+        SET EVENT_REG_DAY = #{event_reg_day}, 
+            EVENT_PROC_DAY = #{event_proc_day}, 
+            EVENT_COMP_DAY = #{event_comp_day}, 
+            COMP_H = #{comp_h}, 
+            COMP_M = #{comp_m}, 
+            VAL1 = #{val1}, 
+            VAL2 = #{val2}, 
+            VAL4 = #{val4}, 
+            VAL7 = #{ent_day}, 
+            VAL7_H = #{val7_h}, 
+            VAL7_M = #{val7_m}, 
+            VAL8 = #{accept_day}, 
+            VAL8_H = #{val8_h}, 
+            VAL8_M = #{val8_m}, 
+            VAL9 = #{move_day}, 
+            VAL9_H = #{val9_h}, 
+            VAL9_M = #{val9_m}, 
+            ERG_TEL = #{erg_tel}, 
+            SEX = #{sex}, 
+            REL = #{rel}, 
+            AGERNG = #{agerng}, 
+            DIE_RESON = #{die_reson}, 
+            LOC = #{loc}, 
+            BRPLOT = #{brplot}, 
+            CFN_DT = #{cfn_day}, 
+            CFN_H = #{cfn_h}, 
+            CFN_M = #{cfn_m}, 
+            CEMETERY = #{cemetery},
+            NOTE = #{note},
+            FUNRL_PROC_YN = #{funrl_proc_yn},
+            ARRIVE_DT = #{arrive_day}, 
+            ARR_H = #{arr_h}, 
+            ARR_M = #{arr_m}, 
+            BUR_CRE_CL = #{bur_cre_cl}, 
+            CREMATION_CD = #{cremation_cd}, 
+            EVENT_PLACE_CL = #{event_place_cl}, 
+            FUNRL_HALL = #{funrl_hall}, 
+            DEATHDAY = #{death_day}
+        WHERE 1=1 
+        AND ACCNT_NO = #{accnt_no}
+        AND SEQ = #{seq} 
+    </update>
+    
+    <insert id="DlwEvntReceiptMap.insertEventBasicInfo" parameterType="map">
+        INSERT INTO /* DlwEvntReceiptMap.insertEventBasicInfo */
+            EVENT
+             (
+                 SEQ, ACCNT_NO, EVENT_REG_DAY, EVENT_PROC_DAY, EVENT_COMP_DAY, COMP_H, COMP_M, 
+                 VAL1, VAL2, VAL4, VAL7, VAL7_H, VAL7_M, VAL8, VAL8_H, VAL8_M, VAL9, VAL9_H, VAL9_M, 
+                 REG_DM, REG_MAN, ERG_TEL, SEX, REL, AGERNG, DIE_RESON, LOC, BRPLOT, CFN_DT, CFN_H, CFN_M,
+                 CEMETERY, NOTE, FUNRL_PROC_YN, ARRIVE_DT, ARR_H, ARR_M, BUR_CRE_CL, CREMATION_CD,
+                 EVENT_PLACE_CL, FUNRL_HALL, DEATHDAY, DEL_FG
+             )
+        VALUES
+            (
+                (SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ FROM EVENT WHERE 1=1), #{accnt_no}, #{event_reg_day}, #{event_proc_day} , #{event_comp_day}, #{comp_h}, #{comp_m}, 
+                #{val1}, #{val2}, #{val4}, #{ent_day}, #{val7_h}, #{val7_m}, #{accept_day}, #{val8_h}, #{val8_m}, #{move_day}, #{val9_h}, #{val9_m},
+                SYSDATE, #{rgsr_id}, #{erg_tel}, #{sex}, #{rel}, #{agerng}, #{die_reson}, #{loc}, #{brplot}, #{cfn_day}, #{cfn_h}, #{cfn_m},
+                #{cemetery}, #{note}, #{funrl_proc_yn}, #{arrive_day}, #{arr_h}, #{arr_m}, #{bur_cre_cl}, #{cremation_cd},
+                #{event_place_cl}, #{funrl_hall}, #{death_day}, 'N' 
+            )
+    </insert>
+    
+    <update id="DlwEvntReceiptMap.updateCancelEvent" parameterType="map">        
+        UPDATE /* DlwEvntMap.updateCancelEvent */
+            EVENT
+        SET DEL_FG = 'Y',
+            CNL_REASON_CD = #{cnl_reason_cd},
+            CNL_RESON = #{cnl_reson},
+            CNL_WORK_YN = #{cnl_work_yn},
+            CANCL_REG_MAN = #{cnl_emple_no},
+            CANCL_REG_DM = TO_DATE(#{cancel_accept_day} || #{ca_tm} || #{ca_mm},'YYYYMMDDHH24MI'),
+            CANCL_NOTE = #{cnl_result}
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND ACCNT_NO = #{accnt_no}
+        AND SEQ = #{seq}
+    </update>
+    
+    <update id="DlwEvntReceiptMap.updateSuppliesClsfcDtl" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.updateSuppliesClsfcDtl */
+            FUNRL_SERVICE_DTL
+        SET SERVICE_CONTENT = #{service_content},
+            SERVICE_GDS = #{service_gds},
+            CUSTMR_NM = #{custmr_nm},
+            ALTERNATIVE_PROVIDERS = #{alternative_providers},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{upd_man}
+        WHERE 1=1
+        AND FUNRL_OUTSRC_NO = #{funrl_outsrc_no}
+        AND DTL_SEQ = #{dtl_seq}
+    </update>
+    
+    <insert id="DlwEvntReceiptMap.insertSuppliesClsfcDtl" parameterType="map">
+        <selectKey keyProperty="funrl_outsrc_no" resultType="String" order="BEFORE">
+            SELECT FN_RPT_NO(#{accnt_no}) AS RPT_NO FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* DlwEvntReceiptMap.insertSuppliesClsfcDtl */
+            FUNRL_SERVICE_DTL(FUNRL_OUTSRC_NO, DTL_SEQ, SERVICE_CONTENT, SERVICE_GDS, CUSTMR_NM, ALTERNATIVE_PROVIDERS, REG_DM, REG_MAN)
+        VALUES 
+        (
+            #{funrl_outsrc_no}, (SELECT NVL(MAX(FSD.DTL_SEQ),0) + 1 FROM FUNRL_SERVICE_DTL FSD WHERE FSD.FUNRL_OUTSRC_NO = #{funrl_outsrc_no}), 
+            #{service_content}, #{service_gds}, #{custmr_nm}, #{alternative_providers}, SYSDATE, #{reg_man}
+        )
+    </insert>
+    
+    <delete id="DlwEvntReceiptMap.deleteSuppliesClsfcDtl" parameterType="map">
+        DELETE FROM /* DlwEvntReceiptMap.deleteSuppliesClsfcDtl */
+            FUNRL_SERVICE_DTL
+        WHERE 1=1 
+        AND FUNRL_OUTSRC_NO = #{funrl_outsrc_no}
+        AND DTL_SEQ = #{dtl_seq}
+    </delete>
+    
+    <update id="DlwEvntReceiptMap.updateAddSales1" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.updateAddSales1 */
+            FUNRL_OUTSRC_GOODS
+        SET GDS_CD = #{gds_cd},
+            QTY = #{qty},
+            UNIT_COST = #{unit_cost},
+            AMT = #{amt},
+            BYUING_CD = #{byuing_cd},
+            PAY_OPT = #{pay_opt},
+            NOTE = #{note},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{upd_man},
+            ADD_SALES_YN = #{add_sales_yn},
+            SALES_AMT = #{sales_amt},
+            MARGIN = #{margin}
+        WHERE 1=1 
+        AND FUNRL_OUTSRC_NO = #{funrl_outsrc_no}
+        AND DTL_SEQ = #{dtl_seq}
+        AND FOG_CL = '0001'
+    </update>
+    
+    <insert id="DlwEvntReceiptMap.insertAddSales1" parameterType="map">
+        <selectKey keyProperty="funrl_outsrc_no" resultType="String" order="BEFORE">
+            SELECT FN_RPT_NO(#{accnt_no}) AS RPT_NO FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* DlwEvntReceiptMap.insertAddSales1 */
+            FUNRL_OUTSRC_GOODS
+            (
+                FUNRL_OUTSRC_NO, DTL_SEQ, GDS_CD, QTY, 
+                UNIT_COST, AMT, BYUING_CD, PAY_OPT, NOTE, REG_DM, REG_MAM, 
+                ADD_SALES_YN, FOG_CL, SALES_AMT,  MARGIN
+            )
+        VALUES 
+            (
+                #{funrl_outsrc_no}, (SELECT NVL(MAX(DTL_SEQ),0) + 1 FROM FUNRL_OUTSRC_GOODS WHERE FUNRL_OUTSRC_NO = #{funrl_outsrc_no}), #{gds_cd}, #{qty}, 
+                #{unit_cost}, #{amt}, #{byuing_cd}, #{pay_opt}, #{note}, SYSDATE, #{reg_man}, 
+                #{add_sales_yn}, '0001', #{sales_amt}, #{margin}
+            )
+    </insert>
+    
+    <delete id="DlwEvntReceiptMap.deleteAddSales1" parameterType="map">
+        DELETE FROM /* DlwEvntReceiptMap.deleteAddSales1 */
+            FUNRL_OUTSRC_GOODS
+        WHERE 1=1
+        AND FUNRL_OUTSRC_NO = #{funrl_outsrc_no}
+        AND DTL_SEQ = #{dtl_seq}
+        AND FOG_CL = '0001'
+    </delete>
+    
+    <update id="DlwEvntReceiptMap.updateAddSales2" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.updateAddSales2 */
+            FUNRL_OUTSRC_GOODS
+        SET GDS_CD = #{gds_cd},
+            QTY = #{qty},
+            UNIT_COST = #{unit_cost},
+            AMT = #{amt},
+            BYUING_CD = #{byuing_cd},
+            PAY_OPT = #{pay_opt},
+            NOTE = #{note},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{upd_man},
+            ADD_SALES_YN = #{add_sales_yn},
+            SALES_AMT = #{sales_amt},
+            MARGIN = #{margin}
+        WHERE FUNRL_OUTSRC_NO = #{funrl_outsrc_no}
+        AND DTL_SEQ = #{dtl_seq}
+        AND FOG_CL = '0002'
+    </update>
+    
+    <insert id="DlwEvntReceiptMap.insertAddSales2" parameterType="map">
+        <selectKey keyProperty="funrl_outsrc_no" resultType="String" order="BEFORE">
+            SELECT FN_RPT_NO(#{accnt_no}) AS RPT_NO FROM DUAL
+        </selectKey>
+        
+        INSERT INTO /* DlwEvntReceiptMap.insertAddSales2 */
+            FUNRL_OUTSRC_GOODS
+            (
+                FUNRL_OUTSRC_NO, DTL_SEQ, GDS_CD, QTY, 
+                UNIT_COST, AMT, BYUING_CD, PAY_OPT, NOTE, REG_DM, REG_MAM, 
+                ADD_SALES_YN, FOG_CL, SALES_AMT,  MARGIN
+            )
+        VALUES 
+            (
+                #{funrl_outsrc_no}, (SELECT NVL(MAX(DTL_SEQ),0) + 1 FROM FUNRL_OUTSRC_GOODS WHERE FUNRL_OUTSRC_NO = #{funrl_outsrc_no}), #{gds_cd}, #{qty}, 
+                #{unit_cost}, #{amt}, #{byuing_cd}, #{pay_opt}, #{note}, SYSDATE, #{reg_man}, 
+                #{add_sales_yn}, '0002', #{sales_amt}, #{margin}
+            )
+    </insert>
+    
+    <delete id="DlwEvntReceiptMap.deleteAddSales2" parameterType="map">
+        DELETE FROM /* DlwEvntReceiptMap.deleteAddSales2 */
+            FUNRL_OUTSRC_GOODS
+        WHERE FUNRL_OUTSRC_NO = #{funrl_outsrc_no}
+        AND DTL_SEQ = #{dtl_seq}
+        AND FOG_CL = '0002'
+    </delete>
+    
+    <update id="DlwEvntReceiptMap.updatePaymentInfo" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.updatePaymentInfo */
+            FUNRL_OUTSRC_PAYMENT
+        SET PAY_OPT = #{pay_opt},
+            CARD_CD = #{card_cd},
+            APPR_NO = #{appr_no},
+            AMT = #{amt},
+            CARD_APPR_MTH = #{card_appr_mth},
+            PAY_DT = #{pay_dt},
+            CARD_APP_DT = #{card_app_dt},
+            PAY_AMT_CASH = #{pay_amt_cash},
+            ISU_NO = #{isu_no},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{upd_man}
+        WHERE 1=1 
+        AND RPT_NO = #{rpt_no}
+        AND DTL_SEQ = #{dtl_seq}
+    </update>
+    
+    <insert id="DlwEvntReceiptMap.insertPaymentInfo" parameterType="map">
+        <selectKey keyProperty="rpt_no" resultType="String" order="BEFORE">
+            SELECT FN_RPT_NO(#{accnt_no}) AS RPT_NO FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* DlwEvntReceiptMap.insertPaymentInfo */
+            FUNRL_OUTSRC_PAYMENT
+            (
+                RPT_NO, DTL_SEQ, PAY_OPT, CARD_CD, 
+                APPR_NO, AMT, CARD_APPR_MTH, PAY_DT, CARD_APP_DT, DEL_FG, PAY_AMT_CASH, ISU_NO, REG_MAN, REG_DM
+            )
+        VALUES 
+            (
+                #{rpt_no}, (SELECT NVL(MAX(DTL_SEQ),0) + 1 FROM FUNRL_OUTSRC_PAYMENT WHERE RPT_NO = #{rpt_no}), #{pay_opt}, #{card_cd}, 
+                #{appr_no}, #{amt}, #{card_appr_mth}, #{pay_dt}, #{card_app_dt}, 'N', #{pay_amt_cash}, #{isu_no}, #{reg_man}, SYSDATE
+            )
+    </insert>
+    
+    <delete id="DlwEvntReceiptMap.deletePaymentInfo" parameterType="map">
+        DELETE FROM /* DlwEvntReceiptMap.deletePaymentInfo */
+            FUNRL_OUTSRC_PAYMENT
+        WHERE 1=1 
+        AND RPT_NO = #{rpt_no}
+        AND DTL_SEQ = #{dtl_seq}
+    </delete>
+    
+    <select id="DlwEvntReceiptMap.confirmRegFunrlOutsrcMst" parameterType="map" resultType="int">
+        SELECT /* DlwEvntReceiptMap.confirmRegFunrlOutsrcMst */
+            COUNT(*) AS ICNT
+        FROM FUNRL_OUTSRC_MST FOM
+        WHERE 1=1 
+        AND FOM.DEL_FG = 'N'
+        AND FOM.SEQ = #{evt_seq}
+    </select>
+    
+    <insert id="DlwEvntReceiptMap.insertRegFunrlOutsrcMst" parameterType="map">
+        <selectKey keyProperty="funrl_outsrc_no" resultType="String" order="BEFORE">
+            SELECT TO_CHAR(SYSDATE,'YYYYMM') || LPAD(NVL((SELECT TO_CHAR(TO_NUMBER(NVL(SUBSTR(MAX(FUNRL_OUTSRC_NO),7,6),0)) + 1) FROM FUNRL_OUTSRC_MST), 0), 6, '0') AS RPT_NO
+            FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* DlwEvntReceiptMap.insertRegFunrlOutsrcMst */
+            FUNRL_OUTSRC_MST 
+            (
+                FUNRL_OUTSRC_NO, RPT_DT, SAVE_CL, REMAIN_AMT, EVENT_NOTE, DEL_FG, REG_DM, REG_MAN, SEQ, PAY_CNT, PAY_DTL_CNT, PAY_DTL1_CNT,
+                OUTSRC_CUSTMR_CD, ADD_AMT, JOIN_ADD_IN_AMT, TOT_RECV_AMT, CARD_PAY_AMT, CASH_PAY_AMT, DEDUCT_AMT, EVT_COST_OUT, HQ_GDS_AMT,
+                TOT_EVT_COST_OUT, JI_DT
+            )
+        VALUES
+            (
+                #{funrl_outsrc_no}, #{rpt_dt}, '', #{remain_amt}, #{event_note}, 'N', SYSDATE, #{reg_man}, #{evt_seq}, #{pay_cnt}, #{pay_dtl_cnt}, #{pay_dtl1_cnt},
+                #{outsrc_custmr_cd}, #{add_amt}, #{join_add_in_amt}, #{tot_recv_amt}, #{card_pay_amt}, #{cash_pay_amt}, #{deduct_amt}, #{evt_cost_out}, #{hq_gds_amt},
+                #{tot_evt_cost_out}, #{ji_dt}
+            )
+    </insert>
+    
+    <select id="DlwEvntReceiptMap.getMemConsList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getMemConsList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT 
+                ROW_NUMBER() OVER(ORDER BY TC.CONSNO DESC) AS PAGE_INDX,
+                TC.CONSNO, 
+                TC.ACCNT_NO, 
+                (SELECT TU.USER_NM FROM PS_WILLVI.TB_USER TU WHERE 1=1  AND TU.CNTR_CD = TC.CNTR_CD AND TU.USER_ID = TC.ACTP_ID) AS ACTP_NM,
+                (
+                    SELECT 
+                        CT.TEAM_NM 
+                    FROM PS_WILLVI.TB_CONS_TEAM CT
+                    WHERE 1=1 
+                    AND CT.CNTR_CD = TC.CNTR_CD
+                    AND CT.TEAM_CD = (SELECT TU.TEAM_CD FROM PS_WILLVI.TB_USER TU WHERE TU.USER_ID = TC.ACTP_ID AND TU.CNTR_CD = TC.CNTR_CD)
+                ) AS ACTP_TEAM2_NM,
+                TC.ACPG_DTTM, 
+                REPLACE(PS_WILLVI.GETCODENM('CNS010', TC.ACPG_CHNL_CD, TC.CNTR_CD), CHR(0), '') AS ACPG_CHNL_NM,
+                (SELECT COUNT(*) AS ICNT FROM PS_WILLVI.TB_CONS_HSTR CH WHERE  CH.CNTR_CD = TC.CNTR_CD AND CH.CONSNO = TC.CONSNO) AS CHCNT,
+                REPLACE(TC.INCO_TLNO,CHR(0),'') AS INCO_TLNO,
+                REPLACE(MB.HOME_TEL,CHR(0),'') AS HOME_TEL,
+                REPLACE(MB.CELL,CHR(0),'') AS CELL,
+                (SELECT REPLACE(CTC.CONS_TYP_NM, CHR(0), '') FROM PS_WILLVI.TB_CONS_TYP_CD CTC WHERE 1=1 AND CTC.CNTR_CD = TC.CNTR_CD AND CTC.CONS_TYP_CD = TC.CONS_TYP1_CD) AS CONS_TYP1_NM,
+                (SELECT REPLACE(CTC.CONS_TYP_NM, CHR(0), '') FROM PS_WILLVI.TB_CONS_TYP_CD CTC WHERE 1=1 AND CTC.CNTR_CD = TC.CNTR_CD AND CTC.CONS_TYP_CD = TC.CONS_TYP2_CD) AS CONS_TYP2_NM,
+                (SELECT REPLACE(CTC.CONS_TYP_NM, CHR(0), '') FROM PS_WILLVI.TB_CONS_TYP_CD CTC WHERE 1=1 AND CTC.CNTR_CD = TC.CNTR_CD AND CTC.CONS_TYP_CD = TC.CONS_TYP3_CD) AS CONS_TYP3_NM,
+                REPLACE(PS_WILLVI.GETCODENM('CNS020', TC.CONS_DSPSMDDL_DTPT_CD, TC.CNTR_CD), CHR(0), '') AS CONS_DSPSMDDL_DTPT_NM,
+                REPLACE(PS_WILLVI.GETCODENM('CNS030', TC.CONS_STAT_CD, TC.CNTR_CD), CHR(0), '') AS CONS_STAT_NM,
+                (SELECT TU.USER_NM FROM PS_WILLVI.TB_USER TU WHERE 1=1 AND TU.CNTR_CD = TC.CNTR_CD AND TU.USER_ID = TC.AMND_ID) AS AMND_NM,
+                TC.AMNT_DTTM,
+                REPLACE(TC.CONS_MEMO_CNTN, CHR(0), '') AS CONS_MEMO_CNTN
+            FROM PS_WILLVI.TB_CONS TC LEFT OUTER JOIN
+                LF_DMUSER.MEMBER MB ON TC.MEM_NO = MB.MEM_NO
+            WHERE 1=1
+            AND TC.MEM_NO = #{mem_no}
+            ORDER BY TC.CONSNO DESC
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <insert id="DlwEvntReceiptMap.insertMemConsList" parameterType="map">
+        <selectKey keyProperty="consno" resultType="String" order="BEFORE">
+            SELECT 'CSL' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(PS_WILLVI.SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        BEGIN
+            INSERT INTO /* DlwEvntReceiptMap.insertMemConsList */
+                PS_WILLVI.TB_CONS
+                (
+                    CNTR_CD, 
+                    CONSNO, 
+                    CONSNO_GROP_NO, 
+                    CONSNO_SQNO, 
+                    MEM_NO, 
+                    MEM_NM, 
+                    SEX, 
+                    BRTH_MON_DAY, 
+                    ACPG_CHNL_CD, 
+                    ACPG_DTTM, 
+                    ACTP_ID, 
+                    TOTL_CONS_HR, 
+                    ACCNT_NO, 
+                    EMPLE_NO,
+                    EMPLE_NM,
+                    JOIN_DT, 
+                    CONC_YN, 
+                    CONS_TYP1_CD, 
+                    CONS_TYP2_CD, 
+                    CONS_TYP3_CD,
+                    CONS_STAT_CD, 
+                    CONS_DSPSMDDL_DTPT_CD, 
+                    CONS_MEMO_CNTN, 
+                    CONS_DSPS_DTTM, 
+                    RSPS_DEPT_CD, 
+                    CHPR_ID, 
+                    ADMR_AMNT_YN, 
+                    RGSR_ID, 
+                    RGSN_DTTM, 
+                    AMND_ID,
+                    AMNT_DTTM,
+                    DEPT_CD, 
+                    NOTE
+                )
+            VALUES
+                (
+                    'CCA', 
+                    #{consno}, 
+                    #{consno}, 
+                    '1', 
+                    (SELECT MAX(MPA.MEM_NO) FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = #{accnt_no}), 
+                    #{mem_nm}, 
+                    (SELECT MAX(MB.SEX) FROM MEMBER MB WHERE 1=1 AND MB.MEM_NO = (SELECT MPA.MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = #{accnt_no})), 
+                    (SELECT MAX(MB.BRTH_MON_DAY) FROM MEMBER MB WHERE 1=1 AND MB.MEM_NO = (SELECT MPA.MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = #{accnt_no})), 
+                    '90', 
+                    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),
+                    #{rgsr_id}, 
+                    '0', 
+                    #{accnt_no}, 
+                    (SELECT MPA.EMPLE_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = #{accnt_no}), 
+                    (SELECT TU.USER_NM FROM PS_WILLVI.TB_USER TU WHERE 1=1 AND TU.USER_ID = (SELECT MPA.EMPLE_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = #{accnt_no})),
+                    (SELECT MPA.JOIN_DT FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = #{accnt_no}), 
+                    'N', 
+                    #{cons_typ1_cd}, 
+                    #{cons_typ2_cd}, 
+                    #{cons_typ3_cd},
+                    '30', 
+                    '10', 
+                    #{cons_memo_cntn}, 
+                    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 
+                    (SELECT TU.TEAM_CD FROM PS_WILLVI.TB_USER TU WHERE 1=1 AND TU.USER_ID = #{rgsr_id}),
+                    #{rgsr_id}, 
+                    'N', 
+                    #{rgsr_id}, 
+                    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 
+                    #{rgsr_id}, 
+                    TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 
+                    (SELECT EMP.DEPT_CD FROM LF_DMUSER.EMPLOYEE EMP WHERE 1=1 AND EMP.EMPLE_NO = #{rgsr_id}), 
+                    (SELECT EMP.NOTE FROM LF_DMUSER.EMPLOYEE EMP WHERE 1=1 AND EMP.EMPLE_NO = #{rgsr_id})
+                 );
+                 
+            COMMIT;
+            
+            INSERT INTO
+                PS_WILLVI.TB_CONS_HSTR
+                (
+                    CNTR_CD, 
+                    CONSNO, 
+                    CHNG_DTTM, 
+                    ARS_SRVC_ADDR, 
+                    INCO_TLNO, 
+                    CALL_ID, 
+                    MEM_NO,
+                    ACPG_CHNL_CD, 
+                    ACPG_DTTM, 
+                    ACTP_ID, 
+                    TOTL_CONS_HR, 
+                    CLNT_NM, 
+                    CONS_TYP1_CD, 
+                    CONS_TYP2_CD, 
+                    CONS_TYP3_CD, 
+                    CONS_STAT_CD, 
+                    CONS_DSPSMDDL_DTPT_CD, 
+                    CONS_DSPS_DTTM, 
+                    RSPS_DEPT_CD, 
+                    CHPR_ID, 
+                    ADMR_AMNT_YN, 
+                    ADMR_ID, 
+                    ADMR_AMNT_DTTM, 
+                    RGSR_ID, 
+                    RGSN_DTTM, 
+                    AMND_ID, 
+                    AMNT_DTTM, 
+                    CONC_YN, 
+                    CONS_MEMO_CNTN, 
+                    CONSNO_GROP_NO, 
+                    CONSNO_SQNO, 
+                    MST_KEY, 
+                    DTPT_KEY, 
+                    ACCNT_NO, 
+                    CTI_CRNC_DTL_ID, 
+                    MEM_NM, 
+                    SEX, 
+                    BRTH_MON_DAY, 
+                    CI_VAL, 
+                    IDN_NO, 
+                    HOME_TEL, 
+                    CELL, 
+                    WRPL_TEL, 
+                    HOME_ZIP, 
+                    HOME_ADDR, 
+                    HOME_ADDR2, 
+                    CREDIT_RATING, 
+                    CRDT_MNG_NO, 
+                    EMAIL, 
+                    EMPLE_NO, 
+                    EMPLE_NM, 
+                    JOIN_DT, 
+                    DEPT_CD, 
+                    NOTE
+                )
+                SELECT 
+                    CNTR_CD, 
+                    CONSNO, 
+                    SYSTIMESTAMP, 
+                    ARS_SRVC_ADDR, 
+                    INCO_TLNO, 
+                    CALL_ID, 
+                    MEM_NO, 
+                    ACPG_CHNL_CD, 
+                    ACPG_DTTM, 
+                    ACTP_ID, 
+                    TOTL_CONS_HR, 
+                    CLNT_NM, 
+                    CONS_TYP1_CD, 
+                    CONS_TYP2_CD, 
+                    CONS_TYP3_CD, 
+                    CONS_STAT_CD, 
+                    CONS_DSPSMDDL_DTPT_CD, 
+                    CONS_DSPS_DTTM, 
+                    RSPS_DEPT_CD, 
+                    CHPR_ID, 
+                    ADMR_AMNT_YN, 
+                    ADMR_ID, 
+                    ADMR_AMNT_DTTM, 
+                    RGSR_ID, 
+                    RGSN_DTTM, 
+                    AMND_ID, 
+                    AMNT_DTTM, 
+                    CONC_YN, 
+                    CONS_MEMO_CNTN, 
+                    CONSNO_GROP_NO, 
+                    CONSNO_SQNO, 
+                    MST_KEY, 
+                    DTPT_KEY, 
+                    ACCNT_NO, 
+                    CTI_CRNC_DTL_ID, 
+                    MEM_NM, 
+                    SEX, 
+                    BRTH_MON_DAY, 
+                    CI_VAL, 
+                    IDN_NO, 
+                    HOME_TEL, 
+                    CELL, 
+                    WRPL_TEL, 
+                    HOME_ZIP, 
+                    HOME_ADDR, 
+                    HOME_ADDR2, 
+                    CREDIT_RATING, 
+                    CRDT_MNG_NO, 
+                    EMAIL, 
+                    EMPLE_NO, 
+                    EMPLE_NM, 
+                    JOIN_DT, 
+                    DEPT_CD, 
+                    NOTE
+                FROM PS_WILLVI.TB_CONS
+                WHERE 1=1 
+                AND CONSNO = #{consno};
+     
+            COMMIT;
+        END;
+    </insert>
+    
+    <select id="DlwEvntReceiptMap.getProtocolMngrHistList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getProtocolMngrHistList */
+            ROW_NUMBER() OVER(ORDER BY SORT_NO ASC) PAGE_INDX,
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                EPU.SEQ,
+                EPU.ACCNT_NO,
+                CASE WHEN EPU.PIC_CL_CD IN ('1', '6', '3', '10', '8', '2', '11') THEN '1'
+                    WHEN EPU.PIC_CL_CD IN ('12', '13', '14', '15', '16') THEN '2' 
+                    WHEN EPU.PIC_CL_CD IN ('17', '18', '4', '19', '9', '20', '5', '7') THEN '3'
+                    ELSE '4'
+                END AS CAT_ID,
+                CASE WHEN EPU.PIC_CL_CD IN ('1', '6', '3', '10', '8', '2', '11') THEN '1일차'
+                    WHEN EPU.PIC_CL_CD IN ('12', '13', '14', '15', '16') THEN '2일차' 
+                    WHEN EPU.PIC_CL_CD IN ('17', '18', '4', '19', '9', '20', '5', '7') THEN '3일차'
+                    ELSE '전체'
+                END AS CAT_NM,
+                EPU.PIC_CL_CD,
+                CASE WHEN EPU.PIC_CL_CD = '1' THEN '1일차-CP촬영(출근)' 
+                    WHEN EPU.PIC_CL_CD = '6' THEN '일회용품/편의용품'
+                    WHEN EPU.PIC_CL_CD = '3' THEN '제단'
+                    WHEN EPU.PIC_CL_CD = '10' THEN '상복'
+                    WHEN EPU.PIC_CL_CD = '8' THEN '꽃바구니/3단화환'
+                    WHEN EPU.PIC_CL_CD = '2' THEN '도우미'
+                    WHEN EPU.PIC_CL_CD = '11' THEN '장례식장(퇴근)'
+                    WHEN EPU.PIC_CL_CD = '12' THEN '2일차-장례식장(출근)'
+                    WHEN EPU.PIC_CL_CD = '13' THEN '도우미'
+                    WHEN EPU.PIC_CL_CD = '14' THEN '수의'
+                    WHEN EPU.PIC_CL_CD = '15' THEN '성복제(종교행사)'
+                    WHEN EPU.PIC_CL_CD = '16' THEN '장례식장(퇴근)'
+                    WHEN EPU.PIC_CL_CD = '17' THEN '3일차-장례식장(출근)'
+                    WHEN EPU.PIC_CL_CD = '18' THEN '유골함'
+                    WHEN EPU.PIC_CL_CD = '4' THEN '장의차량(발인)'
+                    WHEN EPU.PIC_CL_CD = '19' THEN '발인도우미'
+                    WHEN EPU.PIC_CL_CD = '9' THEN '기타'
+                    WHEN EPU.PIC_CL_CD = '20' THEN '행사종료'
+                    WHEN EPU.PIC_CL_CD = '5' THEN '버스'
+                    WHEN EPU.PIC_CL_CD = '7' THEN '편의용품'
+                    ELSE '존재하지않는분류'
+                END AS PIC_CL_NM,
+                EPU.PIC_FILE_NM,
+                EPU.UPLOAD_DT,
+                TO_CHAR(EPU.REG_DM, 'YYYYMMDDHH24MISS') AS REG_DM,
+                EPU.EMPLE_NO,
+                (SELECT EMP.EMPLE_NM FROM EMPLOYEE EMP WHERE 1=1 AND EMP.EMPLE_NO = EPU.EMPLE_NO) AS EMPLE_NM,
+                CASE WHEN EPU.PIC_CL_CD = '1' THEN 1
+                    WHEN EPU.PIC_CL_CD = '6' THEN 2
+                    WHEN EPU.PIC_CL_CD = '3' THEN 3
+                    WHEN EPU.PIC_CL_CD = '10' THEN 4
+                    WHEN EPU.PIC_CL_CD = '8' THEN 5
+                    WHEN EPU.PIC_CL_CD = '2' THEN 6
+                    WHEN EPU.PIC_CL_CD = '11' THEN 7
+                    WHEN EPU.PIC_CL_CD = '12' THEN 8
+                    WHEN EPU.PIC_CL_CD = '13' THEN 9
+                    WHEN EPU.PIC_CL_CD = '14' THEN 10
+                    WHEN EPU.PIC_CL_CD = '15' THEN 11
+                    WHEN EPU.PIC_CL_CD = '16' THEN 12
+                    WHEN EPU.PIC_CL_CD = '17' THEN 13
+                    WHEN EPU.PIC_CL_CD = '18' THEN 14
+                    WHEN EPU.PIC_CL_CD = '4' THEN 15
+                    WHEN EPU.PIC_CL_CD = '19' THEN 16
+                    WHEN EPU.PIC_CL_CD = '9' THEN 17
+                    WHEN EPU.PIC_CL_CD = '20' THEN 18
+                    WHEN EPU.PIC_CL_CD = '5' THEN 19
+                    WHEN EPU.PIC_CL_CD = '7' THEN 20 
+                    ELSE 99
+                END AS SORT_NO,
+                '' AS LOOK_PIC_BUTTON
+            FROM EVENT_PIC_UPLOAD EPU
+            WHERE 1=1 
+            AND EPU.DEL_FG = 'N'
+            AND EPU.ACCNT_NO = #{accnt_no}
+        ) MAIN_TBL
+        WHERE 1=1 
+        ORDER BY MAIN_TBL.SORT_NO ASC
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getEventMngrList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getEventMngrList */
+            '' AS CHK,
+            FN_COM_NM('0138',EMR.EVT_MNGR_GUBUN) AS MNGR_GUBUN,
+            EMM.REAL_EVT_MNGR_CD AS MNGR_CD,
+            EMM.EVT_MNGR_NM AS MNGR_NM,
+            NVL(SUBSTR(EMM.IDN_NO, 1, 6), ' ') AS IDN_NO,
+            EMR.WORK_DM,
+            EMR.START_TIME,
+            EMR.END_TIME,
+            EMR.NUMBER_OF_DAY,
+            EMR.OVER_TIME,
+            EMR.PAY_AMT,
+            EMR.PAY_ADD_AMT,
+            (NVL(EMR.PAY_AMT,0) + NVL(EMR.PAY_ADD_AMT,0)) - NVL(TRUNC((NVL(EMR.PAY_AMT,0) + NVL(EMR.PAY_ADD_AMT,0)) * 0.03),0) - NVL(TRUNC(TRUNC((NVL(EMR.PAY_AMT,0) + NVL(EMR.PAY_ADD_AMT,0)) * 0.03) * 0.1),0) AS SAMT,
+            EMR.GIVE_PAY_DM,
+            EMR.NOTE,
+            EMR.EVT_SEQ,
+            EMR.IDNTT,
+            EMM.JOB_DUTY,
+            EMM.EVT_MNGR_CD,
+            EMM.EMP_GUBUN
+        FROM EVENT_MNGR_REG EMR LEFT OUTER JOIN 
+            EVENT_MANAGER_MNG EMM ON EMR.EVT_MNGR_CD = EMM.EVT_MNGR_CD AND EMM.DEL_FG = 'N'
+        WHERE 1=1
+        AND EMR.DEL_FG = 'N' 
+        AND EMR.EVT_SEQ = #{seq}
+        ORDER BY EMR.EVT_MNGR_GUBUN, EMR.IDNTT, EMM.EVT_MNGR_NM
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getMngrPayList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getMngrPayList */
+            EMAD.EVT_MNGR_ALOW_CD,
+            EMAD.EVT_MNGR_CL,
+            EMAD.APP_DT,
+            EMAD.HMH_ADAY,
+            EMAD.HMM_ADAY,
+            EMAD.HMM_ADD_TIME,
+            EMAD.ALOW_RATE
+        FROM EVT_MNGR_ALOW_DATA EMAD
+        WHERE 1=1 
+        AND EMAD.DEL_FG = 'N'
+        AND EMAD.APP_DT <![CDATA[<=]]> (SELECT EV.EVENT_COMP_DAY FROM EVENT EV WHERE EV.DEL_FG = 'N' AND EV.ACCNT_NO = #{accnt_no})
+    </select>
+
+    <select id="DlwEvntReceiptMap.getMemberAccntDtlList" parameterType="map" resultType="resultMap">
+        SELECT  /* DlwEvntReceiptMap.getMemberAccntDtlList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                MPA.ACCNT_NO,
+                FN_COM_NM('0194', MPA.MAIN_CONTRACT) AS MAIN_CONTRACT_NM,
+                (SELECT EMP.EMPLE_NM FROM EMPLOYEE EMP WHERE 1=1 AND EMP.EMPLE_NO = MPA.EMPLE_NO) AS EMPLE_NM,
+                MPA.PROD_CD,
+                PD.PROD_NM,
+                (SELECT EMP.EMPLE_NM FROM EMPLOYEE EMP WHERE 1=1 AND EMP.EMPLE_NO = MPA.BEF_EMPLE_CD) AS BEF_EMPLE_NM,
+                (SELECT PMCC.MODEL_CL_NM FROM LF_DMUSER.PRODUCT_MODEL_CL_CD PMCC WHERE 1=1 AND PMCC.MODEL_CL_CD = MPA.PROD_MODEL_KIND) AS MODEL_CL_NM,
+                (
+                    SELECT
+                        PMD.MODEL_NM || CASE WHEN NVL(PMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '' ELSE '(단종)' END MODEL_NM
+                    FROM PRODUCT_MODEL_DTL PMD INNER JOIN 
+                        PRODUCT_MODEL_MST PMM ON PMD.SEQ = PMM.SEQ AND PMM.DEL_FG = 'N'
+                    WHERE 1=1
+                    AND PMM.PROD_CD = MPA.PROD_CD 
+                    AND PMD.MODEL_CD = MPA.PROD_MODEL_CD 
+                    AND PMM.PROD_KIND = MPA.PROD_MODEL_KIND
+                ) AS MODEL_NM,
+                (SELECT PDK.PROD_KIND_NM FROM PRODUCT_KIND PDK WHERE PDK.MODEL_CL_CD = MPA.PROD_MODEL_KIND AND PDK.SEQ = MPA.PROD_KIND) AS PROD_KIND_NM,
+                MPA.JOIN_DT,
+                FN_COM_NM('81', HC.STAT) AS HPCL_STAT_NM,
+                FN_COM_NM('01', MPA.PAY_MTHD) AS PAY_MTHD_NM, 
+                FN_COM_NM('113', NVL(MPA.JOIN_CL,'01')) AS JOIN_CL_NM,
+                TO_CHAR(ADD_MONTHS(MPA.JOIN_DT, PD.EXPR_NO - MPA.NEW_CHAN_GUNSU - 1 + NVL((SELECT NVL(MME.EXT_PERIOD, 0) FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME WHERE 1=1 AND DEL_FG = 'N' AND MME.ACCNT_NO = MPA.ACCNT_NO), 0) * 12 ),'YYYYMMDD') AS MAN_DAY,
+                MPA.NEW_CHAN_GUNSU
+            FROM MEM_PROD_ACCNT_DAMO MPA INNER JOIN
+                MEMBER_DAMO MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD INNER JOIN 
+                HP_CALL HC ON MPA.ACCNT_NO = HC.ACCNT_NO
+            WHERE 1=1
+            AND MPA.ACCNT_NO = #{accnt_no}
+        ) MAIN_TBL
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getPayTotList" parameterType="map" resultType="resultMap">
+        WITH PAY_TOT_INFO /* DlwEvntReceiptMap.getPayTotList */
+        AS
+        (
+            SELECT 
+                PTIV.* 
+            FROM LF_DMUSER.PAY_TOT_INFO_VIEW PTIV
+            WHERE PTIV.ACCNT_NO = #{accnt_no}
+        )
+
+        SELECT 
+            '당월정보' AS GBN ,
+            TO_CHAR(PTI.MON_TRUE_CNT) AS TRUE_CNT,
+            TO_CHAR(PTI.MON_TRUE_AMT) AS TRUE_AMT,
+            TO_CHAR(PTI.MON_REL_CNT) AS REL_CNT,
+            TO_CHAR(PTI.MON_REL_AMT) AS REL_AMT,
+            TO_CHAR(PTI.MON_ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(PTI.MON_ADD_AMT) AS ADD_AMT,
+            TO_CHAR(NVL(PTI.MON_TRUE_AMT, 0) + NVL(PTI.MON_REL_AMT, 0) + NVL(PTI.MON_ADD_AMT, 0)) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '납입정보' AS GBN ,
+            TO_CHAR(PTI.TRUE_CNT) AS TRUE_CNT,
+            TO_CHAR(NVL(PTI.TRUE_AMT,0)) AS TRUE_AMT,
+            TO_CHAR(PTI.REL_CNT) AS REL_CNT,
+            TO_CHAR(NVL(PTI.REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(PTI.ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(NVL(PTI.ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR(NVL(PTI.TRUE_AMT, 0) + NVL(PTI.REL_AMT, 0) + NVL(PTI.ADD_AMT, 0)) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '미납정보' AS GBN ,
+            TO_CHAR(PTI.MON_TRUE_CNT - PTI.TRUE_CNT) AS TRUE_CNT,
+            TO_CHAR(PTI.MON_TRUE_AMT - NVL(PTI.TRUE_AMT,0)) AS TRUE_AMT,
+            TO_CHAR(PTI.MON_REL_CNT - PTI.REL_CNT) AS REL_CNT,
+            TO_CHAR(PTI.MON_REL_AMT - NVL(PTI.REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(PTI.MON_ADD_CNT - PTI.ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(PTI.MON_ADD_AMT - NVL(PTI.ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR((NVL(PTI.MON_TRUE_AMT, 0) - NVL(PTI.TRUE_AMT, 0)) + (NVL(PTI.MON_REL_AMT, 0) - NVL(PTI.REL_AMT, 0)) + ( NVL(PTI.MON_ADD_AMT, 0) - NVL(PTI.ADD_AMT, 0))) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '납입상태' AS GBN ,
+            TO_CHAR(PTI.STAT_TRUE),
+            '',
+            TO_CHAR(PTI.STAT_REL),
+            '',
+            TO_CHAR(PTI.STAT_ADD),
+            '',
+            '' AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '만기정보' AS GBN ,
+            TO_CHAR(PTI.MAN_TRUE_CNT) || TO_CHAR(PTI.NEW_CHAN_INFO)  AS TRUE_CNT,
+            TO_CHAR(NVL(PTI.MAN_TRUE_AMT,0)) || TO_CHAR(PTI.NEW_CHAN_INFO2) AS TRUE_AMT,
+            TO_CHAR(PTI.MAN_REL_CNT) AS REL_CNT,
+            TO_CHAR(NVL(PTI.MAN_REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(PTI.MAN_ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(NVL(PTI.MAN_ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR(NVL(PTI.MAN_TRUE_AMT, 0) + NVL(PTI.MAN_REL_AMT, 0) + NVL(PTI.MAN_ADD_AMT, 0)) || TO_CHAR(PTI.NEW_CHAN_INFO2) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '잔여정보' AS GBN ,
+            TO_CHAR(PTI.MAN_TRUE_CNT - (PTI.TRUE_CNT + PTI.NEW_CHAN_GUNSU)) AS TRUE_CNT,
+            TO_CHAR(NVL(PTI.MAN_TRUE_AMT,0) - (NVL(PTI.TRUE_AMT,0) + NVL(PTI.NEW_CHAN_AMT,0))) AS TRUE_AMT,
+            TO_CHAR(PTI.MAN_REL_CNT - PTI.REL_CNT) AS REL_CNT,
+            TO_CHAR(NVL(PTI.MAN_REL_AMT,0) - NVL(PTI.REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(PTI.MAN_ADD_CNT - PTI.ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(NVL(PTI.MAN_ADD_AMT,0) - NVL(PTI.ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR(NVL(PTI.MAN_TRUE_AMT, 0) - (NVL(PTI.TRUE_AMT, 0) + NVL(PTI.NEW_CHAN_AMT, 0)) + (NVL(PTI.MAN_REL_AMT, 0) - NVL(PTI.REL_AMT, 0)) + (NVL(PTI.MAN_ADD_AMT, 0) - NVL(PTI.ADD_AMT, 0))) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI 
+    </select>
+    
+    <update id="DlwEvntReceiptMap.updateEventMngrInfo" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.updateEventMngrInfo */
+            EVENT_MNGR_REG
+        SET EVT_MNGR_GUBUN = #{job_duty},
+            EVT_MNGR_CD = #{evt_mngr_cd},
+            WORK_DM = #{work_dm},
+            START_TIME = #{start_time},
+            END_TIME = #{end_time},
+            NUMBER_OF_DAY = #{number_of_day},
+            OVER_TIME = #{over_time},
+            PAY_AMT = #{pay_amt},
+            PAY_ADD_AMT = #{pay_add_amt},
+            GIVE_PAY_DM = #{give_pay_dm},
+            NOTE = #{note},
+            UPD_DM = sysdate,
+            UPD_MAN = #{upd_man}
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND IDNTT = #{idntt}
+    </update>        
+    
+    <insert id="DlwEvntReceiptMap.insertEventMngrInfo" parameterType="map">
+        INSERT INTO /* DlwEvntReceiptMap.insertEventMngrInfo */
+            EVENT_MNGR_REG
+            (
+                EVT_SEQ, EVT_MNGR_GUBUN, EVT_MNGR_CD, WORK_DM, START_TIME, END_TIME, NUMBER_OF_DAY, OVER_TIME,
+                PAY_AMT, PAY_ADD_AMT, GIVE_PAY_DM, NOTE, REG_DM, REG_MAN, DEL_FG
+            )
+        VALUES
+            (
+                #{evt_seq}, #{job_duty}, #{evt_mngr_cd}, #{work_dm}, #{start_time}, #{end_time}, #{number_of_day}, #{over_time},
+                #{pay_amt}, #{pay_add_amt}, #{give_pay_dm}, #{note}, SYSDATE,  #{reg_man}, 'N'
+            )
+    </insert>
+    
+    <update id="DlwEvntReceiptMap.deleteEventMngrInfo" parameterType="map">
+        UPDATE /* DlwEvntReceiptMap.deleteEventMngrInfo*/
+            EVENT_MNGR_REG
+        SET DEL_FG = 'Y'
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND IDNTT = #{idntt}
+    </update>
+    
+    <select id="DlwEvntReceiptMap.getCustAccntCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvntReceiptMap.getCustAccntCount */
+            COUNT(*) AS ICNT    
+        FROM MEM_PROD_ACCNT MPA INNER JOIN 
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN 
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        WHERE 1=1
+        <if test="srch_standard == 'mem_nm'">
+            AND MB.MEM_NM LIKE #{srch_val} || '%'
+        </if>
+        <if test="srch_standard == 'accnt_no'">
+            AND MPA.ACCNT_NO = #{srch_val}
+        </if>
+        <if test="srch_standard == 'mem_no'">
+            AND MPA.MEM_NO = #{srch_val}
+        </if>
+    </select>
+
+    <!-- 행사현황 조회 -->
+    <select id="DlwEvntReceiptMap.getCustAccntList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getCustAccntList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                MPA.ACCNT_NO,
+                MPA.MEM_NO,
+                MPA.RESORT_NO,
+                MB.MEM_NM,
+                MB.HOME_TEL,
+                MB.CELL,
+                MB.WRPL_TEL,
+                CASE WHEN LENGTH(NVL(TO_CHAR(MB.IDN_NO), '')) = 10 THEN MB.IDN_NO ELSE SUBSTR(MB.BRTH_MON_DAY, -6) END AS IDN_NO,
+                MPA.PROD_CD,
+                PD.PROD_NM,
+                PD.PROD_AMT,
+                PD.MON_PAY_AMT,
+                PD.EXPR_NO,
+                MPA.EMPLE_NO,
+                (SELECT EMP.EMPLE_NM FROM EMPLOYEE EMP WHERE 1=1 AND EMP.EMPLE_NO = MPA.EMPLE_NO) AS EMPLE_NM,
+                MPA.APPFM_NO,
+                MPA.JOIN_DT,
+                MPA.COMPT_DT,
+                MPA.BEF_EMPLE_CD,
+                MPA.PAY_PERD,
+                MPA.PAY_MTHD,
+                MPA.JOIN_PROD,
+                MPA.NEW_CHAN_GUNSU,
+                MPA.CERTF_RCV_CHK,
+                MPA.PAY_STAT_1NO,
+                MPA.BANK_ACCNT_NO,
+                MPA.OLD_MID,
+                MPA.REG_DM,
+                MPA.REG_MAN,
+                MPA.UPD_DM,
+                MPA.UPD_MAN,
+                FN_ACCNT_STAT(MPA.ACCNT_NO) AS ACCNT_STAT,
+                NVL(MPA.JOIN_CL,'01') AS JOIN_CL,
+                CASE WHEN (SELECT COUNT(TRANS.ACCNT_NO) FROM TRANSFER_BRKDN TRANS WHERE TRANS.ACCNT_NO = MPA.ACCNT_NO) > 0 THEN 'Y' 
+                    ELSE 'N' 
+                END AS TRANS_GUBUN,
+                MB.BRTH_MON_DAY,
+                NVL((SELECT EMP.CELL FROM EMPLOYEE EMP WHERE EMP.EMPLE_NO = MPA.EMPLE_NO), '') AS EMP_CELL,
+                FN_EVENT(MPA.ACCNT_NO) AS JOIN_STAT,
+                FN_EVENT(MPA.ACCNT_NO) AS STAT,
+                FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STAT,
+                CASE WHEN MPA.KSTBIT = '01' THEN '대기'
+                    WHEN MPA.KSTBIT = '02' THEN '가입'
+                    WHEN MPA.KSTBIT = '03' THEN '해약'
+                    WHEN MPA.KSTBIT = '04' THEN '행사'
+                    WHEN MPA.KSTBIT = '09' THEN '만기' 
+                    ELSE MPA.KSTBIT 
+                END KSTBIT
+            FROM MEM_PROD_ACCNT MPA INNER JOIN 
+                MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN 
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+            WHERE 1=1
+            <if test="srch_standard == 'mem_nm'">
+                AND MB.MEM_NM LIKE #{srch_val} || '%'
+            </if>
+            <if test="srch_standard == 'accnt_no'">
+                AND MPA.ACCNT_NO = #{srch_val}
+            </if>
+            <if test="srch_standard == 'mem_no'">
+                AND MPA.MEM_NO = #{srch_val}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getProtocolSynthesisCount" parameterType="map" resultType="int">
+        SELECT /* DlwEvntReceiptMap.getProtocolSynthesisCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                TBL_MAIN.*,
+                TRUNC((TO_DATE(TBL_MAIN.ARRIVE_DT,'YYYY-MM-DD HH24:MI:SS') - TO_DATE(TBL_MAIN.VAL8,'YYYY-MM-DD HH24:MI:SS')) * 24,0) || '시간 ' ||
+                MOD(ROUND((TO_DATE(TBL_MAIN.ARRIVE_DT,'YYYY-MM-DD HH24:MI:SS') - TO_DATE(TBL_MAIN.VAL8,'YYYY-MM-DD HH24:MI:SS')) * 24 * 60,1),60) || '분' AS DELAY_MM,
+                TO_CHAR(TO_DATE(TBL_MAIN.CFN_DT),'YYYY-MM-DD') || ' ' || NVL(TBL_MAIN.CFN_H,'00') || ':' || NVL(TBL_MAIN.CFN_M,'00') AS CFN_DTTM,
+                TO_CHAR(TO_DATE(TBL_MAIN.EVENT_COMP_DAY),'YYYY-MM-DD') || ' ' || NVL(TBL_MAIN.COMP_H,'00') || ':' || NVL(TBL_MAIN.COMP_M,'00') AS COMP_DT,
+                FN_COM_NM('02', TBL_MAIN.SORT) AS SORT_NAME
+            FROM
+            (
+                SELECT 
+                    EV.ACCNT_NO,
+                    MB.MEM_NM,
+                    MPA.JOIN_DT,
+                    PD.PROD_NM,
+                    EV.EVENT_REG_DAY,
+                    EV.EVENT_COMP_DAY,
+                    EV.COMP_H,
+                    EV.COMP_M,
+                    EV.SORT,
+                    NVL((SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EV.FUNRL_HALL), '') AS EVENT_PLACE,
+                    NVL(EV.ETC_ZIP,'') AS ETC_ZIP,
+                    NVL(EV.ETC_ADDR1, '') AS ETC_ADDR1,
+                    NVL(EV.ETC_ADDR2, '') AS ETC_ADDR2,           
+                    TO_CHAR(TO_DATE(VAL8),'YYYY-MM-DD') || ' ' || NVL(VAL8_H,'00') || ':' || NVL(VAL8_M,'00') AS VAL8,
+                    TO_CHAR(TO_DATE(ARRIVE_DT),'YYYY-MM-DD') || ' ' || NVL(ARR_H,'00') || ':' || NVL(ARR_M,'00') AS ARRIVE_DT,               
+                    TO_CHAR(TO_DATE(VAL9),'YYYY-MM-DD') || ' ' || NVL(VAL9_H,'00') || ':' || NVL(VAL9_M,'00') AS VAL9,        
+                    EV.CFN_DT,
+                    EV.CFN_H,
+                    EV.CFN_M,
+                    FN_COM_NM('62', WEDDING_OPT) AS WEDDING_OPT,
+                    EV.DEL_FG,
+                    EV.CNL_REASON_CD,
+                    EV.CNL_RESON,
+                    EMM.EVT_MNGR_NM,
+                    BM.BRANCH_CD,
+                    BM.BRANCH_NM
+                FROM EVENT EV INNER JOIN
+                    MEM_PROD_ACCNT MPA ON EV.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN 
+                    EVENT_MNGR_REG EMR ON EMR.EVT_SEQ = EV.SEQ LEFT OUTER JOIN 
+                    EVENT_MANAGER_MNG EMM ON EMR.EVT_MNGR_CD = EMM.EVT_MNGR_CD AND EMM.DEL_FG = 'N' LEFT OUTER JOIN
+                    WAREHOUSE_MNG WM ON WM.WH_CD = EMM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+                    BRANCH_MNG BM ON BM.BRANCH_CD = WM.BRANCH AND BM.DEL_FG = 'N'
+                WHERE 1=1
+                <if test="srch_date_type != null and srch_date_type != ''">
+                    <if test="srch_date_type == '01'">
+                        <if test="srch_stt_dt != null and srch_stt_dt != '' and srch_end_dt != null and srch_end_dt != ''">
+                            AND EV.EVENT_REG_DAY BETWEEN #{srch_stt_dt} AND #{srch_end_dt}
+                        </if>
+                    </if>
+                    <if test="srch_date_type == '02'">
+                        <if test="srch_stt_dt != null and srch_stt_dt != '' and srch_end_dt != null and srch_end_dt != ''">
+                            AND EV.EVENT_COMP_DAY BETWEEN #{srch_stt_dt} AND #{srch_end_dt}
+                        </if>
+                    </if>
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND EV.ACCNT_NO = #{accnt_no}
+                </if>
+                <if test="prod_cd != null and prod_cd != ''">
+                    AND PD.PROD_CD = #{prod_cd}
+                </if>
+                <if test="del_fg != null and del_fg != '' and del_fg.equalsIgnoreCase('N')">
+                    AND (EV.DEL_FG = 'N' OR (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') IN ('003', '02')))
+                </if>
+                <if test="del_fg != null and del_fg != '' and del_fg.equalsIgnoreCase('Y')">
+                    AND (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') NOT IN ('003', '02'))
+                </if>
+                <if test="sort != null and sort != ''">
+                    AND EV.SORT = #{sort}
+                </if>
+                <if test="evt_mngr_nm != null and evt_mngr_nm != ''">
+                    AND EMM.EVT_MNGR_NM LIKE '%' || #{evt_mngr_nm} || '%'
+                </if>
+                <if test="branch_cd != null and branch_cd != ''">
+                    AND BM.BRANCH_CD = #{branch_cd}
+                </if>
+                <if test="dir_out_gubun != null and dir_out_gubun != ''">
+	                AND BM.DIR_OUT_GUBUN = #{dir_out_gubun}
+	            </if>
+            ) TBL_MAIN
+            WHERE 1=1
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getProtocolSynthesisList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getProtocolSynthesisList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                TBL_MAIN.*,
+                TRUNC((TO_DATE(TBL_MAIN.ARRIVE_DT,'YYYY-MM-DD HH24:MI:SS') - TO_DATE(TBL_MAIN.VAL8,'YYYY-MM-DD HH24:MI:SS')) * 24,0) || '시간 ' ||
+                MOD(ROUND((TO_DATE(TBL_MAIN.ARRIVE_DT,'YYYY-MM-DD HH24:MI:SS') - TO_DATE(TBL_MAIN.VAL8,'YYYY-MM-DD HH24:MI:SS')) * 24 * 60,1),60) || '분' AS DELAY_MM,
+                TO_CHAR(TO_DATE(TBL_MAIN.CFN_DT),'YYYY-MM-DD') || ' ' || NVL(TBL_MAIN.CFN_H,'00') || ':' || NVL(TBL_MAIN.CFN_M,'00') AS CFN_DTTM,
+                TO_CHAR(TO_DATE(TBL_MAIN.EVENT_COMP_DAY),'YYYY-MM-DD') || ' ' || NVL(TBL_MAIN.COMP_H,'00') || ':' || NVL(TBL_MAIN.COMP_M,'00') AS COMP_DT,
+                FN_COM_NM('02', TBL_MAIN.SORT) AS SORT_NAME
+            FROM
+            (
+                SELECT 
+                    EV.ACCNT_NO,
+                    MB.MEM_NM,
+                    MPA.JOIN_DT,
+                    PD.PROD_NM,
+                    EV.EVENT_REG_DAY,
+                    EV.EVENT_COMP_DAY,
+                    EV.COMP_H,
+                    EV.COMP_M,
+                    EV.SORT,
+                    NVL((SELECT FUNRL_NM FROM FUNRL_HALL WHERE FUNRL_CD = EV.FUNRL_HALL), '') AS EVENT_PLACE,
+                    NVL(EV.ETC_ZIP,'') AS ETC_ZIP,
+                    NVL(EV.ETC_ADDR1, '') AS ETC_ADDR1,
+                    NVL(EV.ETC_ADDR2, '') AS ETC_ADDR2,           
+                    TO_CHAR(TO_DATE(VAL8),'YYYY-MM-DD') || ' ' || NVL(VAL8_H,'00') || ':' || NVL(VAL8_M,'00') AS VAL8,
+                    TO_CHAR(TO_DATE(ARRIVE_DT),'YYYY-MM-DD') || ' ' || NVL(ARR_H,'00') || ':' || NVL(ARR_M,'00') AS ARRIVE_DT,               
+                    TO_CHAR(TO_DATE(VAL9),'YYYY-MM-DD') || ' ' || NVL(VAL9_H,'00') || ':' || NVL(VAL9_M,'00') AS VAL9,        
+                    EV.CFN_DT,
+                    EV.CFN_H,
+                    EV.CFN_M,
+                    FN_COM_NM('62', WEDDING_OPT) AS WEDDING_OPT,
+                    EV.DEL_FG,
+                    EV.CNL_REASON_CD,
+                    EV.CNL_RESON,
+                    EMM.EVT_MNGR_NM,
+                    BM.BRANCH_CD,
+                    BM.BRANCH_NM,
+                FN_RPT_NO(EV.ACCNT_NO) AS RPT_NO
+                FROM EVENT EV INNER JOIN
+                    MEM_PROD_ACCNT MPA ON EV.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN 
+                    EVENT_MNGR_REG EMR ON EMR.EVT_SEQ = EV.SEQ LEFT OUTER JOIN 
+                    EVENT_MANAGER_MNG EMM ON EMR.EVT_MNGR_CD = EMM.EVT_MNGR_CD AND EMM.DEL_FG = 'N' LEFT OUTER JOIN
+                    WAREHOUSE_MNG WM ON WM.WH_CD = EMM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+                    BRANCH_MNG BM ON BM.BRANCH_CD = WM.BRANCH AND BM.DEL_FG = 'N'
+                WHERE 1=1
+                <if test="srch_date_type != null and srch_date_type != ''">
+                    <if test="srch_date_type == '01'">
+                        <if test="srch_stt_dt != null and srch_stt_dt != '' and srch_end_dt != null and srch_end_dt != ''">
+                            AND EV.EVENT_REG_DAY BETWEEN #{srch_stt_dt} AND #{srch_end_dt}
+                        </if>
+                    </if>
+                    <if test="srch_date_type == '02'">
+                        <if test="srch_stt_dt != null and srch_stt_dt != '' and srch_end_dt != null and srch_end_dt != ''">
+                            AND EV.EVENT_COMP_DAY BETWEEN #{srch_stt_dt} AND #{srch_end_dt}
+                        </if>
+                    </if>
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND EV.ACCNT_NO = #{accnt_no}
+                </if>
+                <if test="prod_cd != null and prod_cd != ''">
+                    AND PD.PROD_CD = #{prod_cd}
+                </if>
+                <if test="del_fg != null and del_fg != '' and del_fg.equalsIgnoreCase('N')">
+                    AND (EV.DEL_FG = 'N' OR (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') IN ('003', '02')))
+                </if>
+                <if test="del_fg != null and del_fg != '' and del_fg.equalsIgnoreCase('Y')">
+                    AND (EV.DEL_FG = 'Y' AND NVL(EV.CNL_REASON_CD, ' ') NOT IN ('003', '02'))
+                </if>
+                <if test="sort != null and sort != ''">
+                    AND EV.SORT = #{sort}
+                </if>
+                <if test="evt_mngr_nm != null and evt_mngr_nm != ''">
+                    AND EMM.EVT_MNGR_NM LIKE '%' || #{evt_mngr_nm} || '%'
+                </if>
+                <if test="branch_cd != null and branch_cd != ''">
+                    AND BM.BRANCH_CD = #{branch_cd}
+                </if>
+                <if test="dir_out_gubun != null and dir_out_gubun != ''">
+	                AND BM.DIR_OUT_GUBUN = #{dir_out_gubun}
+	            </if>
+            ) TBL_MAIN
+            WHERE 1=1
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+    
+    <select id="DlwEvntReceiptMap.getBranchList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwEvntReceiptMap.getBranchList */
+            '' AS CD,
+            '선택' AS CD_NM
+        FROM DUAL
+        WHERE 1=1  
+        
+        UNION ALL
+
+        SELECT 
+            MAIN_TBL.CD,
+            MAIN_TBL.CD_NM
+        FROM 
+        (
+            SELECT
+                BM.BRANCH_CD AS CD,
+                BM.BRANCH_NM AS CD_NM
+            FROM BRANCH_MNG BM
+            WHERE 1=1
+            AND BM.DEL_FG = 'N'
+            ORDER BY BM.BRANCH_CD
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+</mapper>

@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EvltTypBankMap">
+
+    <sql id="EvltTypBankMap.selectCondition_fragment">
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="evlt_typ_id != null and evlt_typ_id != ''">
+            AND EVLT_TYP_ID = #{evlt_typ_id}
+        </if>
+        <if test="bzpt_div != null and bzpt_div != ''">
+            AND BZPT_DIV = #{bzpt_div}
+        </if>
+        <if test="maj_evlt_typ_id != null and maj_evlt_typ_id != ''">
+            <choose>
+                <when test="mid_evlt_typ_id != null and mid_evlt_typ_id != ''">
+                    <choose>
+                        <when test="min_evlt_typ_id != null and min_evlt_typ_id != ''">
+                            AND EVLT_TYP_ID=#{min_evlt_typ_id}
+                        </when>
+                        <otherwise>
+                            AND HGRN_EVLT_TYP_ID = #{mid_evlt_typ_id}
+                        </otherwise>
+                    </choose>
+                </when>
+                <otherwise>
+                    AND HGRN_EVLT_TYP_ID IN (SELECT EVLT_TYP_ID
+                                              FROM TB_EVLT_TYP_BANK
+                                             WHERE HGRN_EVLT_TYP_ID = #{maj_evlt_typ_id})
+                </otherwise>
+            </choose>
+        </if>
+    </sql>
+
+    <select id="EvltTypBankMap.getEvltTypTree" parameterType="map" resultType="resultMap">
+        SELECT /* EvltTypBankMap.getEvltTypTree */
+               EVLT_TYP_ID, HGRN_EVLT_TYP_ID, EVLT_TYP_NM, EVLT_TYP_LVL_CNT, EXPE_SQNC
+            , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                 FROM TB_EVLT_TYP_BANK B
+                WHERE B.HGRN_EVLT_TYP_ID = A.EVLT_TYP_ID
+                  AND B.CNTR_CD = A.CNTR_CD) AS HASCHILDREN
+          FROM TB_EVLT_TYP_BANK A
+         WHERE CNTR_CD = #{cntr_cd}
+        <if test="bzpt_div != null and bzpt_div != ''">
+           AND BZPT_DIV = #{bzpt_div}
+        </if>
+        START WITH HGRN_EVLT_TYP_ID IS NULL
+        CONNECT BY PRIOR EVLT_TYP_ID = HGRN_EVLT_TYP_ID
+        ORDER SIBLINGS BY A.EVLT_TYP_LVL_CNT, A.EXPE_SQNC
+
+    </select>
+
+    <select id="EvltTypBankMap.getEvltTypCount" parameterType="map" resultType="int">
+        SELECT /* EvltTypBankMap.getEvltTypCount */
+               COUNT(*)
+          FROM TB_EVLT_TYP_BANK
+         WHERE HGRN_EVLT_TYP_ID IS NOT NULL
+           AND HGRN_EVLT_TYP_ID NOT IN (SELECT EVLT_TYP_ID
+                                         FROM TB_EVLT_TYP_BANK
+                                        WHERE HGRN_EVLT_TYP_ID IS NULL)
+        <include refid="EvltTypBankMap.selectCondition_fragment" />
+    </select>
+
+    <select id="EvltTypBankMap.getEvltTypList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltTypBankMap.getEvltTypList */
+               PAGE_INDX, EVLT_TYP_ID, EVLT_TYP_NM, EVLT_BAS_CNTN, EXPE_SQNC
+             , HGRN_EVLT_TYP_ID, EVLT_TYP_LVL_CNT, RGSR_ID, RGSN_DTTM, AMND_ID
+             , AMNT_DTTM, CNTR_CD, RGSR_NM, AMND_NM
+             , (SELECT EVLT_TYP_NM
+                  FROM TB_EVLT_TYP_BANK
+                 WHERE EVLT_TYP_ID = (SELECT HGRN_EVLT_TYP_ID
+                                         FROM TB_EVLT_TYP_BANK
+                                        WHERE EVLT_TYP_ID = B.HGRN_EVLT_TYP_ID
+                                          AND CNTR_CD = B.CNTR_CD)
+                   AND CNTR_CD = B.CNTR_CD) AS MAJ_EVLT_TYP_NM
+             , (SELECT EVLT_TYP_NM
+                  FROM TB_EVLT_TYP_BANK
+                 WHERE EVLT_TYP_ID = B.HGRN_EVLT_TYP_ID
+                   AND CNTR_CD = B.CNTR_CD) AS MID_EVLT_TYP_NM
+             , (SELECT COUNT(*)
+                  FROM TB_EVLT_ITEM_BANK
+                 WHERE EVLT_TYP_ID = B.EVLT_TYP_ID
+                   AND CNTR_CD = B.CNTR_CD) AS ITEM_CNT
+             , CASE WHEN EXISTS (SELECT *
+                                   FROM TB_EVST_ITEM_DTL
+                                  WHERE EVLT_TYP_ID = B.EVLT_TYP_ID
+                                    AND EVST_ID = #{evst_id}) THEN 'Y'
+                    ELSE 'N'
+                END AS ADDFG
+          FROM (SELECT ROWNUM AS PAGE_INDX, EVLT_TYP_ID, EVLT_TYP_NM, EVLT_BAS_CNTN, EXPE_SQNC
+                     , HGRN_EVLT_TYP_ID, EVLT_TYP_LVL_CNT, RGSR_ID, RGSN_DTTM, AMND_ID
+                     , AMNT_DTTM, CNTR_CD, RGSR_NM, AMND_NM
+                  FROM (SELECT EVLT_TYP_ID, EVLT_TYP_NM, EVLT_BAS_CNTN, EXPE_SQNC, HGRN_EVLT_TYP_ID
+                             , EVLT_TYP_LVL_CNT, RGSR_ID, RGSN_DTTM, AMND_ID
+                             , AMNT_DTTM, CNTR_CD
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EVLT_TYP_BANK A
+                         WHERE HGRN_EVLT_TYP_ID IS NOT NULL
+                           AND HGRN_EVLT_TYP_ID NOT IN (SELECT EVLT_TYP_ID
+                                                         FROM TB_EVLT_TYP_BANK
+                                                        WHERE HGRN_EVLT_TYP_ID IS NULL)
+                        <include refid="EvltTypBankMap.selectCondition_fragment" />
+                        <if test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="EvltTypBankMap.getEvltTypView" parameterType="map" resultType="resultMap">
+        SELECT /* EvltTypBankMap.getEvltTypView */
+               A.EVLT_TYP_ID, A.EVLT_TYP_NM, A.EVLT_BAS_CNTN, A.HGRN_EVLT_TYP_ID, A.EVLT_TYP_LVL_CNT
+             , DECODE(A.HGRN_EVLT_TYP_ID, '', '평가유형', (SELECT EVLT_TYP_NM
+                                                            FROM TB_EVLT_TYP_BANK
+                                                           WHERE EVLT_TYP_ID = A.HGRN_EVLT_TYP_ID)) AS HGRN_EVLT_TYP_NM
+             , A.EXPE_SQNC, A.CNTR_CD, A.RGSR_ID, (SELECT USER_NM
+                                                        FROM TB_USER
+                                                       WHERE USER_ID = A.AMND_ID) AS AMND_NM
+             , A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+             , (SELECT NVL(MAX(B.EXPE_SQNC), '0')
+                  FROM TB_EVLT_TYP_BANK B
+                 WHERE B.CNTR_CD = A.CNTR_CD
+                <choose>
+                    <when test="evlt_typ_id == null or evlt_typ_id == ''">
+                    AND B.HGRN_EVLT_TYP_ID IS NULL
+                    </when>
+                    <otherwise>
+                    AND B.HGRN_EVLT_TYP_ID = #{evlt_typ_id}
+                    </otherwise>
+                </choose>
+                ) AS LOW_LVL_MAX_EXPE_SQNC
+              , (SELECT MAX(B.EXPE_SQNC)
+                   FROM TB_EVLT_TYP_BANK B
+                  WHERE B.CNTR_CD = A.CNTR_CD
+                    AND NVL(B.HGRN_EVLT_TYP_ID, 'ROOT') = CASE WHEN A.HGRN_EVLT_TYP_ID IS NULL
+                                                              THEN 'ROOT'
+                                                              ELSE A.HGRN_EVLT_TYP_ID
+                                                              END
+                ) AS MAX_EXPE_SQNC
+          FROM TB_EVLT_TYP_BANK A
+         WHERE CNTR_CD = #{cntr_cd}
+        <choose>
+            <when test="evlt_typ_id == null or evlt_typ_id == ''">
+            AND HGRN_EVLT_TYP_ID IS NULL
+            AND ROWNUM = '1'
+            </when>
+            <otherwise>
+            AND EVLT_TYP_ID = #{evlt_typ_id}
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="EvltTypBankMap.getEvltTypRoot" parameterType="map" resultType="resultMap">
+        SELECT /* EvltTypBankMap.getEvltTypRoot */
+               '' AS EVLT_TYP_ID, '' AS EVLT_TYP_NM, '' AS EVLT_BAS_CNTN, '' AS HGRN_EVLT_TYP_ID
+             , '0' AS LOW_LVL_MAX_EXPE_SQNC, #{cntr_cd} AS CNTR_CD, '' AS RGSR_ID, '' AS  RGSN_DTTM, '' AS AMND_ID, '' AS AMNT_DTTM
+             , '0' AS EVLT_TYP_LVL_CNT, '평가유형' AS HGRN_EVLT_TYP_NM
+             , '1' AS EXPE_SQNC
+          FROM DUAL
+    </select>
+
+    <insert id="EvltTypBankMap.insertEvltTyp" parameterType="map">
+        <selectKey keyProperty="evlt_typ_id" resultType="String" order="BEFORE">
+            SELECT 'ETB' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* EvltTypBankMap.insertEvltTyp */
+          INTO TB_EVLT_TYP_BANK A
+               (A.EVLT_TYP_ID, A.EVLT_TYP_NM, A.EVLT_BAS_CNTN, A.HGRN_EVLT_TYP_ID
+              , A.EXPE_SQNC, A.EVLT_TYP_LVL_CNT, BZPT_DIV
+              , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM)
+        VALUES (#{evlt_typ_id}, #{evlt_typ_nm}, #{evlt_bas_cntn}, #{hgrn_evlt_typ_id}
+              , #{expe_sqnc}, #{evlt_typ_lvl_cnt}, #{bzpt_div}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="EvltTypBankMap.updateEvltTyp" parameterType="map">
+        UPDATE /* EvltTypBankMap.updateEvltTyp */
+               TB_EVLT_TYP_BANK A
+           SET A.AMNT_DTTM			= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , A.AMND_ID			= #{amnd_id}
+             , A.HGRN_EVLT_TYP_ID	= #{hgrn_evlt_typ_id}
+             , A.EXPE_SQNC			= #{expe_sqnc}
+             , A.EVLT_BAS_CNTN		= #{evlt_bas_cntn}
+             , A.CNTR_CD			= #{cntr_cd}
+             , A.EVLT_TYP_NM		= #{evlt_typ_nm}
+         WHERE A.CNTR_CD			= #{cntr_cd}
+           AND A.BZPT_DIV			= #{bzpt_div}
+           AND A.EVLT_TYP_ID		= #{evlt_typ_id}
+    </update>
+
+    <delete id="EvltTypBankMap.deleteEvltTyp" parameterType="map">
+        DELETE /* EvltTypBankMap.deleteEvltTyp */
+          FROM TB_EVLT_TYP_BANK
+         WHERE CNTR_CD = #{cntr_cd}
+           AND BZPT_DIV = #{bzpt_div}
+           AND (EVLT_TYP_ID = #{evlt_typ_id}
+            OR HGRN_EVLT_TYP_ID = #{evlt_typ_id}
+            OR HGRN_EVLT_TYP_ID IN (SELECT EVLT_TYP_ID
+                                     FROM TB_EVLT_TYP_BANK
+                                    WHERE HGRN_EVLT_TYP_ID = #{evlt_typ_id}))
+    </delete>
+
+    <update id="EvltTypBankMap.updateEvltTypOrd" parameterType="map">
+        <![CDATA[
+        UPDATE /* EvltTypBankMap.updateEvltTypOrd */
+               TB_EVLT_TYP_BANK
+           SET EXPE_SQNC  =
+                   CASE EVLT_TYP_ID
+                       WHEN #{evlt_typ_id}  THEN ${expe_sqnc}
+                       ELSE CASE SIGN( ${old_expe_sqnc} - ${expe_sqnc} )
+                               WHEN -1 THEN EXPE_SQNC - 1
+                               WHEN  1 THEN EXPE_SQNC + 1
+                           END
+                       END
+         WHERE CNTR_CD = #{cntr_cd}
+           AND EXPE_SQNC <=
+               CASE SIGN( ${old_expe_sqnc} - ${expe_sqnc} )
+                    WHEN 1 THEN ${old_expe_sqnc}
+                    WHEN -1 THEN ${expe_sqnc}
+               END
+           AND EXPE_SQNC >=
+               CASE SIGN( ${old_expe_sqnc} - ${expe_sqnc} )
+                    WHEN 1 THEN ${expe_sqnc}
+                    WHEN -1 THEN ${old_expe_sqnc}
+               END
+        ]]>
+        <choose>
+          <when test="hgrn_evlt_typ_id != null and hgrn_evlt_typ_id != ''">
+           AND HGRN_EVLT_TYP_ID = #{hgrn_evlt_typ_id}
+          </when>
+          <otherwise>
+           AND (HGRN_EVLT_TYP_ID IS NULL OR HGRN_EVLT_TYP_ID ='')
+          </otherwise>
+        </choose>
+        <if test="bzpt_div != null and bzpt_div != ''">
+           AND BZPT_DIV = #{bzpt_div}
+        </if>
+    </update>
+
+
+    <select id="EvltTypBankMap.getEvltTypDropdownList" parameterType="map" resultType="resultMap">
+        SELECT /* EvltTypBankMap.getEvltTypDropdownList */
+               EVLT_TYP_ID, EVLT_TYP_NM
+          FROM TB_EVLT_TYP_BANK
+         WHERE CNTR_CD = #{cntr_cd}
+         <if test="bzpt_div != null and bzpt_div != ''">
+           AND BZPT_DIV = #{bzpt_div}
+        </if>
+        <choose>
+            <when test="evlt_typ_id != null and evlt_typ_id != ''">
+                AND HGRN_EVLT_TYP_ID = #{evlt_typ_id}
+            </when>
+            <otherwise>
+                AND (HGRN_EVLT_TYP_ID IS NULL OR HGRN_EVLT_TYP_ID = '')
+            </otherwise>
+        </choose>
+      ORDER BY EXPE_SQNC ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwDirectSalesMap">
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 조회수
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <select id="DlwDirectSalesMap.getDirectSalesChannelCount" parameterType="map" resultType="int">
+        SELECT /* DlwDirectSalesMap.getDirectSalesChannelCount */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.MEM_PROD_ACCNT MPA INNER JOIN 
+            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND MPA.DEL_FG = 'N' INNER JOIN 
+            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+        WHERE 1=1
+        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != '' and dt_div.equalsIgnoreCase('01')">
+            AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+        </if>
+        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != '' and dt_div.equalsIgnoreCase('02')">
+            AND MPA.REG_DM BETWEEN #{stt_dt} AND #{end_dt}
+        </if>
+        <if test="section_thr != null and section_thr != '' and section_thr.equalsIgnoreCase('0000')">
+            AND PD.SECTION_THR IN ('0029', '0014', '0015', '0001', '0002')
+        </if>
+        <if test="section_thr != null and section_thr != '' and !section_thr.equalsIgnoreCase('0000')">
+            AND PD.SECTION_THR = #{section_thr}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND MPA.ACCNT_NO = #{accnt_no}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 행사전환상품 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_EVT_TRAN_EXT
+     * ================================================================
+     * -->
+    <select id="DlwDirectSalesMap.getDirectSalesChannelList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwDirectSalesMap.getDirectSalesChannelList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY MPA.MEM_NO ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                MPA.MEM_NO,
+                MPA.ACCNT_NO,
+                MB.MEM_NM,
+                MB.BRTH_MON_DAY AS BRTH_MON_DAY,
+                CASE WHEN MB.SEX = '0001' THEN '남성'  
+                    WHEN MB.SEX = '0002' THEN '여성'
+                    ELSE ''
+                END AS SEX,
+                MB.CELL,
+                PD.PROD_NM,
+                (SELECT MODEL_CL_NM FROM LF_DMUSER.PRODUCT_MODEL_CL_CD PMCC WHERE 1=1 AND PMCC.MODEL_CL_CD = MPA.PROD_MODEL_KIND) AS MODEL_CL_NM,
+                (            
+                    SELECT
+                        PMD.MODEL_NM || CASE WHEN NVL(PMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '' ELSE '(단종)' END MODL_NM
+                    FROM PRODUCT_MODEL_DTL PMD INNER JOIN 
+                        PRODUCT_MODEL_MST PMM ON PMD.SEQ = PMM.SEQ AND PMM.DEL_FG = 'N'
+                    WHERE 1=1
+                    AND PMM.PROD_CD = MPA.PROD_CD 
+                    AND PMD.MODEL_CD = MPA.PROD_MODEL_CD 
+                    AND PMM.PROD_KIND = MPA.PROD_MODEL_KIND
+                ) AS MODEL_NM,
+                MPA.JOIN_DT,
+                TO_CHAR(MPA.REG_DM, 'YYYYMMDD') AS REG_DM,
+                (SELECT CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '01' AND CC.COM_CD = MPA.PAY_MTHD) AS PAY_MTHD_NM,
+                (SELECT CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = 'S014' AND CC.COM_CD = MPA.KSTBIT) AS KSTBIT_NM,
+                MB.HOME_ADDR || ' ' || MB.HOME_ADDR2 AS HOME_ADDR,
+                REPLACE(MB.INSPL_ADDR, CHR(0), '') || ' ' || REPLACE(MB.INSPL_ADDR2, CHR(0), '') AS INSPL_ADDR,
+                (SELECT MON_TRUE_CNT FROM LF_DMUSER.PAY_TOT_INFO_VIEW PTIV WHERE 1=1 AND PTIV.ACCNT_NO = MPA.ACCNT_NO) AS MON_TRUE_CNT,
+                (SELECT TRUE_CNT FROM LF_DMUSER.PAY_TOT_INFO_VIEW PTIV WHERE 1=1 AND PTIV.ACCNT_NO = MPA.ACCNT_NO) AS TRUE_CNT,
+                PD.SECTION_THR
+            FROM LF_DMUSER.MEM_PROD_ACCNT MPA INNER JOIN 
+                LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND MPA.DEL_FG = 'N' INNER JOIN 
+                LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+            WHERE 1=1
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != '' and dt_div.equalsIgnoreCase('01')">
+                AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != '' and dt_div.equalsIgnoreCase('02')">
+                AND MPA.REG_DM BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+            <if test="section_thr != null and section_thr != '' and section_thr.equalsIgnoreCase('0000')">
+                AND PD.SECTION_THR IN ('0029', '0014', '0015', '0001', '0002')
+            </if>
+            <if test="section_thr != null and section_thr != '' and !section_thr.equalsIgnoreCase('0000')">
+                AND PD.SECTION_THR = #{section_thr}
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND MPA.ACCNT_NO = #{accnt_no}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+</mapper>

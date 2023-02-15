@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="HttpObject_File_Upload" classname="HttpObject_File_Upload" inheritanceid="" position="absolute 0 0 600 500" titletext="New Form">
+    <Layouts>
+      <Layout>
+        <Button id="btn_fileSearch" taborder="0" text="파일찾기" position="absolute 179 31 261 52" onclick="btn_file_onclick"/>
+        <Edit id="edt_fileNm" taborder="1" position="absolute 10 30 176 54"/>
+        <Button id="btn_upload" taborder="2" text="등록" position="absolute 269 31 351 52" onclick="btn_upload_onclick"/>
+        <Static id="Static00" text="파일 업로드 - 단건만 처리&#13;&#10;작성일자 - 2016/11/26&#13;&#10;xplatform이 설치 되지 않은 타시스템에 파일을 업로드한다." position="absolute 50 107 438 209" style="border:1 solid #000000ff ;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <FileDialog id="fd_file" filter="All(*.*)|*.*|" filterindex="0" defaultextention="false"/>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+/*
+작성자 : 정출연
+참조파일 : httpobject_test.xfdl
+설명      : 단건 업로드만 구현(이해하기 쉽게 다운로드, 다건 업로드 기능은 제외하였음)
+*/
+
+// 사이즈 체크는 파일다이얼로그에서 파일을 선택했을 때 실행
+
+var htp_master;
+var fv_maxFileSize = 1024 * 1024 * 1024;
+var fv_arrVirtualFile = [];
+
+// 파일업로드
+function btn_save_onclick(obj:Button,  e:ClickEventInfo) {
+	if ("" == edt_fileNm.value) {
+		return;
+	}
+}
+
+// 파일찾기
+function btn_file_onclick(obj:Button,  e:ClickEventInfo) {
+	var sFilter = "JPEG FILE(*.jpg,*.jpeg)|*.jpg";
+	fn_addFile(sFilter);
+}
+
+function fn_addFile(sFilter) {
+	var sFilterType, sFilePath, sFileName, nFileSize, nRow, objContents;
+	
+	if (gfn_isNull(sFilter)) {
+		sFilterType = "All (*.*)|*.*";
+	} else {
+		sFilterType = sFilter;
+	}
+	 	
+ 	fv_fldg = this["fv_fldg"];
+ 	
+ 	if (fv_fldg == null) {
+		fv_fldg = new FileDialog();
+	}
+		
+	fv_fldg.defaultextention = true;
+	fv_fldg.filter = sFilterType;
+
+	// FileDialog.MULTILOAD, FileDialog.LOAD
+	var vFile = fv_fldg.open("파일 추가", FileDialog.LOAD);
+	
+	if (!vFile) {
+		edt_fileNm.value = "";
+		fv_arrVirtualFile = [];
+		return;	//파일을 선택하지 않은 경우
+	}
+	
+	vFile.open(VirtualFile.openRead| VirtualFile.openBinary);
+	sFilePath = vFile.path;
+	sFileName = vFile.filename;
+	nFileSize = vFile.getFileSize();	
+	//objContents = vFile.read(nFileSize);   //blob로 등록시
+	fv_arrVirtualFile.push(vFile);
+	vFile.close();
+	
+	if (nFileSize >= fv_maxFileSize) {
+		edt_fileNm.value = "";
+		fv_arrVirtualFile = [];
+		alert("업로드 가능한 최대용량을 초과하였습니다.");
+		return false;
+	}
+	edt_fileNm.value = sFileName;
+}
+
+//파일업로드
+function btn_upload_onclick(obj:Button,  e:ClickEventInfo)
+{
+    if (fn_uploadFile() !== true) {    //파일업로드
+        return;
+    }
+   return;
+}
+
+function fn_uploadFile(sSizeLimit)
+{   
+	var bResult = false;
+	
+	if( gfn_isEmpty(edt_fileNm.value) || fv_arrVirtualFile.length < 1 ){
+        application.alert("저장할 파일이 없습니다.");
+        return false;
+    }
+
+ 	htp_master = this["htp_master"];
+ 	
+ 	if (htp_master == null) {
+		htp_master = new HttpObject();
+		htp_master.onload.setHandler(function(obj:HttpObject, e:HttpObjLoadEventInfo) {
+			// e.errorcode, e.errormsg	
+			trace("htp_master_onload : errorcode = " + e.errorcode + "\t" + "errormsg = " + e.errormsg);						
+			
+			if (e.errorcode == 0) {
+				alert("성공!");
+			} else {
+				alert("첨부파일 업로드가 실패했습니다.");
+			}
+		});
+	}
+	
+	var sUrl = "http://localhost:8080/powerservice/sample/uploadFile";	
+	//gfn_showWaitImage(true);
+	
+	trace("sUrl : " + sUrl);
+	bResult = htp_master.upload(sUrl, FileDialog.LOAD, fv_arrVirtualFile[0], false);
+	
+	return bResult;
+}
+
+]]></Script>
+  </Form>
+</FDL>

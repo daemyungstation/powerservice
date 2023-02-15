@@ -1,0 +1,216 @@
+/*
+ * (@)# DlwOnlnCustServiceImpl.java
+ *
+ * @author 최현식
+ * @version 1.0
+ * @date 2016/04/20
+ * Copyright (c) 2016 by Inwoo tech inc, KOREA. All Rights Reserved.
+ *
+ * http://www.inwoo.co.kr
+ *
+ * NOTICE! This software is the confidential and proprietary
+ * information of
+ * Inwoo Tech Inc. You shall not disclose such Confidential
+ * Information and shall use it only in accordance with the terms
+ * of the license agreement you
+ * entered into with Inwoo Tech Inc.
+ *
+ */
+
+package powerservice.business.onln.service.impl;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Service;
+
+import powerservice.business.onln.service.SmartLifeService;
+import powerservice.business.usr.service.impl.UserDAO;
+import powerservice.core.util.ParamUtils;
+import egovframework.rte.cmmn.ria.xplatform.map.DataSetMap;
+import egovframework.rte.fdl.cmmn.EgovAbstractServiceImpl;
+
+/**
+ * 온라인 회원 정보를 관리한다.
+ *
+ * Copyright (c) 2016 Company Inwoo Tech Inc.
+ *
+ * @author 최현식
+ * @version 1.0
+ * @date 2016/04/20
+ * @프로그램ID DlwOnlnCust
+ */
+@Service
+public class SmartLifeServiceImpl extends EgovAbstractServiceImpl implements SmartLifeService {
+
+    @Resource
+    public SmartLifeDAO smartLifeDAO;
+    
+    @Resource
+    public SmartLifePSDAO smartLifePSDAO;
+    
+    @Resource
+    public UserDAO userDAO;
+
+    /**
+     * 온라인회원 가입자 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 온라인 회원 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getMainCount(Map<String, ?> pmParam) throws Exception {
+        return smartLifeDAO.getMainCount(pmParam);
+    }
+
+    /**
+     * 온라인회원 가입자 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 온라인 회원 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getMainList(Map<String, ?> pmParam) throws Exception {
+        return smartLifeDAO.getMainList(pmParam);
+    }
+    
+    public int existsSmartLifeListData(Map<String, ?> pmParam) throws Exception {
+        return smartLifeDAO.existsSmartLifeListData(pmParam);
+    }
+    
+    public int insertSmartLifeList(Map<String, ?> pmParam) throws Exception {
+    	
+    	smartLifePSDAO.insertSmartLifeList(pmParam);
+    	
+    	/*
+    	 * 1.상태값P 업데이트문
+    	 * 2.TB_TRGT_CUST_DTPT INSERT SELECT
+    	 * 3.건수 업데이트 TB_SUB_TRGT_LIST_DTL , TB_TRGT_LIST_DTL
+    	 * 4.온라인 테이블 CALL_STTS 상태값 P -> 할당대기로 변경
+    	 */
+    	
+    	//extcTrgtDAO.getSqlSession().select("ExtcTrgtMap.getExtcTrgtList4100", mParam, new insertB2QTmJoinRowHandler(mParam));
+
+        //mParam.put("call_stts","할당대기");
+
+        // 추출갯수 및 오류갯수를 입력한다.
+        //mParam.put("updateOption", "extract");
+
+        // 추출갯수 및 오류갯수를 입력한다.
+        //subTrgtListDAO.updateSubTrgtList(mParam);
+        //trgtListDAO.updateTrgtList(mParam);
+
+        // 상태값 변경
+        //extcTrgtDAO.updateOnlineStat(mParam);
+    	
+        return 0;
+    }
+    
+    /**
+     * 대상고객 할당정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 대상고객할당 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getTrgtAlctCustCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) smartLifePSDAO.getTrgtAlctCustCount(pmParam);
+    }
+	
+	/**
+     * 대상고객별 할당정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 대상고객 할당 리스트
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getTrgtAlctCustList(Map<String, ?> pmParam) throws Exception {
+        return smartLifePSDAO.getTrgtAlctCustList(pmParam);
+    }
+    
+    /**
+     * 캠페인 대상고객에 상담사를 선택 할당한다.  사용
+     *
+     * @param pmParam 캠페인대상고객할당 정보
+     * @throws Exception
+     */
+    public int insertSelectAlct(Map<String, Object> pmParam , DataSetMap listInDs) throws Exception {
+        int nCnt = 0;
+        String sCnsrId = StringUtils.defaultString((String)pmParam.get("sCnsrId")); //변경할 id
+        String sCmpgId = StringUtils.defaultString((String)pmParam.get("sCmpgId")); //캠페인 id
+
+        String sCmpgDivCd = StringUtils.defaultString((String)pmParam.get("sCmpgDivCd")); //상위
+        String sCmpgTypCd = StringUtils.defaultString((String)pmParam.get("sCmpgTypCd")); //하위
+
+        Map<String, Object> mParam = new HashMap<String, Object>();
+
+        for(int i = 0; listInDs.size() > i; i++){
+
+            mParam = listInDs.get(i);
+
+            String AlctYn = StringUtils.defaultString((String)mParam.get("alct_yn"));
+            mParam.put("user_id", sCnsrId);
+
+            String sSubTrgtListId = StringUtils.defaultString((String)mParam.get("sub_trgt_list_id")); //하위
+
+            //hmParam.put("sub_trgt_list_id", sSubTrgtListId);
+            String sTrgtListId =(String)mParam.get("trgt_list_id") ;
+            // 01 . 있는지 없는지 체크 없으면 TB_CMPG_ALCT_DTL 에 등록
+            Map<String, Object> hmParam = new HashMap<String, Object>();
+            hmParam.put("cnsr_id", sCnsrId);
+            hmParam.put("cmpg_id",sCmpgId);
+            hmParam.put("sub_trgt_list_id",sSubTrgtListId);
+            ParamUtils.addSaveParam(hmParam);
+            ParamUtils.addCenterParam(hmParam);
+            getChkAlct(hmParam);
+
+            ParamUtils.addSaveParam(mParam);
+            ParamUtils.addCenterParam(mParam);
+            //02.이미 할당건인지 아닌지 체크
+            int Cnt = 0;
+            if("Y".equals(AlctYn)){
+                mParam.put("save_fg","Y");
+                Cnt = smartLifePSDAO.updateChangeCnsr(mParam);
+            }else{
+                mParam.put("cmpg_id",sCmpgId);
+                Cnt = smartLifePSDAO.insertTgtCustAssign(mParam);
+            }
+            if(Cnt != 0){ //처리완료건
+            	mParam.put("b2b_stts", "SMART");
+                mParam.put("osc_cnsl_seq", mParam.get("prmv_id"));
+                mParam.put("call_stts", "진행중");
+                String userNm=userDAO.getUserNm(mParam);
+                mParam.put("user_nm", userNm);
+
+                // 온라인 상담사 등록 처리상태 변경
+                smartLifeDAO.updateOnlineStatAlct(mParam);
+            }
+        }
+        return nCnt;
+    }
+    
+    /**
+     * 대상고객 할당정보의 검색 수를 반환한다. 사용
+     *
+     * @param pmParam 검색 조건
+     * @return 대상고객할당 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getTrgtCustAlctCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) smartLifePSDAO.getTrgtCustAlctCount(pmParam);
+    }
+    
+    public int getChkAlct(Map<String, Object> mParam) throws Exception {
+        int nCnt = 0;
+        nCnt = smartLifePSDAO.getChkAlct(mParam);
+
+        if(nCnt == 0){
+        	smartLifePSDAO.insertCmpgAlct(mParam);
+        }
+        return nCnt;
+    }
+}

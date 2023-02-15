@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WebShoppingMap">
+    <!-- 여기서부터 쇼핑몰 연동 부분입니다. 옮길때 여기부터 합니다. START -->
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171221
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금상세조회 기본정보 조회
+    * ================================================================
+     -->
+
+    <select id="WebShoppingMap.getMemberBasicList" parameterType="map" resultType="resultMap">
+
+        SELECT A.MEM_NO AS MEM_NO      /* 고유번호 */
+                ,B.ACCNT_NO AS ACCNT_NO  /* 상품번호 */
+                ,TRUNC(LF_DMUSER.FN_RESN_AMT(C.PROD_CD, C.TRUE_COUNT, C.JOIN_DT), 0) AS RES_AMT /* 해약금 */
+                ,TRUNC(MAX(D.AMT), 0) AS AMT  /* 적립급 */
+                ,MAX(D.CREATE_DATE) AS CREATE_DATE /* 최종적립일자 */
+                ,E.STATE AS STATE /* 회원 상태값 */
+                ,(NVL((SELECT SUM(AMT) FROM DLWMALL.CASH_HISTORY@TB_SHOPPING WHERE 1=1 AND TYPE = 'U'
+                <if test="mem_no != null and mem_no != ''">
+                       AND MEMBER_ID = #{mem_no}
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                       AND GOODS_ID = #{accnt_no}
+                </if>
+                ),0) -
+                  NVL((SELECT SUM(AMT) FROM DLWMALL.CASH_HISTORY@TB_SHOPPING WHERE 1=1 AND TYPE = 'C'
+                <if test="mem_no != null and mem_no != ''">
+                       AND MEMBER_ID = #{mem_no}
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                       AND GOODS_ID = #{accnt_no}
+                </if>
+                ),0)) AS TOTAL_USE_AMT  /* 실사용금액 */
+                ,TRUNC(MAX(D.AMT), 0) -
+                 (NVL((SELECT SUM(AMT) FROM DLWMALL.CASH_HISTORY@TB_SHOPPING WHERE 1=1 AND TYPE = 'U'
+                 <if test="mem_no != null and mem_no != ''">
+                       AND MEMBER_ID = #{mem_no}
+                 </if>
+                 <if test="accnt_no != null and accnt_no != ''">
+                       AND GOODS_ID = #{accnt_no}
+                 </if>
+                 ),0) -
+                  NVL((SELECT SUM(AMT) FROM DLWMALL.CASH_HISTORY@TB_SHOPPING WHERE 1=1 AND TYPE = 'C'
+                  <if test="mem_no != null and mem_no != ''">
+                       AND MEMBER_ID = #{mem_no}
+                  </if>
+                  <if test="accnt_no != null and accnt_no != ''">
+                       AND GOODS_ID = #{accnt_no}
+                  </if>
+                 ),0)) AS TOTAL_AMT /* 잔여금액 */
+            FROM LF_DMUSER.MEMBER A
+            INNER JOIN LF_DMUSER.MEM_PROD_ACCNT B
+                    ON A.MEM_NO = B.MEM_NO
+            INNER JOIN (    SELECT A.MEM_NO AS MEM_NO
+                                 ,A.ACCNT_NO AS ACCNT_NO
+                                 ,'A' AS TYPE
+                                 ,C.PROD_CD AS PROD_CD
+                                 ,NVL((SELECT MAX(NO) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT
+                                 ,A.JOIN_DT AS JOIN_DT
+                                 ,DECODE(LF_DMUSER.FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE
+                                 ,C.PROD_AMT
+                              FROM LF_DMUSER.MEM_PROD_ACCNT A
+                              INNER JOIN LF_DMUSER.MEMBER B
+                                      ON A.MEM_NO = B.MEM_NO
+                              INNER JOIN LF_DMUSER.PRODUCT C
+                                      ON A.PROD_CD = C.PROD_CD
+                             WHERE 1=1
+                               AND A.DEL_FG = 'N' /* 삭제되지 않은 고객별상품정보. */
+                               AND B.DEL_FG = 'N' /* 삭제되지 않은 회원. */
+                               AND B.CI_VAL IS NOT NULL
+                     ) C
+                    ON B.ACCNT_NO = C.ACCNT_NO
+                  AND B.MEM_NO = C.MEM_NO
+            INNER JOIN (SELECT MEMBER_ID, GOODS_ID, AMT, TYPE, MAX(CREATE_DATE) AS CREATE_DATE FROM DLWMALL.CASH_HISTORY@TB_SHOPPING D WHERE 1=1
+                  <if test="mem_no != null and mem_no != ''">
+                       AND MEMBER_ID = #{mem_no}
+                  </if>
+                  <if test="accnt_no != null and accnt_no != ''">
+                       AND GOODS_ID = #{accnt_no}
+                  </if>
+                   GROUP BY MEMBER_ID, GOODS_ID, AMT, TYPE) D
+                    ON C.MEM_NO = D.MEMBER_ID
+                  AND C.ACCNT_NO = D.GOODS_ID
+            INNER JOIN DLWMALL.MEMBER@TB_SHOPPING E
+                    ON B.MEM_NO = E.MEMBER_ID
+                   AND B.ACCNT_NO = E.GOODS_ID
+            INNER JOIN LF_DMUSER.HP_CALL F
+                    ON B.ACCNT_NO = F.ACCNT_NO
+                   AND F.STAT IN ('01', '011')
+          WHERE 1=1
+          <if test="mem_no != null and mem_no != ''">
+               AND A.MEM_NO = #{mem_no}
+          </if>
+          <if test="accnt_no != null and accnt_no != ''">
+               AND B.ACCNT_NO = #{accnt_no}
+          </if>
+          <![CDATA[
+                 AND D.TYPE = 'A'
+                GROUP BY A.MEM_NO, B.ACCNT_NO, LF_DMUSER.FN_RESN_AMT(C.PROD_CD, C.TRUE_COUNT, C.JOIN_DT), E.STATE
+          ]]>
+    </select>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171221
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금상세조회 기본정보 사용/취소금액 조회
+    * ================================================================
+     -->
+    <select id="WebShoppingMap.getMemberBasicListUseAmt" parameterType="map" resultType="resultMap">
+        SELECT  MEMBER_ID AS ID
+                ,GOODS_ID AS MEMBER_ID
+                ,DECODE(TYPE, 'U', '사용', 'C', '취소') AS TYPE
+                ,AMT AS AMT
+                ,MEMO AS MEMO
+                ,CREATE_DATE AS CREATE_DATE
+            FROM DLWMALL.CASH_HISTORY@TB_SHOPPING A
+          WHERE 1=1
+              AND A.TYPE IN ('U', 'C')
+             <if test="mem_no != null and mem_no != ''">
+               AND A.MEMBER_ID = #{mem_no}
+          </if>
+          <if test="accnt_no != null and accnt_no != ''">
+               AND A.GOODS_ID = #{accnt_no}
+          </if>
+          ORDER BY CREATE_DATE DESC
+    </select>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171221
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금상세조회 적립금 전송
+    * ================================================================
+     -->
+    <insert id="WebShoppingMap.insertMemberBasicAmt" parameterType="map">
+        INSERT INTO DLWMALL.CASH_HISTORY@TB_SHOPPING(
+                                         MEMBER_ID
+                                        ,GOODS_ID
+                                        ,TYPE
+                                        ,AMT
+                                        ,MEMO
+                                        ,CREATE_DATE
+                                  )
+     VALUES(
+                   #{sMem_no}
+                  ,#{sAccnt_no}
+                  ,'A'
+                  ,#{nSend_amt}
+                  ,''
+                  ,SYSDATE
+           )
+    </insert>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171221
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금상세조회 상태값 변경
+    * ================================================================
+     -->
+    <parameterMap id="getListByProcParamMap2" type="map">
+        <parameter property="P_MEM_NO" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_ACCNT_NO" mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_STATE" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_CREATE_ID" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+    </parameterMap>
+
+    <update id="WebShoppingMap.updateResnMemberState" statementType="CALLABLE" parameterMap="getListByProcParamMap2">
+        {call LF_DMUSER.SP_WEB_MEMBER_STATE(?, ?, ?, ?)}
+    </update>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171221
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금상세조회 행사여부 확인
+    * ================================================================
+     -->
+    <select id="WebShoppingMap.getResnMemberStateEvent" parameterType="map" resultType="resultMap">
+        SELECT COUNT(*) AS COUNT FROM LF_DMUSER.EVENT WHERE 1=1 AND ACCNT_NO = #{P_ACCNT_NO} AND DEL_FG = 'N'
+    </select>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171221
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금상세조회 해약여부 확인
+    * ================================================================
+     -->
+    <select id="WebShoppingMap.getResnMemberStateRescission" parameterType="map" resultType="resultMap">
+        SELECT COUNT(*) AS COUNT FROM LF_DMUSER.RESCISSION WHERE 1=1 AND  ACCNT_NO = #{P_ACCNT_NO} AND DEL_FG = 'N'
+    </select>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171227
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금정보 전체 조회
+    * ================================================================
+     -->
+    <select id="WebShoppingMap.getMemberBasicAllAmtInfomation" parameterType="map" resultType="resultMap">
+    SELECT *
+      FROM(
+              SELECT ROWNUM AS ROW_ID
+                    ,A.MEMBER_ID AS MEMBER_ID /* 고유번호 */
+                    ,A.GOODS_ID  AS GOODS_ID  /* 회원번호 */
+                    ,C.MEM_NM    AS MEM_NM    /* 회원명 */
+                    ,A.STATE     AS STATE     /* 상태 */
+                    ,A.ACU_AMT   AS ACU_AMT   /* 적립금액 */
+                    ,TRUNC(NVL(CASE WHEN T_TBL.RESN_AMT = 0 AND T_TBL.TRUE_COUNT > 12
+                     THEN (SELECT NVL(TO_NUMBER(MAX(T_TBL.RESN_AMT)), 0) AS RESN_AMT
+                             FROM LF_DMUSER.RESNSTD_M M
+                             INNER JOIN LF_DMUSER.RESNSTD_D D
+                                ON M.SEQ = D.MST_SEQ
+                          WHERE M.PROD_CD = T_TBL.PROD_CD
+                            AND M.MODEL_CL_CD = T_TBL.PROD_MODEL_KIND
+                            AND D.NO <![CDATA[<]]>  T_TBL.TRUE_COUNT
+                            AND M.APP_DAY = T_TBL.APP_DAY
+                          GROUP BY D.MST_SEQ
+                         )
+                    ELSE CAST(T_TBL.RESN_AMT AS NUMERIC)
+                    END,0), 0) AS RESN_AMT /* 해약금 */
+                    ,NVL((SELECT SUM(AMT) FROM DLWMALL.CASH_HISTORY@TB_SHOPPING WHERE MEMBER_ID = A.MEMBER_ID AND GOODS_ID = A.GOODS_ID AND TYPE = 'U'),0) AS USE_AMT /* 사용금액 */
+                    ,NVL((SELECT SUM(AMT) FROM DLWMALL.CASH_HISTORY@TB_SHOPPING WHERE MEMBER_ID = A.MEMBER_ID AND GOODS_ID = A.GOODS_ID AND TYPE = 'C'),0) AS CNL_AMT /* 취소금액 */
+                    ,'' AS TOTAL_AMT
+                    ,C.CI_VAL    AS CI_VAL    /* CI/DI */
+                FROM DLWMALL.MEMBER@TB_SHOPPING A  /* 고유번호, 회원번호 정보 */
+          INNER JOIN LF_DMUSER.MEMBER C /* 회원명정보 */
+                  ON A.MEMBER_ID = C.MEM_NO
+          INNER JOIN (SELECT A_TBL.MEM_NO AS MEMBER_ID, -- 고유번호
+                                   A_TBL.ACCNT_NO AS GOODS_ID, -- 회원번호
+                                   A_TBL.MEM_NM AS MEM_NM, -- 이름
+                                   (SELECT NVL(MAX(D.RESN_AMT),0) AS RESN_AMT
+                                      FROM LF_DMUSER.PRODUCT P
+                                      INNER JOIN LF_DMUSER.RESNSTD_M M
+                                              ON P.PROD_CD = M.PROD_CD
+                                      INNER JOIN LF_DMUSER.RESNSTD_D D
+                                              ON M.SEQ = D.MST_SEQ
+                                     WHERE M.PROD_CD = A_TBL.PROD_CD
+                                       AND D.NO = A_TBL.TRUE_COUNT
+                                       AND M.APP_DAY= A_TBL.APP_DAY
+                                       AND M.MODEL_CL_CD = A_TBL.PROD_MODEL_KIND
+                                    ) RESN_AMT,
+                                    A_TBL.TRUE_COUNT,
+                                    A_TBL.APP_DAY,
+                                    A_TBL.PROD_CD,
+                                    A_TBL.PROD_MODEL_KIND
+                               FROM (SELECT A.MEM_NO,
+                                            A.ACCNT_NO,
+                                            B.MEM_NM,
+                                            A.PROD_MODEL_KIND,
+                                            C.PROD_CD,
+                                            NVL((SELECT MAX(NO) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT,
+                                            A.JOIN_DT,
+                                            DECODE(LF_DMUSER.FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE,
+                                            (SELECT MAX(APP_DAY) FROM LF_DMUSER.RESNSTD_M WHERE USE_YN = 'Y' AND APP_DAY  <![CDATA[<=]]>   TO_CHAR(A.JOIN_DT) AND PROD_CD = C.PROD_CD) APP_DAY
+                                       FROM LF_DMUSER.MEM_PROD_ACCNT A
+                                       INNER JOIN LF_DMUSER.PRODUCT C
+                                               ON A.PROD_CD = C.PROD_CD
+                                       INNER JOIN LF_DMUSER.MEMBER B
+                                               ON A.MEM_NO = B.MEM_NO
+                                      WHERE A.DEL_FG = 'N' -- 삭제되지 않은 고객별상품정보.
+                                     ) A_TBL
+                             WHERE A_TBL.STATE = '정상'
+                             <if test="accnt_no != null and accnt_no != ''">
+                               AND A_TBL.ACCNT_NO = #{accnt_no}
+                                </if>
+                                <if test="mem_nm != null and mem_nm != ''">
+                                AND A_TBL.MEM_NM = #{mem_nm}
+                                </if>
+                                <if test="mem_no != null and mem_no != ''">
+                                AND A_TBL.MEM_NO = #{mem_no}
+                                </if>
+                            ) T_TBL
+                        ON T_TBL.GOODS_ID = A.GOODS_ID
+                       AND T_TBL.MEMBER_ID = A.MEMBER_ID
+               WHERE 1=1
+               <if test="accnt_no != null and accnt_no != ''">
+                 AND A.GOODS_ID = #{accnt_no}
+               </if>
+               <if test="mem_nm != null and mem_nm != ''">
+                 AND C.MEM_NM = #{mem_nm}
+               </if>
+               <if test="mem_no != null and mem_no != ''">
+                 AND C.MEM_NO = #{mem_no}
+               </if>
+         <![CDATA[
+          ) X
+         WHERE 1=1
+           AND X.ROW_ID >= #{startLine}
+           AND X.ROW_ID < #{endLine}
+         ]]>
+    </select>
+
+
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171227
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰적립금사용금정보 건수 조회
+    * ================================================================
+     -->
+    <select id="WebShoppingMap.getTotalCount" parameterType="map" resultType="int">
+        SELECT COUNT(*) AS ROW_CNT
+          FROM DLWMALL.MEMBER@TB_SHOPPING A  /* 고유번호, 회원번호 정보 */
+          INNER JOIN LF_DMUSER.MEMBER C /* 회원명정보 */
+                  ON A.MEMBER_ID = C.MEM_NO
+          INNER JOIN (SELECT A_TBL.MEM_NO AS MEMBER_ID, -- 고유번호
+                                   A_TBL.ACCNT_NO AS GOODS_ID, -- 회원번호
+                                   A_TBL.MEM_NM AS MEM_NM, -- 이름
+                                   (SELECT NVL(MAX(D.RESN_AMT),0) AS RESN_AMT
+                                      FROM LF_DMUSER.PRODUCT P
+                                      INNER JOIN LF_DMUSER.RESNSTD_M M
+                                              ON P.PROD_CD = M.PROD_CD
+                                      INNER JOIN LF_DMUSER.RESNSTD_D D
+                                              ON M.SEQ = D.MST_SEQ
+                                     WHERE M.PROD_CD = A_TBL.PROD_CD
+                                       AND D.NO = A_TBL.TRUE_COUNT
+                                       AND M.APP_DAY= A_TBL.APP_DAY
+                                       AND M.MODEL_CL_CD = A_TBL.PROD_MODEL_KIND
+                                    ) RESN_AMT,
+                                    A_TBL.TRUE_COUNT,
+                                    A_TBL.APP_DAY,
+                                    A_TBL.PROD_CD,
+                                    A_TBL.PROD_MODEL_KIND
+                               FROM (SELECT A.MEM_NO,
+                                            A.ACCNT_NO,
+                                            B.MEM_NM,
+                                            A.PROD_MODEL_KIND,
+                                            C.PROD_CD,
+                                            NVL((SELECT MAX(NO) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT,
+                                            A.JOIN_DT,
+                                            DECODE(LF_DMUSER.FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE,
+                                            (SELECT MAX(APP_DAY) FROM LF_DMUSER.RESNSTD_M WHERE USE_YN = 'Y' AND APP_DAY    <![CDATA[<=]]>    TO_CHAR(A.JOIN_DT) AND PROD_CD = C.PROD_CD) APP_DAY
+                                       FROM LF_DMUSER.MEM_PROD_ACCNT A
+                                       INNER JOIN LF_DMUSER.PRODUCT C
+                                               ON A.PROD_CD = C.PROD_CD
+                                       INNER JOIN LF_DMUSER.MEMBER B
+                                               ON A.MEM_NO = B.MEM_NO
+                                      WHERE A.DEL_FG = 'N' -- 삭제되지 않은 고객별상품정보.
+                                     ) A_TBL
+                             WHERE A_TBL.STATE = '정상'
+                             <if test="accnt_no != null and accnt_no != ''">
+                               AND A_TBL.ACCNT_NO = #{accnt_no}
+                                </if>
+                                <if test="mem_nm != null and mem_nm != ''">
+                                AND A_TBL.MEM_NM = #{mem_nm}
+                                </if>
+                                <if test="mem_no != null and mem_no != ''">
+                                AND A_TBL.MEM_NO = #{mem_no}
+                                </if>
+                            ) T_TBL
+                        ON T_TBL.GOODS_ID = A.GOODS_ID
+                       AND T_TBL.MEMBER_ID = A.MEMBER_ID
+         WHERE 1=1
+         <if test="accnt_no != null and accnt_no != ''">
+           AND A.GOODS_ID = #{accnt_no}
+         </if>
+         <if test="mem_nm != null and mem_nm != ''">
+           AND C.MEM_NM = #{mem_nm}
+         </if>
+         <if test="mem_no != null and mem_no != ''">
+           AND C.MEM_NO = #{mem_no}
+         </if>
+    </select>
+	
+    <select id="WebShoppingMap.getReadyCashTotalList" parameterType="map" resultType="resultMap">
+    	SELECT SUM(ACU_AMT) AS ACU_AMT, SUM(AMT) AS USE_AMT
+          FROM (
+                  SELECT MMB.MEMBER_ID
+                        ,MMB.GOODS_ID
+                        ,MMB.ACU_AMT
+                        ,MMB.STATE
+                        ,SUM(CASE WHEN TYPE = 'U' THEN NVL(AMT, 0)
+                              ELSE 0 END) -
+                         SUM(CASE WHEN TYPE = 'C' THEN NVL(AMT, 0)
+                              ELSE 0 END) AMT   
+                  FROM DLWMALL.MEMBER@TB_SHOPPING MMB
+                       LEFT OUTER JOIN DLWMALL.CASH_HISTORY@TB_SHOPPING MCH ON MMB.MEMBER_ID = MCH.MEMBER_ID AND MMB.GOODS_ID = MCH.GOODS_ID AND TYPE IN ('U', 'C') AND MCH.CREATE_DATE <![CDATA[ < ]]> TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'))
+                  WHERE MMB.STATE != '7'
+                  GROUP BY MMB.MEMBER_ID, MMB.GOODS_ID, MMB.ACU_AMT, MMB.STATE
+          )
+    </select>
+    
+    <select id="WebShoppingMap.getReadyCashList" parameterType="map" resultType="resultMap">
+    	SELECT CREATE_DATE
+                ,SUM(USE_AMT) AS USE_AMT
+                ,SUM(CNL_AMT) AS CNL_AMT
+          FROM (
+		          SELECT TO_CHAR(CREATE_DATE, 'YYYYMMDD') AS CREATE_DATE
+		                ,SUM(CASE WHEN TYPE = 'U' THEN NVL(AMT, 0)
+		                     ELSE 0 END) AS USE_AMT
+		                ,SUM(CASE WHEN TYPE = 'C' THEN NVL(AMT, 0)
+		                     ELSE 0 END) AS CNL_AMT
+		          FROM DLWMALL.CASH_HISTORY@TB_SHOPPING A
+		          WHERE 1=1
+		          AND CREATE_DATE <![CDATA[ < ]]> TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'))
+		          AND CREATE_DATE <![CDATA[ >= ]]> TO_DATE(#{stt_month}, 'YYYYMM')
+		          AND CREATE_DATE <![CDATA[ < ]]> LAST_DAY(TO_DATE(#{stt_month}, 'YYYYMM'))+1
+		          AND TYPE IN ('U', 'C')
+		          GROUP BY TO_CHAR(CREATE_DATE, 'YYYYMMDD'), TYPE
+          )
+          GROUP BY CREATE_DATE
+          ORDER BY CREATE_DATE
+    </select>
+
+    <!-- 여기서부터 쇼핑몰 연동 부분입니다. 옮길때 여기부터 합니다. START -->
+</mapper>

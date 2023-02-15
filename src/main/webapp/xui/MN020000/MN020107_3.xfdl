@@ -1,0 +1,287 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="srch_prod_pop" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 616 305" titletext="거래처 조회" onload="prod_onload" scrollbars="none" onactivate="PS992200_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 614 300"/>
+        <Button id="btn_Close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 575 8 595 27"/>
+        <Static id="stc_30" text="외주업체 정보 조회" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Static id="stc_23" class="sta_workSrcBg" position="absolute 11 44 595 80"/>
+        <Static id="stc_00" text="거래처 코드" class="sta_workSrcLabel1" position="absolute 24 53 101 73"/>
+        <Button id="btn_Init" taborder="2" onclick="btn_Init_onclick" class="btn_WF_Return" position="absolute 522 52 586 72" tooltiptext="초기화"/>
+        <Button id="btn_Search" taborder="1" onclick="btn_Search_onclick" class="btn_WF_Search" position="absolute 446 52 510 72" tooltiptext="조회" style="shadow:drop 0,0 0 #00000033;"/>
+        <Edit id="edt_custmr_cd" taborder="0" position="absolute 99 52 176 73" onkeydown="srch_onkeydown" imemode="alpha" inputmode="upper"/>
+        <Grid id="grd_prodList" taborder="3" binddataset="ds_list" useinputpanel="false" position="absolute 14 109 595 286" scrollpixel="none" oncolresized="grd_list_oncolresized" onheadclick="grd_list_onheadclick" cellsizingtype="col" autofittype="col" oncellclick="grd_list_oncellclick" autosizingtype="none" selecttype="row" oncelldblclick="grd_list_oncelldblclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="57"/>
+                <Column size="80"/>
+                <Column size="183"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="normal" text="순번"/>
+                <Cell col="1" displaytype="normal" text="거래처코드"/>
+                <Cell col="2" displaytype="normal" text="거래처명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="normal" text="bind:seq"/>
+                <Cell col="1" displaytype="normal" text="bind:custmr_cd"/>
+                <Cell col="2" displaytype="normal" text="bind:custmr_nm"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_35" text="외주업체 목록" class="sta_workTitle2" position="absolute 13 89 310 109"/>
+        <Static id="stc_01" text="거래처명" class="sta_workSrcLabel1" position="absolute 210 53 271 73"/>
+        <Edit id="edt_custmr_nm" taborder="5" imemode="hangul" onkeydown="srch_onkeydown" position="absolute 270 52 420 73"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="custmr_cd" type="STRING" size="50"/>
+          <Column id="custmr_nm" type="STRING" size="50"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="6"/>
+          <Column id="custmr_cd" type="STRING" size="256"/>
+          <Column id="custmr_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="6"/>
+          <Column id="custmr_cd" type="STRING" size="256"/>
+          <Column id="custmr_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+var g_name = "";
+
+/***************************************************************************
+ * 함  수  명		: prod_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function prod_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	
+	var Nm = p_prod_nm;
+	var name = p_name;
+	
+	g_name = name;
+	
+	edt_custmr_nm.value = Nm;	
+	
+	btn_Search_onclick(); // 조회
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_srch_onclick()
+ * 기      능 		: 조회버튼 클릭
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo) //조회
+{
+
+	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    sType = "INIT";
+			if (!fn_preSearch(sType)) {
+							trace('!fn_preDelete() 입장');
+							return false;
+						}
+						szSvcid       = "getCustmrMngList";
+						szController  = "/dlw/evnt/getCustmrPopList";
+						szInDs        = "ds_input=ds_inqCndt";
+						szOutDs       = "ds_list=ds_output";
+						szParam       = "";
+						szRetCallback = "fn_callBack";
+						// 트랜젝션 공통함수 호출
+						gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+
+}
+
+
+
+   function fn_preSearch(sType)
+   {
+   	if (sType == gfn_getCommTypeInit())	{
+		
+
+   	
+   		// 조회조건 및 default 정렬
+    	ds_inqCndt.clearData();
+		ds_inqCndt.addRow();
+   		ds_inqCndt.setColumn(0, "custmr_nm"	, edt_custmr_nm.value);
+   		ds_inqCndt.setColumn(0, "custmr_cd"	, edt_custmr_cd.value);
+   		}
+   	
+   	return true;
+   }
+   
+/* * * * *	 callback 	* * *  */
+function fn_callBack(svcid, errcd, errmsg)
+{
+			//ds_list.clear();
+   			//gfn_appendSearchDs(ds_list, ds_list_tmp);
+   			fn_postSearch(); 	
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_postSearch()
+ * 기      능		: 처리결과
+ ***************************************************************************/
+function fn_postSearch()
+{
+	if (ds_list.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+		return;
+	}
+	
+// 	// 팝업 파라미터가 존재하고 조회결과가 1건인 경우 바로 선택
+// 	if ((!gfn_isNull(gv_custmr_cd) || !gfn_isNull(gv_custmr_nm)) &&
+// 	    ds_list.rowcount == 1) {
+// 		fn_selProductChk();
+// 	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_selProductChk(e:GridClickEventInfo)
+ * 기      능		: 상품선택
+ ***************************************************************************/
+function fn_selProductChk(e:GridClickEventInfo) 
+{
+	if (ds_list.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+	    return;
+	}
+	
+    var nSelectRow = -1;
+    if (e != null) {
+        nSelectRow = e.row;
+    } else {
+        nSelectRow = ds_list.rowposition;
+    }
+    if (nSelectRow == -1) {
+        return;
+    }
+
+    if (g_name == "MN020101") {	
+
+		opener.ds_buylist.clearData();
+		opener.ds_buylist.addRow();
+		opener.ds_buylist.copyRow(0, ds_list, nSelectRow);
+		
+		opener.fn_custChcResl(); // 결과 호출    
+		
+    }else{
+		
+		opener.ds_list.clearData();
+		opener.ds_list.addRow();
+		opener.ds_list.copyRow(0, ds_list, nSelectRow);
+		
+		opener.fn_custChcResl(); // 결과 호출
+	}
+	close();
+}
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_init_onclick()
+ * 기      능		: 초기화 버튼클릭시
+ * 수  정  일      : 2016.01.22
+ ***************************************************************************/
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_init();
+}
+
+/***************************************************************************
+ * 함  수  명		: grd_list_oncellclick()
+ * 기      능		: 선택 버튼 이벤트
+ ***************************************************************************/
+function grd_list_oncellclick(obj:Grid, e:GridClickEventInfo)
+{	
+	if(e.cell == "7"){
+	    fn_selProductChk(e);
+	}
+}
+/***************************************************************************
+ * 함  수  명		: grd_list_oncelldblclick()
+ * 기      능		: 더블 클릭 이벤트
+ ***************************************************************************/
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_selProductChk(e);
+}
+
+
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 칼럼사이즈 변경시 Hidden 처리
+						단, 칼럼사이즈를 0으로 변경한 후에는 공통기능버튼
+							(칼럼 보이기/숨기기)으로 다시 보이기 처리
+ ***************************************************************************/
+// function grd_list_oncolresized(obj:Grid, e:GridSizeChangedEventInfo)
+// {
+// 	if(e.oldvalue == 0) {
+// 		obj.setRealColSize(e.formatindex, 0);
+// 	}
+// }
+
+/***************************************************************************
+ * 기      능		: (공통) 엔터 치면 조회실행
+ ***************************************************************************/
+function srch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		btn_Search_onclick();
+	}
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 마지막행 이후 스크롤시 Append 조회 처리
+						페이징처리 대상인 경우만 해당
+ ***************************************************************************/
+function grd_list_onvscrolllastover(obj:Grid, e:ScrollEventInfo)
+{
+	btn_Search_onclick();
+}
+
+]]></Script>
+  </Form>
+</FDL>

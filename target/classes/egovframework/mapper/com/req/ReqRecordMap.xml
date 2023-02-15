@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ReqRecordMap">
+
+    <!-- 회원별 녹취 확인 리스트 건수 -->
+    <select id="ReqRecordMap.getRecBeforeCount" parameterType="map" resultType="int">
+          SELECT /* ReqRecordMap.getRecBeforeCount */
+              COUNT(*)
+          FROM(
+          SELECT
+                   ACCNT.ACCNT_NO
+          FROM (SELECT MPA.ACCNT_NO
+                     , MPA.MEM_NO
+                     , MPA.JOIN_CL
+                     , MPA.PROD_CD
+                     , MPA.JOIN_DT AS JOIN_DT
+                     , MPA.EMPLE_NO EMPLENO
+                     , FN_COM_NM('01', MPA.PAY_MTHD) PAYMTHD
+                     , MPA.B2B_COMP_CD
+                     , HC.STAT
+                     , HC.EMPLE_NO
+                     , MPA.REG_DM AS REG_DT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                       LEFT OUTER JOIN HP_CALL HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                 WHERE 1=1
+                   <if test="dt_typ == '01' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                               AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                   </if>
+                   <if test="join_cl != null and join_cl != '' ">
+                       AND MPA.JOIN_CL = #{join_cl}
+                   </if>
+                   <if test="accnt_no != null and accnt_no != '' ">
+                       AND MPA.ACCNT_NO = #{accnt_no}
+                   </if>
+                   <if test="prod_cd != null and prod_cd != '' ">
+                       AND MPA.PROD_CD = #{prod_cd}
+                   </if>
+                   <if test="b2b_comp != null and b2b_comp != '' ">
+                       AND MPA.B2B_COMP_CD = #{b2b_comp}
+                   </if>
+               ) ACCNT
+               INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+               LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND EVT.DEL_FG = 'N'
+               LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = ACCNT.ACCNT_NO AND RESN.DEL_FG = 'N'
+               LEFT OUTER JOIN HS_FILE_UPLOAD_S HFUS ON ACCNT.ACCNT_NO = HFUS.ACCNT_NO
+                                                        AND HFUS.DEL_FG = 'N'
+                                                       <if test="dt_typ == '02' ">
+                                                           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                                                                   AND HFUS.REG_DM BETWEEN #{stt_dt} AND #{end_dt}
+                                                              </if>
+                                                       </if>
+                 <if test="dt_typ == '02' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             WHERE HFUS.ACCNT_NO IS NOT NULL
+                        </if>
+                 </if>
+        GROUP BY ACCNT.ACCNT_NO, MEM.MEM_NM, ACCNT.JOIN_CL, ACCNT.JOIN_DT, EMPLENO, PAYMTHD, ACCNT.B2B_COMP_CD
+               , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                      THEN EVT.EVENT_COMP_DAY
+                      WHEN RESN.ACCNT_NO IS NOT NULL
+                      THEN RESN.RESN_PROC_DAY
+                      ELSE ''
+                 END
+               , ACCNT.STAT
+               , ACCNT.PROD_CD
+               , ACCNT.EMPLE_NO
+               , ACCNT.REG_DT
+         <if test="rec_yn != null and rec_yn != '' ">
+             <if test="rec_yn == '0001' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) > 0
+             </if>
+             <if test="rec_yn == '0002' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) = 0
+             </if>
+         </if>
+          ) TBL
+    </select>
+
+    <!-- 회원별 녹취 확인 리스트 -->
+    <select id="ReqRecordMap.getRecBeforeList" parameterType="map" resultType="resultMap">
+        SELECT /* ReqRecordMap.getRecBeforeList */
+               ACCNT.ACCNT_NO ACCNTNO
+             , MEM.MEM_NM MEMNM
+             , FN_COM_NM('113', ACCNT.JOIN_CL) JOINCL
+             <!-- , FN_EVENT(ACCNT.ACCNT_NO) JOINSTAT -->
+             , FN_COM_NM('S014', ACCNT.KSTBIT) JOINSTAT
+             , ACCNT.JOIN_DT JOINDT
+             , FN_EMPLE_NM(ACCNT.EMPLE_NO) CNSLMAN
+             , FN_EMPLE_NM(ACCNT.EMPLENO) EMPLENM
+             , ACCNT.PAYMTHD
+             , FN_YEN_CHE(ACCNT.ACCNT_NO) PAYSTAT
+             , NVL(( SELECT COM_NM FROM  B2BCOMCD WHERE COM_CD = ACCNT.B2B_COMP_CD ), ' ') AS B2BCOMPNM
+             , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                    THEN EVT.EVENT_COMP_DAY
+                    WHEN RESN.ACCNT_NO IS NOT NULL
+                    THEN RESN.RESN_PROC_DAY
+                    ELSE ''
+               END EVTDT
+             , COUNT(HFUS.ACCNT_NO) RECCNT
+             , NVL((FN_COM_NM('81', ACCNT.STAT)), ' ') APPRRELTN
+             , FN_PROD_NM(ACCNT.PROD_CD) PRODNM
+             , TO_CHAR(ACCNT.REG_DT, 'YYYYMMDD') REGDT
+          FROM (SELECT MPA.ACCNT_NO
+                     , MPA.MEM_NO
+                     , MPA.JOIN_CL
+                     , MPA.PROD_CD
+                     , MPA.JOIN_DT AS JOIN_DT
+                     , MPA.KSTBIT
+                     , MPA.EMPLE_NO EMPLENO
+                     , FN_COM_NM('01', MPA.PAY_MTHD) PAYMTHD
+                     , MPA.B2B_COMP_CD
+                     , HC.STAT
+                     , HC.EMPLE_NO
+                     , MPA.REG_DM AS REG_DT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                       LEFT OUTER JOIN HP_CALL HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                 WHERE 1=1
+                   <if test="dt_typ == '01' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                               AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+                          </if>
+                   </if>
+                   <if test="join_cl != null and join_cl != '' ">
+                       AND MPA.JOIN_CL = #{join_cl}
+                   </if>
+                   <if test="accnt_no != null and accnt_no != '' ">
+                       AND MPA.ACCNT_NO = #{accnt_no}
+                   </if>
+                   <if test="prod_cd != null and prod_cd != '' ">
+                       AND MPA.PROD_CD = #{prod_cd}
+                   </if>
+                   <if test="b2b_comp != null and b2b_comp != '' ">
+                       AND MPA.B2B_COMP_CD = #{b2b_comp}
+                   </if>
+               ) ACCNT
+               INNER JOIN MEMBER MEM ON ACCNT.MEM_NO = MEM.MEM_NO
+               LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = ACCNT.ACCNT_NO AND EVT.DEL_FG = 'N'
+               LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = ACCNT.ACCNT_NO AND RESN.DEL_FG = 'N'
+               LEFT OUTER JOIN HS_FILE_UPLOAD_S HFUS ON ACCNT.ACCNT_NO = HFUS.ACCNT_NO
+                                                        AND HFUS.DEL_FG = 'N'
+                                                       <if test="dt_typ == '02' ">
+                                                           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                                                                   AND TO_CHAR(HFUS.REG_DM,'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                                                              </if>
+                                                       </if>
+                 <if test="dt_typ == '02' ">
+                       <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             WHERE HFUS.ACCNT_NO IS NOT NULL
+                        </if>
+                 </if>
+        GROUP BY ACCNT.ACCNT_NO, MEM.MEM_NM, ACCNT.JOIN_CL, ACCNT.KSTBIT, ACCNT.JOIN_DT, EMPLENO, PAYMTHD, ACCNT.B2B_COMP_CD
+               , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                      THEN EVT.EVENT_COMP_DAY
+                      WHEN RESN.ACCNT_NO IS NOT NULL
+                      THEN RESN.RESN_PROC_DAY
+                      ELSE ''
+                 END
+               , ACCNT.STAT
+               , ACCNT.PROD_CD
+               , ACCNT.EMPLE_NO
+               , ACCNT.REG_DT
+         <if test="rec_yn != null and rec_yn != '' ">
+             <if test="rec_yn == '0001' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) > 0
+             </if>
+             <if test="rec_yn == '0002' ">
+                 HAVING COUNT(HFUS.ACCNT_NO) = 0
+             </if>
+         </if>
+    </select>
+</mapper>

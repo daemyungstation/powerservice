@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace = "EdctCrsMap">
+
+    <sql id="EdctCrsMap.selectCondition_fragment">
+        <where>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+            <if test="edct_crs_id != null and edct_crs_id != ''">
+                AND A.EDCT_CRS_ID = #{edct_crs_id}
+            </if>
+            <if test="edct_crs_nm != null and edct_crs_nm != ''">
+                AND A.EDCT_CRS_NM LIKE '%' || #{edct_crs_nm} || '%'
+            </if>
+            <if test="edct_typ_cd != null and edct_typ_cd != ''">
+                AND A.EDCT_TYP_CD = #{edct_typ_cd}
+            </if>
+            <if test="edumonitoring != null and edumonitoring != ''">
+                AND A.EDCT_PRGR_STAT_CD != '10'
+            </if>
+            <if test="startd != null and startd != ''">
+            <![CDATA[
+                AND A.EDCT_STT_DT >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+            ]]>
+            </if>
+            <if test="endd != null and endd != ''">
+            <![CDATA[
+                AND A.EDCT_STT_DT <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+            ]]>
+            </if>
+            <if test="mypage != null and mypage != ''">
+                AND EDCT_PRGR_STAT_CD != 10
+            </if>
+        </where>
+    </sql>
+
+    <select id = "EdctCrsMap.getEdctCrsCount" parameterType="map" resultType="int">
+        SELECT /* EdctCrsMap.getEdctCrsCount */
+               COUNT(*)
+          FROM TB_EDCT_CRS_DTL A
+        <include refid="EdctCrsMap.selectCondition_fragment"/>
+    </select>
+
+    <select id = "EdctCrsMap.getEdctCrsList" parameterType="map" resultType="resultMap">
+        SELECT /* EdctCrsMap.getEdctCrsList */
+               *
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , EDCT_CRS_ID, EDCT_CRS_NM, EDCT_TYP_CD, edct_lctr_nm, EDCT_STT_DT
+                     , EDCT_SCR, EDCT_PRGR_STAT_NM, EDCT_CNTN, CNTR_CD, RGSR_ID
+                     , RGSN_DTTM, AMNT_DTTM, EDCT_TYP_NM, RGSR_NM, AMND_NM
+                     , CNTR_NM, EDCT_PLC_NM, EDCT_TRGT_NM, EDCT_PRGR_STAT_CD, AMND_ID
+                     , EDUT, EDCT_PRGR_HR, EDCT_END_DT
+                FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM, A.EDCT_TYP_CD, A.EDCT_LCTR_NM, A.EDCT_STT_DT
+                           , DECODE(A.EDCT_SCR, NULL, 0, A.EDCT_SCR) AS EDCT_SCR
+                           , A.EDCT_CNTN, A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMNT_DTTM
+                           , A.EDCT_PLC_NM, A.EDCT_TRGT_NM, A.EDCT_PRGR_STAT_CD
+                           , A.AMND_ID, A.EDCT_PRGR_HR, A.EDCT_END_DT
+                           , GETCODENM('EDC010', A.EDCT_PRGR_STAT_CD, CNTR_CD) AS EDCT_PRGR_STAT_NM
+                           , GETCODENM('EDC020', A.edct_typ_cd, cntr_cd) AS EDCT_TYP_NM
+                           , (SELECT CNTR_NM
+                                FROM TB_CNTR
+                               WHERE TB_CNTR.CNTR_CD = A.CNTR_CD) AS CNTR_NM
+                           , (SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                           , (SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                           , SUBSTR(A.EDCT_STT_DT, 0, 4) || '-' || SUBSTR(A.EDCT_STT_DT, 5,2) || '-' || SUBSTR(A.EDCT_STT_DT, 7, 2) || ' ~ ' || SUBSTR(A.EDCT_END_DT, 0, 4) || '-' || SUBSTR(A.EDCT_END_DT, 5,2) || '-' || SUBSTR(A.EDCT_END_DT, 7, 2) AS EDUT
+                        FROM TB_EDCT_CRS_DTL A
+                <include refid="EdctCrsMap.selectCondition_fragment"/>
+                <if test="orderBy != null and orderBy != ''">
+                    ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    )
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id = "EdctCrsMap.insertEdctCrs" parameterType="map">
+        <selectKey keyProperty="edct_crs_id" resultType="String" order="BEFORE">
+        SELECT 'EDC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* EdctCrsMap.insertEdctCrs */
+          INTO TB_EDCT_CRS_DTL(
+               EDCT_CRS_ID, EDCT_CRS_NM, EDCT_TYP_CD, EDCT_LCTR_NM, EDCT_STT_DT
+             , EDCT_END_DT, EDCT_SCR, EDCT_PLC_NM, EDCT_CNTN, CNTR_CD, BZPT_DIV
+             , EDCT_PRGR_STAT_CD, EDCT_TRGT_NM, RGSR_ID, AMNT_DTTM, RGSN_DTTM
+             , AMND_ID, EDCT_PRGR_HR)
+        VALUES (#{edct_crs_id}, #{edct_crs_nm}, #{edct_typ_cd}, #{edct_lctr_nm}, #{edct_stt_dt}
+             , #{edct_end_dt}, #{edct_scr}, #{edct_plc_nm}, #{edct_cntn}, #{cntr_cd}, #{bzpt_div}
+             , #{edct_prgr_stat_cd}, #{edct_trgt_nm}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , #{amnd_id}, #{edct_prgr_hr})
+    </insert>
+
+    <insert id="EdctCrsMap.copyEdctCrs" parameterType="map">
+        <selectKey keyProperty="new_edct_crs_id" resultType="String" order="BEFORE">
+        SELECT 'EDC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* EdctCrsMap.copyEdctCrs */
+          INTO TB_EDCT_CRS_DTL(
+               EDCT_CRS_ID, EDCT_CRS_NM, EDCT_TYP_CD, EDCT_LCTR_NM, EDCT_STT_DT
+             , EDCT_END_DT, EDCT_SCR, EDCT_TRGT_NM, EDCT_PLC_NM, EDCT_PRGR_STAT_CD
+             , EDCT_CNTN, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+             , AMNT_DTTM, EDCT_PRGR_HR, BZPT_DIV)
+        SELECT #{new_edct_crs_id}, '[복사]' || SUBSTR(EDCT_CRS_NM, 0 ,38), EDCT_TYP_CD, EDCT_LCTR_NM, TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSDATE, 'YYYYMMDD'), EDCT_SCR, EDCT_TRGT_NM, EDCT_PLC_NM, '10'
+             , EDCT_CNTN, CNTR_CD, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{edct_prgr_hr}, BZPT_DIV
+          FROM TB_EDCT_CRS_DTL
+         WHERE EDCT_CRS_ID = #{edct_crs_id}
+    </insert>
+
+    <update id ="EdctCrsMap.updateEdctCrs" parameterType="map">
+        UPDATE /* EdctCrsMap.updateEdctCrs */
+              TB_EDCT_CRS_DTL
+           SET EDCT_CRS_NM 	      = #{edct_crs_nm}
+             , EDCT_TYP_CD    	  = #{edct_typ_cd}
+             , EDCT_LCTR_NM  	  = #{edct_lctr_nm}
+             , EDCT_STT_DT  	  = #{edct_stt_dt}
+             , EDCT_END_DT  	  = #{edct_end_dt}
+             , EDCT_SCR 	      = #{edct_scr}
+             , EDCT_TRGT_NM       = #{edct_trgt_nm}
+             , EDCT_PLC_NM        = #{edct_plc_nm}
+             , EDCT_CNTN          = #{edct_cntn}
+             , EDCT_PRGR_HR       = #{edct_prgr_hr}
+             , AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , AMND_ID            = #{amnd_id}
+             , EDCT_PRGR_STAT_CD  = #{edct_prgr_stat_cd}
+         WHERE EDCT_CRS_ID        = #{edct_crs_id}
+           AND CNTR_CD            = #{cntr_cd}
+    </update>
+
+    <delete id="EdctCrsMap.deleteEdctCrs" parameterType="map">
+        DELETE /* EdctCrsMap.deleteEdctCrs */
+          FROM TB_EDCT_CRS_DTL
+    <if test="selectcheck != null and selectcheck != ''">
+         WHERE EDCT_CRS_ID
+        <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+            #{item}
+        </foreach>
+    </if>
+    </delete>
+
+    <select id ="EdctCrsMap.edctCrsResultCount"  parameterType="map" resultType="int">
+        SELECT /* EdctCrsMap.edctCrsResultCount */
+               COUNT(*)
+          FROM TB_EDCT_CRS_DTL A, TB_EDCT_TRPR B, TB_USER C
+         WHERE A.EDCT_CRS_ID = B.EDCT_CRS_ID
+           AND A.CNTR_CD = B.CNTR_CD
+           AND B.EDCT_TRPR_ID = C.USER_ID
+           AND B.CNTR_CD = C.CNTR_CD
+           AND A.CNTR_CD = #{cntr_cd}
+           AND A.EDCT_PRGR_STAT_CD = '30'
+       <if test="bzpt_div != null and bzpt_div != ''">
+           AND (A.BZPT_DIV = #{bzpt_div} OR EXISTS (SELECT 'Y' FROM TB_CONS_TEAM WHERE BZPT_DIV = #{bzpt_div} AND TEAM_CD = C.TEAM_CD AND CNTR_CD = C.CNTR_CD))
+       </if>
+       <if test="startd != null and startd != ''">
+           AND A.EDCT_STT_DT BETWEEN #{startd} || '01'  AND #{startd} || '31'
+       </if>
+       <if test="edct_typ_cd != null and edct_typ_cd != ''">
+           AND A.EDCT_TYP_CD = #{edct_typ_cd}
+       </if>
+    </select>
+
+    <select id = "EdctCrsMap.edctCrsResult" parameterType="map" resultType="resultMap">
+        SELECT /* EdctCrsMap.edctCrsResult */
+               EDCT_CRS_ID, EDCT_CRS_NM, EDCT_STT_DT, EDCT_LCTR_NM, EDCT_PLC_NM
+             , EDCT_TRGT_NM, TEAM_NM , USER_NM, EDCT_TYP_NM , EDCT_PRGR_STAT_CD
+             , EDCT_ATNC_HR ,EDCT_CMCR_SCR, EMPL_NO, USER_ID, EDCT_CNTN
+             , EDCT_TYP_CD, TEAM_CD, TEAMCOUNT, EDUCOUNT, NEWEDCT_STT_DT
+             , COUNT(DISTINCT(TEAM_CD)) OVER(PARTITION BY EDCT_CRS_ID) AS TETAMGROUPCNT
+             , EDCT_ATNC_TM, EDCT_ATNC_HR_NEW
+          FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM, A.EDCT_LCTR_NM, A.EDCT_PLC_NM, A.EDCT_TRGT_NM
+                     , A.EDCT_PRGR_STAT_CD, A.EDCT_CNTN, A.EDCT_STT_DT, A.EDCT_TYP_CD
+                     , GETCODENM('EDC020', A.EDCT_TYP_CD, A.CNTR_CD) AS EDCT_TYP_NM
+                     , C.USER_NM, C.USER_ID, B.EDCT_ATNC_HR, C.EMPL_NO
+                     , (CASE WHEN B.EDCT_CMCR_SCR IS NOT NULL THEN B.EDCT_CMCR_SCR ELSE 0 END) AS EDCT_CMCR_SCR
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = C.TEAM_CD) AS TEAM_NM
+                     , (SELECT TEAM_CD
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = C.TEAM_CD) AS TEAM_CD
+                     , SUBSTR(A.EDCT_STT_DT, 0,4) || '-'|| SUBSTR(A.EDCT_STT_DT, 5,2) ||'-'|| SUBSTR(A.EDCT_STT_DT, 7,2) AS NEWEDCT_STT_DT
+                     , COUNT(C.TEAM_CD) OVER(PARTITION BY A.EDCT_CRS_ID, C.TEAM_CD) AS TEAMCOUNT
+                     , COUNT(A.EDCT_CRS_ID) OVER(PARTITION BY A.EDCT_CRS_ID) AS EDUCOUNT
+                     , (CASE WHEN SUBSTR(B.EDCT_ATNC_HR, 1, 2) IS NOT NULL
+                             THEN SUBSTR(B.EDCT_ATNC_HR, 1, 2)
+                             ELSE '0' END) || '시간 ' ||
+                       (CASE WHEN SUBSTR(B.EDCT_ATNC_HR, 3, 2) IS NOT NULL
+                             THEN SUBSTR(B.EDCT_ATNC_HR, 3, 2)
+                             ELSE '0' END) || '분' AS EDCT_ATNC_HR_NEW
+                     , (CASE WHEN B.EDCT_ATNC_HR IS NOT NULL AND LENGTH(B.EDCT_ATNC_HR) = 4
+                              THEN TO_NUMBER(SUBSTR(B.EDCT_ATNC_HR, 1, 2)) * 60 + TO_NUMBER(SUBSTR(B.EDCT_ATNC_HR, 3, 2))
+                              ELSE 0
+                         END) AS EDCT_ATNC_TM
+                  FROM TB_EDCT_CRS_DTL A, TB_EDCT_TRPR B, TB_USER C
+                 WHERE A.EDCT_CRS_ID = B.EDCT_CRS_ID
+                   AND A.CNTR_CD = B.CNTR_CD
+                   AND B.EDCT_TRPR_ID = C.USER_ID
+                   AND B.CNTR_CD = C.CNTR_CD
+                   AND A.CNTR_CD = #{cntr_cd}
+                   AND A.EDCT_PRGR_STAT_CD = '30'
+               <if test="bzpt_div != null and bzpt_div != ''">
+                   AND (A.BZPT_DIV = #{bzpt_div} OR EXISTS (SELECT 'Y' FROM TB_CONS_TEAM WHERE BZPT_DIV = #{bzpt_div} AND TEAM_CD = C.TEAM_CD AND CNTR_CD = C.CNTR_CD))
+               </if>
+               <if test="startd != null and startd != ''">
+                   AND A.EDCT_STT_DT BETWEEN #{startd} || '01'  AND #{startd} || '31'
+               </if>
+               <if test="edct_typ_cd != null and edct_typ_cd != ''">
+                   AND A.EDCT_TYP_CD = #{edct_typ_cd}
+               </if>
+              ORDER BY EDCT_CRS_ID, EDCT_STT_DT, TEAM_CD, USER_ID
+              )
+    </select>
+
+    <select id = "EdctCrsMap.excelEdctList" parameterType="map" resultType="resultMap">
+        SELECT /* EdctCrsMap.excelEdctList */
+               EDCT_CRS_ID, EDCT_CRS_NM, EDCT_TYP_CD, EDCT_LCTR_NM, EDCT_STT_DT
+             , EDCT_END_DT, EDCT_SCR, EDCT_PRGR_STAT_NM, EDCT_CNTN, CNTR_CD
+             , RGSR_ID, RGSN_DTTM, AMNT_DTTM, edct_typ_NM, RGSR_NM
+             , AMND_NM, CNTR_NM, EDCT_PLC_NM, EDCT_TRGT_NM, EDCT_PRGR_STAT_CD
+             , AMND_ID, NEW_EDCT_STT_DT
+          FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM, A.EDCT_TYP_CD, A.EDCT_LCTR_NM, A.EDCT_STT_DT, A.EDCT_END_DT
+                     , DECODE(A.EDCT_SCR, NULL, 0, A.EDCT_SCR) AS EDCT_SCR
+                     , A.EDCT_CNTN, A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMNT_DTTM
+                     , A.EDCT_PLC_NM, A.EDCT_TRGT_NM, A.EDCT_PRGR_STAT_CD
+                     , A.AMND_ID
+                     , GETCODENM('EDC010', A.EDCT_PRGR_STAT_CD, CNTR_CD) AS EDCT_PRGR_STAT_NM
+                     , GETCODENM('EDC020', A.EDCT_TYP_CD, CNTR_CD) AS edct_typ_NM
+                     , (SELECT CNTR_NM
+                          FROM TB_CNTR
+                         WHERE TB_CNTR.CNTR_CD = A.CNTR_CD) AS CNTR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.AMNT_DTTM) AS AMND_NM
+                     , SUBSTR(A.EDCT_STT_DT, 0,4) || '-'|| SUBSTR(A.EDCT_STT_DT, 5,2) ||'-'|| SUBSTR(A.EDCT_STT_DT, 7,2) AS NEW_EDCT_STT_DT
+                  FROM TB_EDCT_CRS_DTL A
+            <include refid="EdctCrsMap.selectCondition_fragment"/>
+              ORDER BY EDCT_TYP_CD DESC
+                )
+    </select>
+
+    <select id = "EdctCrsMap.excelEduMonitoringList" parameterType="map" resultType="resultMap">
+        SELECT /* EdctCrsMap.excelEduMonitoringList */
+               EDCT_CRS_ID, EDCT_CRS_NM, EDCT_TYP_CD, EDCT_LCTR_NM, EDCT_TYP_CD
+             , EDCT_END_DT, EDCT_SCR, EDCT_PRGR_STAT_NM, EDCT_CNTN, CNTR_CD
+             , RGSR_ID, RGSN_DTTM, AMNT_DTTM, edct_typ_NM, RGSR_NM
+             , AMND_NM, CNTR_NM, EDCT_PLC_NM, EDCT_TRGT_NM, EDCT_PRGR_STAT_CD
+             , AMND_ID, NEW_EDCT_STT_DT
+          FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM, A.EDCT_TYP_CD, A.EDCT_LCTR_NM, A.EDCT_TYP_CD, A.EDCT_END_DT
+                     , DECODE(A.EDCT_SCR, NULL, 0, A.EDCT_SCR) AS EDCT_SCR
+                     , A.EDCT_CNTN, A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMNT_DTTM
+                     , A.EDCT_PLC_NM, A.EDCT_TRGT_NM, A.EDCT_PRGR_STAT_CD
+                     , A.AMND_ID
+                     , GETCODENM('EDC010', A.EDCT_PRGR_STAT_CD, CNTR_CD) AS EDCT_PRGR_STAT_NM
+                     , GETCODENM('EDC020', A.EDCT_TYP_CD, CNTR_CD) AS edct_typ_NM
+                     , (SELECT CNTR_NM
+                          FROM TB_CNTR
+                         WHERE TB_CNTR.CNTR_CD = A.CNTR_CD) AS CNTR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.amnt_dttm) AS AMND_NM
+                     , SUBSTR(A.EDCT_STT_DT, 0,4) || '-'|| SUBSTR(A.EDCT_STT_DT, 5,2) ||'-'|| SUBSTR(A.EDCT_STT_DT, 7,2) AS NEW_EDCT_STT_DT
+                  FROM tb_edct_crs_dtl A
+            <include refid="EdctCrsMap.selectCondition_fragment"/>
+            <if test="orderBy != null and orderBy != ''">
+                ORDER BY ${orderBy} ${orderDirection}
+            </if>
+                )
+    </select>
+
+    <select id="EdctCrsMap.getMyPageEdctCount" parameterType="map" resultType="int">
+        SELECT /* EdctCrsMap.getMyPageEdctCount */
+               COUNT(*)
+          FROM TB_EDCT_CRS_DTL A
+          JOIN TB_EDCT_TRPR B
+            ON A.EDCT_CRS_ID = B.EDCT_CRS_ID
+           AND B.EDCT_TRPR_ID = #{user_id}
+           <include refid="EdctCrsMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EdctCrsMap.getMyPageEdctList" parameterType="map" resultType="resultMap">
+        SELECT /* EdctCrsMap.getMyPageEdctList */
+             *
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY EDCT_STT_DT DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , EDCT_CRS_ID, EDCT_CRS_NM, EDCT_TYP_CD, EDCT_LCTR_NM, EDCT_STT_DT, EDCT_END_DT
+                     , EDCT_SCR, EDCT_PRGR_STAT_NM, EDCT_CNTN, CNTR_CD, RGSR_ID
+                     , RGSN_DTTM, AMNT_DTTM, EDCT_TYP_NM, RGSR_NM, AMND_NM
+                     , CNTR_NM, EDCT_PLC_NM, EDCT_TRGT_NM, EDCT_PRGR_STAT_CD, AMND_ID
+                     , EDCT_TRPR_ID, EDCT_ATNC_DT, EDCT_ATNC_STT_HR_CD, EDCT_ATNC_END_HR_CD, EDCT_ATNC_YN
+                     , EDCT_ATNC_HR, EDCT_CMCR_SCR
+                  FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM, A.EDCT_TYP_CD, A.EDCT_LCTR_NM, A.EDCT_STT_DT, A.EDCT_END_DT
+                             , DECODE(A.EDCT_SCR, NULL, 0, A.EDCT_SCR) AS EDCT_SCR
+                             , A.EDCT_CNTN, A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMNT_DTTM
+                             , A.EDCT_PLC_NM, A.EDCT_TRGT_NM, A.EDCT_PRGR_STAT_CD
+                             , A.AMND_ID
+                             , GETCODENM('EDC010', A.EDCT_PRGR_STAT_CD, A.CNTR_CD) AS EDCT_PRGR_STAT_NM
+                             , GETCODENM('EDC020', A.EDCT_TYP_CD, A.CNTR_CD) AS EDCT_TYP_NM
+                             , (SELECT CNTR_NM
+                                  FROM TB_CNTR
+                                 WHERE TB_CNTR.CNTR_CD = A.CNTR_CD) AS CNTR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                             , B.EDCT_TRPR_ID, B.EDCT_ATNC_DT, B.EDCT_ATNC_STT_HR_CD, B.EDCT_ATNC_END_HR_CD, B.EDCT_ATNC_YN
+                             , B.EDCT_ATNC_HR, B.EDCT_CMCR_SCR
+                          FROM TB_EDCT_CRS_DTL A
+                          JOIN TB_EDCT_TRPR B
+                            ON A.EDCT_CRS_ID = B.EDCT_CRS_ID
+                           AND B.EDCT_TRPR_ID = #{user_id}
+                  <include refid="EdctCrsMap.selectCondition_fragment"/>
+                           AND EDCT_ATNC_STT_HR_CD IS NOT NULL
+                    )
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+               WHERE PAGE_INDX >= #{startLine}
+                 AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+</mapper>

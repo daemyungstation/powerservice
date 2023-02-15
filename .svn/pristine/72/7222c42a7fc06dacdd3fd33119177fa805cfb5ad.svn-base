@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCashReceiptMap">
+
+    <!-- ================================================================
+     * 날짜 : 20220726
+     * 이름 : 김주용
+     * 추가내용 : 현금영수증발행 조회 수
+     * 대상 테이블 : LF_DMUSER.TB_CASH_RECEIPT
+     * ================================================================
+     * -->
+    <select id="DlwCashReceiptMap.getCashReceiptCount" parameterType="map" resultType="int">
+        SELECT /* DlwCashReceiptMap.getCashReceiptCount */
+               COUNT(*) AS ICNT
+        FROM 
+        (
+        	SELECT 
+        		ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                PAY_DAY,
+				P_PROD_NM,
+				SUPPLY_AMT,
+				VAT,
+				SVC_CHG,
+				AMT,
+				AMT_KIND,
+				ISU_NO,
+				STORE_CONTC,
+				ACCNT_NO,
+				MEM_NM,
+				PROD_NM,
+				KSTBIT,
+				PAY_MTHD,
+				REG_DM,
+				REG_MAN,
+				SEND_DM,
+				SEND_STAT,
+				SEND_MAN,
+				DEL_FG
+            FROM TB_CASH_RECEIPT
+			WHERE PAY_DAY = #{stt_dt}
+			AND DEL_FG = 'N'
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20220726
+     * 이름 : 김주용
+     * 추가내용 : 현금영수증발행 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CASH_RECEIPT
+     * ================================================================
+     * -->
+    <select id="DlwCashReceiptMap.getCashReceiptList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwCashReceiptMap.getCashReceiptList */
+               MAIN_TBL.*
+        FROM 
+        (
+        	SELECT 
+        		ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                PAY_DAY,
+				P_PROD_NM,
+				SUPPLY_AMT,
+				VAT,
+				SVC_CHG,
+				AMT,
+				AMT_KIND,
+				ISU_NO,
+				STORE_CONTC,
+				ACCNT_NO,
+				MEM_NM,
+				PROD_NM,
+				KSTBIT,
+				PAY_MTHD,
+				REG_DM,
+				REG_MAN,
+				SEND_DM,
+				SEND_STAT,
+				SEND_MAN,
+				DEL_FG,
+				'D' AS A1
+            FROM TB_CASH_RECEIPT
+			WHERE PAY_DAY = #{stt_dt}
+			AND DEL_FG = 'N'
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+          AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+    
+    <!--
+     * ================================================================
+     * 날짜 : 20220726
+     * 이름 : 김주용
+     * 추가내용 : 현금영수증발행 산출 TB insert
+     * 대상 테이블 : LF_DMUSER.TB_CASH_RECEIPT
+     * ================================================================
+     * -->
+
+    <insert id="DlwCashReceiptMap.insertCashReceipt" parameterType="map">
+        INSERT INTO TB_CASH_RECEIPT
+	           (PAY_DAY,
+				P_PROD_NM,
+				SUPPLY_AMT,
+				VAT,
+				SVC_CHG,
+				AMT,
+				AMT_KIND,
+				ISU_NO,
+				STORE_CONTC,
+				ACCNT_NO,
+				MEM_NM,
+				PROD_NM,
+				KSTBIT,
+				PAY_MTHD,
+				REG_DM,
+				REG_MAN,
+				SEND_STAT,
+				DEL_FG)
+	        SELECT 
+			    PAY_DAY,
+			    '소득공제' AS P_PROD_NM,
+			    TRUNC((REL_AMT + ADD_AMT) / 1.1, -1) AS SUPPLY_AMT,
+			    TRUNC((REL_AMT + ADD_AMT) - (TRUNC((REL_AMT + ADD_AMT) / 1.1, -1))) AS VAT,
+			    0 AS SVC_CHG,
+			    (REL_AMT + ADD_AMT) AS AMT,
+			    0 AS AMT_KIND,
+			    CELL AS ISU_NO,
+			    '02-1588-8511' AS STORE_CONTC,
+			    ACCNT_NO,
+			    MEM_NM,
+			    PROD_NM,
+			    KSTBIT,
+			    PAY_MTHD,
+			    SYSDATE AS REG_DM,
+			    #{rgsr_id} AS REG_MAN,
+			    '01' AS SEND_STAT,
+			    'N' AS DEL_FG
+			FROM
+			(
+			    SELECT     
+			        PM.PAY_DAY,
+			        NVL(PM.PAY_AMT,0) AS REL_AMT,
+			        NVL((SELECT PAY_AMT FROM PAY_MNG_DTL1 WHERE ACCNT_NO = PM.ACCNT_NO AND PAY_DAY = PM.PAY_DAY AND NO = PM.NO AND DEL_FG = 'N'),0) AS ADD_AMT,
+			        MB.CELL,
+			        PM.ACCNT_NO,
+			        MB.MEM_NM,
+			        PD.PROD_NM,
+			        DECODE(MPA.KSTBIT,'02','정상','03','해약','행사') AS KSTBIT,    
+			        DECODE(PM.PAY_MTHD,'04','CMS','07','가상계좌','손수') AS PAY_MTHD     
+			    FROM PAY_MNG_DTL PM INNER JOIN
+			        MEM_PROD_ACCNT MPA ON PM.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+			        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+			        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			        PAY_MNG_DTL1 PM2 ON PM.ACCNT_NO = PM2.ACCNT_NO AND PM.PAY_DAY = PM2.PAY_DAY AND PM.NO = PM2.NO AND PM2.DEL_FG = 'N'
+			    WHERE 1=1
+			    AND PM.PAY_DAY = #{stt_dt}
+			    AND NVL(PM.PAY_MTHD,00) != '06'
+			    AND PM.DEL_FG = 'N'
+			    AND PD.SECTION_T = '0002'
+			)
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20220726
+     * 이름 : 김주용
+     * 추가내용 : 현금영수증발행 산출 체크
+     * 대상 테이블 : LF_DMUSER.TB_CASH_RECEIPT
+     * ================================================================
+     * -->
+    <select id="DlwCashReceiptMap.getCashReceiptCountChk" parameterType="map" resultType="int">
+        SELECT /* DlwCashReceiptMap.getCashReceiptCountChk */
+               COUNT(*) AS ICNT
+        FROM 
+        (
+        	SELECT PAY_DAY
+			FROM TB_CASH_RECEIPT
+			WHERE DEL_FG = 'N'
+			AND SEND_STAT = '01'
+			GROUP BY PAY_DAY
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <!--
+     * ================================================================
+     * 날짜 : 20220726
+     * 이름 : 김주용
+     * 추가내용 : 현금영수증발행 엑셀 전송 저장
+     * 대상 테이블 : LF_DMUSER.TB_CASH_RECEIPT
+     * ================================================================
+     * -->
+    <update id="DlwCashReceiptMap.updateCashReceipt" parameterType="map">
+        UPDATE TB_CASH_RECEIPT
+        SET SEND_STAT = '02'
+           ,SEND_MAN = #{rgsr_id}
+           ,SEND_DM = SYSDATE
+	    WHERE PAY_DAY = #{stt_dt}
+    </update>
+    
+    <!--
+     * ================================================================
+     * 날짜 : 20220726
+     * 이름 : 김주용
+     * 추가내용 : 현금영수증발행 삭제
+     * 대상 테이블 : LF_DMUSER.TB_CASH_RECEIPT
+     * ================================================================
+     * -->
+    <update id="DlwCashReceiptMap.deleteCashReceipt" parameterType="map">
+        UPDATE TB_CASH_RECEIPT
+        SET DEL_FG = 'Y'
+	    WHERE PAY_DAY = #{stt_dt}
+	    AND DEL_FG = 'N'
+    </update>
+</mapper>

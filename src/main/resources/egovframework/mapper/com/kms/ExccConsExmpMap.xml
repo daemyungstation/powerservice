@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExccConsExmpMap">
+
+    <sql id="ExccConsExmpMap.selectCondition_fragment">
+        <where>
+            <if test="excc_cons_id != null and excc_cons_id != ''">
+                AND EXCC_CONS_ID = #{excc_cons_id}
+            </if>
+            <if test="word != null and word != ''">
+                <if test="search_typ == 'excc_cons_titl'">
+                    AND EXCC_CONS_TITL LIKE '%' || #{word} || '%'
+                </if>
+                <if test="search_typ == 'excc_cons_cntn'">
+                    AND EXCC_CONS_CNTN LIKE '%' || #{word} || '%'
+                </if>
+                <if test="search_typ == 'titl_cntn'">
+                    AND (EXCC_CONS_TITL LIKE '%' || #{word} || '%'
+                     OR EXCC_CONS_CNTN LIKE '%' || #{word} || '%')
+                </if>
+            </if>
+            <if test="expe_yn != null and expe_yn != ''">
+                AND EXPE_YN = #{expe_yn}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="rgsr_id != null and rgsr_id != ''">
+                AND RGSR_ID = #{rgsr_id}
+            </if>
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (EXCC_CONS_TITL LIKE '%' || #{srch_word} || '%'
+                  OR EXCC_CONS_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+
+            <if test="bzpt_divs != null and bzpt_divs != ''">
+                AND BZPT_DIV IN (${bzpt_divs})
+            </if>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+        </where>
+    </sql>
+
+    <select id="ExccConsExmpMap.getExccConsExmpCount" parameterType="map" resultType="int">
+        SELECT /* ExccConsExmpMap.getExccConsExmpCount */
+               COUNT(*)
+          FROM TB_EXCC_CONS_EXMP A
+        <include refid="ExccConsExmpMap.selectCondition_fragment" />
+    </select>
+
+    <resultMap id="ExccConsExmpMap.resultExccConsExmp" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="excc_cons_id" column="excc_cons_id" />
+        <result property="excc_cons_titl" column="excc_cons_titl" />
+        <!-- <result property="cselcasecnts" column="cselcasecnts" /> -->
+        <result property="expe_yn" column="expe_yn" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="file_fg" column="file_fg" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+    </resultMap>
+
+    <resultMap id="ExccConsExmpMap.resultExccConsExmpView" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="excc_cons_id" column="excc_cons_id" />
+        <result property="excc_cons_titl" column="excc_cons_titl" />
+        <!-- <result property="cselcasecnts" column="cselcasecnts" /> -->
+        <result property="excc_cons_cntn" column="excc_cons_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="excc_cons_html_cntn" column="excc_cons_html_cntn" javaType="java.lang.String" jdbcType="CLOB" />
+        <result property="expe_yn" column="expe_yn" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="file_fg" column="file_fg" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+    </resultMap>
+
+    <select id="ExccConsExmpMap.getExccConsExmpList" parameterType="map" resultMap="ExccConsExmpMap.resultExccConsExmp">
+        SELECT /* ExccConsExmpMap.getExccConsExmpList */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , CASE WHEN EXISTS (SELECT *
+                                   FROM TB_FILE
+                                  WHERE RLTN_ITEM_ID = C.EXCC_CONS_ID
+                                    AND ATCH_TYP_CD != '30') THEN 'Y'
+                    ELSE 'N'
+                END AS FILE_FG
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                    FROM (SELECT EXCC_CONS_ID, EXCC_CONS_TITL
+                               , EXPE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+                               , AMNT_DTTM
+                               , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EXCC_CONS_EXMP A
+        <include refid="ExccConsExmpMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+
+    <select id="ExccConsExmpMap.getExccConsExmpView" parameterType="map" resultMap="ExccConsExmpMap.resultExccConsExmpView">
+        SELECT /* ExccConsExmpMap.getExccConsExmpView */
+               C.*
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , CASE WHEN EXISTS (SELECT *
+                                   FROM TB_FILE
+                                  WHERE RLTN_ITEM_ID = C.EXCC_CONS_ID
+                                    AND ATCH_TYP_CD != '30') THEN 'Y'
+                    ELSE 'N'
+                END AS FILE_FG
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                    FROM (SELECT EXCC_CONS_ID, EXCC_CONS_TITL, EXCC_CONS_CNTN, EXCC_CONS_HTML_CNTN
+                               , EXPE_YN, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+                               , AMNT_DTTM
+                               , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EXCC_CONS_EXMP A
+        <include refid="ExccConsExmpMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+
+    <insert id="ExccConsExmpMap.insertExccConsExmp" parameterType="map">
+        <selectKey keyProperty="excc_cons_id" resultType="String" order="BEFORE">
+            SELECT 'EXC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* ExccConsExmpMap.insertExccConsExmp */
+          INTO TB_EXCC_CONS_EXMP
+               (EXCC_CONS_ID, EXCC_CONS_TITL, EXPE_YN, CNTR_CD, EXCC_CONS_CNTN
+              , EXCC_CONS_HTML_CNTN, BZPT_DIV
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{excc_cons_id}, #{excc_cons_titl}, 'Y', #{cntr_cd}, #{excc_cons_cntn:CLOB}
+              , #{excc_cons_html_cntn:CLOB}, #{bzpt_div}
+              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="ExccConsExmpMap.updateExccConsExmp" parameterType="map">
+        UPDATE /* ExccConsExmpMap.updateExccConsExmp */
+               TB_EXCC_CONS_EXMP
+           SET EXCC_CONS_TITL = #{excc_cons_titl}
+             , EXCC_CONS_CNTN = #{excc_cons_cntn:CLOB}
+             , EXCC_CONS_HTML_CNTN = #{excc_cons_html_cntn:CLOB}
+             , EXPE_YN = #{expe_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE EXCC_CONS_ID = #{excc_cons_id}
+    </update>
+
+    <delete id="ExccConsExmpMap.deleteExccConsExmp">
+        DELETE /* ExccConsExmpMap.deleteExccConsExmp */
+          FROM TB_EXCC_CONS_EXMP
+         WHERE
+         <choose>
+            <when test="excc_cons_id == null or excc_cons_id == ''">
+               EXCC_CONS_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               EXCC_CONS_ID = #{excc_cons_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+    <insert id="ExccConsExmpMap.insertQaExccConsExmp" parameterType="map">
+        <selectKey keyProperty="excc_cons_id" resultType="String" order="BEFORE">
+            SELECT 'EXC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ExccConsExmpMap.insertQaExccConsExmp */
+          INTO TB_EXCC_CONS_EXMP
+               (EXCC_CONS_ID, EXCC_CONS_TITL, EXCC_CONS_CNTN, EXCC_CONS_HTML_CNTN, EXPE_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT #{excc_cons_id}, SUBSTR(CONS_MEMO_CNTN, 1, 16), CONS_MEMO_CNTN, CONS_MEMO_CNTN, 'Y'
+             , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_CONS
+         WHERE CONSNO = #{consno}
+    </insert>
+</mapper>

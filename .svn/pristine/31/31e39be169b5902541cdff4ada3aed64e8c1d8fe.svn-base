@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOnlnMngMap">
+
+    <select id="DlwOnlnMngMap.getOnlnMemberCount" parameterType="map" resultType="int">
+     	SELECT /* DlwOnlnMngMap.getMallMemberCount */
+     	       COUNT(*)
+		FROM MB_MEM_MST
+		WHERE 1=1
+		<if test="srch_type == '01'">           
+   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+   		</if>
+   		<if test="srch_type == '02'">           
+   		 	AND TO_CHAR(LAST_LGN_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+   		</if>
+		<if test="id != null and id != ''">
+			AND ID = #{id}
+		</if>
+		<if test="name != null and name != ''">
+			AND NAME = #{name}
+		</if>
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemberList" parameterType="map" resultType="resultMap">
+     	
+        	SELECT   
+        		/* DlwOnlnMngMap.getOnlnMemberList */
+               *
+        	FROM 
+        	(
+		        SELECT 
+					  ROW_NUMBER() OVER(ORDER BY REG_DTM DESC) PAGE_INDX,
+					  MST.ID ,
+					  MST.UNQ_NO ,
+					  MST.NAME ,
+					  MST.BIRTH ,
+					  MST.EMAIL , 
+					  MST.HP ,
+					  MST.TEL ,
+					  MST.ZIPCD ,
+					  MST.ADR ,
+					  MST.ADR_DTL ,
+					  MST.USE_YN ,
+					  MST.LAST_LGN_DTM ,
+					  MST.REG_DTM ,
+					  MST.SMS_RCV_YN ,
+					  MST.EMAIL_RCV_YN ,
+					  MST.AGREEMENT_FOR_THIRD_PARTY ,
+					  MST.MARKETING_YN ,
+					  MST.CI 
+				FROM MB_MEM_MST MST
+				WHERE 1=1
+				<if test="srch_type == '01'">           
+		   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+		   		</if>
+		   		<if test="srch_type == '02'">           
+		   		 	AND TO_CHAR(LAST_LGN_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		   		</if>
+				<if test="id != null and id != ''">
+					AND ID = #{id}
+				</if>
+				<if test="name != null and name != ''">
+					AND NAME = #{name}
+				</if>
+	        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+        <select id="DlwOnlnMngMap.getOnlnMemberPayChgCnt" parameterType="map" resultType="int">
+				SELECT 
+					COUNT(*)
+				FROM
+				(
+					SELECT /*DlwOnlnMngMap.getOnlnMemberPayChgCnt*/
+					    CCP.ID,
+					    MAX(MST.NAME) AS NAME,
+					    MAX(MST.BIRTH) AS BIRTH,
+					    MAX(MST.UNQ_NO) AS UNQ_NO
+					FROM CM_ACNT_CHNG_PTC CCP INNER JOIN
+					    MB_MEM_MST MST ON CCP.ID = MST.ID 
+					WHERE 1=1 
+					    <if test="srch_type == '01'">           
+				   			AND TO_CHAR(CCP.REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+				   		</if>
+				   		<if test="srch_type == '02'">           
+				   		 	AND TO_CHAR(MST.LAST_LGN_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+				   		</if>
+						<if test="id != null and id != ''">
+							AND CCP.ID = #{id}
+						</if>
+						<if test="name != null and name != ''">
+							AND MST.NAME = #{name}
+						</if>
+					GROUP BY CCP.ID  
+				) TBL
+    
+		<!-- AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} -->
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemberPayChgList" parameterType="map" resultType="resultMap">
+     	
+				SELECT  
+					/*DlwOnlnMngMap.getOnlnMemberPayChgList*/ 
+						*
+				FROM
+				(
+					SELECT 
+						ROW_NUMBER() OVER(ORDER BY CCP.ID ASC) PAGE_INDX,
+					    CCP.ID,
+					    MAX(MST.NAME) AS NAME,
+					    MAX(MST.BIRTH) AS BIRTH,
+					    MAX(MST.UNQ_NO) AS UNQ_NO
+					FROM CM_ACNT_CHNG_PTC CCP INNER JOIN
+					    MB_MEM_MST MST ON CCP.ID = MST.ID 
+					WHERE 1=1
+					    <if test="srch_type == '01'">           
+				   			AND TO_CHAR(CCP.REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+				   		</if>
+				   		<if test="srch_type == '02'">           
+				   		 	AND TO_CHAR(MST.LAST_LGN_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+				   		</if>
+						<if test="id != null and id != ''">
+							AND CCP.ID = #{id}
+						</if>
+						<if test="name != null and name != ''">
+							AND MST.NAME = #{name}
+						</if>
+					GROUP BY CCP.ID  
+				) TBL
+				<!-- AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} -->
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+        <select id="DlwOnlnMngMap.getOnlnMemberDtlList" parameterType="map" resultType="resultMap">
+     	
+        	SELECT /* DlwOnlnMngMap.getOnlnMemberDtlList  */
+               *
+        	FROM 
+        	(
+	        SELECT 
+					  MST.ID ,
+					  MST.UNQ_NO ,
+					  MST.NAME ,
+					  MST.BIRTH ,
+					  MST.EMAIL ,
+					  MST.HP ,
+					  MST.TEL ,
+					  MST.ZIPCD ,
+					  MST.ADR ,
+					  MST.ADR_DTL ,
+					  MST.USE_YN ,
+					  MST.LAST_LGN_DTM ,
+					  MST.REG_DTM , 
+					  MST.SMS_RCV_YN ,
+					  MST.EMAIL_RCV_YN ,
+					  MST.AGREEMENT_FOR_THIRD_PARTY ,
+					  MST.MARKETING_YN ,
+					  MST.CI,
+                      SSO.ID AS SSO_ID,
+                      MB.MEM_NO,
+                      MB.CI_VAL,                      
+                      MB.MEM_NM,
+                      MB.EMAIL AS MB_EMAIL,
+                      MB.CELL, 
+                      MB.HOME_ZIP,
+                      MB.HOME_ADDR,
+                      MB.HOME_ADDR2
+				FROM MB_MEM_MST MST LEFT OUTER JOIN
+                    LF_DMUSER.MEMBER@DMLIFE MB ON MST.UNQ_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                    (
+                        SELECT                             
+                            CI,
+                            MAX(ID) AS ID
+                        FROM DAEMYUNG_SSO.TSSO_MEM@DM_DLW_KT                         
+                        GROUP BY CI
+                    ) SSO ON MST.CI = SSO.CI  
+				WHERE 1=1
+				AND MST.ID = #{id} 
+	        )
+
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemberDormancyDtl" parameterType="map" resultType="resultMap">
+     	
+        	SELECT /* DlwOnlnMngMap.getOnlnMemberDormancyDtl */
+               *
+        	FROM 
+        	(
+	        SELECT 
+					  MST.ID ,
+					  MST.UNQ_NO ,
+					  MST.NAME ,
+					  MST.BIRTH ,
+					  MST.EMAIL ,
+					  MST.HP ,
+					  MST.TEL ,
+					  MST.ZIPCD ,
+					  MST.ADR ,
+					  MST.ADR_DTL ,
+					  MST.USE_YN ,
+					  MST.LAST_LGN_DTM ,
+					  MST.REG_DTM , 
+					  MST.SMS_RCV_YN ,
+					  MST.EMAIL_RCV_YN ,
+					  MST.AGREEMENT_FOR_THIRD_PARTY ,
+					  MST.MARKETING_YN ,
+					  MST.CI,
+                      SSO.ID AS SSO_ID,
+                      MB.MEM_NO,
+                      MB.CI_VAL,                      
+                      MB.MEM_NM,
+                      MB.EMAIL AS MB_EMAIL,
+                      MB.CELL, 
+                      MB.HOME_ZIP,
+                      MB.HOME_ADDR,
+                      MB.HOME_ADDR2
+				FROM MB_QSCN_MEM_MST MST LEFT OUTER JOIN
+                    LF_DMUSER.MEMBER@DMLIFE MB ON MST.UNQ_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                    (
+                        SELECT 
+                            ID                            
+                        FROM DAEMYUNG_SSO.TSSO_MEM@DM_DLW_KT                         
+                        GROUP BY ID
+                    ) SSO ON MST.ID = SSO.ID 
+				WHERE 1=1
+				AND MST.ID = #{id}
+	        )
+
+    </select>    
+    
+        <select id="DlwOnlnMngMap.getOnlnPayChgDtlList" parameterType="map" resultType="resultMap">     	
+			SELECT 
+				/* DlwOnlnMngMap.getOnlnPayChgDtlList */
+			    ACCNT_NO,
+			    REG_DTM,
+			    PRCS_YN,
+			    AFT_PMT_GB,
+			    AFT_BANK_CD,
+			    AFT_BANK_NM,
+			    AFT_ACNT_NO,
+			    AFT_CARD_CD,
+			    AFT_CARD_NM,
+			    AFT_CARD_NO,
+			    AFT_CARD_EXPR_YR,
+			    AFT_CARD_EXPR_MM,
+			    AFT_PMT_DAY
+			FROM CM_ACNT_CHNG_PTC    
+			WHERE ID = #{id}
+			ORDER BY REG_DTM DESC
+    </select>    
+    
+    <select id="DlwOnlnMngMap.getOnlnMemChngCount" parameterType="map" resultType="int">
+     	SELECT /* DlwOnlnMngMap.getOnlnMemChngCount */ 
+     	       COUNT(*)
+        FROM MB_MEM_CHNG_PTC
+        WHERE 1=1
+        AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemChngList" parameterType="map" resultType="resultMap">
+     	
+        SELECT /* DlwOnlnMngMap.getOnlnMemChngList */
+               *
+        FROM (
+	        SELECT 
+	     	       ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+	     	       CHNG_SEQ,
+                   ID,
+                   BFR_NAME,
+                   BFR_EMAIL,
+                   BFR_HP,
+                   BFR_TEL,
+                   BFR_ZIPCD,
+                   BFR_ADR,
+                   BFR_ADR_DTL,
+                   AFT_NAME,
+                   AFT_EMAIL,
+                   AFT_HP,
+                   AFT_TEL,
+                   AFT_ZIPCD,
+                   AFT_ADR,
+                   AFT_ADR_DTL,
+                   PRCS_YN,
+                   REG_ID,
+                   REG_IP,
+                   REG_DTM,
+                   MOD_ID,
+                   MOD_IP,
+                   MOD_DTM,
+                   BFR_PWD,
+                   AFT_PWD,
+                   BFR_BIRTH,
+                   AFT_BIRTH
+            FROM MB_MEM_CHNG_PTC
+            WHERE 1=1
+            AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]> 
+        </if>
+    </select>
+    
+        <select id="DlwOnlnMngMap.getOnlnMemberDormancyCnt" parameterType="map" resultType="int">
+        	SELECT 
+        		/* DlwOnlnMngMap.getOnlnMemberDormancyCnt */
+        		COUNT(*)
+            FROM
+            (
+				SELECT 
+				    QM.ID,
+				    QM.NAME,
+				    QM.BIRTH,
+				    QM.UNQ_NO
+				FROM MB_QSCN_MEM_MST QM 
+				WHERE 1=1
+		        	<if test="srch_type == '01'">           
+			   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+			   		</if>
+			   		<if test="srch_type == '02'">           
+			   		 	AND TO_CHAR(LAST_LGN_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			   		</if>
+					<if test="id != null and id != ''">
+						AND ID = #{id}
+					</if>
+					<if test="name != null and name != ''">
+						AND NAME = #{name}
+					</if>
+	        )
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemberDormancyList" parameterType="map" resultType="resultMap">
+     	
+        SELECT /* DlwOnlnMngMap.getOnlnMemberDormancyList */
+               * 
+        FROM 
+        (
+				SELECT  
+					ROW_NUMBER() OVER(ORDER BY QM.ID DESC) PAGE_INDX,
+				    QM.ID,
+				    QM.NAME,
+				    QM.BIRTH,
+				    QM.UNQ_NO
+				FROM MB_QSCN_MEM_MST QM 
+				WHERE 1=1
+           			<if test="srch_type == '01'">           
+			   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+			   		</if>
+			   		<if test="srch_type == '02'">           
+			   		 	AND TO_CHAR(LAST_LGN_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			   		</if>
+					<if test="id != null and id != ''">
+						AND ID = #{id}
+					</if>
+					<if test="name != null and name != ''">
+						AND NAME = #{name}
+					</if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]> 
+        </if>
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemberWdrawCnt" parameterType="map" resultType="int">
+        	SELECT 
+        		/* DlwOnlnMngMap.getOnlnMemberWdrawCnt */
+        		COUNT(*)
+            FROM
+            (
+				SELECT 
+				   ID ,
+				   DROT_RSN ,
+				   DROT_DTM AS REG_DTM
+				FROM MB_DROT_MEM_MST
+				WHERE 1=1
+		        	<if test="srch_type == '01'">           
+			   			AND TO_CHAR(DROT_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+			   		</if>
+		        	<if test="id != null and id != ''">
+						AND ID = #{id}
+					</if>
+	        )
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnMemberWdrawList" parameterType="map" resultType="resultMap">
+     	
+        SELECT /* DlwOnlnMngMap.getOnlnMemberWdrawList */
+               * 
+        FROM 
+        (
+				SELECT  
+				   ROW_NUMBER() OVER(ORDER BY DROT_DTM DESC) PAGE_INDX,
+				   ID ,
+				   DROT_RSN AS REASON, 
+				   DROT_DTM AS REG_DTM
+				FROM MB_DROT_MEM_MST
+				WHERE 1=1
+           			<if test="srch_type == '01'">           
+			   			AND TO_CHAR(DROT_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt} 
+			   		</if>
+		        	<if test="id != null and id != ''">
+						AND ID = #{id}
+					</if>
+        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]> 
+        </if>
+    </select>    
+    
+        <!--  Card 변경 정보 업데이트  -->
+    <update id="DlwOnlnMngMap.updateWebMemInfo" parameterType="map">
+    	/* DlwOnlnMngMap.updateWebMemInfo */
+        UPDATE MB_MEM_MST          	
+           SET 
+           		<if test="gbn == 'insert'">           
+          		UNQ_NO  = #{mem_no}, MOD_DTM  = SYSDATE, MOD_ID =  #{rgsr_id} 
+          		</if>     
+           		<if test="gbn == 'use_y'">           
+          		USE_YN  = #{use_yn}, MOD_DTM  = SYSDATE, MOD_ID =  #{rgsr_id} 
+          		</if>
+          		<if test="gbn == 'use_n'">           
+          		USE_YN  = #{use_yn}, MOD_DTM  = SYSDATE, MOD_ID =  #{rgsr_id} 
+          		</if>            		        
+         WHERE 1=1
+           AND ID = #{id}
+    </update>   
+    
+    <update id="DlwOnlnMngMap.updateWebDormancy" parameterType="map">
+    	/* DlwOnlnMngMap.updateWebDormancy */
+		BEGIN
+			INSERT INTO MB_MEM_MST 
+	         (ID, PWD, UNQ_NO, NAME, SEX,
+	          BIRTH, EMAIL, HP, TEL, ZIPCD,
+	          ADR, ADR_DTL, SMS_RCV_YN, TEL_RCV_YN, CTLG_RCV_YN,
+	          EMAIL_RCV_YN, USE_YN, LAST_LGN_DTM, DROT_YN, DROT_RSN,
+	          DROT_DTM, QSCN_YN, USER_GB, OLD_AUTH_YN, MARKETING_YN,
+	          CI, REG_ID, REG_IP, REG_DTM, MOD_ID, 
+	          MOD_IP, MOD_DTM, TEMP_HP, AGREEMENT_FOR_THIRD_PARTY,
+	          MARKETING_INFO_YN , RETRY , INTR_FIELD)
+		     SELECT 
+		         ID, PWD, UNQ_NO, NAME, SEX,
+		         BIRTH, EMAIL, HP, TEL, ZIPCD,
+		         ADR, ADR_DTL, SMS_RCV_YN, TEL_RCV_YN, CTLG_RCV_YN,
+		         EMAIL_RCV_YN, USE_YN, SYSDATE, DROT_YN, DROT_RSN,
+		         DROT_DTM, 'N', USER_GB, OLD_AUTH_YN, MARKETING_YN,
+		         CI, REG_ID, REG_IP, REG_DTM, 'devadmin',
+		         '0:0:0:0:0:0:0:1', SYSDATE, TEMP_HP, AGREEMENT_FOR_THIRD_PARTY,
+		         MARKETING_INFO_YN, RETRY, INTR_FIELD
+		     FROM MB_QSCN_MEM_MST
+		     WHERE ID =#{id};
+			     
+			 DELETE MB_QSCN_MEM_MST WHERE ID = #{id};   
+			 
+		END; 
+    </update>
+    
+        <select id="DlwOnlnMngMap.getOnlnConsCount" parameterType="map" resultType="int">
+		    SELECT
+		    	/* DlwOnlnMngMap.getOnlnConsCount */
+		    	COUNT(*)
+		    FROM
+		    (
+			    SELECT 
+			        MST.PRSN_CNSL_SEQ,
+			        MAX(CASE WHEN TASK_GB = 'R' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CHECK_DT,
+			        MAX(CASE WHEN TASK_GB = 'A' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS REPLY_DT,
+			        MAX(CASE WHEN TASK_GB = 'S' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CONFIRM_DT
+			    FROM CS_PRSN_CNSL_MST MST LEFT OUTER JOIN    
+			        CS_PRSN_CNSL_LOG PCL ON MST.PRSN_CNSL_SEQ = PCL.PRSN_CNSL_SEQ
+			    WHERE 1=1
+			        <if test="id != null and id != ''">
+						AND ID = #{id}
+					</if>
+					<if test="prcs_cd != null and prcs_cd != ''">
+						AND MST.PRCS_CD = #{prcs_cd}
+					</if>
+					<if test="search_gbn == '01'">           
+			   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+			   		</if>
+			    GROUP BY MST.PRSN_CNSL_SEQ 
+		    ) TBL 
+		    WHERE 1=1
+	   		<if test="search_gbn == '02'">           
+	   		 	AND CONFIRM_DT BETWEEN #{stt_dt} AND #{end_dt}
+	   		</if> 
+    </select>
+    
+    <select id="DlwOnlnMngMap.getOnlnConsList" parameterType="map" resultType="resultMap">
+     	
+        	SELECT   
+        		/* DlwOnlnMngMap.getOnlnConsList */
+               *
+        	FROM 
+        	(
+		        SELECT 
+					  ROW_NUMBER() OVER(ORDER BY MST.REG_DTM DESC) PAGE_INDX,				
+				    MST.PRSN_CNSL_SEQ,
+				    MST.ID,
+				    MST.INQRY_CD,
+				    (SELECT CD_NM FROM CO_CD_DTL WHERE CD_ID = 'PRSN_INQRY_GB' AND CD = MST.INQRY_CD) AS INQRY_NM,
+				    MST.INQRY_DTL_CD,
+				    (SELECT CD_NM FROM CO_CD_DTL WHERE CD_ID = 'PRSN_INQRY_DTL_GB' AND CD = MST.INQRY_DTL_CD) AS INQRY_DTL_NM,
+				    MST.TITL,
+				    TO_CHAR(SUBSTR(MST.CNTN, 1, 4000)) AS CNTN,
+				    TO_CHAR(SUBSTR(MST.ANSW, 1, 4000)) AS ANSW,
+				    MST.PRCS_CD,
+				    (SELECT CD_NM FROM CO_CD_DTL WHERE CD_ID = 'PROCESS_TYPE' AND CD = MST.PRCS_CD) AS PRCS_NM,
+				    MST.REG_DTM,
+				    MB.NAME,
+				    MB.EMAIL,
+				    MB.HP,
+				    TBL.CHECK_USER,
+				    TBL.CHECK_DT,
+				    TBL.REPLY_USER,
+				    TBL.REPLY_DT,
+				    TBL.CONFIRM_USER,
+				    TBL.CONFIRM_DT
+				FROM
+				(
+				    SELECT 
+				        MST.PRSN_CNSL_SEQ,
+				        MAX(CASE WHEN TASK_GB = 'R' THEN PCL.MOD_ID ELSE '' END) AS CHECK_USER,
+				        MAX(CASE WHEN TASK_GB = 'R' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CHECK_DT,
+				        MAX(CASE WHEN TASK_GB = 'A' THEN PCL.MOD_ID ELSE '' END) AS REPLY_USER,
+				        MAX(CASE WHEN TASK_GB = 'A' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS REPLY_DT,
+				        MAX(CASE WHEN TASK_GB = 'S' THEN PCL.MOD_ID ELSE '' END) AS CONFIRM_USER,
+				        MAX(CASE WHEN TASK_GB = 'S' THEN TO_CHAR(PCL.MOD_DTM,'YYYYMMDDHH24MISS') ELSE '' END) AS CONFIRM_DT
+				    FROM CS_PRSN_CNSL_MST MST LEFT OUTER JOIN    
+				        CS_PRSN_CNSL_LOG PCL ON MST.PRSN_CNSL_SEQ = PCL.PRSN_CNSL_SEQ
+				    WHERE 1=1
+				        <if test="id != null and id != ''">
+							AND ID = #{id}
+						</if>
+						<if test="prcs_cd != null and prcs_cd != ''">
+							AND MST.PRCS_CD = #{prcs_cd}
+						</if>
+						<if test="search_gbn == '01'">           
+				   			AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+				   		</if>
+				    GROUP BY MST.PRSN_CNSL_SEQ   
+				) TBL INNER JOIN 
+				    CS_PRSN_CNSL_MST MST ON MST.PRSN_CNSL_SEQ = TBL.PRSN_CNSL_SEQ LEFT OUTER JOIN
+				    MB_MEM_MST MB ON MST.ID = MB.ID AND MB.USE_YN = 'Y'
+				    WHERE 1=1
+			   		<if test="search_gbn == '02'">           
+			   		 	AND CONFIRM_DT BETWEEN #{stt_dt} AND #{end_dt}
+			   		</if> 
+	        )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>   
+	
+    <insert id="DlwOnlnMngMap.insertOnlnConsLog" parameterType="map">
+    	/* DlwOnlnMngMap.insertOnlnConsLog */
+        INSERT INTO CS_PRSN_CNSL_LOG(PRSN_CNSL_SEQ, TASK_GB, MOD_ID, MOD_IP, MOD_DTM)
+        VALUES (#{prsn_cnsl_seq}, #{task_gb}, #{rgsr_id}, #{uip}, SYSDATE)
+    </insert>
+    
+    <update id="DlwOnlnMngMap.updateOnlnConsMst" parameterType="map">
+    	/* DlwOnlnMngMap.updateOnlnConsMst */
+        UPDATE CS_PRSN_CNSL_MST
+        SET PRCS_CD = #{prcs_cd}
+           ,ANSW = #{answ}
+           ,MOD_ID = #{rgsr_id}
+           ,MOD_IP = #{uip}
+           ,MOD_DTM = SYSDATE
+        WHERE PRSN_CNSL_SEQ = #{prsn_cnsl_seq}
+    </update>   
+</mapper>

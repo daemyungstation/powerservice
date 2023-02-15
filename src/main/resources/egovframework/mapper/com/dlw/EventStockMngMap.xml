@@ -1,0 +1,1502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="EventStockMngMap">
+
+    <delete id="EventStockMngMap.deleteEvtRptWhInDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteEvtRptWhInDtl */
+          FROM WH_IN_DTL
+         WHERE WH_IN_NO IN (SELECT WH_IN_NO
+                                                      FROM WH_MV_MST
+                                                     WHERE WH_OUT_NO IN (SELECT WH_OUT_NO
+                                                                          FROM WH_OUT_MST
+                                                                         WHERE OUT_CL = '0002'
+                                                                           AND RPT_NO = #{rpt_no}))
+    </delete>
+
+
+    <delete id="EventStockMngMap.deleteEvtRptWhMvDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteEvtRptWhMvDtl */
+          FROM WH_MV_DTL WHERE WH_MV_NO IN (SELECT WH_MV_NO
+                                                      FROM WH_MV_MST
+                                                     WHERE WH_OUT_NO IN (SELECT WH_OUT_NO
+                                                                          FROM WH_OUT_MST
+                                                                         WHERE OUT_CL = '0002'
+                                                                           AND RPT_NO = #{rpt_no}))
+    </delete>
+
+
+    <delete id="EventStockMngMap.deleteEvtRptWhOutDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteEvtRptWhOutDtl */
+          FROM WH_OUT_DTL
+         WHERE WH_OUT_NO IN (SELECT WH_OUT_NO
+                               FROM WH_OUT_MST
+                              WHERE OUT_CL = '0002'
+                                AND RPT_NO = #{rpt_no})
+    </delete>
+
+
+    <!--
+    TODO : JCY
+    삭제하면 안됨..확인 후 삭제 필요
+    <delete id="EventStockMngMap.deleteOrdDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteOrdDtl */
+          FROM ORD_DTL
+        FROM ord_dtl od
+        LEFT JOIN wh_in_dtl wd ON od.ord_no=wd.ord_no AND od.dtl_no = wd.dtl_no
+        WHERE 1=1
+        AND od.ord_no= #{ord_no}
+        AND nvl(wd.qty,0) = 0
+        <if test="dtl_no != null and dtl_no != ''">
+            AND od.dtl_no = #{dtl_no}
+        </if>
+    </delete> -->
+    <delete id="EventStockMngMap.deleteOrdDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteOrdDtl */
+          FROM ORD_DTL
+         WHERE ORD_NO = #{ord_no}
+        <if test="dtl_no != null and dtl_no != ''">
+            AND DTL_NO = #{dtl_no}
+        </if>
+    </delete>
+
+
+    <delete id="EventStockMngMap.deleteStockClose" parameterType="map">
+        DELETE /* EventStockMngMap.deleteStockClose */
+          FROM stock_close
+        WHERE close_yymm = #{close_yymm}
+    </delete>
+
+    <delete id="EventStockMngMap.deleteStockInspectDtl" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteStockInspectDtl */
+               STOCK_INSPECT_DTL
+           SET del_fg ='Y'
+            , upd_dm = SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE stock_inspect_no =  #{stock_inspect_no}
+        AND del_fg='N'
+    </delete>
+
+    <delete id="EventStockMngMap.deleteWhInDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteWhInDtl */
+          FROM wh_in_dtl
+        WHERE 1=1
+        <if test="ord_no != null and ord_no != ''">
+            AND ord_no= #{ord_no}
+            <if test="dtl_no != null and dtl_no != ''">
+                AND dtl_no = #{dtl_no}
+            </if>
+        </if>
+        <if test="ord_no == null or ord_no == ''">
+            AND wh_in_no= #{wh_in_no}
+            AND ord_no is null
+        </if>
+    </delete>
+
+    <delete id="EventStockMngMap.deleteWhInDtlByWhInNo" parameterType="map">
+        DELETE /* EventStockMngMap.deleteWhInDtlByWhInNo */
+          FROM wh_in_dtl
+        WHERE wh_in_no = #{wh_in_no}
+    </delete>
+
+    <delete id="EventStockMngMap.deleteWhInDtl1" parameterType="map">
+    /* sql-task.xml [기존 입고 상세 내역 삭제] ID : task.deleteWhInDtl1 작성자 : 임병근 2013_12_13  */
+        DELETE /* EventStockMngMap.deleteWhInDtl1 */
+          FROM WH_IN_DTL
+         WHERE WH_IN_NO IN (SELECT WH_IN_NO FROM WH_IN_MST WHERE RPT_NO = #{rpt_no} AND IN_CL = '0001')
+    </delete>
+
+    <delete id="EventStockMngMap.deleteWhMvDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteWhMvDtl */
+          FROM wh_mv_dtl
+         WHERE wh_mv_no = #{wh_mv_no}
+    </delete>
+
+    <delete id="EventStockMngMap.deleteWhOutDtl" parameterType="map">
+        DELETE /* EventStockMngMap.deleteWhOutDtl */
+          FROM wh_out_dtl
+         WHERE 1=1
+           AND wh_out_no = #{wh_out_no}
+    </delete>
+
+    <update id="EventStockMngMap.deleteEvtRptWhMv" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteEvtRptWhMv */
+               WH_MV_MST
+           SET DEL_FG = 'Y'
+         WHERE WH_OUT_NO IN (SELECT WH_OUT_NO
+                                                                    FROM WH_OUT_MST
+                                                                   WHERE OUT_CL = '0002'
+                                                                     AND DEL_FG = 'N'
+                                                                     AND RPT_NO = #{rpt_no})
+    </update>
+
+    <update id="EventStockMngMap.deleteEvtRptWhOut" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteEvtRptWhOut */
+               WH_OUT_MST
+           SET DEL_FG = 'Y'
+         WHERE OUT_CL = '0002'
+           AND DEL_FG = 'N'
+           AND RPT_NO = #{rpt_no}
+    </update>
+
+    <update id="EventStockMngMap.deleteOrdMst" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteOrdMst */
+               ord_mst
+           set del_fg ='Y'
+            , upd_dm = SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE ord_no = #{ord_no}
+    </update>
+
+    <update id="EventStockMngMap.deleteStockInspectMst" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteStockInspectMst */
+               stock_inspect_mst SET
+            del_fg ='Y'
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE stock_inspect_no =  #{stock_inspect_no}
+        AND del_fg='N'
+    </update>
+
+    <update id="EventStockMngMap.deleteWhInMst" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteWhInMst */
+               wh_in_mst
+           set del_fg ='Y'
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE wh_in_no = #{wh_in_no}
+    </update>
+
+    <update id="EventStockMngMap.deleteWhMvMst" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteWhMvMst */
+               wh_mv_mst
+           set del_fg ='Y'
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE wh_mv_no = #{wh_mv_no}
+        AND del_fg='N'
+    </update>
+
+    <update id="EventStockMngMap.deleteWhOutMst" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteWhOutMst */
+               wh_out_mst set
+            del_fg ='Y'
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE wh_out_no = #{wh_out_no}
+        AND del_fg='N'
+    </update>
+
+    <update id="EventStockMngMap.updateOrdMst" parameterType="map">
+    /* sql-task.xml [발주정보 수정] ID : task.updateOrdMst 작성자 : 김은진 2013_09_09  */
+        UPDATE /* EventStockMngMap.updateOrdMst */
+               ord_mst
+           SET ord_dt = #{ord_dt}
+             , custmr_charg_nm = #{custmr_charg_nm}
+             , custmr_cd = #{custmr_cd}
+             , eff_dt = #{eff_dt}
+             , emple_no = #{emple_no}
+             , ord_cl = #{ord_cl}
+             <if test="vat != null and vat != ''">
+             , vat = replace(#{vat},',','')
+             </if>
+
+             <if test="amt != null and amt != ''">
+             , amt = replace(#{amt},',','')
+             </if>
+
+             <if test="tot_amt != null and tot_amt != ''">
+             , tot_amt = replace(#{tot_amt},',','')
+             </if>
+
+             <if test="note != null and note != ''">
+             , note = #{note}
+             </if>
+
+             , upd_dm = SYSDATE
+             , upd_man = #{rgsr_id}
+
+            <if test="proc_stat != null and proc_stat != ''">
+                , proc_stat = #{proc_stat}
+            </if>
+        WHERE ord_no = #{ord_no}
+    </update>
+
+    <!-- /* sql-task.xml [발주관리 - 입고처리] ID : task.updateOrdMstProcStat 작성자 : 김은진 2013_09_16  */ -->
+    <update id="EventStockMngMap.updateOrdMstProcStat" parameterType="map">
+     UPDATE /* EventStockMngMap.updateOrdMstProcStat */
+            ord_mst
+        SET proc_stat = FN_ORD_MST_STAT(#{ord_no})
+          , upd_dm = SYSDATE
+          , upd_man = #{rgsr_id}
+     WHERE ord_no =#{ord_no}
+    </update>
+
+    <update id="EventStockMngMap.deleteEvtRptWhIn" parameterType="map">
+        UPDATE /* EventStockMngMap.deleteEvtRptWhIn */
+               WH_IN_MST
+           SET DEL_FG = 'Y'
+         WHERE WH_IN_NO IN (SELECT WH_IN_NO
+                                                                   FROM WH_MV_MST
+                                                                  WHERE WH_OUT_NO IN (SELECT WH_OUT_NO
+                                                                                        FROM WH_OUT_MST
+                                                                                       WHERE OUT_CL = '0002'
+                                                                                         AND DEL_FG = 'N'
+                                                                                         AND RPT_NO = #{rpt_no}))
+    </update>
+
+
+    <update id="EventStockMngMap.updateStockInspectMst" parameterType="map">
+        UPDATE /* EventStockMngMap.updateStockInspectMst */
+               stock_inspect_mst SET
+             inspect_dt = #{inspect_dt}
+            , wh_cd = #{wh_cd}
+            , note = #{note}
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE stock_inspect_no =  #{stock_inspect_no}
+        AND del_fg='N'
+    </update>
+
+
+    <update id="EventStockMngMap.updateWhInMst" parameterType="map">
+        UPDATE /* EventStockMngMap.updateWhInMst */
+               wh_in_mst set
+            in_dt = #{in_dt}
+            , emple_no = #{emple_no}
+            , in_cl = #{in_cl}
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE wh_in_no = #{wh_in_no}
+        AND del_fg='N'
+    </update>
+
+
+    <update id="EventStockMngMap.updateWhMvMst" parameterType="map">
+        UPDATE /* EventStockMngMap.updateWhMvMst */
+               wh_mv_mst set
+            mv_dt = #{mv_dt}
+            , emple_no = #{emple_no}
+            , out_wh_cd = #{out_wh_cd}
+            , in_wh_cd = #{in_wh_cd}
+            <if test="note != null and note != ''">
+            , note	= #{note}
+            </if>
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE wh_mv_no = #{wh_mv_no}
+        AND del_fg='N'
+    </update>
+
+    <update id="EventStockMngMap.updateWhOutMst" parameterType="map">
+        UPDATE /* EventStockMngMap.updateWhOutMst */
+        wh_out_mst set
+            out_dt = #{out_dt}
+            , emple_no = #{emple_no}
+            , out_cl = #{out_cl}
+            , upd_dm =SYSDATE
+            , upd_man = #{rgsr_id}
+        WHERE wh_out_no = #{wh_out_no}
+        AND del_fg='N'
+    </update>
+
+    <!--
+        발주품목 입력
+        asis : task.updateOrdDtl
+    -->
+    <insert id="EventStockMngMap.insertOrdDtl" parameterType="map">
+        INSERT /* EventStockMngMap.insertOrdDtl */
+          INTO ORD_DTL
+        (
+            ord_no
+            , dtl_no
+            , wh_cd
+            , deadline_dt
+            , gds_cd
+            , qty
+            , qty_unit
+            , unit_cost
+            , amt
+            , vat
+            , tot_amt
+            , note
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+            , vat_yn
+        )  SELECT
+            #{ord_no}
+            , nvl(max(dtl_no),1)+1
+            , #{wh_cd}
+            , #{deadline_dt}
+            , #{gds_cd}
+            , replace(#{qty},',','')
+            , #{qty_unit}
+            , replace(#{unit_cost},',','')
+            , replace(#{amt},',','')
+            , replace(#{vat},',','')
+            , replace(#{tot_amt},',','')
+            , #{note}
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+            , #{vat_yn}
+        FROM ord_dtl
+        WHERE ord_no = #{ord_no}
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertOrdMst" parameterType="map">
+    /* sql-task.xml [발주정보 입력] ID : task.insertOrdMst 작성자 : 김은진 2013_09_09  */
+        INSERT /* EventStockMngMap.insertOrdMst */
+        INTO ORD_MST
+        (
+          ord_no
+          , ord_dt
+          , custmr_cd
+          , custmr_charg_nm
+          , eff_dt
+          , emple_no
+          , ord_cl
+          , vat
+          , amt
+          , tot_amt
+          , note
+          , reg_dm
+          , reg_man
+          , upd_dm
+          , upd_man
+          , proc_stat
+          , del_fg
+          , RPT_NO
+        ) SELECT
+            #{ord_no}
+          , #{ord_dt}
+          , #{custmr_cd}
+          , #{custmr_charg_nm}
+          , #{eff_dt}
+          , #{emple_no}
+          , #{ord_cl}
+          , replace(#{vat},',','')
+          , replace(#{amt},',','')
+          , replace(#{tot_amt},',','')
+          , #{note}
+          , SYSDATE
+          , #{rgsr_id}
+          , SYSDATE
+          , #{rgsr_id}
+          , NVL(#{proc_stat}, '0001') /* 발주 */
+          , 'N'
+          , #{rpt_no}
+      FROM DUAL
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertStockClose" parameterType="map">
+        INSERT /* EventStockMngMap.insertStockClose */
+        INTO stock_close (
+            close_yymm
+            , wh_cd
+            , gds_cd
+            , carried_qty
+            , in_qty
+            , out_qty
+            , stock_qty
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+        ) SELECT
+             #{close_yymm}
+            , #{wh_cd}
+            , #{gds_cd}
+            , #{carried_qty}
+            , #{in_qty}
+            , #{out_qty}
+            , #{stock_qty}
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertStockInspectDtl" parameterType="map">
+        INSERT /* EventStockMngMap.insertStockInspectDtl */
+        INTO STOCK_INSPECT_DTL (
+          stock_inspect_no
+          , dtl_seq
+          , gds_cd
+          , inspect_qty
+          , reg_dm
+          , reg_man
+          , upd_dm
+          , upd_man
+          , del_fg
+        )
+          SELECT
+              #{stock_inspect_no}
+            , ( SELECT nvl(max(dtl_seq),0)+1 FROM stock_inspect_dtl WHERE stock_inspect_no = #{stock_inspect_no} )
+            , #{gds_cd}
+            , replace(#{inspect_qty},',','')
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+            , 'N'
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertStockInspectMst" parameterType="map">
+        INSERT /* EventStockMngMap.insertStockInspectMst */
+        INTO STOCK_INSPECT_MST (
+          stock_inspect_no
+          , inspect_dt
+          , wh_cd
+          , note
+          , reg_dm
+          , reg_man
+          , upd_dm
+          , upd_man
+          , del_fg
+        )
+          SELECT
+              #{stock_inspect_no}
+            , #{inspect_dt}
+            , #{wh_cd}
+            , #{note}
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+            , 'N'
+    </insert>
+
+    <insert id="EventStockMngMap.insertWhInDtl" parameterType="map">
+        INSERT /* EventStockMngMap.insertWhInDtl */
+        INTO wh_in_dtl (
+            wh_in_no
+            , dtl_seq
+            , wh_cd
+            , gds_cd
+            , qty
+            , qty_unit
+            , unit_cost
+            , amt
+            , note
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+            , ord_no
+            , dtl_no
+        ) SELECT
+             #{wh_in_no}
+            , ( SELECT nvl(max(dtl_seq),0)+1 FROM wh_in_dtl WHERE wh_in_no = #{wh_in_no} )
+            , #{wh_cd}
+            , #{gds_cd}
+            , #{qty}
+            , #{qty_unit}
+            , replace(#{unit_cost},',','')
+            , COALESCE(replace(#{tot_amt},',',''), replace(#{amt},',',''))
+            , #{note}
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+            , #{ord_no}
+            , #{dtl_no}
+          FROM DUAL
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertWhInMst" parameterType="map">
+        INSERT /* EventStockMngMap.insertWhInMst */
+        INTO WH_IN_MST (
+            wh_in_no
+            , in_cl
+            , in_dt
+            , emple_no
+            , del_fg
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+            , RPT_NO
+        )  SELECT
+                #{wh_in_no}
+                , #{in_cl}
+                , #{in_dt}
+                , #{emple_no}
+                , 'N'
+                , SYSDATE
+                , #{rgsr_id}
+                , SYSDATE
+                , #{rgsr_id}
+                , #{rpt_no}
+          FROM DUAL
+    </insert>
+
+    <insert id="EventStockMngMap.insertWhMvDtl" parameterType="map">
+        INSERT /* EventStockMngMap.insertWhMvDtl */
+        INTO wh_mv_dtl (
+            wh_mv_no
+            , dtl_seq
+            , gds_cd
+            , qty
+            , qty_unit
+            , unit_cost
+            , amt
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+        ) SELECT
+             #{wh_mv_no}
+            , ( SELECT nvl(max(dtl_seq),0)+1 FROM wh_mv_dtl WHERE wh_mv_no = #{wh_mv_no} )
+            , #{gds_cd}
+            , replace(#{qty},',','')
+            , #{qty_unit}
+            , replace(#{unit_cost},',','')
+            , replace(#{amt},',','')
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+          FROM DUAL
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertWhMvMst" parameterType="map">
+        INSERT /* EventStockMngMap.insertWhMvMst */
+        INTO wh_mv_mst (
+            wh_mv_no
+            , wh_out_no
+            , wh_in_no
+            , mv_dt
+            , emple_no
+            , del_fg
+            , out_wh_cd
+            , in_wh_cd
+            , note
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+        )
+        SELECT #{wh_mv_no}
+                , #{wh_out_no}
+                , #{wh_in_no}
+                , #{mv_dt}
+                , #{emple_no}
+                , 'N'
+                , #{out_wh_cd}
+                , #{in_wh_cd}
+                , #{note}
+                , SYSDATE
+                , #{rgsr_id}
+                , SYSDATE
+                , #{rgsr_id}
+          FROM DUAL
+    </insert>
+
+
+    <insert id="EventStockMngMap.insertWhOutDtl" parameterType="map">
+        INSERT /* EventStockMngMap.insertWhOutDtl */
+        INTO wh_out_dtl (
+            wh_out_no
+            , dtl_seq
+            , wh_cd
+            , gds_cd
+            , qty
+            , qty_unit
+            , unit_cost
+            , amt
+            , note
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+        ) SELECT
+             #{wh_out_no}
+            , ( SELECT nvl(max(dtl_seq),0)+1 FROM wh_out_dtl WHERE wh_out_no = #{wh_out_no} )
+            , #{wh_cd}
+            , #{gds_cd}
+            , #{qty}
+            , #{qty_unit}
+            , replace(#{unit_cost},',','')
+            , replace(#{amt},',','')
+            <!-- , replace(#{tot_amt},',','') -->
+            , #{note}
+            , SYSDATE
+            , #{rgsr_id}
+            , SYSDATE
+            , #{rgsr_id}
+          FROM DUAL
+    </insert>
+
+    <insert id="EventStockMngMap.insertWhOutMst" parameterType="map">
+        INSERT /* EventStockMngMap.insertWhOutMst */
+        INTO wh_out_mst (
+            wh_out_no
+            , out_cl
+            , out_dt
+            , emple_no
+            , del_fg
+            , reg_dm
+            , reg_man
+            , upd_dm
+            , upd_man
+            , rpt_no
+            , funrl_outsrc_no
+        )  SELECT
+                #{wh_out_no}
+                , #{out_cl}
+                , #{out_dt}
+                , #{emple_no}
+                , 'N'
+                , SYSDATE
+                , #{rgsr_id}
+                , SYSDATE
+                , #{rgsr_id}
+                , #{rpt_no}
+                , #{funrl_outsrc_no}
+          FROM DUAL
+    </insert>
+
+    <select id="EventStockMngMap.selectGoodsComList" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [품목팝업] ID : task.selectGoodsComList 작성자 : 김은진 2013_09_04  */
+        SELECT /* EventStockMngMap.selectGoodsComList */
+            mst.GDS_CD
+            , mst.real_gds_cd
+            , mst.GDS_NM
+            , mst.unit
+              , mst.standard
+              , nvl(sc.stock_qty,0) stock_qty
+              , nvl(bc.buying_cost,0) buying_cost
+              , case when mst.real_gds_cd = 'BD00001'
+                     then 0
+                   else nvl(bc.buying_cost,0)
+              end buying_cost
+              <!-- 도우미 인경우에만 사용하는 컬럼 -->
+            <if test="seq != null and seq != ''">
+              , case when mst.real_gds_cd = 'BD00001'
+                     then nvl((SELECT COUNT(*)
+                           FROM (
+                         SELECT EVT_MNGR_CD
+                           FROM EVENT_MNGR_REG
+                          WHERE DEL_FG = 'N'
+                            AND EVT_MNGR_GUBUN = '0003'
+                            AND EVT_SEQ = #{seq}
+                         GROUP BY EVT_MNGR_CD) TBL), 0)
+                   else 0
+              end qty
+            </if>
+
+            <if test="seq == null or seq == ''">
+            , 0 qty
+            </if>
+
+
+            <if test="seq != null and seq != ''">
+            , case when mst.real_gds_cd = 'BD00001'
+                     then nvl((SELECT SUM(PAY_AMT + PAY_ADD_AMT)
+                           FROM EVENT_MNGR_REG
+                          WHERE DEL_FG = 'N'
+                            AND EVT_MNGR_GUBUN = '0003'
+                            AND EVT_SEQ = #{seq}), 0)
+                   else 0
+              end amt
+            </if>
+
+            <if test="seq == null or seq == ''">
+            , 0 amt
+            </if>
+            , vat_yn
+        FROM EVENT_GOODS_MNG_MST mst
+        LEFT JOIN(
+             SELECT  gds_cd FROM event_goods_mng_dtl WHERE del_fg='N' GROUP BY gds_cd
+        ) dtl on mst.GDS_CD = dtl.GDS_CD
+        LEFT JOIN
+        (
+            SELECT gds_cd, buying_cost buying_cost
+                 , vat_yn
+             FROM event_goods_mng_dtl
+             WHERE del_fg='N'
+
+            <if test="chk_dt != null and chk_dt != ''">
+                AND #{chk_dt} between case when bis_start_dt is null then '1900/01/01' else bis_start_dt end and case when bis_end_dt is null then '9999/12/31' else bis_end_dt end
+            </if>
+
+
+            <if test="chk_dt == null or chk_dt == ''">
+                AND SYSDATE between case when bis_start_dt is null then '1900/01/01' else bis_start_dt end and case when bis_end_dt is null then '9999/12/31' else bis_end_dt end
+            </if>
+
+            <if test="custmr_cd != null and custmr_cd != ''">
+                  AND buying_com = #{custmr_cd}
+              </if>
+
+
+        )bc on bc.gds_cd = mst.gds_cd
+          left join
+        (
+            SELECT
+               io.gds_cd
+              , stock_qty = (sum(carried_qty)+sum(in_qty) - sum(out_qty))
+            FROM
+            (
+             SELECT
+              wd.gds_cd gds_cd
+                , sum(qty) in_qty
+                , 0 as out_qty
+                , 0 as carried_qty
+              FROM wh_in_dtl wd
+              join wh_in_mst wm on wd.WH_IN_NO = wm.WH_IN_NO
+              WHERE wm.del_fg='N'
+
+                <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND substr(wm.in_dt,1,6) = substr(#{inspect_dt},1,6)
+                </if>
+
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND substr(wm.in_dt,1,6) = to_char(SYSDATE,'YYYYMM')
+                </if>
+
+              GROUP BY wd.gds_cd
+
+              UNION ALL
+              SELECT
+                wd.gds_cd gds_cd
+                , 0 as in_qty
+                , sum(qty) out_qty
+                , 0 as carried_qty
+              FROM wh_out_dtl wd
+              join wh_out_mst wm on wd.WH_out_NO = wm.WH_out_NO
+              WHERE wm.del_fg='N'
+
+
+                <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND substr(wm.out_dt,1,6)= substr(#{inspect_dt},1,6)
+                </if>
+
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND substr(wm.out_dt,1,6) = TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+              GROUP BY wd.gds_cd
+              UNION ALL
+              SELECT
+               sc.gds_cd gds_cd
+                , 0 as in_qty
+                , 0 as out_qty
+                , sum(stock_qty) carried_qty
+              FROM stock_close sc
+              WHERE 1=1
+                  <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND sc.close_yymm = substr(#{inspect_dt},1,6)
+                </if>
+
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND sc.close_yymm= TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+
+              GROUP BY gds_cd
+            )io
+            GROUP BY io.gds_cd
+         )sc on mst.gds_cd=sc.gds_cd
+        WHERE mst.DEL_FG = 'N'
+        AND (SELECT count(*) FROM EVENT_GOODS_MNG_MST where del_fg='N' AND high_eg_cd=mst.gds_cd)=0
+        AND mst.STOCK_MNG_YN='Y'
+
+        <if test="gds_cd != null and gds_cd != ''">
+            AND mst.real_gds_cd like '%' || #{gds_cd} ||'%'
+        </if>
+
+        <if test="gds_nm != null and gds_nm != ''">
+            AND mst.gds_nm like '%'|| #{gds_nm} ||'%'
+        </if>
+
+        <if test="sch_cl != null and sch_cl != ''">
+            <if test="sch_cl == 'funrlHall'">
+            AND left(mst.real_gds_cd, 1) != 'A'
+            </if>
+        </if>
+
+    </select>
+
+
+    <select id="EventStockMngMap.selectIOWhList" parameterType="map" resultType="resultMap">
+        SELECT /* EventStockMngMap.selectIOWhList */
+            #{close_yymm} AS CLOSE_YYMM
+          , io.wh_cd
+          , io.gds_cd
+          , sum(carried_qty) as carried_qty
+          , sum(in_qty) as in_qty
+          , sum(out_qty) as out_qty
+          , stock_qty = (sum(carried_qty)+sum(in_qty) - sum(out_qty))
+        FROM
+        (
+         SELECT
+            wd.wh_cd
+              , wd.gds_cd
+            , sum(qty) in_qty
+            , 0 as out_qty
+            , 0 as carried_qty
+            , nvl((SELECT A.STOCK_MNG_YN FROM EVENT_GOODS_MNG_MST A WHERE A.GDS_CD = wd.gds_cd), 'N') stock_mng_yn
+          FROM wh_in_dtl wd
+          join wh_in_mst wm on wd.WH_IN_NO = wm.WH_IN_NO
+          WHERE wm.del_fg='N'
+          AND substr(wm.in_dt,1,6) =#{close_yymm}
+          GROUP BY wd.gds_cd, wd.wh_cd
+          UNION ALL
+          SELECT
+            wd.wh_cd
+              , wd.gds_cd
+            , 0 as in_qty
+            , sum(qty) out_qty
+            , 0 as carried_qty
+            , nvl((SELECT A.STOCK_MNG_YN FROM EVENT_GOODS_MNG_MST A WHERE A.GDS_CD = wd.gds_cd), 'N') stock_mng_yn
+          FROM wh_out_dtl wd
+          join wh_out_mst wm on wd.WH_out_NO = wm.WH_out_NO
+          WHERE wm.del_fg='N'
+          AND substr(wm.out_dt,1,6) =#{close_yymm}
+          GROUP BY wd.gds_cd, wd.wh_cd
+          UNION ALL
+          SELECT
+            sc.wh_cd
+              , sc.gds_cd
+            , 0 as in_qty
+            , 0 as out_qty
+            , sum(stock_qty) carried_qty
+            , nvl((SELECT A.STOCK_MNG_YN FROM EVENT_GOODS_MNG_MST A WHERE A.GDS_CD = sc.gds_cd), 'N') stock_mng_yn
+          FROM stock_close sc
+          WHERE TO_CHAR(ADD_MONTHS(TO_DATE(sc.close_yymm||'01', 'YYYYMMDD'),1), 'YYYYMM') = #{close_yymm}
+          GROUP BY gds_cd, wh_cd
+        )io
+        where io.stock_mng_yn = 'Y'
+        GROUP BY io.gds_cd, io.wh_cd
+        ORDER BY io.gds_cd, io.wh_cd
+
+    </select>
+
+
+    <!-- /* sql-task.xml [입고상세조회] ID : task.selectInWhDtlInfo 작성자 : 김은진 2013_09_27  */ -->
+    <select id="EventStockMngMap.selectInWhDtlInfo" parameterType="map" resultType="resultMap">
+        SELECT /* EventStockMngMap.selectInWhDtlInfo */
+            wd.wh_in_no
+            , wd.dtl_seq
+            , wd.wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = wd.wh_cd) wh_nm
+            , wd.gds_cd
+            , (SELECT standard FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) standard
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) gds_nm
+            , wd.qty_unit
+            , wd.qty
+            , wd.unit_cost
+            , wd.amt
+            , wd.note
+            , wd.ord_no
+            , wm.emple_no
+            , fn_emple_nm(wm.emple_no) emple_nm
+            , wm.in_dt
+            , om.custmr_cd
+            , (SELECT custmr_nm FROM custmr_mng WHERE del_fg='N' AND custmr_cd = om.custmr_cd) custmr_nm
+            , fn_com_nm('0150', wm.in_cl) in_cl_nm
+            , wm.in_cl
+        FROM wh_in_dtl wd
+        LEFT JOIN ord_mst om ON wd.ord_no = om.ord_no AND om.del_fg='N'
+        JOIN wh_in_mst wm ON wm.wh_in_no = wd.wh_in_no	AND wm.del_fg='N'
+        WHERE 1=1
+          AND wd.wh_in_no = #{wh_in_no}
+        order by wd.wh_in_no
+               , wm.in_dt desc
+    </select>
+
+
+    <!-- /* sql-task.xml [입고 조회] ID : task.selectInWhList 작성자 : 김은진 2013_09_24  */ -->
+    <select id="EventStockMngMap.selectInWhList" parameterType="map" resultType="resultMap">
+        SELECT /* EventStockMngMap.selectInWhList */
+            wd.wh_in_no
+            , wd.dtl_seq
+            , wd.wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = wd.wh_cd) wh_nm
+            , wd.gds_cd
+            , (SELECT standard FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) standard
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) gds_nm
+            , wd.qty_unit
+            , wd.qty
+            , wd.unit_cost
+            , wd.amt
+            , wd.note
+            , wd.ord_no
+            , om.custmr_cd
+            , (SELECT custmr_nm FROM custmr_mng WHERE del_fg='N' AND custmr_cd = om.custmr_cd) custmr_nm
+            , wm.in_dt
+            , fn_com_nm('0150', wm.in_cl) in_cl_nm
+            , wm.in_cl
+            , wm.emple_no
+            , fn_emple_nm(wm.emple_no) emple_nm
+            , nvl((SELECT wh_nm
+                     FROM warehouse_mng
+                    WHERE wh_cd = (SELECT WH_CD
+                                     FROM WH_OUT_DTL B
+                                    WHERE B.GDS_CD = wd.GDS_CD
+                                      AND B.QTY = wd.QTY
+                                      AND B.WH_OUT_NO = (SELECT A.WH_OUT_NO
+                                                             FROM WH_MV_MST A
+                                                            WHERE A.WH_IN_NO = wd.WH_IN_NO
+                                                              and A.DEL_FG = 'N')
+                                      AND ROWNUM = 1)), '') wh_out_nm
+        FROM wh_in_dtl wd
+        LEFT JOIN ord_mst om ON wd.ord_no = om.ord_no AND om.del_fg='N'
+        JOIN wh_in_mst wm ON wm.wh_in_no = wd.wh_in_no	AND wm.del_fg='N'
+        WHERE 1=1
+        <if test="wh_in_no != null and wh_in_no != ''">
+            AND wd.wh_in_no = #{wh_in_no}
+        </if>
+        <if test="in_cl != null and in_cl != ''">
+            AND wm.in_cl = #{in_cl}
+        </if>
+        <if test="gds_cd != null and gds_cd != ''">
+            AND wd.gds_cd = #{gds_cd}
+        </if>
+
+        <if test="wh_cd != null and wh_cd != ''">
+            AND wd.wh_cd = #{wh_cd}
+        </if>
+
+        <if test="ord_no != null and ord_no != ''">
+            AND om.ord_no = #{ord_no}
+        </if>
+        <if test="start_dt != null and start_dt != ''">
+             AND wm.in_dt BETWEEN #{start_dt} AND #{end_dt}
+         </if>
+        order by wm.in_dt DESC
+               , wm.wh_in_no desc
+               , wd.dtl_seq asc
+    </select>
+
+    <!-- /* sql-task.xml [발주상세정보 조회] ID : task.selectOrdDtlInfo 작성자 : 김은진 2013_09_09  */ -->
+    <select id="EventStockMngMap.selectOrdDtlInfo" parameterType="map" resultType="resultMap">
+        SELECT /* EventStockMngMap.selectOrdDtlInfo */
+            od.ord_no
+            , od.dtl_no
+            , od.wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = od.wh_cd) wh_nm
+            , od.amt
+            , od.vat
+            , od.gds_cd
+            , (SELECT standard FROM EVENT_GOODS_MNG_MST WHERE gds_cd = od.gds_cd) standard
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd=od.gds_cd  ) gds_nm
+            , deadline_dt
+            , od.qty
+            , nvl(od.qty_unit, '') qty_unit
+            , od.unit_cost
+            , od.tot_amt
+            , nvl(od.note, '') note
+            , wd.in_wh_dt
+              , wd.in_wh_qty
+              , om.ord_cl
+              , CASE WHEN od.vat_yn = 'Y' THEN '1' ELSE '0' END vat_yn
+              , '' AS CHK
+        FROM ord_dtl od
+        JOIN ord_mst om ON od.ord_no = om.ord_no
+        LEFT JOIN
+        (SELECT
+              ord_no, dtl_no
+              , max(wm.in_dt) in_wh_dt
+            , sum(qty) in_wh_qty
+          FROM wh_in_dtl wd
+        JOIN wh_in_mst wm on wm.wh_in_no = wd.wh_in_no
+        GROUP by ord_no, dtl_no) wd ON od.ord_no=wd.ord_no AND od.dtl_no = wd.dtl_no
+        WHERE od.ord_no = #{ord_no}
+        order by od.dtl_no
+
+    </select>
+
+    <!-- /* sql-task.xml [발주관리목록] ID : task.selectOrderMngList 작성자 : 김은진 2013_09_04  */ -->
+    <select id="EventStockMngMap.selectOrderMngList" parameterType="map" resultType="resultMap">
+        SELECT /* EventStockMngMap.selectOrderMngList */
+              om.ord_no
+              , om.ord_dt
+              , om.custmr_cd
+              , (SELECT custmr_nm FROM custmr_mng WHERE del_fg='N' AND custmr_cd = om.custmr_cd) custmr_nm
+              , om.custmr_charg_nm
+              , om.eff_dt
+              , om.emple_no
+              , fn_emple_nm(om.emple_no) emple_nm
+              , om.ord_cl
+              , fn_com_nm('0143',om.ord_cl) ord_cl_nm
+              , om.amt
+              , om.vat
+              , om.tot_amt
+              , om.note
+              , om.proc_stat
+              , fn_com_nm('0144',om.proc_stat) proc_stat_nm
+              , CASE WHEN FR.RPT_NO IS NOT NULL
+                   THEN (SELECT EVT.ACCNT_NO FROM EVENT EVT WHERE EVT.DEL_FG = 'N' AND EVT.SEQ = FR.SEQ)
+                   WHEN FR.RPT_NO IS NOT NULL AND FR.RPT_NO != ''
+                   THEN (SELECT EVT.ACCNT_NO FROM EVENT EVT WHERE EVT.DEL_FG = 'N' AND EVT.SEQ = FOM.SEQ)
+                   ELSE ''
+              END accnt_no
+              , '' AS chk
+              , OD.QTY
+            FROM ord_mst om
+               LEFT OUTER JOIN FUNRL_RPT FR ON FR.RPT_NO = om.RPT_NO AND FR.DEL_FG = 'N'
+                   LEFT OUTER JOIN FUNRL_OUTSRC_MST FOM ON FOM.FUNRL_OUTSRC_NO = om.RPT_NO AND FOM.DEL_FG = 'N'
+                   LEFT OUTER JOIN (SELECT ORD_NO, SUM(QTY) QTY FROM ORD_DTL GROUP BY ORD_NO) OD ON OM.ORD_NO = OD.ORD_NO
+            WHERE 1=1
+            AND om.del_fg='N'
+        <if test="ord_no != null and ord_no != ''">
+            AND om.ord_no = #{ord_no}
+        </if>
+        <if test="ord_cl != null and ord_cl != ''">
+            AND om.ord_cl = #{ord_cl}
+        </if>
+        <if test="custmr_cd != null and custmr_cd != ''">
+            AND custmr_cd = #{custmr_cd}
+        </if>
+        <if test="proc_stat != null and proc_stat != ''">
+            AND proc_stat = #{proc_stat}
+        </if>
+        <if test="gds_cd != null and gds_cd != ''">
+            AND EXISTS (SELECT 'x' FROM ord_dtl dtl WHERE dtl.ord_no = om.ord_no and dtl.gds_cd = #{gds_cd})
+        </if>
+        <if test="wh_cd != null and wh_cd != ''">
+            AND EXISTS (SELECT 'x' FROM ord_dtl dtl WHERE dtl.ord_no = om.ord_no and dtl.wh_cd = #{wh_cd})
+        </if>
+        <if test="ord_start_dt != null and ord_start_dt != ''">
+             AND om.ord_dt BETWEEN #{ord_start_dt} AND #{ord_end_dt}
+         </if>
+         ORDER BY om.ord_no desc
+
+    </select>
+
+    <!-- /* sql-task.xml [출고 조회] ID : task.selectOutWhList 작성자 : 김은진 2013_09_24  */ -->
+    <select id="EventStockMngMap.selectOutWhList" parameterType="map" resultType="resultMap">
+        SELECT /* EventStockMngMap.selectOutWhList */
+            wd.wh_out_no
+            , wd.dtl_seq
+            , wd.wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = wd.wh_cd) wh_nm
+            , (SELECT standard FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) standard
+            , wd.gds_cd
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) gds_nm
+            , wd.qty_unit
+            , wd.qty
+            , wd.unit_cost
+            , wd.amt
+            , wd.note
+            , wm.out_dt
+            , fn_com_nm('0151', wm.out_cl) out_cl_nm
+            , wm.out_cl out_cl
+            , wm.emple_no
+            , case when wm.funrl_outsrc_no is not null then '외주(' || wm.funrl_outsrc_no||')'
+                   when wm.rpt_no is not null then '직영('||wm.rpt_no||')'
+                   else ''
+              end funrl_out_src_no
+            , fn_emple_nm(wm.emple_no) emple_nm
+            , ev.accnt_no
+            , (SELECT fn_mem_nm(mem_no) FROM mem_prod_accnt a WHERE a.accnt_no=ev.accnt_no) mem_nm
+            , nvl((SELECT wh_nm
+                    FROM warehouse_mng
+                   WHERE wh_cd = (SELECT WH_CD
+                                    FROM WH_IN_DTL B
+                                   WHERE B.GDS_CD = wd.GDS_CD
+                                     AND B.QTY = wd.QTY
+                                     AND B.WH_IN_NO = (SELECT A.WH_IN_NO
+                                                         FROM WH_MV_MST A
+                                                        WHERE A.WH_OUT_NO = wd.WH_OUT_NO
+                                                          and A.DEL_FG = 'N')
+                                     AND ROWNUM = 1)), '') wh_in_nm
+            , prod.prod_nm
+            , nvl(CASE WHEN ev.EVENT_PLACE_CL = '0001'
+                   THEN (SELECT FUNRL_NM
+                           FROM FUNRL_HALL
+                          WHERE FUNRL_CD = ev.FUNRL_HALL)
+                   ELSE CASE WHEN ev.ETC_ZIP IS NULL AND ev.ETC_ADDR2 IS NULL
+                             THEN ''
+                             WHEN ev.ETC_ZIP IS NULL AND ev.ETC_ADDR2 IS NOT NULL
+                             THEN ev.ETC_ADDR2
+                             ELSE nvl(ev.ETC_ZIP, '') || ')' || nvl(ev.ETC_ADDR1, '') || ' ' || nvl(ev.ETC_ADDR2, '')
+                        END
+              END, '') event_place
+           , nvl(ev.EVENT_PROC_DAY || '~', '') || ev.EVENT_COMP_DAY evt_dt
+           , (SELECT Z.EVT_MNGR_NM FROM EVENT_MANAGER_MNG Z WHERE Z.EVT_MNGR_CD = EMR.EVT_MNGR_CD) cp_nm
+        FROM wh_out_dtl wd
+        JOIN wh_out_mst wm ON wm.wh_out_no = wd.wh_out_no
+        LEFT JOIN
+        (
+          SELECT
+            nvl(funrl_outsrc_no, '') funrl_outsrc_no, '' rpt_no, fom.seq
+          FROM funrl_outsrc_mst fom
+          WHERE fom.del_fg='N'
+          UNION ALL
+          SELECT
+            '' funrl_outsrc_no, nvl(rpt_no, '') rpt_no, fr.seq
+          FROM funrl_rpt fr
+          WHERE fr.del_fg='N'
+        )
+        fom ON ( (fom.funrl_outsrc_no = wm.funrl_outsrc_no and fom.FUNRL_OUTSRC_NO IS NOT NULL) or (fom.rpt_no = wm.rpt_no and fom.rpt_no IS NOT NULL) )
+        LEFT JOIN event ev ON fom.seq = ev.seq and ev.del_fg = 'N'
+        left outer join mem_prod_accnt accnt on accnt.accnt_no = ev.accnt_no and accnt.del_fg = 'N'
+        left outer join product prod on accnt.prod_cd = prod.prod_cd
+        LEFT OUTER JOIN(
+             SELECT EVT_SEQ, MAX(EVT_MNGR_CD) EVT_MNGR_CD
+               FROM EVENT_MNGR_REG
+               WHERE DEL_FG = 'N'
+                 AND EVT_MNGR_GUBUN = '0001'
+             GROUP BY EVT_SEQ
+        ) EMR ON EMR.EVT_SEQ = ev.SEQ
+        WHERE wm.del_fg='N'
+        <if test="wh_out_no != null and wh_out_no != ''">
+            AND wd.wh_out_no = #{wh_out_no}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND ev.accnt_no = #{accnt_no}
+        </if>
+        <if test="prod_cd != null and prod_cd != ''">
+            AND prod.prod_cd = #{prod_cd}
+        </if>
+        <if test="out_cl != null and out_cl != ''">
+            AND wm.out_cl = #{out_cl}
+        </if>
+        <!--
+        <if test="gds_cd != null and gds_cd != ''">
+            AND wd.gds_cd = #{gds_cd}
+        </if>
+        -->
+        <!-- <if test="gds_cd_arr != null and gds_cd_arr != ''">
+        AND wd.gds_cd in ( ${gds_cd_arr} )
+        </if> -->
+
+        <if test="gds_cd != null and gds_cd != ''">
+        AND wd.gds_cd = #{gds_cd}
+        </if>
+
+        <if test="wh_cd != null and wh_cd != ''">
+            AND wd.wh_cd = #{wh_cd}
+        </if>
+
+        <if test="start_dt != null and start_dt != ''">
+            <if test="dt_type == '99'">
+             AND wm.out_dt BETWEEN #{start_dt} AND #{end_dt}
+             </if>
+             <if test="dt_type == '01'">
+             AND ev.ACCNT_NO IS NOT NULL
+             AND ev.EVENT_REG_DAY BETWEEN #{start_dt} AND #{end_dt}
+             </if>
+             <if test="dt_type == '02'">
+             AND ev.ACCNT_NO IS NOT NULL
+             AND ev.EVENT_PROC_DAY BETWEEN #{start_dt} AND #{end_dt}
+             </if>
+             <if test="dt_type == '03'">
+             AND ev.ACCNT_NO IS NOT NULL
+             AND ev.EVENT_COMP_DAY BETWEEN #{start_dt} AND #{end_dt}
+             </if>
+         </if>
+        order by wm.out_dt desc, wm.wh_out_no desc, wd.dtl_seq asc
+    </select>
+
+
+    <select id="EventStockMngMap.selectSchWhInNo" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [입고번호 찾기] ID : task.selectSchWhInNo 작성자 : 김은진 2013_09_25  */
+        SELECT /* EventStockMngMap.selectSchWhInNo */
+                wh_in_no
+          FROM wh_in_dtl
+         WHERE ord_no=#{ord_no}
+           AND dtl_no=#{dtl_no}
+    </select>
+
+    <select id="EventStockMngMap.selectStockCloseList" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [마감관리 조회] ID : task.selectStockCloseList 작성자 : 김은진 2013_10_02  */
+        SELECT /* EventStockMngMap.selectStockCloseList */
+              close_yymm
+            , sc.gds_cd
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = sc.gds_cd) gds_nm
+            , SUM(carried_qty) carried_qty
+            , SUM(in_qty) in_qty
+            , SUM(out_qty) out_qty
+            , SUM(stock_qty) stock_qty
+            , TO_CHAR(MAX(sc.reg_dm), 'YYYYMMDD') reg_dm
+        FROM stock_close sc
+        WHERE 1=1
+        AND sc.close_yymm = #{close_yymm}
+        GROUP BY close_yymm,  gds_cd
+        ORDER BY gds_cd
+    </select>
+
+    <select id="EventStockMngMap.selectStockCloseListByWh" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [마감관리 창고별 조회] ID : task.selectStockCloseListByWh 작성자 : 김은진 2013_10_02  */
+        SELECT /* EventStockMngMap.selectStockCloseListByWh */
+            close_yymm
+            , sc.wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = sc.wh_cd) wh_nm
+            , sc.gds_cd
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = sc.gds_cd) gds_nm
+            , SUM(carried_qty) carried_qty
+            , SUM(in_qty) in_qty
+            , SUM(out_qty) out_qty
+            , SUM(stock_qty) stock_qty
+            , TO_CHAR(MAX(sc.reg_dm), 'YYYYMMDD') reg_dm
+        FROM stock_close sc
+        WHERE 1=1
+        AND sc.close_yymm = #{close_yymm}
+        GROUP BY close_yymm, wh_cd, gds_cd
+        ORDER BY wh_cd, gds_cd
+    </select>
+
+    <select id="EventStockMngMap.selectStockInspectList" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [재고실사 조회] ID : task.selectStockInspectList 작성자 : 김은진 2013_10_02  */
+        SELECT /* EventStockMngMap.selectStockInspectList */
+            sm.stock_inspect_no
+            , sm.wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = sm.wh_cd) wh_nm
+            , sd.dtl_seq
+            , sd.gds_cd
+            , (SELECT real_gds_cd FROM EVENT_GOODS_MNG_MST WHERE gds_cd = sd.gds_cd) real_gds_cd
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = sd.gds_cd) gds_nm
+            , sm.inspect_dt
+            , sd.adj_dt
+            , sd.inspect_qty
+            , sd.adj_qty
+            , nvl(sc.stock_qty,0) stock_qty
+            , diffQty =  nvl(sc.stock_qty,0) - nvl(sd.inspect_qty,0)
+        FROM stock_inspect_dtl sd
+        JOIN stock_inspect_mst sm ON sm.stock_inspect_no = sd.stock_inspect_no
+        left join
+        (
+            SELECT
+                io.wh_cd
+                , io.gds_cd
+              , stock_qty = (sum(carried_qty)+sum(in_qty) - sum(out_qty))
+            FROM
+            (
+             SELECT
+               wd.wh_cd wh_cd
+                  , wd.gds_cd gds_cd
+                , sum(qty) in_qty
+                , 0 as out_qty
+                , 0 as carried_qty
+              FROM wh_in_dtl wd
+              join wh_in_mst wm on wd.WH_IN_NO = wm.WH_IN_NO
+              WHERE wm.del_fg='N'
+                <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND substr(wm.in_dt,1,6)= substr(#{inspect_dt},1,6)
+                </if>
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND substr(wm.in_dt,1,6)= to_char(SYSDATE, 'YYYYMM')
+                </if>
+
+              GROUP BY wd.gds_cd, wd.wh_cd
+
+              UNION ALL
+              SELECT
+                wd.wh_cd wh_cd
+                  , wd.gds_cd gds_cd
+                , 0 as in_qty
+                , sum(qty) out_qty
+                , 0 as carried_qty
+              FROM wh_out_dtl wd
+              join wh_out_mst wm on wd.WH_out_NO = wm.WH_out_NO
+              WHERE wm.del_fg='N'
+                <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND substr(wm.out_dt,1,6)= substr(#{inspect_dt},1,6)
+                </if>
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND substr(wm.out_dt,1,6)= TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+              GROUP BY wd.gds_cd, wd.wh_cd
+              UNION ALL
+              SELECT
+                sc.wh_cd wh_cd
+                  , sc.gds_cd gds_cd
+                , 0 as in_qty
+                , 0 as out_qty
+                , sum(stock_qty) carried_qty
+              FROM stock_close sc
+              WHERE 1=1
+                  <if test="wh_cd != null and wh_cd != ''">
+                      AND wh_cd = #{wh_cd}
+                </if>
+                <if test="inspect_dt != null and inspect_dt != ''">
+                    AND TO_CHAR(ADD_MONTHS(TO_DATE(sc.close_yymm||'01','YYYYMMDD'),1),'YYYYMM') = substr(#{inspect_dt},1,6)
+                </if>
+                <if test="inspect_dt == null or inspect_dt == ''">
+                    AND TO_CHAR(ADD_MONTHS(TO_DATE(sc.close_yymm||'01','YYYYMMDD'),1),'YYYYMM') = TO_CHAR(SYSDATE, 'YYYYMM')
+                </if>
+
+              GROUP BY gds_cd, wh_cd
+            )io
+            GROUP BY io.gds_cd, io.wh_cd
+         )sc on sd.gds_cd=sc.gds_cd  AND sm.wh_cd = sc.wh_cd
+        WHERE 1=1
+        AND sm.del_fg='N'
+        AND sd.del_fg='N'
+        <if test="wh_cd != null and wh_cd != ''">
+            AND sm.wh_cd = #{wh_cd}
+        </if>
+        <if test="gds_cd != null and gds_cd != ''">
+            AND sd.gds_cd = #{gds_cd}
+        </if>
+        <if test="sch_dt_cl == '00'">
+            AND (
+                sd.adj_dt BETWEEN #{start_dt} AND #end_dt#
+                OR
+                sm.inspect_dt BETWEEN #{start_dt} AND #end_dt#
+                )
+        </if>
+        <if test="sch_dt_cl == '01'">
+            AND sd.adj_dt BETWEEN #{start_dt} AND #end_dt#
+        </if>
+        <if test="sch_dt_cl == '02'">
+            AND sm.inspect_dt BETWEEN #{start_dt} AND #end_dt#
+        </if>
+
+        <if test="stockInspectNo != null and stockInspectNo != ''">
+            AND sm.stock_inspect_no = #{stock_inspect_no}
+        </if>
+
+        <if test="inspect_cl == 'Y'.toString()">
+            AND sd.adj_dt is not null
+        </if>
+        <if test="inspect_cl == 'N'.toString()">
+            AND sd.adj_dt is null
+        </if>
+        ORDER BY sd.adj_dt desc
+    </select>
+
+    <select id="EventStockMngMap.selectWhMvList" parameterType="map" resultType="resultMap">
+    /* sql-task.xml [사업장내 창고이동] ID : task.selectWhMvList 작성자 : 김은진 2013_09_30  */
+        SELECT /* EventStockMngMap.selectWhMvList */
+            wd.wh_mv_no
+            , wm.wh_out_no
+            , wm.wh_in_no
+            , wm.out_wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = wm.out_wh_cd) wh_out_nm
+            , wm.in_wh_cd
+            , (SELECT wh_nm FROM warehouse_mng WHERE wh_cd = wm.in_wh_cd) wh_in_nm
+            , wd.gds_cd
+            , (SELECT standard FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) standard
+            , (SELECT gds_nm FROM EVENT_GOODS_MNG_MST WHERE gds_cd = wd.gds_cd) gds_nm
+            , wd.qty_unit
+            , wd.qty
+            , wd.unit_cost
+            , wd.amt
+            , wm.note
+            , wm.mv_dt
+            , wm.emple_no
+            , fn_emple_nm(wm.emple_no) emple_nm
+        FROM wh_mv_dtl wd
+        JOIN wh_mv_mst wm ON wm.wh_mv_no = wd.wh_mv_no
+        WHERE wm.del_fg='N'
+        <if test="wh_mv_no != null and wh_mv_no != ''">
+            AND wd.wh_mv_no = #{wh_mv_no}
+        </if>
+        <if test="gds_cd != null and gds_cd != ''">
+            AND wd.gds_cd = #{gds_cd}
+        </if>
+        <if test="wh_out_cd != null and wh_out_cd != ''">
+            AND wm.out_wh_cd = #{wh_out_cd}
+        </if>
+        <if test="wh_in_cd != null and wh_in_cd != ''">
+            AND wm.in_wh_cd = #{wh_in_cd}
+        </if>
+        <if test="start_dt != null and start_dt != ''">
+             AND wm.mv_dt BETWEEN #{start_dt} AND #{end_dt}
+         </if>
+        order by wm.mv_dt desc, wm.wh_mv_no desc, wd.dtl_seq asc
+    </select>
+
+
+
+    <select id="EventStockMngMap.selectNewOrdNo" parameterType="map" resultType="string">
+    /* sql-task.xml [발주번호생성] ID : task.selectNewOrdNo 작성자 : 김은진 2013_09_09  */
+        SELECT /* EventStockMngMap.selectNewOrdNo */
+        fn_create_ord_no(#{ord_dt})
+          FROM DUAL
+    </select>
+
+    <!-- /* sql-task.xml [재고실사 관리번호생성] ID : task.selectNewStockInspectNo 작성자 : 김은진 2013_10_07  */ -->
+    <select id="EventStockMngMap.selectNewStockInspectNo" parameterType="map" resultType="string">
+        SELECT /* EventStockMngMap.selectNewStockInspectNo */
+            FN_CREATE_STOCK_INSPECT_NO(#{inspect_dt})
+          FROM DUAL
+    </select>
+
+
+    <!-- /* sql-task.xml [입고번호생성] ID : task.selectNewWhInNo 작성자 : 김은진 2013_09_16  */ -->
+    <select id="EventStockMngMap.selectNewWhInNo" resultType="string">
+        SELECT /* EventStockMngMap.selectNewWhInNo */
+        fn_create_wh_in_no()
+          FROM DUAL
+    </select>
+
+    <!-- /* sql-task.xml [창고이동 관리번호생성] ID : task.selectNewWhMvNo 작성자 : 김은진 2013_09_30  */ -->
+    <select id="EventStockMngMap.selectNewWhMvNo" parameterType="map" resultType="string">
+        SELECT /* EventStockMngMap.selectNewWhMvNo */
+        fn_create_wh_mv_no()
+          FROM DUAL
+    </select>
+
+    <select id="EventStockMngMap.selectNewWhOutNo" resultType="string">
+    /* sql-task.xml [출고번호생성] ID : task.selectNewWhOutNo 작성자 : 김은진 2013_09_27  */
+        SELECT /* EventStockMngMap.selectNewWhOutNo */
+        fn_create_wh_out_no()
+          FROM DUAL
+    </select>
+
+    <select id="EventStockMngMap.selectStockCloseCnt" parameterType="map" resultType="int">
+        SELECT /* EventStockMngMap.selectStockCloseCnt */
+                count(stock_qty) cnt
+          FROM stock_close sc
+          WHERE 1=1
+            AND CLOSE_YYMM = #{close_yymm}
+    </select>
+
+
+    <select id="EventStockMngMap.selectWhInDtlCnt" parameterType="map" resultType="int">
+    /* sql-task.xml [입고-남은 입고상세 갯수 확인] ID : task.selectWhInDtlCnt 작성자 : 김은진 2013_09_25  */
+        SELECT /* EventStockMngMap.selectWhInDtlCnt */
+        count(wh_in_no)
+          FROM wh_in_dtl
+         WHERE wh_in_no = (SELECT wh_in_no FROM wh_in_dtl WHERE ord_no=#{ord_no} AND dtl_no=#{dtl_no})
+    </select>
+
+
+    <select id="EventStockMngMap.selectWhInDtlCntByWhInNo" parameterType="map" resultType="int">
+    /* sql-task.xml [입고-동일 입고번호의 입고상세 갯수 확인] ID : task.selectWhInDtlCnt 작성자 : 김은진 2013_09_25  */
+        SELECT /* EventStockMngMap.selectWhInDtlCntByWhInNo */
+        count(wh_in_no)
+          FROM wh_in_dtl
+         WHERE wh_in_no = #{wh_in_no}
+    </select>
+
+    <select id="EventStockMngMap.checkStockClose" parameterType="string" resultType="int">
+        SELECT /* EventStockMngMap.checkStockClose */
+               count(*) cnt
+        FROM stock_close
+        WHERE close_yymm = SUBSTR(replace(#{chk_dt},'/',''),1,6)
+    </select>
+
+</mapper>

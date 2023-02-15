@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_DateBetween_Popup" classname="Comm_DateBetween" inheritanceid="" position="absolute 0 0 384 265" titletext="일자선택(From~To)" onload="Comm_DateBetween_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_40" class="sta_popupBg1" enable="false" position="absolute 0 0 374 265"/>
+        <Calendar id="cal_From" taborder="0" position2="absolute l:11 w:172 t:68 h:192" positiontype="position2" dateformat="yyyy-MM-dd" value="null" type="monthonly" canchange="cal_canchange" onchanged="cal_onchanged"/>
+        <Calendar id="cal_To" taborder="1" type="monthonly" dateformat="yyyy-MM-dd" position2="absolute l:192 w:172 t:68 h:192" positiontype="position2" canchange="cal_canchange"/>
+        <Button id="btn_Commit" taborder="1" text="확인" class="btn_WF_CRUD" position="absolute 299 45 364 65" onclick="btn_Commit_onclick"/>
+        <Static id="stc_41" text="일자 선택(From ~ To)" class="sta_popupTitle" transparenthittest="true" position="absolute 10 9 195 29"/>
+        <Button id="btn_Close15" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 350 9 370 28"/>
+        <Static id="Static00" text="Static00" position="absolute 354 35 524 45" style="background:violet;" visible="false"/>
+        <Static id="Static01" text="Static00" position="absolute 62 65 527 68" style="background:violet;" visible="false"/>
+        <Static id="Static02" text="Static00" position="absolute 190 254 525 264" style="background:violet;" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+//var isExist;
+
+function Comm_DateBetween_onload(obj:Form, e:LoadEventInfo)
+{
+	trace(pvIsHoliday);
+	
+// 	try
+// 	{
+// 		if(pvIsHoliday) 
+// 			isExist = true; 
+// 		else if(pvIsHoliday == undefined)
+// 			isExist = true;
+// 		else 
+// 			isExist = false;
+// 	} catch(e) {
+// 		isExist = false;
+// 	}
+	
+//	trace("pvIsHoliday::"+pvIsHoliday + " " + isExist);
+
+	var sToDate = gfn_getToday();
+	if(gfn_getLength(pvFromDate) > 0 || gfn_getLength(pvToDate) > 0) {
+		this.cal_From.value = (gfn_getLength(pvFromDate)>0?pvFromDate:sToDate);
+		this.cal_To.value 	= (gfn_getLength(pvToDate)>0?pvToDate:sToDate);
+	} else {
+		this.cal_From.value = sToDate;
+		this.cal_To.value 	= sToDate;
+	}
+}
+
+function btn_Close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function btn_Commit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var sFromDate 	= this.cal_From.value;
+	var sToDate		= this.cal_To.value;
+	
+	if(sFromDate > sToDate) {
+		alert("시작일자가 종료일자보다 이후 입니다.");
+		return;
+	}
+	
+	var objDate = new Object();
+	
+	objDate["FromDate"] = sFromDate;
+	objDate["ToDate"] 	= sToDate;
+	
+	close(objDate);
+}
+
+function cal_canchange(obj:Calendar, e:ChangeEventInfo)
+{
+	//if(isExist) {
+
+// 		if(!gfn_isNull(pvSelDay)) {
+// 			if(nDay != pvSelDay) {
+// 				alert(gfn_getDayHByDay(pvSelDay, true) + "만 선택할 수 있습니다.");
+// 				return false;
+// 			}
+// 		}
+		
+		if(!pvIsHoliday) {
+		
+			var sDate = String(e.postvalue);
+			var nDay = gfn_getDay(e.postvalue);
+			
+			// 휴일 선택불가 처리
+			if(nDay == 0 || nDay == 6 || nDay == -1) {
+				alert("휴일은 선택하실수 없습니다.");
+				return false;
+			} 
+		}
+	//}
+
+	// TO-DO : 법정공휴일은 추가 처리해야 함.
+	
+	return true;
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function cal_onchanged(obj:Calendar, e:ChangeEventInfo)
+{
+	if(!gfn_isNull(pvSelDay)) {
+		var sDate = String(e.postvalue);
+		var nDay = gfn_getDay(e.postvalue);
+		
+		// 일요일인경우 전주 처리
+		if(nDay == 0) nDay = 7;
+		
+		if(nDay != pvSelDay) {
+			var nGap = pvSelDay - nDay;
+			obj.value = gfn_addDate(sDate, nGap);
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

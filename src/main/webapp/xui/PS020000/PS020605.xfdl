@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS020605" classname="PS020605" inheritanceid="" position="absolute 0 0 307 80" titletext="그룹호전환" scrollbars="none" onload="PS020605_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_144" class="sta_popupBg1" enable="false" position="absolute 0 0 307 80"/>
+        <Button id="btn_close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 279 7 299 26"/>
+        <Static id="stc_148" text="그룹호전환" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Static id="stc_08" class="sta_workData" position="absolute 11 42 296 68"/>
+        <Static id="stc_16" text="그룹 선택" class="sta_workLabel1" position="absolute 11 42 107 68" validate=""/>
+        <Button id="btn_transfer" taborder="1" text="전환" onclick="btn_onclick" class="btn_WF_Common" position="absolute 217 45 289 65" style="padding:0 0 0 0;" enable="true"/>
+        <Combo id="cbo_cti_grp_cd" taborder="1" position="absolute 109 45 214 65" innerdataset="@ds_ctiGrpCd" codecolumn="cd" datacolumn="cd_nm" displaynulltext="선택"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ctiGrpCd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cd" type="STRING" size="256"/>
+          <Column id="cd_nm" type="STRING" size="256"/>
+          <Column id="adtl_cd" type="STRING" size="256"/>
+          <Column id="adtl_cd_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS020605_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	gfn_getList("cd", "CNS180");  // 공통코드조회
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {
+			case "selectCode":
+ 			gfn_getCode("CNS180", "SELECT", ds_ctiGrpCd); // 그룹코드
+ 			fn_init();
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+// 초기화
+function fn_init()
+{
+	cbo_cti_grp_cd.index = 0;
+}
+
+// 전환전 처리
+function fn_preTransfer(sType)
+{
+	if (ap_TopFrame.form.ctiStatus != ap_TopFrame.form.CTI_STATUS_BUSY) {
+		alert("통화중 상태가 아닙니다.");
+        return false;
+	}
+	
+	if (gfn_isNull(sType)) {
+		alert("호전환 할 그룹을 선택하십시요.");
+		return false;
+	}
+	
+	return true;
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+// 닫기 버튼
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+ 	if (!gfn_isNull(opener.url)) {
+ 		opener.cons_dspsmddl_dtpt_cd.value = "10"; // 처리방법 일반상담
+ 	}
+	close();
+}
+
+// 버튼 클릭
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (!fn_preTransfer(cbo_cti_grp_cd.value)) return false;;
+	
+	trace("[PS020605] 그룹 호전환 시도");
+	ap_TopFrame.form.gfn_consultationTransCall(cbo_cti_grp_cd.value);
+	this.sleep(3000);
+	ap_TopFrame.form.gfn_transferCall();
+}
+]]></Script>
+  </Form>
+</FDL>

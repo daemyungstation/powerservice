@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="srch_empl_pop" classname="srch_empl_pop" inheritanceid="" position="absolute 0 0 552 534" titletext="주소 조회" onload="Addr_api_onload" onactivate="PS992000_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 547 531"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 520 5 540 24"/>
+        <Static id="stc_30" text="주소 조회" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <ActiveX id="msie" visible="true" progid="{8856F961-340A-11D0-A96B-00C04FD705A2}" useautobitmapcache="1" position2="absolute l:8 w:532 t:39 h:488" positiontype="position2" anchor="default" taborder="2" TitleChange="msie_TitleChange"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="emple_no" type="STRING" size="10"/>
+          <Column id="emple_nm" type="STRING" size="50"/>
+          <Column id="grpEmpYn" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+          <Column id="not_in_emple_no" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_empl" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ret" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_sin_addr" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="post" type="STRING" size="256"/>
+          <Column id="addr" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+var gv_empl_nm = "";
+var gv_pageTyp = "";
+var gv_typ = "";
+
+var fv_not_in_emple_no = "";
+
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var tc_empl = 0;
+
+/***************************************************************************
+ * 함  수  명		: Empl_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function Addr_api_onload(obj:Form, e:LoadEventInfo)
+{
+	var sServiceUrl = application.services["SVC"].url;
+
+	if (sServiceUrl.indexOf("183.111.69.174") >= 0 || sServiceUrl.indexOf("127.0.0.1") >= 0) { // 외부
+		var URL = "http://183.111.69.174:8080/powerservice/daumaddress.html";
+	} else if (sServiceUrl.indexOf("https://devdlcc.com") >= 0) { 		//2017.12.15 김찬영 SSL개발로 인한 수정(개발)
+		//var URL = "http://61.39.175.220:8080/powerservice/daumaddress.html";
+		var URL = "https://devdlcc.com:8443/powerservice/daumaddress.html";
+	} else if (sServiceUrl.indexOf("http://dmdlcc.com") >= 0) { 		//2017.12.15 김찬영 SSL개발로 인한 수정(운영)
+		var URL = "http://dmdlcc.com:8080/powerservice/daumaddress.html";
+	} else if (sServiceUrl.indexOf("https://dmdlcc.com") >= 0) { 		//2017.12.15 김찬영 SSL개발로 인한 수정(운영)
+		var URL = "https://dmdlcc.com:8443/powerservice/daumaddressSSL.html";
+	} else if (sServiceUrl.indexOf("61.39.175.227") >= 0) {
+		var URL = "http://192.168.220.52:8080/powerservice/daumaddress.html";
+	}
+	else{ // 내부
+		var URL = "http://192.168.220.52:8080/powerservice/daumaddress.html";
+	}	
+
+	msie.Navigate2(URL);
+}
+
+var chk = "Insert Daum Post"; //플래그 변수
+
+function msie_TitleChange(obj:ActiveX, e)
+{
+	if (e.Text != "Insert Daum Post" && e.Text != "http://183.111.69.174:8080/powerservice/daumaddress.html" && e.Text != "http://192.168.220.52:8080/powerservice/daumaddress.html" && e.Text != "http://183.111.69.174:8080/powerservice/daumaddress_test.html" ){ // 기본 플래그 변수가 아닐경우에만 로직 실행
+		if( chk != e.Text ) {
+			chk = e.Text;
+			var data = chk.split('|');
+			
+			var post = data[0];
+			var addr = data[1];
+			
+			opener.gv_dpost = post;
+			opener.gv_daddr = addr;
+			//alert( post + " / " + addr);
+			opener.fn_daum_addr();
+			btn_close_onclick();
+		}
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}]]></Script>
+  </Form>
+</FDL>

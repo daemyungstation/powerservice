@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MonitoringMap">
+
+    <select id="MonitoringMap.getPastTimeChartList" parameterType="map" resultType="resultMap">
+        SELECT /*MonitoringMap.getPastTimeChartList*/
+                DECODE(B.NO, 1, '~1시간'
+                          , 2, '~2시간'
+                          , 3, '~3시간'
+                          , 4, '~5시간'
+                          , 5, '~1일'
+                          , 6, '~2일'
+                          , 7, '~3일'
+                          , 8, '~3일이상' ) AS COL
+              , DECODE(B.NO, 1, '1'
+                            , 2, '2'
+                            , 3, '3'
+                            , 4, '5'
+                            , 5, '24'
+                            , 6, '48'
+                            , 7, '72'
+                            , 8, '100' ) AS X
+              , DECODE(B.NO, 1, ONEHOURCNT
+                          , 2, TWOHOURCNT
+                          , 3, THREEHOURCNT
+                          , 4, FIVEHOURCNT
+                          , 5, ONEDAYCNT
+                          , 6, TWODAYCNT
+                          , 7, THREEDAYCNT
+                          , 8, THREEDAYOVERCNT ) AS CNT
+        FROM (SELECT NVL(SUM(ONEHOUR), 0) AS ONEHOURCNT
+                      , NVL(SUM(TWOHOUR), 0) AS TWOHOURCNT
+                      , NVL(SUM(THREEHOUR), 0) AS THREEHOURCNT
+                      , NVL(SUM(FIVEHOUR), 0) AS FIVEHOURCNT
+                      , NVL(SUM(ONEDAY), 0) AS ONEDAYCNT
+                      , NVL(SUM(TWODAY), 0) AS TWODAYCNT
+                      , NVL(SUM(THREEDAY), 0) AS THREEDAYCNT
+                      , NVL(SUM(THREEDAYOVER), 0) AS THREEDAYOVERCNT
+              FROM (SELECT
+              <![CDATA[
+                        CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 1 THEN 1 ELSE 0 END AS ONEHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 1
+                            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 2  THEN 1 ELSE 0 END AS TWOHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 2
+                            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 3  THEN 1 ELSE 0 END AS THREEHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 3
+                            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 5  THEN 1 ELSE 0 END AS FIVEHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 5
+                            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 24  THEN 1 ELSE 0 END AS ONEDAY
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 24
+                            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 48  THEN 1 ELSE 0 END AS TWODAY
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 48
+                            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 72  THEN 1 ELSE 0 END AS THREEDAY
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 72 THEN 1 ELSE 0 END AS THREEDAYOVER
+                    FROM TB_CONS
+                    WHERE CONS_STAT_CD = '20')) A
+        , (SELECT LEVEL AS NO FROM DUAL
+            CONNECT BY LEVEL <=8 ) B
+             ]]>
+
+    </select>
+
+    <select id="MonitoringMap.getPastTimeTeamChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getPastTimeTeamChartList */
+                B.TEAM_CD
+              , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = B.TEAM_CD AND CNTR_CD = B.CNTR_CD) AS TEAM_NM
+              , COUNT(*) AS CNT
+        FROM TB_CONS A LEFT OUTER JOIN TB_USER B
+        ON( A.ACTP_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD )
+        WHERE A.CONS_STAT_CD = '20'
+        <choose>
+            <when test="sStartd != 72">
+            <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+            ]]>
+            </when>
+            <otherwise>
+            <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            ]]>
+            </otherwise>
+        </choose>
+        GROUP BY B.TEAM_CD,  B.CNTR_CD
+        ORDER BY B.TEAM_CD
+    </select>
+
+    <select id="MonitoringMap.getPastTimeCounselorChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getPastTimeCounselorChartList */
+                B.USER_ID
+              , B.USER_NM
+              , COUNT(*) AS CNT
+        FROM TB_CONS A LEFT OUTER JOIN TB_USER B
+            ON( A.ACTP_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD )
+        WHERE A.CONS_STAT_CD = '20'
+          AND TEAM_CD = #{team_cd}
+        <choose>
+            <when test="sStartd != 72">
+            <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+            ]]>
+            </when>
+            <otherwise>
+            <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            ]]>
+            </otherwise>
+        </choose>
+        GROUP BY B.USER_ID,  B.USER_NM
+        ORDER BY B.USER_ID
+    </select>
+
+    <select id="MonitoringMap.getPastTimeBigtypeChartList" parameterType="map" resultType="resultMap">
+        SELECT  /* MonitoringMap.getPastTimeBigtypeChartList */
+               ( SELECT CONS_TYP_NM FROM TB_CONS_TYP_CD
+                  WHERE CONS_TYP_CD = A.CONS_TYP1_CD AND CNTR_CD = A.CNTR_CD ) AS CONS_TYP_NM
+               , ( SELECT CONS_TYP_CD FROM TB_CONS_TYP_CD
+                  WHERE CONS_TYP_CD = A.CONS_TYP1_CD AND CNTR_CD = A.CNTR_CD ) AS CONS_TYP_CD
+               , COUNT(*) AS CNT
+          FROM TB_CONS A
+        WHERE CONS_STAT_CD = '20'
+        <choose>
+            <when test="sStartd != 72">
+            <![CDATA[
+                AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+                AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+            ]]>
+            </when>
+            <otherwise>
+            <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            ]]>
+            </otherwise>
+        </choose>
+        GROUP BY CONS_TYP1_CD, CNTR_CD
+        ORDER BY CONS_TYP1_CD
+    </select>
+
+    <select id="MonitoringMap.getPastTimeMidtypeChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getPastTimeMidtypeChartList */
+                ( SELECT CONS_TYP_NM FROM TB_CONS_TYP_CD
+                  WHERE CONS_TYP_LVL_CNT = '2' AND CONS_TYP_CD = A.CONS_TYP2_CD AND CNTR_CD = A.CNTR_CD ) AS CONS_TYP_NM
+                , COUNT(*) AS CNT
+          FROM TB_CONS A
+         WHERE CONS_STAT_CD = '20'
+           AND CONS_TYP1_CD = #{cons_typ1_cd}
+         <choose>
+            <when test="sStartd != 72">
+                <![CDATA[
+                AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+                AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+                ]]>
+            </when>
+            <otherwise>
+                <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+                ]]>
+            </otherwise>
+        </choose>
+        GROUP BY CONS_TYP2_CD, CNTR_CD
+        ORDER BY CONS_TYP2_CD
+    </select>
+
+    <select id="MonitoringMap.getVocPastTimeChartList" parameterType="map" resultType="resultMap">
+        SELECT /*MonitoringMap.getVocPastTimeChartList*/
+                DECODE(B.NO, 1, '~1시간'
+                          , 2, '~2시간'
+                          , 3, '~3시간'
+                          , 4, '~5시간'
+                          , 5, '~1일'
+                          , 6, '~2일'
+                          , 7, '~3일'
+                          , 8, '~3일이상' ) AS COL
+              , DECODE(B.NO, 1, '1'
+                            , 2, '2'
+                            , 3, '3'
+                            , 4, '5'
+                            , 5, '24'
+                            , 6, '48'
+                            , 7, '72'
+                            , 8, '100' ) AS X
+              , DECODE(B.NO, 1, ONEHOURCNT
+                          , 2, TWOHOURCNT
+                          , 3, THREEHOURCNT
+                          , 4, FIVEHOURCNT
+                          , 5, ONEDAYCNT
+                          , 6, TWODAYCNT
+                          , 7, THREEDAYCNT
+                          , 8, THREEDAYOVERCNT ) AS CNT
+        FROM (SELECT NVL(SUM(ONEHOUR), 0) AS ONEHOURCNT
+                      , NVL(SUM(TWOHOUR), 0) AS TWOHOURCNT
+                      , NVL(SUM(THREEHOUR), 0) AS THREEHOURCNT
+                      , NVL(SUM(FIVEHOUR), 0) AS FIVEHOURCNT
+                      , NVL(SUM(ONEDAY), 0) AS ONEDAYCNT
+                      , NVL(SUM(TWODAY), 0) AS TWODAYCNT
+                      , NVL(SUM(THREEDAY), 0) AS THREEDAYCNT
+                      , NVL(SUM(THREEDAYOVER), 0) AS THREEDAYOVERCNT
+              FROM (SELECT
+            <![CDATA[
+                        CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 1 THEN 1 ELSE 0 END AS ONEHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 1
+                            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 2  THEN 1 ELSE 0 END AS TWOHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 2
+                            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 3  THEN 1 ELSE 0 END AS THREEHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 3
+                            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 5  THEN 1 ELSE 0 END AS FIVEHOUR
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 5
+                            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 24  THEN 1 ELSE 0 END AS ONEDAY
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 24
+                            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 48  THEN 1 ELSE 0 END AS TWODAY
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 48
+                            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 72  THEN 1 ELSE 0 END AS THREEDAY
+                        , CASE WHEN ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 72 THEN 1 ELSE 0 END AS THREEDAYOVER
+                    FROM TB_VOC_DTL
+                    WHERE VOC_DSPS_STAT_CD = '20')) A
+        , (SELECT LEVEL AS NO FROM DUAL
+            CONNECT BY LEVEL <=8 ) B
+            ]]>
+    </select>
+
+    <select id="MonitoringMap.getVocPastTimeTypeChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getVocPastTimeTypeChartList */
+                GETCODENM('CNS080', VOC_TYP_CD, CNTR_CD) AS VOC_TYP_NM
+              , VOC_TYP_CD
+              , COUNT(*) AS CNT
+        FROM TB_VOC_DTL
+        WHERE VOC_DSPS_STAT_CD = '20'
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY VOC_TYP_CD, CNTR_CD
+        ORDER BY VOC_TYP_CD
+    </select>
+
+    <select id="MonitoringMap.getVocPastTimeCounselorChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getVocPastTimeCounselorChartList */
+                VOC_ACTP_ID
+              , (SELECT USER_NM FROM TB_USER WHERE USER_ID = A.VOC_ACTP_ID AND CNTR_CD = A.CNTR_CD) AS VOC_DSSR_NM
+              , COUNT(*) AS CNT
+        FROM TB_VOC_DTL A
+        WHERE A.VOC_DSPS_STAT_CD = '20'
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY VOC_ACTP_ID, CNTR_CD
+        ORDER BY VOC_ACTP_ID
+    </select>
+
+    <select id="MonitoringMap.getVocPastTimeValueChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getVocPastTimeValueChartList */
+                GETCODENM('CNS090', VOC_TYP_CD, CNTR_CD) AS VOC_TYP_NM
+              , VOC_TYP_CD
+              , COUNT(*) AS CNT
+        FROM TB_VOC_DTL
+        WHERE VOC_DSPS_STAT_CD = '20'
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+            AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( TRUNC((SYSDATE - TO_DATE(RGSN_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY VOC_TYP_CD, CNTR_CD
+        ORDER BY VOC_TYP_CD
+    </select>
+
+    <select id="MonitoringMap.getCallbackPastTimeChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getCallbackPastTimeChartList */
+                DECODE(C.NO, 1, '~30분'
+                           , 2, '~1시간'
+                           , 3, '~2시간'
+                           , 4, '~3시간'
+                           , 5, '~4시간'
+                           , 6, '~5시간'
+                           , 7, '~6시간'
+                           , 8, '~6시간이상') AS COL
+              , DECODE(C.NO, 1, '30'
+                             , 2, '60'
+                             , 3, '120'
+                             , 4, '180'
+                             , 5, '240'
+                             , 6, '300'
+                             , 7, '360'
+                             , 8, '420' ) AS X
+              , DECODE(C.NO, 1, A_HALFHOURCNT
+                           , 2, A_ONEHOURCNT
+                           , 3, A_TWOHOURCNT
+                           , 4, A_THREEHOURCNT
+                           , 5, A_FOURHOURCNT
+                           , 6, A_FIVEHOURCNT
+                           , 7, A_SIXHOURCNT
+                           , 8, A_SEVENHOURCNT ) AS A_CNT
+              , DECODE(C.NO, 1, B_HALFHOURCNT
+                          , 2, B_ONEHOURCNT
+                          , 3, B_TWOHOURCNT
+                          , 4, B_THREEHOURCNT
+                          , 5, B_FOURHOURCNT
+                          , 6, B_FIVEHOURCNT
+                          , 7, B_SIXHOURCNT
+                          , 8, B_SEVENHOURCNT ) AS B_CNT
+        FROM (SELECT NVL(SUM(HALFHOUR), 0) AS A_HALFHOURCNT
+                      , NVL(SUM(ONEHOUR), 0) AS A_ONEHOURCNT
+                      , NVL(SUM(TWOHOUR), 0) AS A_TWOHOURCNT
+                      , NVL(SUM(THREEHOUR), 0) AS A_THREEHOURCNT
+                      , NVL(SUM(FOURHOUR), 0) AS A_FOURHOURCNT
+                      , NVL(SUM(FIVEHOUR), 0) AS A_FIVEHOURCNT
+                      , NVL(SUM(SIXHOUR), 0) AS A_SIXHOURCNT
+                      , NVL(SUM(SEVENHOUR), 0) AS A_SEVENHOURCNT
+                FROM (SELECT
+                        <![CDATA[
+                        CASE WHEN ( (SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) <= 30 THEN 1 ELSE 0 END AS HALFHOUR
+                        , CASE WHEN ( (SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) > 30
+                            AND ( (SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60 ) <= 60  THEN 1 ELSE 0 END AS ONEHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 1
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 2  THEN 1 ELSE 0 END AS TWOHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 2
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 3  THEN 1 ELSE 0 END AS THREEHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 3
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 4  THEN 1 ELSE 0 END AS FOURHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 4
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 5  THEN 1 ELSE 0 END AS FIVEHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 5
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 6  THEN 1 ELSE 0 END AS SIXHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 6 THEN 1 ELSE 0 END AS SEVENHOUR
+                        ]]>
+                    FROM TB_CALB_DTL
+                    WHERE CALB_RESL_CD = '10')) A
+            , (SELECT NVL(SUM(HALFHOUR), 0) AS B_HALFHOURCNT
+                      , NVL(SUM(ONEHOUR), 0) AS B_ONEHOURCNT
+                      , NVL(SUM(TWOHOUR), 0) AS B_TWOHOURCNT
+                      , NVL(SUM(THREEHOUR), 0) AS B_THREEHOURCNT
+                      , NVL(SUM(FOURHOUR), 0) AS B_FOURHOURCNT
+                      , NVL(SUM(FIVEHOUR), 0) AS B_FIVEHOURCNT
+                      , NVL(SUM(SIXHOUR), 0) AS B_SIXHOURCNT
+                      , NVL(SUM(SEVENHOUR), 0) AS B_SEVENHOURCNT
+                FROM (SELECT
+                        <![CDATA[
+                        CASE WHEN ( (SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) <= 30 THEN 1 ELSE 0 END AS HALFHOUR
+                        , CASE WHEN ( (SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS'))  * 24 * 60 ) > 30
+                            AND ( (SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS'))  * 24 * 60) <= 60  THEN 1 ELSE 0 END AS ONEHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 1
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 2  THEN 1 ELSE 0 END AS TWOHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 2
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 3  THEN 1 ELSE 0 END AS THREEHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 3
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 4  THEN 1 ELSE 0 END AS FOURHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 4
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 5  THEN 1 ELSE 0 END AS FIVEHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 5
+                            AND ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 6  THEN 1 ELSE 0 END AS SIXHOUR
+                        , CASE WHEN ( ((SYSDATE - TO_DATE(CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 6 THEN 1 ELSE 0 END AS SEVENHOUR
+                        ]]>
+                    FROM TB_CALB_DTL
+                    WHERE CALB_RESL_CD = '20'
+                    )) B
+                    <![CDATA[
+                , (SELECT LEVEL AS NO FROM DUAL
+                    CONNECT BY LEVEL <=8 ) C
+                    ]]>
+    </select>
+
+    <select id="MonitoringMap.getCallbackPastTimeTeamChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getCallbackPastTimeTeamChartList */
+               (CASE WHEN (SELECT TEAM_NM
+                             FROM TB_CONS_TEAM
+                            WHERE TEAM_CD = B.TEAM_CD) IS NOT NULL THEN (SELECT TEAM_NM
+                                                                           FROM TB_CONS_TEAM
+                                                                          WHERE TEAM_CD = B.TEAM_CD)
+
+                                                                   ELSE '미배정' END) AS TEAM_NM
+              , B.TEAM_CD
+              , COUNT(*) AS CNT
+          FROM TB_CALB_DTL A LEFT OUTER JOIN TB_USER B
+            ON ( A.CHPR_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD )
+         WHERE A.CALB_RESL_CD = #{state}
+         <choose>
+          <when test="sStartd != 360">
+          <![CDATA[
+           AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) ) > #{sStartd}
+           AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) ) <= #{sEndd}
+          ]]>
+          </when>
+          <otherwise>
+          <![CDATA[
+           AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60)  ) > #{sStartd}
+          ]]>
+          </otherwise>
+        </choose>
+        GROUP BY B.TEAM_CD, B.CNTR_CD
+        ORDER BY B.TEAM_CD
+    </select>
+
+
+    <select id="MonitoringMap.getCallbackPastTimeCounselorChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getCallbackPastTimeCounselorChartList */
+                A.CHPR_ID
+                ,B.USER_NM AS CHPR_NM
+                , COUNT(*) AS CNT
+        FROM TB_CALB_DTL A LEFT OUTER JOIN TB_USER B
+        ON( A.CHPR_ID = B.USER_ID AND A.CNTR_CD  = B.CNTR_CD)
+        WHERE A.CALB_RESL_CD = #{state}
+        AND B.TEAM_CD = #{team_cd}
+    <choose>
+        <when test="sStartd != 360">
+        <![CDATA[
+        AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) ) > #{sStartd}
+        AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60)  ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY A.CHPR_ID,B.USER_NM
+        ORDER BY A.CHPR_ID
+    </select>
+
+    <select id="MonitoringMap.getCallbackPastTimeIvrChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getCallbackPastTimeIvrChartList */
+               ARS_SRVC_ADDR
+             , GETCODENM('CNS060', ARS_SRVC_ADDR, CNTR_CD) AS IVRINFONM
+             , COUNT(*) AS CNT
+          FROM TB_CALB_DTL A
+         WHERE A.CALB_RESL_CD = #{state}
+    <choose>
+        <when test="sStartd != 360">
+        <![CDATA[
+           AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) ) > #{sStartd}
+           AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( TRUNC((SYSDATE - TO_DATE(A.CALB_RESR_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60)  ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY ARS_SRVC_ADDR, CNTR_CD
+        ORDER BY ARS_SRVC_ADDR
+    </select>
+
+    <select id="MonitoringMap.getResvcallPastTimeChartList" parameterType="map" resultType="resultMap">
+    <![CDATA[
+        SELECT /* MonitoringMap.getResvcallPastTimeChartList */
+                DECODE(B.NO, 1, '~1시간'
+                          , 2, '~2시간'
+                          , 3, '~3시간'
+                          , 4, '~5시간'
+                          , 5, '~1일'
+                          , 6, '~2일'
+                          , 7, '~3일'
+                          , 8, '~3일 이상') AS COL
+               , DECODE(B.NO, 1, '1'
+                            , 2, '2'
+                            , 3, '3'
+                            , 4, '5'
+                            , 5, '24'
+                            , 6, '48'
+                            , 7, '72'
+                            , 8, '100' ) AS X
+               , DECODE(B.NO, 1, ONEHOURCNT
+                            , 2, TWOHOURCNT
+                            , 3, THREEHOURCNT
+                            , 4, FIVEHOURCNT
+                            , 5, ONEDAYCNT
+                            , 6, TWODAYCNT
+                            , 7, THREEDAYCNT
+                            , 8, THREEDAYOVERCNT ) AS CNT
+        FROM (SELECT NVL(SUM(ONEHOUR), 0) AS ONEHOURCNT
+                   , NVL(SUM(TWOHOUR), 0) AS TWOHOURCNT
+                   , NVL(SUM(THREEHOUR), 0) AS THREEHOURCNT
+                   , NVL(SUM(FIVEHOUR), 0) AS FIVEHOURCNT
+                   , NVL(SUM(ONEDAY), 0) AS ONEDAYCNT
+                   , NVL(SUM(TWODAY), 0) AS TWODAYCNT
+                   , NVL(SUM(THREEDAY), 0) AS THREEDAYCNT
+                   , NVL(SUM(THREEDAYOVER), 0) AS THREEDAYOVERCNT
+              FROM ( SELECT CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 1 THEN 1 ELSE 0 END AS ONEHOUR
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 1
+                               AND ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 2  THEN 1 ELSE 0 END AS TWOHOUR
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 2
+                               AND ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 3  THEN 1 ELSE 0 END AS THREEHOUR
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 3
+                               AND ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 5  THEN 1 ELSE 0 END AS FIVEHOUR
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 5
+                               AND ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 24  THEN 1 ELSE 0 END AS ONEDAY
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 24
+                               AND ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 48  THEN 1 ELSE 0 END AS TWODAY
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 48
+                               AND ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <= 72  THEN 1 ELSE 0 END AS THREEDAY
+                           , CASE WHEN ( ((SYSDATE - TO_DATE(RECRNC_DT || RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) > 72 THEN 1 ELSE 0 END AS THREEDAYOVER
+                       FROM TB_RECRNC_RESR_DTL
+                       WHERE RECRNC_STAT_CD = '20')) A
+               , (SELECT LEVEL AS NO FROM DUAL
+                    CONNECT BY LEVEL <=8 ) B
+    ]]>
+    </select>
+
+    <select id="MonitoringMap.getRecallPastTimeTeamChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getRecallPastTimeTeamChartList */
+                B.TEAM_CD
+              , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = B.TEAM_CD AND CNTR_CD = B.CNTR_CD) AS TEAM_NM
+              , COUNT(*) AS CNT
+          FROM TB_RECRNC_RESR_DTL A LEFT OUTER JOIN TB_USER B
+            ON( A.CNSR_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD)
+         WHERE A.RECRNC_STAT_CD = '20'
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+          AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+          AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+          AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY B.TEAM_CD,  B.CNTR_CD
+    </select>
+
+    <select id="MonitoringMap.getRecallPastTimeMajorChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getRecallPastTimeMajorChartList */
+                B.CONS_TYP1_CD
+              , (SELECT CONS_TYP_NM FROM TB_CONS_TYP_CD WHERE CONS_TYP_CD = B.CONS_TYP1_CD AND CNTR_CD = B.CNTR_CD) AS CONS_TYP1_NM
+              , COUNT(*) AS CNT
+        FROM TB_RECRNC_RESR_DTL A LEFT OUTER JOIN TB_CONS B
+        ON( A.CNSR_ID = B.CHPR_ID)
+        WHERE RECRNC_STAT_CD = '20'
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY B.CONS_TYP1_CD, B.CNTR_CD
+        ORDER BY B.CONS_TYP1_CD
+    </select>
+
+    <select id="MonitoringMap.getRecallPastTimeCounselorChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getRecallPastTimeCounselorChartList */
+                A.CNSR_ID
+              , B.USER_NM  AS CNSR_NM
+              , COUNT(*) AS CNT
+        FROM TB_RECRNC_RESR_DTL A LEFT OUTER JOIN TB_USER B
+        ON( A.CNSR_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD)
+        WHERE A.RECRNC_STAT_CD = '20'
+        AND B.TEAM_CD = #{team_cd}
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY A.CNSR_ID, B.USER_NM
+        ORDER BY A.CNSR_ID
+    </select>
+
+    <select id="MonitoringMap.getRecallPastTimeMiddleChartList" parameterType="map" resultType="resultMap">
+        SELECT /* MonitoringMap.getRecallPastTimeMiddleChartList */
+                    B.CONS_TYP2_CD
+                  , (SELECT CONS_TYP_NM FROM TB_CONS_TYP_CD WHERE CONS_TYP_CD = B.CONS_TYP2_CD AND CNTR_CD = B.CNTR_CD) AS CONS_TYP2_NM
+                  , COUNT(*) AS CNT
+        FROM TB_RECRNC_RESR_DTL A LEFT OUTER JOIN TB_CONS B
+            ON( A.CNSR_ID = B.CHPR_ID)
+        WHERE RECRNC_STAT_CD = '20'
+          AND B.CONS_TYP1_CD = #{cons_typ1_cd}
+    <choose>
+        <when test="sStartd != 72">
+        <![CDATA[
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) <= #{sEndd}
+        ]]>
+        </when>
+        <otherwise>
+        <![CDATA[
+        AND ( ((SYSDATE - TO_DATE(A.RECRNC_DT || A.RECRNC_HRMN, 'YYYY-MM-DD HH24:MI:SS')) * 24 ) ) > #{sStartd}
+        ]]>
+        </otherwise>
+    </choose>
+        GROUP BY B.CONS_TYP2_CD, B.CNTR_CD
+        ORDER BY B.CONS_TYP2_CD
+    </select>
+
+
+
+</mapper>

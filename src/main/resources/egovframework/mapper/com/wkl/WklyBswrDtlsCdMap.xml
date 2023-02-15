@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WklyBswrDtlsCdMap">
+
+    <sql id="WklyBswrDtlsCdMap.selectCondition_fragment">
+        <where>
+            WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+            <if test="wkly_bswr_dtls_cd != null and wkly_bswr_dtls_cd != ''">
+                AND WKLY_BSWR_DTLS_CD = #{wkly_bswr_dtls_cd}
+            </if>
+            <if test="wkly_bswr_dtls_nm != null and wkly_bswr_dtls_nm != ''">
+                AND WKLY_BSWR_DTLS_NM LIKE '%' || #{wkly_bswr_dtls_nm} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="WklyBswrDtlsCdMap.getCodeCount" parameterType="map" resultType="int">
+        SELECT /* WklyBswrDtlsCdMap.getCodeCount */
+               COUNT(*)
+          FROM TB_WKLY_BSWR_DTLS_CD A
+        <include refid="WklyBswrDtlsCdMap.selectCondition_fragment" />
+    </select>
+
+    <select id="WklyBswrDtlsCdMap.getCodeList" parameterType="map" resultType="resultMap">
+        SELECT /* WklyBswrDtlsCdMap.getCodeList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT WKLY_BSWR_TYP_CD, WKLY_BSWR_DTLS_CD, WKLY_BSWR_DTLS_NM
+                     , USE_YN, WKLY_BSWR_DTLS_EXPI
+                     , EXPE_SQNC, EXPE_SQNC AS EXPE_SQNC_OLD
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_WKLY_BSWR_DTLS_CD A
+        <include refid="WklyBswrDtlsCdMap.selectCondition_fragment" />
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                ORDER BY ${orderBy} ${orderDirection}
+            </when>
+            <otherwise>
+                ORDER BY EXPE_SQNC ASC
+            </otherwise>
+        </choose>
+               ) B
+    </select>
+
+    <select id="WklyBswrDtlsCdMap.getCodeListByStringArray" resultType="resultMap">
+        SELECT /* WklyBswrDtlsCdMap.getCodeListByStringArray */
+               WKLY_BSWR_TYP_CD, CNTR_CD, WKLY_BSWR_DTLS_CD, WKLY_BSWR_DTLS_NM, EXPE_SQNC
+             , USE_YN, WKLY_BSWR_DTLS_EXPI
+          FROM TB_WKLY_BSWR_DTLS_CD
+         WHERE USE_YN = 'Y'
+           AND WKLY_BSWR_TYP_CD IN
+        <foreach collection="array" item="item" separator="," close=")" open="(">
+               #{item}
+        </foreach>
+         ORDER BY EXPE_SQNC ASC
+    </select>
+
+    <insert id="WklyBswrDtlsCdMap.insertCode" parameterType="map">
+        INSERT /* WklyBswrDtlsCdMap.insertCode */
+          INTO TB_WKLY_BSWR_DTLS_CD
+               (WKLY_BSWR_TYP_CD, WKLY_BSWR_DTLS_CD, WKLY_BSWR_DTLS_NM, EXPE_SQNC
+              , USE_YN, WKLY_BSWR_DTLS_EXPI
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{wkly_bswr_typ_cd}, #{wkly_bswr_dtls_cd}, #{wkly_bswr_dtls_nm}, #{expe_sqnc}
+              , #{use_yn}, #{wkly_bswr_dtls_expi}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="WklyBswrDtlsCdMap.updateCode" parameterType="map">
+        UPDATE /* WklyBswrDtlsCdMap.updateCode */
+               TB_WKLY_BSWR_DTLS_CD
+           SET AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID = #{amnd_id}
+             , EXPE_SQNC = #{expe_sqnc}
+             , USE_YN = #{use_yn}
+             , WKLY_BSWR_DTLS_EXPI = #{wkly_bswr_dtls_expi}
+             , WKLY_BSWR_DTLS_NM = #{wkly_bswr_dtls_nm}
+        WHERE WKLY_BSWR_DTLS_CD = #{wkly_bswr_dtls_cd}
+          AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <select id="WklyBswrDtlsCdMap.getCodeMaxSequence" parameterType="map" resultType="int">
+        SELECT /* WklyBswrDtlsCdMap.getCodeMaxSequence */
+               NVL(MAX(EXPE_SQNC), 0)
+          FROM TB_WKLY_BSWR_DTLS_CD
+         WHERE WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="WklyBswrDtlsCdMap.getCodeDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* WklyBswrDtlsCdMap.getCodeDuplicateCount */
+               COUNT(*)
+          FROM TB_WKLY_BSWR_DTLS_CD
+         WHERE WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+           AND CNTR_CD = #{cntr_cd}
+           AND EXPE_SQNC = #{expe_sqnc}
+           AND WKLY_BSWR_DTLS_CD != #{wkly_bswr_dtls_cd}
+    </select>
+
+    <update id="WklyBswrDtlsCdMap.updateCodeSequence" parameterType="map">
+    <![CDATA[
+        UPDATE /* WklyBswrDtlsCdMap.updateCodeSequence */
+               TB_WKLY_BSWR_DTLS_CD
+           SET EXPE_SQNC = (CASE WKLY_BSWR_DTLS_CD WHEN #{wkly_bswr_dtls_cd} THEN ${expe_sqnc}
+                                  ELSE (CASE SIGN(${cd_sqnc_old} - ${expe_sqnc}) WHEN -1 THEN EXPE_SQNC - 1
+                                                                               WHEN  1 THEN EXPE_SQNC + 1
+                                        END)
+                          END)
+          WHERE EXPE_SQNC <= (CASE SIGN(${cd_sqnc_old} - ${expe_sqnc}) WHEN  1 THEN ${cd_sqnc_old}
+                                                                   WHEN -1 THEN ${expe_sqnc}
+                            END)
+            AND EXPE_SQNC >= (CASE SIGN(${cd_sqnc_old} - ${expe_sqnc}) WHEN  1 THEN ${expe_sqnc}
+                                                                   WHEN -1 THEN ${cd_sqnc_old}
+                            END)
+            AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+            AND CNTR_CD = #{cntr_cd}
+    ]]>
+    </update>
+
+</mapper>

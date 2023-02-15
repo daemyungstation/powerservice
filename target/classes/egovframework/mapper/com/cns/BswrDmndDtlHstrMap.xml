@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="BswrDmndDtlHstrMap">
+
+    <sql id="BswrDmndDtlHstrMap.selectCondition_fragment">
+        <where>
+            <if test="trct_actp_id != null and trct_actp_id != ''">
+                AND TRCT_ACTP_ID = #{trct_actp_id}
+            </if>
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+            <if test="bswr_dmnd_id != null and bswr_dmnd_id != ''">
+                AND BSWR_DMND_ID = #{bswr_dmnd_id}
+            </if>
+            <if test="dt_typ != null and dt_typ != '' and stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND ${dt_typ} BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+            </if>
+            <if test="srch_typ == 'trct_actp' and srch_val != null and srch_val !=''">
+                AND TRCT_ACTP_NM LIKE '%' || #{srch_val} || '%'
+            </if>
+            <if test="srch_typ == 'trct_chpr' and srch_val != null and srch_val !=''">
+                AND TRCT_CHPR_NM LIKE '%' || #{srch_val} || '%'
+            </if>
+            <if test="srch_typ == '' and srch_val != null and srch_val !=''">
+                AND (TRCT_ACTP_NM LIKE '%' || #{srch_val} || '%'
+                     OR TRCT_CHPR_NM LIKE '%' || #{srch_val} || '%'
+                    )
+            </if>
+            <if test="trct_typ != null and trct_typ !=''">
+                AND TRCT_TYP_CD = #{trct_typ}
+            </if>
+            <if test="trct_typ != null and trct_typ !=''">
+                AND TRCT_TYP_CD = #{trct_typ}
+            </if>
+            <if test="elps_hr != null and elps_hr !=''">
+                AND ( ((SYSDATE - TO_DATE(TRCT_ACPG_DTTM, 'YYYY-MM-DD HH24:MI:SS')) * 24) ) <![CDATA[>=]]> #{elps_hr}
+            </if>
+            <if test="path_typ == 'admin'">
+                <if test="bswr_dmnd_stat_typ != null and bswr_dmnd_stat_typ !='' and (bswr_dmnd_stat_cd == null or bswr_dmnd_stat_cd =='')">
+                    <if test="bswr_dmnd_stat_typ == 'ytun'">
+                        AND BSWR_DMND_STAT_CD <![CDATA[<]]> '30'
+                    </if>
+                    <if test="bswr_dmnd_stat_typ == 'dsps_cmpl'">
+                        AND BSWR_DMND_STAT_CD <![CDATA[>=]]> '30'
+                    </if>
+                </if>
+                <if test="bswr_dmnd_stat_cd != null and bswr_dmnd_stat_cd !=''">
+                AND BSWR_DMND_STAT_CD = #{bswr_dmnd_stat_cd}
+                </if>
+                <if test="trct_chpr_id != null and trct_chpr_id !=''">
+                AND TRCT_CHPR_ID = #{trct_chpr_id}
+                </if>
+            </if>
+            <if test="path_typ == 'usr'">
+                <if test="trct_chpr_id != null and trct_chpr_id !=''">
+                AND TRCT_BOX_ID IN (SELECT TRCT_BOX_ID FROM TB_TRCT_CHPR_ADMN WHERE USER_ID = #{trct_chpr_id})
+                </if>
+                <!-- 전체 -->
+                <if test="trct_chpr_id != null and trct_chpr_id !='' and (bswr_dmnd_stat_typ == null or bswr_dmnd_stat_typ =='') and (bswr_dmnd_stat_cd == null or bswr_dmnd_stat_cd =='')">
+                AND (TRCT_CHPR_ID = #{trct_chpr_id} OR BSWR_DMND_STAT_CD = '00')
+                </if>
+                <!-- 타입 O 상태 O -->
+                <if test="bswr_dmnd_stat_typ != null and bswr_dmnd_stat_typ !='' and bswr_dmnd_stat_cd != null and bswr_dmnd_stat_cd">
+                    <!-- 미정 -->
+                    <if test="bswr_dmnd_stat_cd != null and bswr_dmnd_stat_cd !='' and bswr_dmnd_stat_cd == '00'">
+                    AND (BSWR_DMND_STAT_CD = '00')
+                    </if>
+                    <!-- 미정 외 -->
+                    <if test="trct_chpr_id != null and trct_chpr_id !='' and bswr_dmnd_stat_cd != null and bswr_dmnd_stat_cd !='' and bswr_dmnd_stat_cd != '00'">
+                    AND TRCT_CHPR_ID = #{trct_chpr_id}
+                    AND BSWR_DMND_STAT_CD = #{bswr_dmnd_stat_cd}
+                    </if>
+                </if>
+                <!-- 타입 O 상태 X -->
+                <if test="bswr_dmnd_stat_typ != null and bswr_dmnd_stat_typ !='' and (bswr_dmnd_stat_cd == null or bswr_dmnd_stat_cd =='')">
+                    <if test="bswr_dmnd_stat_typ == 'ytun'">
+                        AND (TRCT_CHPR_ID = #{trct_chpr_id}
+                             AND BSWR_DMND_STAT_CD <![CDATA[>]]> '00'
+                             AND BSWR_DMND_STAT_CD <![CDATA[<]]> '30'
+                              OR BSWR_DMND_STAT_CD = '00')
+                    </if>
+                    <if test="bswr_dmnd_stat_typ == 'dsps_cmpl'">
+                        AND TRCT_CHPR_ID = #{trct_chpr_id}
+                        AND BSWR_DMND_STAT_CD <![CDATA[>=]]> '30'
+                    </if>
+                </if>
+            </if>
+            <if test="path_typ == 'todo'">
+                AND CONS_STAT_CD != '30'
+                AND TRCT_CONS_ATMT_CMPL_YN = 'N' <!-- CONS_ATMT_CMPL_YN에 AS 준것 -->
+            </if>
+        </where>
+    </sql>
+
+    <insert id="BswrDmndDtlHstrMap.insertBswrDmndDtlHstr" parameterType="map">
+        INSERT INTO /* BswrDmndDtlHstrMap.insertBswrDmndDtlHstr */
+                    TB_BSWR_DMND_DTL_HSTR
+                   (BSWR_DMND_ID, CHNG_DTTM, BSWR_DMND_STAT_CD, CONS_ATMT_CMPL_YN, TRCT_BOX_ID
+                  , TRCT_ACPG_DEPT_CD, TRCT_ACTP_ID, TRCT_ACPG_DTTM, BSWR_DMND_ACPG_CNTN, TRNM_DSPS_DTTM
+                  , TRCT_CHPR_DEPT_CD, TRCT_CHPR_ID, BSWR_DMND_CNFT_DTTM, BSWR_DMND_DSPS_CNTN, CNTR_CD
+                  , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CONSNO)
+             SELECT BSWR_DMND_ID, SYSTIMESTAMP, BSWR_DMND_STAT_CD, CONS_ATMT_CMPL_YN, TRCT_BOX_ID
+                  , TRCT_ACPG_DEPT_CD, TRCT_ACTP_ID, TRCT_ACPG_DTTM, BSWR_DMND_ACPG_CNTN, TRNM_DSPS_DTTM
+                  , TRCT_CHPR_DEPT_CD, TRCT_CHPR_ID, BSWR_DMND_CNFT_DTTM, BSWR_DMND_DSPS_CNTN, CNTR_CD
+                  , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CONSNO
+               FROM TB_BSWR_DMND_DTL
+              WHERE BSWR_DMND_ID = #{bswr_dmnd_id}
+    </insert>
+
+    <delete id="BswrDmndDtlHstrMap.deleteBswrDmndDtlHstr" parameterType="map">
+        DELETE /* BswrDmndDtlHstrMap.deleteBswrDmndDtlHstr */
+          FROM TB_BSWR_DMND_DTL_HSTR
+         WHERE BSWR_DMND_ID = #{bswr_dmnd_id}
+           AND CNTR_CD = #{cntr_cd}
+    </delete>
+
+    <select id = "BswrDmndDtlHstrMap.getBswrDmndDtlHstrCount" parameterType="map" resultType="int">
+        SELECT /* BswrDmndDtlHstrMap.getBswrDmndDtlHstrCount */
+               COUNT(*)
+          FROM (SELECT A.*
+                     , (SELECT TRCT_TYP_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_TYP_CD
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TRCT_ACPG_DEPT_CD
+                           AND CNTR_CD = A.CNTR_CD) AS TRCT_ACPG_DEPT_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.TRCT_ACTP_ID
+                           AND CNTR_CD = A.CNTR_CD) AS TRCT_ACTP_NM
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TRCT_CHPR_DEPT_CD
+                           AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_DEPT_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.TRCT_CHPR_ID
+                           AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_NM
+                     , A.CONS_ATMT_CMPL_YN AS TRCT_CONS_ATMT_CMPL_YN
+                     , C.CONS_STAT_CD
+                  FROM TB_BSWR_DMND_DTL_HSTR A
+                  LEFT JOIN TB_CONS C
+                    ON A.CONSNO = C.CONSNO
+               ) E
+           <include refid="BswrDmndDtlHstrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="BswrDmndDtlHstrMap.getBswrDmndDtlHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* BswrDmndDtlHstrMap.getBswrDmndDtlHstrList */
+               F.*
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , E.*
+                     , GETCODENM('USR080', E.TRCT_CONS_SCTR_CD, E.CNTR_CD) AS TRCT_CONS_SCTR_NM
+                     , GETCODENM('USR090', E.TRCT_TRGT_DIV_CD, E.CNTR_CD) AS TRCT_TRGT_DIV_NM
+
+<!--
+    2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서...
+                  FROM (SELECT A.BSWR_DMND_ID
+                             , A.CONSNO
+                             , A.BSWR_DMND_STAT_CD
+                             , TO_CHAR(A.CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM
+                             , GETCODENM('CNS160', A.BSWR_DMND_STAT_CD, C.CNTR_CD) AS BSWR_DMND_STAT_NM
+                             , (SELECT GETCODENM('USR100', TRCT_TYP_CD, CNTR_CD) FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID)  AS TRCT_TYP_NM
+                             , (SELECT TRCT_TYP_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_TYP_CD
+                             , (SELECT TRCT_CONS_SCTR_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_CONS_SCTR_CD
+                             , (SELECT TRCT_TRGT_DIV_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_TRGT_DIV_CD
+                             , (SELECT TRCT_BOX_ID FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_BOX_ID
+                             , (SELECT TRCT_BOX_NM FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_BOX_NM
+                             , C.CONS_STAT_CD
+                             , GETCODENM('CNS030', C.CONS_STAT_CD, C.CNTR_CD) AS CONS_STAT_NM
+                             , A.TRCT_ACTP_ID
+                             , A.TRCT_ACPG_DEPT_CD
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_ACPG_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACPG_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_ACTP_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACTP_NM
+                             , A.TRCT_ACPG_DTTM
+                             , A.TRCT_CHPR_ID
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_CHPR_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_CHPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_NM
+                             , A.BSWR_DMND_CNFT_DTTM
+                             , A.TRNM_DSPS_DTTM
+                             , (CASE WHEN A.BSWR_DMND_STAT_CD = '00' OR A.BSWR_DMND_STAT_CD = '10' OR A.BSWR_DMND_STAT_CD = '20'
+                                     THEN TRUNC(SYSDATE - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || '시간 ' ||
+                                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                                     ELSE TRUNC(TO_DATE(A.TRNM_DSPS_DTTM,'YYYYMMDDHH24MISS') - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                                          LPAD(TRUNC(MOD((TO_DATE(A.TRNM_DSPS_DTTM,'YYYYMMDDHH24MISS') - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || '시간 ' ||
+                                          LPAD(TRUNC(MOD((TO_DATE(A.TRNM_DSPS_DTTM,'YYYYMMDDHH24MISS') - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                                 END) AS CALB_RESR_TERM
+                             , A.BSWR_DMND_ACPG_CNTN
+                             , A.BSWR_DMND_DSPS_CNTN
+                             , A.CONS_ATMT_CMPL_YN AS TRCT_CONS_ATMT_CMPL_YN
+                             , C.CONS_TYP1_CD
+                             , C.CONS_TYP2_CD
+                             , C.CONS_TYP3_CD
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = C.CONS_TYP1_CD
+                                   AND CNTR_CD   = C.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = C.CONS_TYP2_CD
+                                   AND CNTR_CD   = C.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = C.CONS_TYP3_CD
+                                   AND CNTR_CD   = C.CNTR_CD) AS CONS_TYP3_NM
+                             , C.CONS_MEMO_CNTN, C.MEM_NO, C.CONSNO_GROP_NO, C.CONSNO_SQNO
+                             , C.MEM_NM, C.HOME_TEL, C.CELL, C.EMAIL
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , A.RGSN_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , A.AMNT_DTTM
+                             , A.CNTR_CD
+                          FROM TB_BSWR_DMND_DTL_HSTR A
+                          LEFT JOIN TB_CONS C
+                            ON A.CONSNO = C.CONSNO
+
+-->
+
+FROM (SELECT A.BSWR_DMND_ID
+                             , A.CONSNO
+                             , A.BSWR_DMND_STAT_CD
+                             , TO_CHAR(A.CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM
+                             , GETCODENM('CNS160', A.BSWR_DMND_STAT_CD, C.CNTR_CD) AS BSWR_DMND_STAT_NM
+                             , (SELECT GETCODENM('USR100', TRCT_TYP_CD, CNTR_CD) FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID)  AS TRCT_TYP_NM
+                             , (SELECT TRCT_TYP_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_TYP_CD
+                             , (SELECT TRCT_CONS_SCTR_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_CONS_SCTR_CD
+                             , (SELECT TRCT_TRGT_DIV_CD FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_TRGT_DIV_CD
+                             , (SELECT TRCT_BOX_ID FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_BOX_ID
+                             , (SELECT TRCT_BOX_NM FROM TB_TRCT_BOX_ADMN WHERE TRCT_BOX_ID = A.TRCT_BOX_ID) AS TRCT_BOX_NM
+                             , C.CONS_STAT_CD
+                             , GETCODENM('CNS030', C.CONS_STAT_CD, C.CNTR_CD) AS CONS_STAT_NM
+                             , A.TRCT_ACTP_ID
+                             , A.TRCT_ACPG_DEPT_CD
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_ACPG_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACPG_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_ACTP_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_ACTP_NM
+                             , A.TRCT_ACPG_DTTM
+                             , A.TRCT_CHPR_ID
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TRCT_CHPR_DEPT_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_DEPT_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.TRCT_CHPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TRCT_CHPR_NM
+                             , A.BSWR_DMND_CNFT_DTTM
+                             , A.TRNM_DSPS_DTTM
+                             , (CASE WHEN A.BSWR_DMND_STAT_CD = '00' OR A.BSWR_DMND_STAT_CD = '10' OR A.BSWR_DMND_STAT_CD = '20'
+                                     THEN TRUNC(SYSDATE - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || '시간 ' ||
+                                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                                     ELSE TRUNC(TO_DATE(A.TRNM_DSPS_DTTM,'YYYYMMDDHH24MISS') - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                                          LPAD(TRUNC(MOD((TO_DATE(A.TRNM_DSPS_DTTM,'YYYYMMDDHH24MISS') - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || '시간 ' ||
+                                          LPAD(TRUNC(MOD((TO_DATE(A.TRNM_DSPS_DTTM,'YYYYMMDDHH24MISS') - TO_DATE(A.TRCT_ACPG_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                                 END) AS CALB_RESR_TERM
+                             , A.BSWR_DMND_ACPG_CNTN
+                             , A.BSWR_DMND_DSPS_CNTN
+                             , A.CONS_ATMT_CMPL_YN AS TRCT_CONS_ATMT_CMPL_YN
+                             , C.CONS_TYP1_CD
+                             , C.CONS_TYP2_CD
+                             , C.CONS_TYP3_CD
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = C.CONS_TYP1_CD
+                                   AND CNTR_CD   = C.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = C.CONS_TYP2_CD
+                                   AND CNTR_CD   = C.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD
+                                 WHERE CONS_TYP_CD = C.CONS_TYP3_CD
+                                   AND CNTR_CD   = C.CNTR_CD) AS CONS_TYP3_NM
+                             , C.CONS_MEMO_CNTN, C.MEM_NO, C.CONSNO_GROP_NO, C.CONSNO_SQNO
+                             , MEM.MEM_NM, MEM.HOME_TEL, MEM.CELL, MEM.EMAIL
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , A.RGSN_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , A.AMNT_DTTM
+                             , A.CNTR_CD
+                          FROM TB_BSWR_DMND_DTL_HSTR A
+                          LEFT JOIN TB_CONS C
+                            ON A.CONSNO = C.CONSNO
+                          LEFT OUTER JOIN
+                               LF_DMUSER.MEMBER MEM
+                               ON C.MEM_NO = MEM.MEM_NO
+                     <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                     </if>
+                       ) E
+               <include refid="BswrDmndDtlHstrMap.selectCondition_fragment"/>
+              )F
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+</mapper>

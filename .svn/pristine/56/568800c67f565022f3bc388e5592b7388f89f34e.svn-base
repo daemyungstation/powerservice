@@ -1,0 +1,963 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[var CTIOCXAPIStart = " 시작 ===============";
+var CTIOCXAPIEnd   = " 종료 ===============";
+
+var gConnectYn   = "N"; // 서버 연결 여부
+
+var gCtiIp1      = ""; // CTI IP 1
+var gCtiIp2      = ""; // CTI IP 2
+var gCtiPort1    = ""; // CTI PORT 1
+var gCtiPort2    = ""; // CTI PORT 2
+var gCtiParty    = ""; // CTI파티
+var gCtiGroup    = ""; // CTI그룹
+var gExtnNo      = ""; // 내선번호
+var gCtiId       = ""; // CTI ID
+//녹취
+var gRecIp1      = ""; // Rec IP 1
+var gRecPort1    = ""; // Rec PORT 1
+//부분녹취
+var gRecDualIp   = ""; // Rec Dual IP
+var gRecDualPort = ""; // Rec Dual PORT
+var gRecDualPlayPort = ""; // Rec Dual Play PORT
+//녹취청취
+var gPlayIp1      = ""; // 녹취청취서버 IP 1
+var gPlayPort1    = ""; // 녹취청위서버 PORT 1
+
+var gReasonCd    = 0;  // 비대기/후처리 사유코드
+
+var gTelNo       = ""; // 발신전화번호
+var gUei         = ""; // UEI 데이터
+var gArsUei      = ""; // ARS전환 UEI 데이터
+
+var gPreFix      = "9";// 외부전화 TRUNK번호
+
+var gIncoTlno    = ""; // 인입전화번호
+var gCallTyp     = ""; // 콜유형(I:고객전화인입/O:전화발신/E:내선전화/T:호전환시도/C:3자통화시도)
+var gArsSrvcAddr = ""; // ARS서비스
+var gIncoQdn     = ""; // 인입큐DN
+
+var gClickButton = ""; // 클릭 버튼 (중복 클릭 방지)
+
+var gv_memNo     = ""; // 회원 고유번호(호전환간)
+var gv_consGrpNo = ""; // 상담그룹번호
+var gv_totl_cons_hr = ""; // 상담시간
+
+var gv_oMemNo    = ""; // O/B
+var gv_oMemNm    = "";
+var gv_oAccntNo  = "";
+var gv_oProdCd   = "";
+
+var gv_tm_yn     = "N";
+
+var gv_rec_dual_yn = "N";	// 부분녹취 종료시 Y 처리
+var gv_rec_dual_id = "";	// 부분녹취 녹취ID
+
+// ======================================
+// CTI서버 접속
+// ======================================
+var gfn_connectCTI = function () {
+	trace("[lib_CTIControl] CTI CONNECT" + CTIOCXAPIStart + " CTIIP1-[" + gCtiIp1 + "] CTIPORT-[" + gCtiPort1 + "] EXTNNO-[" + gExtnNo + "]");
+    if (gCtiIp1 == "" || gCtiPort1 == "" || gExtnNo == "") { // CTI 접속정보가 없는 경우 종료
+        return -1;
+    }
+    
+    // 서버연결 호출
+    callMethod("OpenServer");
+    
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 서버 접속 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    } else {        // 성공
+        gConnectYn = "Y"; // 서버 연결 여부
+    }
+        
+    var rVal = gfn_recInit();    // 녹취 초기화
+	//trace("[lib_CTIControl] REC_INIT [" + rVal + "]");
+		
+	if (rVal != 0) {             // 실패
+		alert("녹취 초기화 오류가 발생하였습니다. [ERRORCODE : " + rVal + "]");
+	} else {
+		rVal = gfn_recConnect(); // 녹취 접속
+		//trace("[lib_CTIControl] REC_CONNECT [" + rVal + "]");
+			
+		if (rVal != 0) {         // 실패
+			alert("녹취 서버 접속 오류가 발생하였습니다. [ERRORCODE : " + rVal + "]");
+		}
+	}
+
+    trace("[lib_CTIControl] CONNECT" + CTIOCXAPIEnd);
+    return val;
+    */
+    
+    return 1;
+};
+
+// ======================================
+// CTI서버 접속 해제
+// ======================================
+var gfn_disconnectCTI = function () {
+    trace("[lib_CTIControl] DISCONNECT" + CTIOCXAPIStart + " CONNECT-[" + gConnectYn + "] CTIIP1-[" + gCtiIp1 + "] CTIPORT-[" + gCtiPort1 + "] EXTNNO-[" + gExtnNo + "]");
+    if (gConnectYn == "N") {
+        return -1;
+    }
+
+    var val = 1;
+    
+    callMethod("CloseServer");
+    //trace("[lib_CTIControl] DISCONNECT [" + val + "]");
+	
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 서버 접속해제 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    } else {        // 성공
+        gConnectYn = "N"; // 서버 연결 여부
+    }
+    
+    var rVal = gfn_recDisconnect(); // 녹취 접속 종료
+    //trace("[lib_CTIControl] REC_DISCONNECT [" + rVal + "]");
+    
+    if (rVal != 0) { // 실패
+		alert("녹취 서버 접속해제 오류가 발생하였습니다. [ERRORCODE : " + rVal + "]");
+    }
+    */
+    trace("[lib_CTIControl] DISCONNECT" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// CTI Login
+// ======================================
+var gfn_agentLogin = function () {
+    trace("[lib_CTIControl] LOGIN" + CTIOCXAPIStart + " CONNECT-[" + gConnectYn + "] EXTNNO-[" + gExtnNo + "] CTIID-[" + gCtiId + "] CTIPARTY-[" + gCtiParty + "] CTIGROUP-[" + gCtiGroup + "]");
+    gClickButton = "";       // 클릭 버튼 초기화
+    
+    if (gds_UserInfo.getColumn(0, "cti_use_yn") != "Y") { // 사용자 CTI 사용 여부 확인
+        alert("CTI 사용자가 아닙니다.");
+        return -1;
+    }
+    if (gfn_isNull(gExtnNo)) { // 좌석 내선번호 확인
+        alert("좌석 내선번호가 없습니다.");
+        return -1;
+    }
+    if (gfn_isNull(gCtiId)) { // 사용자 CTI ID 확인
+        alert("사용자 CTI아이디가 없습니다.");
+        return -1;
+    }
+    if (gfn_isNull(gCtiIp1) || gfn_isNull(gCtiPort1)) { // CTI 접속정보 확인
+        alert("CTI 서버 접속정보가 없습니다.");
+        return -1;
+    }
+    if (gConnectYn != "Y") { // 서버 연결 여부 확인
+        alert("CTI 서버에 연결되어 있지 않습니다.\r\n\r\n상담시스템을 다시 실행 후 시도해주세요.");
+        return -1;
+    }
+
+	// FIXME : 이벤트 수신 후 로직처리 되도록 변경필요
+    var val = 1;
+    
+    callMethod("MonitorStart"); // 모니터링 시작
+    //trace("[lib_CTIControl] MONITORSTART [" + val + "]");
+	
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 모니터링시작 오류가 발생하였습니다. [ERRORCODE :" + val + "]");
+    } else {        // 성공
+        val = callMethod("LogIn"); // 로그인
+        //trace("[lib_CTIControl] LOGIN [" + val + "]");
+
+        if (val == 1202) { // 중복로그인
+            if (confirm("이미 로그인 되어 있습니다.\r\n\r\n강제 로그아웃 하시겠습니까?")) {
+                gfn_agentLogout();
+            }
+        } else if (val == 1) { // 성공
+            gfn_agentNotReady(0); // 휴식 상태 변경
+        } else {               // 실패
+            alert("CTI 로그인 오류가 발생하였습니다. [ERRORCODE :" + val + "]");
+        }
+    }
+
+    fn_movePageIbound(); // 인바운드 화면 전환
+	*/
+	
+    trace("[lib_CTIControl] LOGIN" + CTIOCXAPIEnd);
+    
+    return val;
+};
+
+// ======================================
+// CTI Logout
+// ======================================
+var gfn_agentLogout = function () {
+    trace("[lib_CTIControl] LOGOUT" + CTIOCXAPIStart);
+    gClickButton = "";   // 클릭 버튼 초기화
+    _gfn_initCallData(); // 콜 데이터 초기화
+
+    if (gConnectYn == "N") {
+        return -1;
+    }
+    if (gExtnNo == "") {
+        return -1;
+    }
+    if (gCtiId == "") {
+        return -1;
+    }
+	
+	var val = 1;
+	
+    callMethod("LogOut");
+    //trace("[lib_CTIControl] LOGOUT [" + val + "]");
+
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 로그아웃 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+    */
+
+    gfn_changeCtiStatus(CTI_STATUS_LOGOUT); // CTI 로그아웃 상태 표시
+
+    trace("[lib_CTIControl] LOGOUT" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 대기
+// ======================================
+var gfn_agentReady = function () {
+    trace("[lib_CTIControl] READY" + CTIOCXAPIStart);
+
+    gClickButton = "";   // 클릭 버튼 초기화
+    _gfn_initCallData(); // 콜 데이터 초기화
+    
+    fn_initRecDual();
+
+    var val = 1;
+    
+    callMethod("Ready");
+    //trace("[lib_CTIControl] READY [" + val + "]");
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 대기 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] READY" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 전화걸기
+// ======================================
+// 테스트 요청 - 녹취이력
+var gfn_makeCall = function (psTelNo, psMemNo, psMemNm, psAccntNo, psProdCd, psTmYn) {
+    psTelNo = psTelNo.replace(/\D/g, "");
+    trace("[lib_CTIControl] MAKECALL" + CTIOCXAPIStart + " TELNO-[" + psTelNo + "]")
+
+    if (gfn_isNull(psTelNo)) {
+        alert("전화번호가 없습니다.");
+        return -1;
+    }
+    if (psTelNo.length < 4) {
+        alert("전화번호를 확인해주세요.");
+        return -1;
+    }
+
+    if (gClickButton == "MakeCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "MakeCall";
+
+    _gfn_initCallData(); // 콜 데이터 초기화
+    
+    fn_initRecDual();
+    
+    gTelNo = psTelNo;    // 발신전화번호 저장
+    gOtherParty = gTelNo;
+	gv_oMemNo = psMemNo;
+	gv_oMemNm = psMemNm;
+	gv_oAccntNo = psAccntNo;
+	gv_oProdCd = psProdCd;
+	
+	if (!gfn_isNull(psTmYn)) {
+		gv_tm_yn = psTmYn;
+    }
+	
+	for(var i=0;i<ap_WorkFrame.all.length; i++){
+		if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') { 								// 인바운드 화면
+			ap_WorkFrame.all[i].form.div_Work.div_product.edt_rec_dual_hr.value = "";	// 녹취 초기화
+		}
+	}	
+
+    var val = 1;
+        
+    callMethod("MakeCall");
+    //trace("[lib_CTIControl_Gen] MAKECALL [" + val + "]");
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 전화걸기 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] MAKECALL" + CTIOCXAPIEnd);
+    
+    return val;
+};
+
+// ======================================
+// 전화끊기
+// ======================================
+var gfn_clearCall = function () {
+    trace("[lib_CTIControl] CLEARCALL" + CTIOCXAPIStart);
+    if (gClickButton == "ClearCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "ClearCall";
+
+    var val = 1;
+    
+    callMethod("ClearConnection");
+    //trace("[lib_CTIControl] CLEARCALL [" + val + "]");
+	
+	/*
+    if (val != 1) {
+        alert("CTI 전화끊기 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] CLEARCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 전화받기
+// ======================================
+var gfn_answerCall = function () {
+    trace("[lib_CTIControl] ANSWERCALL" + CTIOCXAPIStart);
+    if (gClickButton == "AnswerCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "AnswerCall";
+
+    gTelNo = ""; // 발신전화번호 초기화
+
+    var val = 1;
+    
+    callMethod("AnswerCall");
+    //trace("[lib_CTIControl] ANSWERCALL [" + val + "]");
+	
+	/*
+	if (val != 1) { // 실패
+        alert("CTI 전화받기 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] ANSWERCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 보류
+// ======================================
+var gfn_holdCall = function () {
+    trace("[lib_CTIControl] HOLDCALL" + CTIOCXAPIStart);
+    trace("gClickButton :::: " + gClickButton);
+    if (gClickButton == "HoldCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "HoldCall";
+
+    var val = 1;
+    
+    callMethod("Hold");
+    //trace("[lib_CTIControl] HOLDCALL [" + val + "]");
+	
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 전화보류 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+    */
+	
+    trace("[lib_CTIControl] HOLDCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 보류해제
+// ======================================
+var gfn_retrieveCall = function (pfCallback) {
+    trace("[lib_CTIControl] RETRIEVECALL" + CTIOCXAPIStart);
+    if (gClickButton == "RetrieveCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "RetrieveCall";
+
+    var val = 1;
+    
+    callMethod("Retrieve");
+    //trace("[lib_CTIControl] RETRIEVECALL [" + val + "]");
+
+	/*
+    if (val != 1) { // 실패
+		alert("CTI 전화보류해제 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] RETRIEVECALL()" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 후처리
+// ======================================
+var gfn_agentACW = function() {//(psReasonCd) {
+    trace("[lib_CTIControl] ACW" + CTIOCXAPIStart);
+    gClickButton = ""; // 클릭 버튼 초기화
+
+    var val = 1;
+    callMethod("AfterCallWork");
+    //trace("[lib_CTIControl] ACW [" + val + "]");
+
+	/*
+    if (val != 1) { // 실패
+        alert("CTI 후처리 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+    */
+	
+	trace("[lib_CTIControl] ACW" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 이석
+// ======================================
+var gfn_agentNotReady = function (psReasonCd) {
+    trace("[lib_CTIControl] NOTREADY" + CTIOCXAPIStart);
+    gClickButton = "";   // 클릭 버튼 초기화
+    //_gfn_initCallData(); // 콜 데이터 초기화
+
+    gReasonCd = psReasonCd; // 이석사유 저장
+    
+    var val = 1;
+    
+    callMethod("NotReady");
+    //trace("[lib_CTIControl] NOTREADY [" + val + "]");
+	/*
+	if (val != 1) { // 실패
+        alert("CTI 상태변경 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] NOTREADY" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 호전환시도
+// ======================================
+var gfn_consultationTransCall = function (pExtnNo) {
+    trace("[lib_CTIControl] CONSULTATIONTRANSCALL" + CTIOCXAPIStart);
+    pExtnNo = pExtnNo.replace(/\D/g, "");
+    if (pExtnNo.length < 4) {
+		alert("전환대상 전화번호가 없습니다.");
+        return -1;
+    }    
+    
+    if (gClickButton == "ConsultationTrans") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "ConsultationTrans";
+    
+    var sendTno = "";
+    
+    if (gInOutFlag == "I") {
+		sendTno = gIncoTlno;
+    } else {
+		sendTno = gTelNo;
+    }
+    
+    gTelNo = pExtnNo; // 발신전화번호 저장
+    
+    gv_memNo = "";
+    gv_consGrpNo = "";
+    if (gIncoTlno.length != 4) { // 내선번호가 아닐 경우
+		for(var i=0;i<ap_WorkFrame.all.length; i++){
+			trace("***** prgmCode : " + ap_WorkFrame.all[i].prgmCode);
+			if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') {
+				
+				gv_memNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; // 회원고유번호
+				trace("***** gv_memNo : " + gv_memNo);
+				gv_consGrpNo = ap_WorkFrame.all[i].form.div_Work.div_cons_memo.tab_cons.tp_cons1.div_cons1.ds_cons.getColumn(0, "consno_grop_no"); // 상담그룹번호
+				
+				if ( gfn_isNull(gv_consGrpNo) ) {
+					gv_consGrpNo = "";
+				}
+				
+				trace("***** gv_consGrpNo : " + gv_consGrpNo);
+				gv_totl_cons_hr = ap_WorkFrame.all[i].form.div_Work.div_cons_memo.edt_totl_cons_hr.value; // 상담시간
+				trace("***** gv_totl_cons_hr : " + gv_totl_cons_hr);
+			}
+		}
+	}
+    
+    gArsUei = ""; // UEI 데이터 설정
+    gArsUei = gfn_RPad("T", " ", 1);               // 콜유형(호전환시도)
+    gArsUei += gfn_RPad(gCallId, " ", 6);          // 콜ID
+    gArsUei += gfn_RPad(gv_memNo, " ", 12);        // 회원 고유번호	
+    gArsUei += gfn_RPad(sendTno, " ", 14);       // 인입번호	// 2021.09.13 : 아웃바운드시 전화번호 넘어가도록 변경
+    
+    try {
+		gArsUei += gfn_RPad(gv_consGrpNo, " ", 20);    // 상담번호
+		gArsUei += gfn_RPad(gv_totl_cons_hr, " ", 8);  // 상담시간
+	} catch (e) {
+		trace("e : " + e);
+	}
+    
+    trace("[lib_CTIControl] CONSULTATIONTRANSCALL TELNO-[" + gTelNo + "] UEI-[" + gArsUei + "]");
+
+    var val = 1;
+    
+    callMethod("ConsultationTrans");
+    //trace("[lib_CTIControl] CONSULTATIONTRANSCALL [" + val + "]");
+    /*
+    if (val != 1) { // 실패
+        alert("호전환 시도간 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] CONSULTATIONTRANSCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 호전환
+// ======================================
+var gfn_transferCall = function () {
+    trace("[lib_CTIControl] TRANSFERCALL" + CTIOCXAPIStart);
+    if (gClickButton == "TransferCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "TransferCall";
+
+    var val = 1;
+    
+    callMethod("Transfer");
+    //trace("[lib_CTIControl] TRANSFERCALL [" + val + "]");
+
+    if (val != 1) { // 실패
+		alert("CTI 전환 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+
+    trace("[lib_CTIControl] TRANSFERCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ctmp reconnect 사용안됨 
+// clearConnection 호출
+// ======================================
+// 전환취소
+// ======================================
+/*var gfn_reconnectCall = function() {
+    trace("[lib_CTIControl] RECONNECTCALL" + CTIOCXAPIStart);
+
+    // 클릭 버튼 처리
+    if (gClickButton == "ReconnectCall") {
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "ReconnectCall";
+
+    var val = callCtmpMethod("Reconnect");
+    trace("[lib_CTIControl] RECONNECTCALL [" + val + "]");
+
+    if (val != 1) { // 실패
+		alert("CTI 전환취소 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+
+    trace("[lib_CTIControl] RECONNECTCALL" + CTIOCXAPIEnd);
+    return val;
+};*/
+var gfn_reconnectCall = function() {
+    trace("[lib_CTIControl] RECONNECTCALL" + CTIOCXAPIStart);
+    if (gClickButton == "ReconnectCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "ReconnectCall";
+
+    var val = 1;
+    
+    callMethod("ReconnectCall");
+    //trace("[lib_CTIControl] RECONNECTCALL [" + val + "]");
+	
+	/*
+    if (val != 1) { // 실패
+		alert("CTI 전환취소 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+	*/
+    trace("[lib_CTIControl] RECONNECTCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 3자 통화시도
+// ======================================
+var gfn_consultationConfeCall = function (pExtnNo) {
+    trace("[lib_CTIControl] CONSULTATIONCONFECALL" + CTIOCXAPIStart);
+    pExtnNo = pExtnNo.replace(/\D/g, "");
+    if (pExtnNo.length < 4) {
+		alert("3자통화시도  전화번호가 없습니다.");
+        return -1;
+    }
+
+    if (gClickButton == "ConsultationConfe") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "ConsultationConfe";
+
+    gTelNo = pExtnNo; // 발신전화번호 저장
+    
+    gv_memNo = "";
+    if (gIncoTlno.length != 4) { // 내선번호가 아닐 경우
+		for(var i=0;i<ap_WorkFrame.all.length; i++){
+			if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') {
+				gv_memNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; // 회원고유번호
+			}
+		}
+    }
+    
+    gArsUei = "";                            // UEI 데이터 설정
+    gArsUei = gfn_RPad("C", " ", 1);         // 콜유형
+    gArsUei += gfn_RPad(gCallId, " ", 6);    // 콜ID
+    gArsUei += gfn_RPad(gv_memNo, " ", 12);  // 회원 고유번호
+    gArsUei += gfn_RPad(gIncoTlno, " ", 14); // 인입번호
+    
+    trace("[lib_CTIControl] CONSULTATIONCONFECALL TELNO-[" + gTelNo + "] UEI-[" + gArsUei + "]");
+
+    var val = 1;
+    
+    callMethod("ConsultationConfe");
+    //trace("[lib_CTIControl] CONSULTATIONCONFECALL [" + val + "]");
+	/*
+	if (val != 1) { // 실패
+        alert("3자통화 시도간 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+    */
+
+    trace("[lib_CTIControl] CONSULTATIONCONFECALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 3자 통화
+// ======================================
+var gfn_conferenceCall = function() {
+    trace("[lib_CTIControl] CONFERENCECALL" + CTIOCXAPIStart);
+
+    if (gClickButton == "ConferenceCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "ConferenceCall";
+
+    var val = 1;
+    
+    callMethod("Conference");
+    //trace("[lib_CTIControl] CONFERENCECALL [" + val + "]");
+
+	/*
+    if (val != 1) { // 실패
+		alert("CTI 3자통화 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+    */
+
+    trace("[lib_CTIControl] CONFERENCECALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// onesteptransfer
+// ======================================
+var gfn_oneStepTransferCall = function(pExtnNo) {
+    trace("[lib_CTIControl] ONESTEPTRANSFERCALL" + CTIOCXAPIStart);
+	pExtnNo = pExtnNo.replace(/\D/g, "");
+    if (pExtnNo.length < 4) {
+		alert("전환할  전화번호가 없습니다.");
+        return -1;
+    }
+
+    if (gClickButton == "OneStepTransferCall") { // 클릭 버튼 처리
+        gClickButton = "";
+        return;
+    }
+    gClickButton = "OneStepTransferCall";
+
+    gTelNo = pExtnNo; // 발신전화번호 저장
+
+    var val = 1;
+    
+    callMethod("OneStepTransfer");
+    //trace("[lib_CTIControl] ONESTEPTRANSFERCALL [" + val + "]");
+
+	/*
+    if (val != 1) { // 실패
+		alert("CTI 바로전환 오류가 발생하였습니다. [ERRORCODE : " + val + "]");
+    }
+    */
+
+    trace("[lib_CTIControl] ONESTEPTRANSFERCALL" + CTIOCXAPIEnd);
+    return val;
+};
+
+// ======================================
+// 콜 데이터 초기화
+// ======================================
+var _gfn_initCallData = function() {
+    stc_txt_tlno.text = ""; // 인입번호
+    stc_txt_qdn_nm.text = ""; // 인입경로
+
+    ds_callInfo.clearData(); // 콜데이터셋 초기화
+
+    // 콜 데이터 초기화
+    //gCallId      = ""; // 콜아이디
+    //gCallRefId   = ""; // 콜아이디
+    //gUei         = ""; // UEI데이터
+    gArsUei      = "";   // ARS 전환 UEI 데이터
+    gCallTyp     = "";   // 콜유형(I:고객전화인입/O:전화발신/E:내선전화/T:호전환시도/C:3자통화시도)
+    gTelNo       = "";   // 발신전화번호
+    gIncoTlno    = "";   // 인입전화번호
+    gArsSrvcAddr = "";   // ARS서비스
+    gIncoQdn     = "";   // 인입큐DN
+
+    gMakeCallTlno = "";  // 발신 전화번호
+    
+    gv_memNo = "";       // 회원 고유번호
+    gv_consGrpNo = "";   // 상담그룹번로
+    gv_totl_cons_hr = "";// 상담시간
+    
+    gv_cti_crnc_dtl_id = "";// CTI이력ID
+    gv_rec_id = "";		 	// 녹취ID
+    
+    gv_oMemNo 	= "";
+    gv_oMemNm 	= "";
+    gv_oAccntNo = "";
+	gv_oProdCd  = "";
+	
+	gv_tm_yn    = "N";
+	
+	gv_rec_dual_yn = "N";
+	gv_rec_dual_id = "";		
+    
+    ds_incommingCall.clearData();
+};
+    
+// ======================================
+// 콜발생 처리
+// ======================================
+var gfn_CTIDeliveredHandler = function () {
+    trace("[lib_CTIControl] _gfn_CTIDeliveredHandler INOUT-[" + gInOutFlag + "] OTHERPARTY-[" + gOtherParty + "] INCOTLNO-[" + gIncoTlno + "] TELNO-[" + gTelNo + "] CALLID-[" + gCallId + "] CALLID-[" + gCallRefId + "] UEI-[" + gUei + "] gQueueDn-[" + gQueueDn + "]");
+
+    if (gInOutFlag == "I") { // 수신
+        _gfn_initCallData(); // 콜 데이터 초기화
+        _gfn_UDATA();        // 인입데이터 처리
+		
+		// 인입경로 저장
+		var sIncoQdnNm = "";
+		if (gCallTyp == "I") {
+		    sIncoQdnNm = "고객전화";
+			switch (gIncoQdn) {
+				/*
+				case "2692": sIncoQdnNm = "1544-6644"; break;
+				case "2693": sIncoQdnNm = "1644-8511"; break;
+				case "2694": sIncoQdnNm = "1644-8300"; break;
+				case "2695": sIncoQdnNm = "1661-0049"; break;
+				case "2696": sIncoQdnNm = "1661-0068"; break;
+				case "2697": sIncoQdnNm = "1644-7539"; break;
+				case "2698": sIncoQdnNm = "1588-8511"; break; // 콜센터 일반
+				case "2699": sIncoQdnNm = "1644-1765"; break; // 콜센터 미납
+				case "2595": sIncoQdnNm = "1644-8823"; break; // 다이렉트
+				case "2687": sIncoQdnNm = "1644-8399"; break; // 온라이프
+				case "2826": sIncoQdnNm = "1588-8511"; break; // 컨택 인바운드
+				case "2685": sIncoQdnNm = "1544-0602"; break; // 회원몰
+				*/
+				case "8020": sIncoQdnNm = "아임레디몰"; break;
+				case "8160": sIncoQdnNm = "레디캐시앱"; break;
+				case "8000": sIncoQdnNm = "대명아임레디"; break;
+				case "8050": sIncoQdnNm = "스마트라이프"; break;
+				case "8070": sIncoQdnNm = "POM"; break;
+				case "8060": sIncoQdnNm = "버킷마켓"; break;
+				case "8090": sIncoQdnNm = "대명U라이프"; break;								
+				case "8040": sIncoQdnNm = "긴급의전센터"; break; 
+			}
+		} else if (gCallTyp == "E") {
+		    sIncoQdnNm = "내선전화";
+		} else if (gCallTyp == "T") {
+		    sIncoQdnNm = "호전환시도";
+		} else if (gCallTyp == "C") {
+		    sIncoQdnNm = "3자통화시도";
+		}
+		
+		// 인입경로 표시
+		stc_txt_qdn_nm.text = sIncoQdnNm;
+		// 인입번호 표시
+		stc_txt_tlno.text = gfn_phoneNumStr(gIncoTlno);
+
+        // 전화받기 파라미터 설정
+        ds_callInfo.clearData();
+        ds_callInfo.addRow();
+        ds_callInfo.setColumn(0, "mem_no", gv_memNo);
+        ds_callInfo.setColumn(0, "call_id", gCallId);
+        ds_callInfo.setColumn(0, "call_typ", gCallTyp);
+        
+        trace("*** gIncoTlno : " + gIncoTlno);        
+        ds_callInfo.setColumn(0, "inco_tlno", gfn_phoneNumStr(gIncoTlno));        
+        trace("*** gIncoTlno : " + gfn_phoneNumStr(gIncoTlno));
+        
+        ds_callInfo.setColumn(0, "ars_srvc_addr", gArsSrvcAddr);
+        ds_callInfo.setColumn(0, "consno_grop_no", gv_consGrpNo);
+        ds_callInfo.setColumn(0, "totl_cons_hr", gv_totl_cons_hr);
+        //ds_callInfo.setColumn(0, "ars_srvc_addr_nm", gCallId);
+        ds_callInfo.setColumn(0, "uei_cntn", gUei);
+		//-->
+        ds_callInfo.setColumn(0, "cons_dspsmddl_dtpt_cd", "10");
+        ds_callInfo.setColumn(0, "fist_call_inco_yn", "Y");
+        ds_callInfo.setColumn(0, "inco_qdn", gIncoQdn);
+        ds_callInfo.setColumn(0, "inco_qdn_nm", sIncoQdnNm);
+
+		fn_setInComingPop(); // 전화받기 팝업
+    } else {
+        gCallTyp = "O";
+        
+		// 인입경로 표시
+        stc_txt_qdn_nm.text = "전화걸기";
+    }
+};
+    
+// ======================================
+// 콜연결 처리
+// ======================================
+var gfn_CTIEstablishedHandler = function () {
+    // 전화 연결시 호출
+    fn_establishedCall();
+};
+
+// ======================================
+// 인입데이터 처리
+// ======================================
+var _gfn_UDATA = function () {
+    trace("[lib_CTIControl] _gfn_UDATA" + CTIOCXAPIStart + " ANI-[" + gIncoTlno + "] UEI-[" + gUei + "] CALLID-[" + gCallId + "]");
+	var gOtherPartyLen = gOtherParty.length; // 인입번호 길이
+	
+	trace("[lib_CTIControl] gOtherPartyLen : " + gOtherPartyLen);
+	trace("[lib_CTIControl] gQueueDn : " + gQueueDn);
+	
+	if (gOtherPartyLen == 4 && gQueueDn == 0) {
+		if (gfn_isNull(gUei)) { // uei 데이터가 없을 경우
+			trace("[lib_CTIControl] _gfn_UDATA 내선번호 인입콜");
+			gCallTyp = "E";
+		} else {
+			trace("[lib_CTIControl] _gfn_UDATA 호전환 또는 3자통화");
+			
+			gCallTyp = gUei.substring(0, 1);                 // 콜 유형
+			gCallId = gUei.substring(1, 7).trim();        // 콜ID
+			gv_memNo = gUei.substring(7, 19).trim();         // 회원고유번호
+			gIncoTlno = gUei.substring(19, 33).trim();    // 인입번호
+			gv_consGrpNo = gUei.substring(33, 53).trim();    // 상담그룹번호
+			gv_totl_cons_hr = gUei.substring(53, 61).trim(); // 상담시간
+						
+			ds_callInfo.setColumn(0, "call_id", gCallId);
+			ds_callInfo.setColumn(0, "inco_tlno", gIncoTlno);
+			
+			gOtherParty = gIncoTlno;	// 원 발신번호로 세팅되도록 하기위해 추가
+		}
+		
+		trace("[lib_CTIControl] gCallTyp : " + gCallTyp);
+		trace("[lib_CTIControl] gCallId : " + gCallId);
+		trace("[lib_CTIControl] gv_memNo : " + gv_memNo);
+		trace("[lib_CTIControl] gIncoTlno : " + gIncoTlno);
+		trace("[lib_CTIControl] gv_consGrpNo : " + gv_consGrpNo);
+		trace("[lib_CTIControl] gv_totl_cons_hr : " + gv_totl_cons_hr);
+		
+	} else if (gOtherPartyLen > 4 && gQueueDn != 0) {
+		trace("[lib_CTIControl] _gfn_UDATA 일반수신전화");
+		gCallTyp = "I"
+	}
+	
+	// 인입큐DN 저장
+	gIncoQdn = gQueueDn;
+	
+	//전화번호 넣어주기 (PDS의 경우 10030 5자리)
+	gIncoTlno = gOtherParty;
+	
+	/*****************************************************************************************************************/		
+	// 인입번호 저장 (PDS의 자동전화 의 경우 gOtherParty값이 (10030)처럼 5자리로 들어오며 UEI값에 전화번호 드렁옴_20190730)
+	if (gOtherPartyLen == 5) {
+		//PDS의 경우 배열 담고 시작
+		//var arrUEI = gfn_Split(gUei,"^");
+		gCallTyp = "I";		
+	}
+	/*****************************************************************************************************************/	
+		
+	gIncoTlno = gIncoTlno.replace(/\D/g, "");
+	if (gIncoTlno.length < 3) { // 발신전화번호 제한인 경우 "0000" 으로 대체
+		gIncoTlno = "0000";
+	}
+    trace("[lib_CTIControl] _gfn_UDATA" + CTIOCXAPIEnd);
+};
+
+/*
+// ======================================
+// 녹취 시작
+// ======================================
+function gfn_startRec()
+{
+	trace("[lib_CTIControl] gfn_startRec gCallTyp => "+gCallTyp+", ctiStatus => "+ctiStatus 
+	      + ", rec_id => " + gv_rec_id + ", gInOutFlag => " + gInOutFlag);
+	if (ctiStatus == CTI_STATUS_BUSY) {  // 통화중
+		var rVal = gfn_recStartCall();
+		//trace("[lib_CTIControl] gfn_startRec rVal => " + rVal); // 0 success
+		
+		if (rVal != 0) { // 실패
+			alert("녹취 시작 오류가 발생하였습니다. [ERRORCODE : " + rVal + "]");
+		}
+	}
+	trace("[lib_CTIControl] gfn_startRec End");
+}
+
+// ======================================
+// 녹취 종료
+// ======================================
+function gfn_endRec()
+{
+	trace("[lib_CTIControl] gfn_endRec gCallTyp => "+gCallTyp+", ctiStatus => "+ctiStatus 
+	      + ", rec_id => " + gv_rec_id + ", gInOutFlag => " + gInOutFlag);
+	var rVal = gfn_recEndCall();
+	//trace("[lib_CTIControl] gfn_endRec rVal => " + rVal); // 0 success
+		
+	if (rVal != 0) { // 실패
+		alert("녹취 종료 오류가 발생하였습니다. [ERRORCODE : " + rVal + "]");
+	}
+	
+	trace("[lib_CTIControl] gfn_endRec End");
+}
+*/
+
+// ======================================
+// 녹취 청취
+// ======================================
+function gfn_play(rec_id)
+{
+	trace("[lib_CTIControl] gfn_play rec_id => "+rec_id);
+	if (gfn_isNull(rec_id)) {
+		alert("녹취ID가 없습니다. 확인하여 주십시요.");
+		return;
+	}
+	var rVal = gfn_recPlay(rec_id);
+		
+	if (rVal != 0) { // 실패
+		alert("녹취 청취 오류가 발생하였습니다. [ERRORCODE : " + rVal + "]");
+	}
+	
+	trace("[lib_CTIControl] gfn_play End");
+}
+
+]]></Script>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DfctDataMap">
+
+    <sql id="DfctDataMap.selectCondition_fragment">
+        <where>
+            <if test= "trgt_list_id != null and trgt_list_id != ''">
+                AND TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test= "sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test= "cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test= "dfct_data_id != null and dfct_data_id != ''">
+                AND DFCT_DATA_ID = #{dfct_data_id}
+            </if>
+        </where>
+    </sql>
+
+
+    <select id="DfctDataMap.getDfctDataCount" parameterType="map" resultType="int">
+        SELECT /* DfctDataMap.getDfctDataCount */
+               COUNT(*)
+          FROM TB_DFCT_DATA
+        <include refid="DfctDataMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="DfctDataMap.getDfctDataList" parameterType="map" resultType="resultMap">
+        SELECT /* DfctDataMap.getDfctDataList */
+               B.*
+          FROM (SELECT <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY AMNT_DTTM DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                       , A.*
+                       <!-- , GETCODENM('CUS030', A.CUST_TYP_CD, A.CNTR_CD) AS CUST_TYP_NM
+                       , GETCODENM('CUS020', A.CUST_DIV_CD, A.CNTR_CD) AS CUST_DIV_NM -->
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.RGSR_ID
+                           AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = A.AMND_ID
+                           AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                 FROM (SELECT CAST(SUBSTR(DFCT_RSN, INSTR(DFCT_RSN,'rownum')+7, LENGTH(DFCT_RSN)) AS INT) AS ROWINDEX
+                            , TRGT_LIST_ID, DFCT_DATA_ID, DFCT_RSN, CUST_NM
+                            , MEM_NO, ACCNT_NO, CLPH_TLNO, HOME_TLNO, COMP_TLNO
+                            , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+                            , USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN, USER_DEFN9_CNTN, USER_DEFN10_CNTN
+                            , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                         FROM TB_DFCT_DATA
+                    <include refid="DfctDataMap.selectCondition_fragment"/>
+                       ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+             AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <insert id="DfctDataMap.insertDfctDataByExcel" parameterType="map">
+        <selectKey keyProperty="dfct_data_id" resultType="String" order="BEFORE">
+            SELECT 'DFC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* DfctDataMap.insertDfctDataByExcel */
+          INTO TB_DFCT_DATA
+              (SUB_TRGT_LIST_ID ,TRGT_LIST_ID, DFCT_DATA_ID, DFCT_RSN, CUST_NM
+             , HOME_TLNO, COMP_TLNO, CLPH_TLNO
+             , MEM_NO, ACCNT_NO
+             , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+             , USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN, USER_DEFN9_CNTN, USER_DEFN10_CNTN
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{sub_trgt_list_id} ,#{trgt_list_id}, #{dfct_data_id}, #{dfct_rsn}, #{cust_nm}
+              , REPLACE(#{home_tlno}, '-', ''), REPLACE(#{comp_tlno}, '-', ''), REPLACE(#{clph_tlno}, '-', '')
+              , #{mem_no} ,#{accnt_no}
+              , #{user_defn1_cntn}, #{user_defn2_cntn}, #{user_defn3_cntn}, #{user_defn4_cntn}, #{user_defn5_cntn}
+              , #{user_defn6_cntn}, #{user_defn7_cntn}, #{user_defn8_cntn}, #{user_defn9_cntn}, #{user_defn10_cntn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+               )
+    </insert>
+    <delete id="DfctDataMap.deleteDfctDataByTrgtList" parameterType="map">
+        DELETE /* DfctDataMap.deleteDfctDataByTrgtList */
+          FROM TB_DFCT_DATA
+        <include refid="DfctDataMap.selectCondition_fragment"/>
+    </delete>
+</mapper>

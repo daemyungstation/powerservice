@@ -1,0 +1,1320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EmpMap">
+	<!-- sql-common.xml [자료권한 조회 조건 쿼리 생성] ID : common.createDataAuthQry 작성자 : 임병근 -->
+    <select id="EmpMap.createDataAuthQry" parameterType="map" resultType="string">
+		SELECT /* EmpMap.createDataAuthQry */
+               nvl(FN_DATA_AUTH_COND_GEN(#{param_emple_no}, #{paramAs}), '') data_auth_qry
+          FROM DUAL
+	</select>
+
+    <!-- sql-emp.xml [사원 소속 변경 이력 등록] ID : emp.insertDeptTransHist 작성자: 임병근 2013.02.28 -->
+	<update id="EmpMap.insertDeptTransHist" parameterType="map">
+		INSERT /* EmpMap.insertDeptTransHist */
+          INTO HIST_DEPT_EMP (
+		   SEQ
+		  ,EMPLE_NO
+		  ,DEPT_CD
+		  ,APP_MM
+		  ,REG_DM
+		  ,REG_MAN
+		) VALUES (
+		   (SELECT nvl(MAX(SEQ),0)+1 FROM HIST_DEPT_EMP)
+		  , #{emple_no}
+		  , #{dept_cd}
+		  , #{app_dt}
+		  , sysdate
+		  , #{rgsr_id}
+		  )
+	</update>
+
+    <!-- sql-emp.xml [사원등록] ID : emp.insertEmployee 작성자 : 김진호 -->
+	<insert id="EmpMap.insertEmployee" parameterType="map">
+		INSERT /* EmpMap.insertEmployee */
+          INTO EMPLOYEE (
+				   emple_no
+			      ,dept_cd
+				  ,emple_nm
+				  ,conf_no
+				  ,grade
+				  ,ent_day
+				  ,chg_reson
+				  ,posn_cd
+				  ,jobduty_cd
+				  ,bank_accnt_no
+				  ,home_phon
+				  ,cell
+				  ,idn_no
+				  ,zip
+				  ,addr
+				  ,addr2
+				  ,alow_grade
+				  ,renf_man_id
+				  ,note
+				  ,tmp_eid
+				  ,img_nm
+				  ,appr_auth
+				  ,email
+				  ,birth_mon_day
+				  ,reg_dm
+				  ,reg_man
+				  ,upd_dm
+				  ,upd_man
+				  ,del_fg
+				  ,depr
+				  ,bank_cd
+				  ,loc_cd
+				  ,incom_cl
+				  ,grp_emple_no
+				 ,ocp_cluster
+		  		 ,INTRA_PASSWD
+		  		 ,NO_SALE_ACCNT_EMP
+		  		 , DATA_AUTH
+		  		 , GRP_DATA_AUTH
+		  		 , CTI_ID
+		  		 , CTI_PWD
+		  		 , CTI_EXT
+		  		 , CTI_FG
+		  		 , HSF_UPLOAD_AUTH_YN
+		  		 , REPORT_AUTH
+		  		 , REPORT_ADMIN_AUTH
+		  		 , WH_CD
+				 , APPFORM_DAY          
+				  )
+		  VALUES (
+		            #{emple_no}
+		          , #{dept_cd}
+		          , #{emple_nm}
+		          , #{conf_no}
+		          , #{grade}
+		          , #{ent_day}
+		          , #{chg_reson}
+		          , #{posn_cd}
+		          , #{jobduty_cd}
+		          , fn_encrypt_temp(#{bank_accnt_no})
+		          , #{home_phon}
+		          , #{cell}
+		          , fn_encrypt_temp(#{idn_no})
+		          , #{zip}
+		          , #{addr}
+		          , #{addr2}
+		          , #{alow_grade}
+		          , #{renf_man_id}
+		          , #{note}
+		          , #{tmp_eid}
+		          , #{img_nm}
+		          , #{appr_auth}
+		          , #{email}
+		          , #{birth_mon_day}
+		          , sysdate
+		          , #{rgsr_id}
+		          , sysdate
+		          , #{rgsr_id}
+		          ,'N'
+		          , #{depr}
+		          , #{bank_cd}
+		          , #{loc_cd}
+		          , #{incom_cl}
+				  , #{grp_emp_no}
+				 ,#{ocp_cluster}
+		  		 ,#{intra_passwd}
+		  		 ,#{no_sale_accnt}
+		  		 ,#{data_auth}
+		  		 ,#{grp_data_auth}
+		  		 , #{cti_id}
+		  		 , #{cti_pw}
+		  		 , #{cti_id}
+		  		 , #{cti_fg}
+		  		 , #{hsf_upload_auth_yn}
+		  		 , #{report_auth}
+		  		 , #{report_admin_auth}
+		  		 , #{ware_house}
+				 , #{appform_day}
+		          )
+	</insert>
+
+    <!-- sql-emp.xml [담당자변경 관리등록] ID : emp.insertMstrChgInf 작성자 : 강은준 -->
+	<insert id="EmpMap.insertMstrChgInf" parameterType="map">
+		INSERT /* EmpMap.insertMstrChgInf */
+          INTO MSTR_CHG_INF
+			( seq
+			, ACCNT_NO
+			, OLD_EMPLE_NO
+			, NEW_EMPLE_NO
+			, CHG_DAY
+			, WORK_MSTR
+			, CL
+			, REG_DM
+			, REG_MAN
+			, UPD_DM
+			, UPD_MAN
+			, DEL_FG
+			)
+			VALUES
+			(
+              (select nvl(max(seq)+1,1) from mstr_chg_inf where accnt_no = #{accnt_no})
+			, #{accnt_no}
+			, #{old_emple_no}
+			, #{new_emple_no}
+			, #{chg_day}
+			, #{work_mstr}
+			, #{cl}
+			, sysdate
+			, #{rgsr_id}
+			, sysdate
+			, #{rgsr_id}
+			,'N'
+			)
+	</insert>
+
+    <!-- sql-emp.xml [사원퇴사 취소] ID : emp.resinCancel 작성자 : 임병근 -->
+	<update id="EmpMap.resinCancel" parameterType="map">
+		UPDATE /* EmpMap.resinCancel */
+               EMPLOYEE
+           SET RESIN_DAY	= NULL
+              ,del_fg		= 'N'
+              ,upd_dm 		= sysdate
+              ,upd_man 		= #{rgsr_id}
+		WHERE emple_no  = #{emple_no}
+	</update>
+
+    <!-- 
+    sql-emp.xml [사번조회] ID :emp.selectCreateEmpNo 작성자 : 김진호
+    현업 요청으로 현재 시스템 시간(년월)로 사원번호 채번 - 2017.01.05
+    -->
+	<select id="EmpMap.selectCreateEmpNo" parameterType="map" resultType="string">
+		select /* EmpMap.selectCreateEmpNo */
+               FN_CREATE_EMPLE_NO() as emple_no
+          from dual
+	</select>
+
+    <!-- sql-emp.xml [사원 조회] ID : emp.selectEmpleList 작성자 : 김진호 -->
+	<select id="EmpMap.selectEmpleList" parameterType="map" resultType="resultMap">
+        /* EmpMap.selectEmpleList */
+        <if test="dept_cd != null and dept_cd != ''">
+        WITH W_DEPT AS (
+            SELECT dept_cd
+                 , dept_nm
+                 , high_dept_cd
+                 , dept_kind
+                 , use_yn
+              FROM DEPARTMENT
+            CONNECT BY PRIOR DEPT_CD = HIGH_DEPT_CD
+             START WITH dept_cd = #{dept_cd}
+        )
+		</if>
+
+		SELECT
+		           emp.emple_no
+		          ,emp.emple_nm
+		          ,emp.conf_no
+		          ,EMP.dept_cd
+		          ,EMP.dept_cd as OLD_DEPT_CD
+		          ,FN_DEPT_NM(EMP.dept_cd) as dept_nm
+		          ,(select dept_nm from department where dept_cd = (select high_dept_cd from department where dept_cd = EMP.dept_cd)) high_dept_nm
+		          ,(select dept_nm from DEPARTMENT e where e.DEPT_CD = EMP.dept_cd) as low_dept_nm
+		          ,grade
+		          ,ent_day
+		          ,resin_day
+		          ,chg_reson
+		          ,posn_cd
+		          ,FN_COM_NM('06', posn_cd) as posn_nm
+		          ,jobduty_cd
+		          ,FN_COM_NM('10', jobduty_cd) as jobduty_nm
+		          ,FN_ORDR_TURN('06', posn_cd) as ordr_turn
+		          , bank_accnt_no
+		          ,bank_cd
+		          ,fn_com_nm('63',bank_cd) as bank_nm
+		          ,home_phon
+		          ,REPLACE(substr(home_phon,1,3), '-','') as home_phon1
+		      	  ,CASE WHEN home_phon = '' THEN '' ELSE REPLACE(substr(substr(home_phon, 1, length(home_phon)-5),-4), '-', '') END as home_phon2
+		      	  ,substr(home_phon, -4) as home_phon3
+		          ,cell
+		          ,REPLACE(substr(cell,1,3), '-','') as cell1
+		      	  ,CASE WHEN cell = '' THEN '' ELSE REPLACE(substr(substr(cell, 1,length(cell)-5),-4), '-', '') END as cell2
+		      	  ,substr(cell, -4) as cell3
+		          ,emp.idn_no
+		          ,substr(emp.idn_no, 1, 6) as idn_no1
+		      	  ,substr(emp.idn_no, -7) as idn_no2
+		      	  ,case when length(emp.idn_no) > 2 then
+		      	             substr(emp.idn_no, 1, 6) || '-' ||
+                                substr(emp.idn_no, -7)
+		      	      else ''
+		      	   end as idn_no_nm
+		          ,zip
+		          ,addr
+		          ,addr2
+		          ,case when length(addr) > 2 then '('||zip||')'||' '||addr||' '||addr2 else '' end as full_addr
+		          ,alow_grade
+		          ,renf_man_id
+		          ,FN_EMPLE_NM(renf_man_id) as renf_man_nm
+		          ,note
+		          ,tmp_eid
+		          ,img_nm
+		          ,appr_auth
+		          ,email
+		          ,case when nvl(birth_mon_day,'19000101') = '19000101' then '' else birth_mon_day end as birth_mon_day
+		          ,emp.reg_dm
+		          ,emp.reg_man
+		          ,emp.upd_dm
+		          ,emp.upd_man
+		          ,emp.del_fg
+		          ,depr
+		          ,bank_cd
+		          ,loc_cd
+		          ,alow_yn
+		          ,ocp_cluster
+		          ,case when nvl(ocp_cluster,'x')='x' then (select fn_com_nm('96',ocp_cluster) from department where dept_cd = emp.dept_cd)
+		          	else fn_com_nm('96',ocp_cluster)
+		          	end as ocp_cluster_nm
+		          , incom_cl
+		          , (SELECT FN_COM_NM('0124', incom_cl) FROM DUAL) incom_cl_nm
+		          , nvl((SELECT MAX(APP_MM) FROM HIST_DEPT_EMP WHERE EMPLE_NO = EMP.EMPLE_NO), '') app_dt
+		          , grp_emple_no as grp_emp_no
+		          , NO_SALE_ACCNT_EMP
+		          , EMP.DATA_AUTH
+		          , EMP.GRP_DATA_AUTH
+		          , EMP.CTI_ID cti_id
+		          , EMP.CTI_PWD cti_pw
+		          , nvl(EMP.CTI_FG, 'N') cti_fg
+		          , nvl(HSF_UPLOAD_AUTH_YN, 'N') HSF_UPLOAD_AUTH_YN
+		          , nvl(EMP.REPORT_AUTH, '') REPORT_AUTH
+		          , nvl(EMP.REPORT_ADMIN_AUTH, 'N') REPORT_ADMIN_AUTH
+		          , EMP.WH_CD
+				  , EMP.APPFORM_DAY        
+		          , '' as CHK
+		FROM
+		        EMPLOYEE EMP
+		       <if test="dept_cd != null and dept_cd != ''">
+		       INNER JOIN W_DEPT ON W_DEPT.DEPT_CD = EMP.DEPT_CD
+		       </if>
+        WHERE	1=1
+        <if test="data_auth_qry != null and data_auth_qry != ''">
+		   ${dataAuthQry}
+		</if>
+        <if test="del_fg != null and del_fg != ''">
+        AND del_fg = #{del_fg}
+        </if>
+		<if test="emple_no != null and emple_no != ''">
+		AND emp.emple_no = #{emple_no}
+		</if>
+        <if test="not_in_emple_no != null and not_in_emple_no != ''">
+		AND		emp.emple_no not in (#{not_in_emple_no})
+		</if>
+        <if test="idn_no != null and idn_no != ''">
+        AND emp.idn_no = fn_encrypt_temp(#{idn_no})
+        </if>
+
+	<if test="full_match_yn != null and full_match_yn != ''">
+		<if test="emple_nm != null and emple_nm != ''">
+		AND		emp.emple_nm = #{emple_nm}
+		</if>
+        <if test="home_phon != null and home_phon != ''">
+		AND		replace(home_phon, '-', '') = replace(#{home_phon}, '-', '')
+		</if>		
+        <if test="cell != null and cell != ''">
+		AND		replace(cell, '-', '') = #{cell}
+		</if>		
+	</if>
+	<if test="full_match_yn == null or full_match_yn == ''">
+		<if test="emple_nm != null and emple_nm != ''">
+		AND		emp.emple_nm like #{emple_nm} || '%'
+		</if>
+        <if test="home_phon != null and home_phon != ''">
+		AND		replace(home_phon, '-', '') like '%' || replace(#{home_phon},'-','') || '%'
+		</if>		
+        <if test="cell != null and cell != ''">
+		AND		replace(cell, '-', '') like '%' || replace(#{cell},'-','') || '%'
+		</if>		
+	</if>
+			
+        <if test="grp_emp_no != null and grp_emp_no != ''">
+		AND		emp.GRP_EMPLE_NO = #{grp_emp_no}
+		</if>
+		<if test="start_dt != null and start_dt != ''">
+		AND emp.reg_dm <![CDATA[>=]]> to_date(#{start_dt}, 'YYYYMMDD')
+		</if>
+		<if test="end_dt != null and end_dt != ''">
+		AND emp.reg_dm <![CDATA[<]]> to_date(#{end_dt}, 'YYYYMMDD')+1
+		</if>
+        <if test="grp_emp_yn != null and grp_emp_yn != ''">
+
+            <if test="grp_emp_yn == 'N'.toString()">
+		AND		(emp.GRP_EMPLE_NO IS NOT NULL AND REPLACE(emp.GRP_EMPLE_NO, ' ', '') != '')
+			</if>
+		</if>
+
+		ORDER BY high_dept_nm, low_dept_nm
+	</select>
+
+	<!-- sql-emp.xml [담당자변경 관리검색] ID : emp.selectEmpleMemChangeList 작성자 : 강은준 -->
+    <select id="EmpMap.selectEmpleMemChangeList" parameterType="map" resultType="resultMap">
+		SELECT /* EmpMap.selectEmpleMemChangeList */
+			old_emple_no
+			, o.emple_nm as old_emple_nm
+			, new_emple_no
+			, n.emple_nm as new_emple_nm
+			, c.accnt_no
+			, mem_nm
+			, chg_day
+			, prod.prod_nm
+			, CASE WHEN c.cl = '1' THEN '퇴사'
+			  WHEN c.cl = '3' THEN '담당자변경' ELSE '' END
+			  as cl
+		FROM mstr_chg_inf c
+		INNER JOIN employee o
+			ON o.emple_no = c.old_emple_no
+		INNER JOIN employee n
+			ON n.emple_no = c.new_emple_no
+			AND c.del_fg = 'N'
+		INNER JOIN mem_prod_accnt m
+			ON m.accnt_no = c.accnt_no
+		INNER JOIN product prod
+			ON prod.prod_cd = m.prod_cd
+		INNER JOIN member mem
+			ON mem.mem_no = m.mem_no
+		WHERE chg_day BETWEEN #{start_dt} AND #{end_dt}
+        <if test="accnt_no != null and accnt_no != ''">
+        AND c.accnt_no = #{accnt_no}
+        </if>
+        <if test="emple_no != null and emple_no != ''">
+        AND n.emple_no = #{emple_no}
+        </if>
+        <if test="cl != null and cl != ''">
+        AND c.cl = #{cl}
+        </if>
+        ORDER BY chg_day DESC
+	</select>
+
+	<select id="EmpMap.selectGrpEmpNoDupChk" parameterType="map" resultType="string">
+		SELECT /* EmpMap.selectGrpEmpNoDupChk */
+               CASE WHEN nvl((SELECT COUNT(*)
+		                    FROM EMPLOYEE
+		                   WHERE nvl(GRP_EMPLE_NO, '') = #{grp_emp_no}
+		                     AND nvl(GRP_EMPLE_NO, '') != ''
+							 AND substr(nvl(GRP_EMPLE_NO, ''), 1,1) = '7'
+		                     AND EMPLE_NO <![CDATA[!=]]> #{emple_no}), 0) > 0
+		            THEN 'dup'
+		            ELSE ''
+		       END
+		  FROM DUAL
+	</select>
+
+	<!-- sql-emp.xml [사원 수정] ID : emp.updateEmployee 작성자 : 김진호 -->
+    <update id="EmpMap.updateEmployee" parameterType="map">
+		UPDATE /* EmpMap.updateEmployee */
+               EMPLOYEE
+           SET dept_cd 			= #{dept_cd}
+              ,emple_nm 		= #{emple_nm}
+              ,grade 			= #{grade}
+              ,ent_day 			= #{ent_day}
+              <if test="resin_day != null and resin_day != ''">
+              ,resin_day 		= #{resin_day}
+              </if>
+              ,chg_reson 		= #{chg_reson}
+              ,posn_cd 			= #{posn_cd}
+              ,jobduty_cd		= #{jobduty_cd}
+              ,bank_accnt_no 	= (fn_encrypt_temp(#{bank_accnt_no}))
+              ,home_phon 		= #{home_phon}
+              ,cell 			= #{cell}
+              ,idn_no 			= (fn_encrypt_temp(#{idn_no}))
+              ,zip 				= #{zip}
+              ,addr 			= #{addr}
+              ,addr2 			= #{addr2}
+              ,alow_grade 		= #{alow_grade}
+              <if test="renf_man_id != null">
+              ,renf_man_id 		= #{renf_man_id}
+              </if>
+              ,note 			= #{note}
+              ,tmp_eid 			= #{tmp_eid}
+              ,img_nm 			= #{img_nm}
+              ,appr_auth 		= #{appr_auth}
+              ,email			= #{email}
+              ,depr				= #{depr}
+              ,birth_mon_day	= #{birth_mon_day}
+              ,upd_dm 			= sysdate
+              ,upd_man 			= #{upd_man}
+              ,bank_cd			= #{bank_cd}
+              ,loc_cd			= #{loc_cd}
+              <if test="alow_yn != null">
+              ,alow_yn			= #{alow_yn}
+              </if>
+              <if test="incom_cl != null">
+              ,incom_cl			= #{incom_cl}
+              </if>
+              <if test="grp_emp_no != null">
+              ,grp_emple_no			= #{grp_emp_no}
+              </if>
+              <if test="ocp_cluster != null">
+              ,ocp_cluster			= #{ocp_cluster}
+              </if>
+              ,NO_SALE_ACCNT_EMP	= #{no_sale_accnt_emp}
+              , DATA_AUTH		= #{data_auth}
+              , GRP_DATA_AUTH	= #{grp_data_auth}
+             , CTI_ID = #{cti_id}
+             , CTI_PWD = #{cti_pw}
+             , CTI_EXT = #{cti_id}
+             , CTI_FG = #{cti_fg}
+             , HSF_UPLOAD_AUTH_YN = #{hsf_upload_auth_yn}
+             , REPORT_AUTH = #{report_auth}
+             , REPORT_ADMIN_AUTH = #{report_admin_auth}
+             , WH_CD =#{wh_cd}
+			 , APPFORM_DAY =#{appform_day}      
+		WHERE emple_no = #{emple_no}
+	</update>
+
+    <!-- sql-emp.xml [사원인트라 비밀번호 초기화] ID : emp.updateEmployeeIntraPasswd 작성자 : 이금례 -->
+	<update id="EmpMap.updateEmployeeIntraPasswd" parameterType="map">
+		UPDATE /* EmpMap.updateEmployeeIntraPasswd */
+               EMPLOYEE
+           SET INTRA_PASSWD = #{conf_no}
+             , upd_dm = sysdate
+             , upd_man= #{rgsr_id}
+         WHERE emple_no = #{emple_no}
+	</update>
+
+    <!-- sql-emp.xml [사원 비밀번호 초기화] ID : emp.updateEmployeePasswd 작성자 : 하정원 -->
+	<update id="EmpMap.updateEmployeePasswd" parameterType="map">
+		UPDATE /* EmpMap.updateEmployeePasswd */
+               EMPLOYEE
+           SET CONF_NO = #{conf_no}
+             , upd_dm = sysdate
+             , upd_man= #{rgsr_id}
+         WHERE emple_no = #{emple_no}
+	</update>
+
+    <!-- 
+    sql-emp.xml [담당자변경작업 - 체크된회원만변경] ID : emp.updateMemProdAccntEmpleChange 작성자 : 강은준
+    최초 모집자는 변경되지 않도록 수정함 by ejkim 2012_03_23 -->
+	<update id="EmpMap.updateMemProdAccntEmpleChange" parameterType="map">
+        UPDATE /* EmpMap.updateMemProdAccntEmpleChange */
+               MEM_PROD_ACCNT
+           SET emple_no = #{new_emple_no}
+             , upd_dm 			= sysdate
+             , upd_man 			= #{rgsr_id}
+         WHERE accnt_no = #{accnt_no}
+	</update>
+
+	<!-- sql-life.xml [상담내역 Detail 등록] ID : life.insertConsulDetail 작성자 : 장희주 -->
+    <insert id="EmpMap.insertConsulDetail" parameterType="map">
+		INSERT /* EmpMap.insertConsulDetail */
+          INTO CNSL_DTL
+		           (SEQ
+		           , MEM_NO
+		           , CNSL_SEQ
+		           , GUBN
+		           , CNSL_CD
+		           , CNSL_CON
+		           , REG_DM
+		           , REG_MAN
+		           , UPD_DM
+		           , UPD_MAN)
+			 VALUES (  #{seq}
+				   , #{mem_no}
+				   , #{cnsl_seq}
+				   , #{gubn}
+				   , #{cnsl_cd}
+				   , #{cnsl_dtl_con}
+				   , sysdate
+				   , #{rgsr_id}
+				   , sysdate
+				   , #{rgsr_id}
+				   )
+	</insert>
+
+    <!-- sql-life.xml [문서조회] ID : life.selectDocKeep 작성자 : 이성호 -->
+	<select id="EmpMap.selectDocKeep" parameterType="map" resultType="resultMap">
+		select /* EmpMap.selectDocKeep */
+		       doc_code
+		      ,doc_key
+		      ,doc_name
+		      ,doc_file
+		from DOCKEEP
+		where doc_key = #{doc_key}
+	</select>
+
+
+    <!-- sql-life.xml [회원 조회] ID : life.selectMemberList 작성자 : 김진호 -->
+	<select id="EmpMap.selectMemberList" parameterType="map" resultType="resultMap">
+		SELECT /* EmpMap.selectMemberList */
+               a.mem_no
+             , a.mem_nm
+             , case when length(a.idn_no) = 10 then 'Y' else 'N' end as business_yn
+             , case when length(a.idn_no) = 13
+               then substr(a.idn_no, 1, 6) ||
+                              '-' || substr(a.idn_no, -7)
+               else substr(a.idn_no, 1, 3) || '-' ||
+                              substr(a.idn_no, 4, 2) || '-' ||
+                              substr(a.idn_no, -5)
+               end as idn_no
+             , case when length(a.idn_no) = 13 then substr(a.idn_no, 1,6) else substr(a.idn_no, 1,3) end as idn_no1
+             , case when length(a.idn_no) = 13 then substr(a.idn_no, -7) else substr(a.idn_no, 4, 2) end as idn_no2
+             , substr(a.idn_no, -5) as idn_no3
+             , a.hushld
+             , a.wrpl_nm
+             , a.dept_nm
+             , a.cell
+             , REPLACE(substr(a.cell,1,3), '-','') as cell1
+             , CASE WHEN a.cell IS NULL THEN '' ELSE REPLACE(substr(substr(a.cell, 1,length(a.cell)-5),-4), '-', '') END as cell2
+             , substr(a.cell, -4) as cell3
+             , a.home_tel
+             , REPLACE(substr(a.home_tel,1,3), '-','') as home_tel1
+             , CASE WHEN a.home_tel IS NULL THEN '' ELSE REPLACE(substr(substr(a.home_tel, 1,length(a.home_tel)-5),-4), '-', '') END as home_tel2
+             , substr(a.home_tel, -4) as home_tel3
+             , a.wrpl_tel
+             , REPLACE(substr(a.wrpl_tel,1,3), '-','') as wrpl_tel1
+             , CASE WHEN a.wrpl_tel IS NULL THEN '' ELSE REPLACE(substr(substr(a.wrpl_tel, 1,length(a.wrpl_tel)-5),-4), '-', '') END as wrpl_tel2
+             , substr(a.wrpl_tel, -4) as wrpl_tel3
+             , a.home_zip
+             , substr(home_zip, 1,3) as home_zip1
+             , substr(home_zip, -3) as home_zip2
+             , a.home_addr
+             , a.home_addr2
+             , a.wrpl_zip
+             , substr(wrpl_zip, 1,3) as wrpl_zip1
+             , substr(wrpl_zip, -3) as wrpl_zip2
+             , a.wrpl_addr
+             , a.wrpl_addr2
+             , a.email
+             , a.email_chk
+             , a.sms_chk
+             , a.contc_tm
+             , a.contc_tm_from
+             , a.contc_tm_to
+             , substr(a.contc_tm_from, 1,2) as contc_tm_from_hour
+             , substr(a.contc_tm_from, -2) as contc_tm_from_min
+             , substr(a.contc_tm_to, 1,2) as contc_tm_to_hour
+             , substr(a.contc_tm_to, -2) as contc_tm_to_min
+             , case when (brth_mon_day = '19000101' or a.brth_mon_day is null) then ''
+                    else brth_mon_day
+               end as brth_mon_day
+             , a.sol_lun
+             , case when (a.annv = '19000101' or a.annv is null) then ''
+                    else a.annv
+               end as annv
+             , a.re_join
+             , a.note
+             , a.cl
+             , a.old_mem_no
+             , FN_MEM_NM(a.old_mem_no) as old_mem_nm
+             , b.old_mid
+             , b.accnt_no
+             , b.prod_cd
+             , d.prod_amt
+             , d.mon_pay_amt
+             , d.expr_no
+             , d.prod_cl
+             , FN_PROD_NM(b.prod_cd) as prod_nm
+             , b.emple_no
+             , FN_EMPLE_NM(b.emple_no) as emple_nm
+             , FN_DEPT_NM((select dept_cd from employee where emple_no = b.emple_no)) as emple_dept_nm
+             , (select cell from employee where emple_no = b.emple_no) as emple_cell
+             , b.appfm_no
+             , b.join_dt
+             , to_char(ADD_MONTHS(ADD_MONTHS(join_dt, d.expr_no-b.new_chan_gunsu), -1), 'YYYYMMDD') as man_day
+             , b.compt_dt
+             , b.bef_emple_cd
+             , FN_EMPLE_NM(b.bef_emple_cd) as bef_emple_nm
+             , FN_DEPT_NM((select dept_cd from employee where emple_no = b.bef_emple_cd)) as bef_emple_dept_nm
+             , (select cell from employee where emple_no = b.bef_emple_cd) as bef_emple_cell
+             , FN_DEPT_NM((select dept_cd from employee where emple_no = b.RECOMMEND_EMPLE_NO)) as recom_emple_dept_nm
+             , (select cell from employee where emple_no = b.RECOMMEND_EMPLE_NO) as recom_emple_cell
+             , b.pay_perd
+             , b.pay_mthd
+             , b.post_mtr_rcv
+             , b.join_prod
+             , b.new_chan_gunsu
+             , b.org_join_gunsu
+             , b.certf_rcv_chk
+             , case when e.no = 1 then 'Y' else 'N' end as pay_stat_1no
+             , FN_COM_NM('81', c.stat) as appr_reltn
+             , c.stat as appr_stat
+             , CASE WHEN c.reg_dm is null THEN
+                          ''
+                        ELSE
+                          to_char(c.reg_dm, 'YYYYMMDD')
+                        END appr_day
+             , c.emple_no appv_man_cd
+             , FN_EMPLE_NM(c.emple_no) as appv_man_nm
+             , FN_EVENT(b.accnt_no) as event_nm
+             , FN_EVENT_DAY(b.accnt_no) as event_day
+             , case when a.contc_tm = '0' then '휴대폰'
+                    when a.contc_tm = '1' then '자택'
+                    when a.contc_tm = '2' then '직장'
+                    else ''
+               end as contc_tm_nm
+             , case when a.sms_chk  = '0' then '발송'
+                    when a.sms_chk = '1' then '미발송'
+                    else ''
+               end as sms_chk_nm
+             , case when a.sol_lun  = '0' then '양력'
+                    when a.sol_lun = '1' then '음력'
+                    else ''
+               end as sol_lun_nm
+             , case when a.email_chk= '0' then '발송'
+                    when a.email_chk = '1' then '미발송'
+                    else ''
+               end as email_chk_nm
+             , FN_COM_NM('01', b.pay_mthd) as pay_mthd_nm
+             , FN_COM_NM('03', b.pay_perd) as pay_perd_nm
+             , FN_COM_NM('04', b.post_mtr_rcv) as post_mtr_rcv_nm
+             , a.idn_no as idn_no_nm
+             , b.bank_accnt_no
+             , case when f.accnt_no is null then 'Y' else 'N' end as resn_yn
+             , case when g.accnt_no is not null then 'Y' else 'N' end as cms_yn
+                , i.doc_file
+                , b.ded_no
+             , FN_YEN_CHE(b.accnt_no) as Accnt_stat
+             , (select nvl(max(no),0) from pay_mng where accnt_no = b.accnt_no and del_fg = 'N') as pay_count
+             , b.membership_yn
+             , b.resort_no
+             , a.eng_nm
+             , case
+                       when
+                       (
+                           b.ocb_gubn = '00'
+                           or
+                           (
+                               b.ocb_gubn = '01'
+                               and
+                               (select count(*) from OCB_HIST oh where oh.accnt_no = b.ACCNT_NO and oh.ocb_cd is not null and oh.stat = '00' and oh.use_yn = 'Y') > 0
+                           )
+                           or
+                           (select oh.USE_YN from OCB_HIST oh where oh.ocb_cd is not null and oh.accnt_no = b.ACCNT_NO and oh.use_yn = 'Y' and oh.stat = '01') = 'Y'
+                           or
+                           (select count(*) from OCB_HIST oh where oh.ocb_cd is not null and oh.accnt_no = b.ACCNT_NO and oh.stat = '00' and oh.use_yn = 'N') > 0
+                       )
+                       then '발급'
+                       else case when nvl((SELECT OCB_POINT
+                                            FROM (SELECT to_number(OCB_POINT) OCB_POINT
+                                                    FROM OCB_CARD_CODE_MNG
+                                                   WHERE to_char(SYSDATE, 'YYYYMMDD') > APP_DT
+                                                     AND CARD_CODE = d.MEMBERSHIP
+                                                     AND DEL_FG = 'N'
+                                                   ORDER BY CARD_CODE asc
+                                                          , APP_DT desc
+                                                 )
+                                           WHERE ROWNUM <![CDATA[<=]]> 1), 0) <![CDATA[>]]> 0
+                           then '미발급'
+                           else '미대상'
+                        end
+                   end as ocb_gubn
+             , to_char(b.reg_dm, 'YYYYMMDD') as reg_dm
+             ,b.tr_mem_no
+             ,b.resort_mem_no
+             ,b.resort_mem_gubun
+             ,b.pay_gubun
+             ,b.before_dc_cnt
+             ,fn_emple_nm(b.reg_man) reg_man
+             ,FN_GetMemProdAccntSvc(b.ACCNT_NO) as mem_Prod_Accnt_Svc
+             ,nvl(b.join_cl,'01') as join_cl
+             ,b.resort_mem_nm
+             ,nvl(( select com_nm from  b2bcomcd where com_cd = b.b2b_comp_cd ), '') as b2b_comp_nm
+             ,nvl(b.b2b_comp_cd, '') b2b_comp_cd
+             ,nvl(b.b2b_emple_no, '') b2b_emple_no
+
+             ,b.RECOMMEND_EMPLE_NO
+             ,fn_emple_nm(RECOMMEND_EMPLE_NO) recom_Nm
+             , b.inspl_zip
+             , substr(b.inspl_zip, 1,3) as inspl_zip1
+             , substr(b.inspl_zip, -3) as inspl_zip2
+             , b.inspl_addr
+             , b.inspl_addr2
+             , nvl(b.accnt_note, '') accnt_note
+             , b.REAL_LOTTERY_NO
+             , a.IDN_NO_CHK_NOT_USE
+             , a.CI_VAL
+             , a.SEX
+             , (select fn_emple_nm(emple_no) from HP_CALL where ACCNT_NO = b.accnt_no) cnsl_Man
+             , nvl(b.JA_SUBSCRPT_YN, 'N') JA_SUBSCRPT_YN
+             , CASE WHEN (SELECT COUNT(*) FROM PRODUCT_KIND WHERE PROD_CD = b.PROD_CD) > 0 THEN 'Y'
+                    ELSE 'N'
+               END prod_Kind_Yn
+             , b.PROD_KIND PROD_KIND_SEQ
+             , nvl((SELECT PROD_KIND_NM FROM PRODUCT_KIND WHERE PROD_CD = b.PROD_CD AND SEQ = b.PROD_KIND), '') PROD_KIND_NM
+             , b.RAND_NUM
+             , nvl(b.OCB_REG_YN, 'Y') OCB_REG_YN
+             , nvl(b.OCB_POINT_YN, 'Y') OCB_POINT_YN
+             , j.cell emp_Cell
+             , b.ORDER_NUM
+             , a.CREDIT_RATING credit_Rating
+             , FN_COM_NM('0153', a.CREDIT_RATING) credit_Rating_Nm
+             , CASE WHEN nvl((SELECT to_number(OCB_POINT)
+                                  FROM (SELECT to_number(OCB_POINT)
+                                     , row_number() over(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) RNUM
+                                  FROM OCB_CARD_CODE_MNG
+                                 WHERE to_char(sysdate, 'YYYYMMDD') > APP_DT
+                                   AND CARD_CODE = d.MEMBERSHIP
+                                   AND DEL_FG = 'N')
+                                 WHERE RNUM = 1), 0) > 0
+                     THEN '01'
+                     WHEN nvl((SELECT to_number(OCB_POINT)
+                                    FROM (SELECT to_number(OCB_POINT)
+                                       , ROW_NUMBER()OVER(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) RNUM
+                                      FROM OCB_CARD_CODE_MNG WHERE to_char(sysdate, 'YYYYMMDD') > APP_DT
+                                       AND CARD_CODE = d.MEMBERSHIP
+                                       AND DEL_FG = 'N')
+                                   WHERE RNUM=1), 0) = 0
+                     THEN '02'
+                     ELSE '03'
+                END CARD_GUBUN
+             , b.inspl_phone
+             , REPLACE(substr(b.inspl_phone,1,3), '-','') as inspl_phone1
+             , CASE WHEN b.inspl_phone is null THEN '' ELSE REPLACE(substr(substr(b.inspl_phone, 1,length(b.inspl_phone)-5),-4), '-', '') END as inspl_phone2
+             , substr(b.inspl_phone, -4) as inspl_phone3
+             , a.crdt_mng_no crdt_Mng_No
+             , nvl(b.ID_NO, '') ID_NO
+             , nvl(b.KB_NO, '') KB_NO
+             , nvl((SELECT COUNT(*) FROM REG_UPD_DEL_INF z WHERE z.MEM_NO = a.MEM_NO AND z.NEW_YN = 'Y' AND z.DAT1 = '성명'), 0) nm_cnt
+             , nvl(b.LG_SHOP_INFO, '') LG_SHOP_INFO
+             , nvl(b.SM_SHOP_INFO, '') SM_SHOP_INFO
+             , nvl(FN_COM_NM('0173', b.LG_SHOP_INFO), '') lg_Shop_Nm
+             , nvl(FN_COM_NM('0184', b.SM_SHOP_INFO), '') sm_Shop_Nm
+             , case when nvl(d.PROD_GUBUN, '') = '0006' then 'Y' else 'N' end lg_Best_Cl
+             , nvl(PROD_MODEL_KIND, '') PROD_MODEL_KIND
+             , nvl(to_char(PROD_MODEL_CD), '') PROD_MODEL_CD
+             , nvl(a.black_consumer,'N') black_consumer <!-- 블랙커슈머 유무  -->
+             , CASE WHEN d.prod_cd in ('S7','S8','S9','T0','X5','X6') then 'Y' else 'N' end sm_Cl
+             , nvl(a.OCB_YN,'N') OCB_YN
+             , a.markt_agr_yn
+		FROM MEMBER a
+	            LEFT OUTER JOIN
+             MEM_PROD_ACCNT b ON a.mem_no = b.mem_no AND b.del_fg = 'N'
+	            LEFT OUTER JOIN
+             EMPLOYEE j ON b.emple_no = j.emple_no
+	            LEFT OUTER JOIN
+             (SELECT *
+                FROM (SELECT HP2.STAT
+                           , HP2.REG_DM
+                           , HP2.EMPLE_NO
+                           , HP2.ACCNT_NO
+                           , ROW_NUMBER() OVER (PARTITION BY HP2.ACCNT_NO ORDER BY HP2.SEQ DESC) RNUM
+                        FROM HP_CALL_HIST HP2
+                       WHERE 1=1
+                       <if test="emple_no != null and emple_no != ''">
+                         AND HP2.emple_no = #{emple_no}
+                       </if>
+                       <if test="accnt_no != null and accnt_no != ''">
+                         AND HP2.accnt_no = #{accnt_no}
+                       </if>
+                       <if test="(mem_no != null and mem_no != '') or (mem_nm != null and mem_nm != '') or (idn_no != null and idn_no != '') or (ci_val != null and ci_val != '')">
+                         AND EXISTS (SELECT 'X'
+                                       FROM MEMBER MBR2
+                                          , MEM_PROD_ACCNT MPA2
+                                      WHERE MBR2.MEM_NO = MPA.MEM_NO
+                                        AND MPA2.ACCNT_NO = HP2.ACCNT_NO
+                                      <if test="mem_no != null and mem_no != ''">
+                                        AND MBR2.MEM_NO = #{mem_no}
+                                      </if>
+                                      <if test="mem_nm != null and mem_nm != ''">
+                                        AND MBR2.MEM_NM = #{mem_nm}
+                                      </if>
+                                      <if test="idn_no != null and idn_no != ''">
+                                        AND MBR2.IDN_NO = #{idn_no}
+                                      </if>
+                                      <if test="ci_val != null and ci_val != ''">
+                                        AND MBR2.CI_VAL = #{ci_val}
+                                      </if>
+                                           )
+                       </if>
+                        )
+               WHERE RNUM=1) c ON b.accnt_no = c.accnt_no
+	            LEFT OUTER JOIN
+             PRODUCT d ON b.prod_cd = d.prod_cd AND d.del_fg = 'N'
+	            LEFT OUTER JOIN
+             PAY_MNG e ON b.accnt_no = e.accnt_no
+	        AND e.del_fg = 'N'
+            AND e.no = 1
+                LEFT OUTER JOIN
+             RESCISSION f ON b.accnt_no = f.accnt_no AND f.del_fg = 'N'
+                LEFT OUTER JOIN
+             CMS_MEM g ON b.accnt_no = g.accnt_no AND g.del_fg = 'N'
+                LEFT OUTER JOIN
+             DOCKEEP i ON b.appfm_no = i.doc_key
+		WHERE  1=1
+		AND a.del_fg = 'N'
+		<if test="data_auth_qry != null and data_auth_qry != ''">
+			${dataAuthQry}
+		</if>
+        <if test="mem_no != null and mem_no != ''">
+        AND a.mem_no = #{mem_no}
+        </if>
+        <if test="ci_cl != null and ci_cl != ''">
+        AND a.mem_no != #{ci_cl}
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+        AND a.mem_nm = #{mem_nm}
+        </if>
+        <if test="idn_no != null and idn_no != ''">
+        AND a.idn_no like #{idn_no} || '%'
+        </if>
+        <if test="ci_val != null and ci_val != ''">
+        AND CI_VAL = #{ci_val}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+        AND b.accnt_no = #{accnt_no}
+        </if>
+        <if test="join_dt != null and join_dt != ''">
+        AND b.join_dt between #{join_dt} and #{join_dt_to}
+        </if>
+        <if test="appfm_no != null and appfm_no != ''">
+        AND b.appfm_no like #{appfm_no} || '%'
+        </if>
+        <if test="emple_no != null and emple_no != ''">
+        AND b.emple_no = #{emple_no}
+        </if>
+        <if test="prod_cd != null and prod_cd != ''">
+        AND b.prod_cd = #{prod_cd}
+        </if>
+        <if test="home_tel != null and home_tel != ''">
+        AND REPLACE(a.home_tel, '-', '') like REPLACE(#{home_tel}, '-', '') || '%'
+        </if>
+        <if test="cell != null and cell != ''">
+        AND REPLACE(a.cell, '-', '') like REPLACE(#{cell}, '-', '') || '%'
+        </if>
+        <if test="wrpl_tel != null and wrpl_tel != ''">
+        AND REPLACE(a.wrpl_tel, '-', '') like REPLACE(#{wrpl_tel}, '-', '') || '%'
+        </if>
+        <if test="bank_accnt_no != null and bank_accnt_no != ''">
+        AND b.bank_accnt_no like #{bank_accnt_no} || '%'
+        </if>
+        <if test="old_mid != null and old_mid != ''">
+        AND b.old_mid like #{old_mid} || '%'
+        </if>
+        <if test="brth_mon_day != null and brth_mon_day != ''">
+        AND a.brth_mon_day = #{brth_mon_day}
+        </if>
+        <if test="sex != null and sex != ''">
+        AND a.sex = #{sex}
+        </if>
+        <if test="brth_mon_day != null and brth_mon_day != ''">
+        AND a.brth_mon_day = REPLACE(#{brth_mon_day}, '/', '')
+        </if>
+        <if test="emp_change_accnt != null and emp_change_accnt != ''">
+			AND b.accnt_no in
+            <foreach collection="emp_change_accnt" item="item" separator="," close=")" open="(">
+               #{item}
+            </foreach>
+		</if>
+        ORDER BY a.mem_nm
+               , brth_mon_day
+	</select>
+	
+		<!-- sql-life.xml [상담내역 마스터 등록] ID : life.insertConsulMng 작성자 : 장희주  || 수정 : 김원진 -->
+    <insert id="EmpMap.insertConsulMng" parameterType="map">
+
+		<selectKey keyProperty="skey" resultType="String" order="BEFORE">
+            SELECT SEQ || '|' || CNSL_SEQ
+              FROM (SELECT (SELECT nvl(MAX(SEQ),0)+1
+                              FROM CNSL_MNG
+                             WHERE MEM_NO = #{mem_no}) AS SEQ
+                         , (SELECT nvl(MAX(CNSL_SEQ),0)+ 1
+                              FROM CNSL_MNG
+					           WHERE MEM_NO = #{mem_no}
+					           AND ACCNT_NO = #{accnt_no} ) AS CNSL_SEQ
+                      FROM DUAL
+                    )
+		</selectKey>
+
+		INSERT /* EmpMap.insertConsulMng */ INTO CNSL_MNG
+           ( SEQ
+           , MEM_NO
+           , CNSL_SEQ
+           , ACCNT_NO
+           , CNSL_DT
+           , CNSL_CON
+           , REG_CL
+           , CNSL_MAN
+           , CALL_TEL
+           , REC_FILE
+           , REC_PATH
+           , CTI_ID
+           , REG_DM
+           , REG_MAN
+           , UPD_DM
+           , UPD_MAN)
+     VALUES (
+     		 fn_split(#{skey},1,'|')
+           , #{mem_no}
+           , fn_split(#{skey},2,'|')
+           , #{accnt_no}
+           , nvl(#{cnsl_dt},to_char(sysdate,'YYYYMMDD'))
+           , #{cnsl_mng_con}
+           , CASE WHEN #{cnsl_mng_con} = '행사취소 정보' OR
+                       #{cnsl_mng_con} = '철회취소 정보' OR
+                       #{cnsl_mng_con} = '해약등록 정보' OR
+                       #{cnsl_mng_con} = 'SMS전송내역 정보' OR
+                       #{cnsl_mng_con} = '담당자 변경' 	OR
+                       #{cnsl_mng_con} = '행사등록 정보' 	OR
+                       #{cnsl_mng_con} = '증서발급 정보' 	OR
+                       #{cnsl_mng_con} = '양도양수 정보' 	OR
+                       #{cnsl_mng_con} = 'CMS등록' 		OR
+                       #{cnsl_mng_con} = 'CMS해지' 		OR
+                       #{cnsl_mng_con} = '해약취소 정보' 	OR
+                       #{cnsl_mng_con} = '회원정보수정 정보' OR
+                       #{cnsl_mng_con} = '해약수정 정보' OR
+                       #{cnsl_mng_con} = '철회수정 정보' OR
+                       #{cnsl_mng_con} = '무환급해약수정 정보' OR
+                       #{cnsl_mng_con} = '철회등록 정보' THEN '02'
+                  ELSE '01'
+             END
+           , #{rgsr_id}
+           , #{call_tel}
+    	   , #{rec_file}
+	       , #{rec_path}
+	       , #{cti_id}
+           , sysdate
+           , #{rgsr_id}
+           , sysdate
+           , #{rgsr_id}
+        )
+	</insert>
+	
+    <!-- sql-emp.xml [담당자변경내역 등록 - 퇴사처리시] ID : emp.insertMstrChgInfResin 작성자 : 김진호 -->
+	<insert id="EmpMap.insertMstrChgInfResin" parameterType="map">
+		INSERT /* EmpMap.insertMstrChgInfResin */
+          INTO MSTR_CHG_INF (
+		           seq
+		          ,accnt_no
+		          ,old_emple_no
+		          ,new_emple_no
+		          ,chg_day
+		          ,work_mstr
+		          ,cl
+		          ,reg_dm
+		          ,reg_man
+		          ,upd_dm
+		          ,upd_man
+		          ,del_fg )
+		  SELECT   (select nvl(max(seq)+1,1) from mstr_chg_inf where accnt_no = c.accnt_no) as seq
+		          ,accnt_no
+		          ,old_emple_no
+		          ,new_emple_no
+		          ,chg_day
+		          ,work_mstr
+		          ,cl
+		          ,reg_dm
+		          ,reg_man
+		          ,upd_dm
+		          ,upd_man
+		          ,del_fg
+		  FROM (  SELECT   a.accnt_no
+		                  ,#{old_emple_no} 	as old_emple_no
+		                  ,#{new_emple_no} 	as new_emple_no
+		                  ,#{chg_day}       as chg_day
+		                  ,#{work_mstr} 	as work_mstr
+		                  ,'1'          	as cl
+		                  ,SYSDATE    	    as reg_dm
+		                  ,#{rgsr_id} 		as reg_man
+		                  ,SYSDATE    	    as upd_dm
+		                  ,#{rgsr_id} 		as upd_man
+		                  ,'N'          	as del_fg
+		          FROM  MEM_PROD_ACCNT a
+		          WHERE a.emple_no = #{old_emple_no}
+		          AND   a.del_fg = 'N' ) c
+	</insert>
+
+    <!-- sql-emp.xml [퇴사작업] ID : emp.updateEmployeeResin 작성자 : 김진호 -->
+	<update id="EmpMap.updateEmployeeResin" parameterType="map">
+		UPDATE /* EmpMap.updateEmployeeResin */
+               EMPLOYEE
+           SET resin_day 		= #{resin_day}
+             , upd_dm 			= SYSDATE
+             , upd_man 		= #{rgsr_id}
+             , del_fg			= 'Y'
+             <if test="alow_yn != null and alow_yn != ''">
+             , alow_yn			= #{alow_yn}
+             </if>
+		WHERE emple_no = #{bef_emple_cd}
+	</update>
+
+    <!-- 
+    sql-emp.xml [퇴사작업 - 담당자변경] ID : emp.updateMemProdAccntEmple 작성자 : 김진호
+    asis : EmpMap.updateMemProdAccntEmple
+    asis 에서 동일한 이름의 쿼리가 존재하여 이름뒤에 2를 붙임
+    관련화면 : 퇴사작업(팝업) 
+    -->
+	<update id="EmpMap.updateMemProdAccntEmple2" parameterType="map">
+		UPDATE /* EmpMap.updateMemProdAccntEmple2 */
+               MEM_PROD_ACCNT
+           SET emple_no 		= #{emple_no}
+             , bef_emple_cd		= #{bef_emple_cd}
+             , upd_dm 			= SYSDATE
+             , upd_man 			= #{upd_man}
+		WHERE emple_no = #{bef_emple_cd}
+	</update>
+	
+	    <!-- sql-emp.xml [직위변경] ID : emp.updatePosnCd 작성자: 김은진 2012.06.26 -->
+	<update id="EmpMap.updatePosnCd" parameterType="map">
+		UPDATE /* EmpMap.updatePosnCd */
+               EMPLOYEE
+		   SET POSN_CD =#{new_posn_cd}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{rgsr_id}
+		WHERE emple_no=#{emple_no}
+
+	</update>
+
+    <!-- sql-emp.xml [직책변경] ID : emp.updateJobdutyCd 작성자: 김은진 2012.06.26 -->
+	<update id="EmpMap.updateJobdutyCd" parameterType="map">
+		UPDATE /* EmpMap.updateJobdutyCd */
+               EMPLOYEE
+		   SET JOBDUTY_CD =#{new_posn_cd}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{rgsr_id}
+		WHERE emple_no=#{emple_no}
+	</update>
+
+    <!-- sql-emp.xml [직위변동 이력 입력] ID : emp.insertHistPosnEmp 작성자: 김은진 2012.06.26 -->
+	<insert id="EmpMap.insertHistPosnEmp" parameterType="map">
+		INSERT /* EmpMap.insertHistPosnEmp */ 
+          INTO HIST_POSN_EMP
+			( EMPLE_NO, SEQ, GRP_CD, POSN_JOB_CD, APP_DT, REG_DM, REG_MAN )
+		VALUES (
+			#{emple_no} ,
+			(SELECT nvl(MAX(SEQ)+1,1)AS SEQ FROM HIST_POSN_EMP WHERE EMPLE_NO=#{emple_no} and grp_cd =#{grp_cd}) ,
+			#{grp_cd} ,
+			#{new_posn_cd} ,
+			#{app_dt} ,
+			SYSDATE ,
+			#{rgsr_id}
+		)
+	</insert>    
+	
+	<!-- 
+	할인우대권 번호 생성 조건
+	관련화면 : 할인우대권 번호 관리 
+	-->
+    <select id="EmpMap.selectDiscntPassMstlist" parameterType="map" resultType="resultMap">
+		SELECT /* EmpMap.selectDiscntPassMstlist */
+               SEQ
+		     , DISCNT_PASS_EVT_NM
+		     , ISSUE_DT
+		     , DUP_YN
+		     , VALID_DT
+		     , NEW_CHAN_GUNSU
+		     , RAND_CNT
+		     , RAND_IDNTFR
+		     , nvl((SELECT COUNT(RAND_NUM)
+			      FROM DISCNT_PASS_DTL
+			     WHERE SEQ = DPM.SEQ), 0) DPD_CNT
+		  FROM DISCNT_PASS_MST DPM
+		 WHERE DEL_FG = 'N'
+	</select>
+
+	<!-- 
+	생성된 난수 조회
+	관련화면 : 할인우대권 번호 관리 
+	-->
+    <select id="EmpMap.selectRandNumList" parameterType="map" resultType="resultMap">
+		SELECT /* EmpMap.selectRandNumList */
+               RAND_NUM
+			 , NOTE
+			 , '' CHG
+			 , (SELECT COUNT(*)
+                  FROM MEM_PROD_ACCNT
+                 WHERE RAND_NUM = DPD.RAND_NUM) MPA_CNT
+		  FROM DISCNT_PASS_DTL DPD
+		 WHERE SEQ = #{seq}
+	</select>
+	
+	<!-- 
+	할인우대권 번호 비고 변경
+	관련화면 : 할인우대권 번호 관리 
+	-->
+	<update id="EmpMap.noteSave" parameterType="map">
+		UPDATE /* EmpMap.noteSave */ 
+		       DISCNT_PASS_DTL SET
+		  NOTE = #{note}
+		WHERE SEQ = #{seq}
+		  AND RAND_NUM = #{rand_num}
+	</update>
+	
+    <!-- 
+    asis : life.selectMemberList
+    담당자변경등록에서 사용하기 위해 별도의 함수를 만듬
+    -->
+	<select id="EmpMap.selectMemberListByEmpleNo" parameterType="map" resultType="resultMap">
+		SELECT /* EmpMap.selectMemberListByEmpleNo */
+               a.mem_no
+             , a.mem_nm
+             , '' as chk             
+             , a.hushld
+             , a.home_tel
+             , REPLACE(substr(a.home_tel,1,3), '-','') as home_tel1
+             , CASE WHEN a.home_tel IS NULL THEN '' ELSE REPLACE(substr(substr(a.home_tel, 1,length(a.home_tel)-5),-4), '-', '') END as home_tel2
+             , substr(a.home_tel, -4) as home_tel3
+             , a.wrpl_tel
+             , REPLACE(substr(a.wrpl_tel,1,3), '-','') as wrpl_tel1
+             , CASE WHEN a.wrpl_tel IS NULL THEN '' ELSE REPLACE(substr(substr(a.wrpl_tel, 1,length(a.wrpl_tel)-5),-4), '-', '') END as wrpl_tel2
+             , substr(a.wrpl_tel, -4) as wrpl_tel3
+             , a.home_zip
+             , substr(home_zip, 1,3) as home_zip1
+             , substr(home_zip, -3) as home_zip2
+             , a.home_addr
+             , a.home_addr2
+             , a.wrpl_zip
+             , substr(wrpl_zip, 1,3) as wrpl_zip1
+             , substr(wrpl_zip, -3) as wrpl_zip2
+             , a.wrpl_addr
+             , a.wrpl_addr2
+             , a.email
+             , a.email_chk
+             , a.sms_chk
+             , a.contc_tm
+             , a.contc_tm_from
+             , a.contc_tm_to
+             , substr(a.contc_tm_from, 1,2) as contc_tm_from_hour
+             , substr(a.contc_tm_from, -2) as contc_tm_from_min
+             , substr(a.contc_tm_to, 1,2) as contc_tm_to_hour
+             , substr(a.contc_tm_to, -2) as contc_tm_to_min
+             , case when (brth_mon_day = '19000101' or a.brth_mon_day is null) then ''
+                    else brth_mon_day
+               end as brth_mon_day
+             , a.sol_lun
+             , case when (a.annv = '19000101' or a.annv is null) then ''
+                    else a.annv
+               end as annv
+             , a.re_join
+             , a.note
+             , a.cl
+             , a.old_mem_no
+             , b.old_mid
+             , b.accnt_no
+             , b.prod_cd
+             , d.prod_amt
+             , d.mon_pay_amt
+             , d.expr_no
+             , d.prod_cl
+             , d.prod_nm
+             , b.emple_no
+             , j.emple_nm
+             , FN_DEPT_NM(j.dept_cd) as emple_dept_nm
+             , j.cell as emple_cell
+             , b.appfm_no
+             , b.join_dt
+             , to_char(ADD_MONTHS(ADD_MONTHS(join_dt, d.expr_no-b.new_chan_gunsu), -1), 'YYYYMMDD') as man_day
+             , b.compt_dt
+             , b.pay_perd
+             , b.pay_mthd
+             , b.post_mtr_rcv
+             , b.join_prod
+             , b.new_chan_gunsu
+             , b.org_join_gunsu
+             , b.certf_rcv_chk
+             , a.idn_no
+             , b.bank_accnt_no
+             , b.ded_no
+             , b.membership_yn
+             , b.resort_no
+             , a.eng_nm
+             , to_char(b.reg_dm, 'YYYYMMDD') as reg_dm
+             , nvl(b.join_cl,'01') as join_cl
+             , b.resort_mem_nm
+             , b.inspl_zip
+             , substr(b.inspl_zip, 1,3) as inspl_zip1
+             , substr(b.inspl_zip, -3) as inspl_zip2
+             , b.inspl_addr
+             , b.inspl_addr2
+             , nvl(b.accnt_note, '') accnt_note
+             , b.REAL_LOTTERY_NO
+             , a.IDN_NO_CHK_NOT_USE
+             , a.CI_VAL
+             , a.SEX
+             , nvl(b.JA_SUBSCRPT_YN, 'N') JA_SUBSCRPT_YN
+             , b.PROD_KIND PROD_KIND_SEQ
+             , (SELECT PROD_KIND_NM FROM PRODUCT_KIND WHERE PROD_CD = b.PROD_CD AND SEQ = b.PROD_KIND) PROD_KIND_NM
+             , b.RAND_NUM
+             , j.cell emp_Cell
+             , b.ORDER_NUM
+             , b.inspl_phone
+             , REPLACE(substr(b.inspl_phone,1,3), '-','') as inspl_phone1
+             , CASE WHEN b.inspl_phone is null THEN '' ELSE REPLACE(substr(substr(b.inspl_phone, 1,length(b.inspl_phone)-5),-4), '-', '') END as inspl_phone2
+             , substr(b.inspl_phone, -4) as inspl_phone3
+             , a.crdt_mng_no crdt_Mng_No
+             , nvl(b.ID_NO, '') ID_NO
+             , nvl(b.KB_NO, '') KB_NO
+             , case when nvl(d.PROD_GUBUN, '') = '0006' then 'Y' else 'N' end lg_Best_Cl
+             , nvl(PROD_MODEL_KIND, '') PROD_MODEL_KIND
+             , nvl(to_char(PROD_MODEL_CD), '') PROD_MODEL_CD
+             , nvl(a.black_consumer,'N') black_consumer <!-- 블랙커슈머 유무  -->
+             , CASE WHEN d.prod_cd in ('S7','S8','S9','T0','X5','X6') then 'Y' else 'N' end sm_Cl
+             , nvl(a.OCB_YN,'N') OCB_YN
+             , a.markt_agr_yn
+             , FN_YEN_CHE(b.accnt_no) as Accnt_stat
+             , FN_EVENT(b.accnt_no) as event_nm
+		FROM MEM_PROD_ACCNT b
+	            JOIN
+             MEMBER a ON a.mem_no = b.mem_no AND b.del_fg = 'N'
+	            JOIN
+             EMPLOYEE j ON b.emple_no = j.emple_no
+	            JOIN
+             PRODUCT d ON b.prod_cd = d.prod_cd AND d.del_fg = 'N'
+		WHERE  1=1
+		AND a.del_fg = 'N'
+        <if test="mem_no != null and mem_no != ''">
+        AND a.mem_no = #{mem_no}
+        </if>
+        <if test="ci_cl != null and ci_cl != ''">
+        AND a.mem_no != #{ci_cl}
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+        AND a.mem_nm = #{mem_nm}
+        </if>
+        <if test="idn_no != null and idn_no != ''">
+        AND a.idn_no like #{idn_no} || '%'
+        </if>
+        <if test="ci_val != null and ci_val != ''">
+        AND CI_VAL = #{ci_val}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+        AND b.accnt_no = #{accnt_no}
+        </if>
+        <if test="join_dt != null and join_dt != ''">
+        AND b.join_dt between #{join_dt} and #{join_dt_to}
+        </if>
+        <if test="appfm_no != null and appfm_no != ''">
+        AND b.appfm_no like #{appfm_no} || '%'
+        </if>
+        <if test="emple_no != null and emple_no != ''">
+        AND b.emple_no = #{emple_no}
+        </if>
+        <if test="prod_cd != null and prod_cd != ''">
+        AND b.prod_cd = #{prod_cd}
+        </if>
+        <if test="home_tel != null and home_tel != ''">
+        AND REPLACE(a.home_tel, '-', '') like REPLACE(#{home_tel}, '-', '') || '%'
+        </if>
+        <if test="cell != null and cell != ''">
+        AND REPLACE(a.cell, '-', '') like REPLACE(#{cell}, '-', '') || '%'
+        </if>
+        <if test="wrpl_tel != null and wrpl_tel != ''">
+        AND REPLACE(a.wrpl_tel, '-', '') like REPLACE(#{wrpl_tel}, '-', '') || '%'
+        </if>
+        <if test="bank_accnt_no != null and bank_accnt_no != ''">
+        AND b.bank_accnt_no like #{bank_accnt_no} || '%'
+        </if>
+        <if test="old_mid != null and old_mid != ''">
+        AND b.old_mid like #{old_mid} || '%'
+        </if>
+        <if test="brth_mon_day != null and brth_mon_day != ''">
+        AND a.brth_mon_day = #{brth_mon_day}
+        </if>
+        <if test="sex != null and sex != ''">
+        AND a.sex = #{sex}
+        </if>
+        <if test="brth_mon_day != null and brth_mon_day != ''">
+        AND a.brth_mon_day = REPLACE(#{brth_mon_day}, '/', '')
+        </if>
+        <if test="emp_change_accnt != null and emp_change_accnt != ''">
+			AND b.accnt_no in
+            <foreach collection="emp_change_accnt" item="item" separator="," close=")" open="(">
+               #{item}
+            </foreach>
+		</if>
+        ORDER BY a.mem_nm
+               , brth_mon_day
+	</select>
+	
+</mapper>

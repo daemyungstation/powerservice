@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMarktMngMap">
+    
+    <select id="DlwMarktMngMap.getListCount" parameterType="map" resultType="int">
+		/* DlwMarktMngMap.getListCount */
+        SELECT COUNT(*)
+          FROM (SELECT MEM_NO,
+				       MARKT_INFO_GBN,
+				       FN_COM_NM('0232', MARKT_INFO_GBN) AS MARKT_INFO_GBN_NM,
+				       TO_CHAR(MARKT_DATE, 'YYYY-MM-DD') AS MARKT_DATE,
+				       TO_CHAR(REG_DM, 'YYYY-MM-DD') AS REG_DM,
+				       REG_MAN,
+				       TO_CHAR(UPD_DM, 'YYYY-MM-DD') AS UPD_DM,
+				       UPD_MAN,
+				       DEL_FG
+				FROM TB_MEMBER_MKT_INFO
+				WHERE 1=1
+				AND DEL_FG = 'N'
+		        <if test="mem_no != null and mem_no != ''">
+		           AND MEM_NO = #{mem_no}
+		        </if>
+		        <if test="markt_info_gbn != null and markt_info_gbn != ''">
+		           AND MARKT_INFO_GBN = #{markt_info_gbn}
+		        </if>
+		        <if test="dateTyp == '01'">
+		            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+		                AND	TO_CHAR(MARKT_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		            </if>
+		        </if>
+		        <if test="dateTyp == '02'">
+		            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+		                AND	TO_CHAR(REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		            </if>
+		        </if>
+		 ) TBL
+         WHERE 1=1
+    </select>
+    
+    <select id="DlwMarktMngMap.getList" parameterType="map" resultType="resultMap">
+		/* DlwMarktMngMap.getList */
+        SELECT TBL.*
+          FROM (SELECT ROW_NUMBER() OVER(ORDER BY MEM_NO ASC) PAGE_INDX,
+		               MEM_NO,
+				       MARKT_INFO_GBN,
+				       FN_COM_NM('0232', MARKT_INFO_GBN) AS MARKT_INFO_GBN_NM,
+				       TO_CHAR(MARKT_DATE, 'YYYY-MM-DD') AS MARKT_DATE,
+				       TO_CHAR(REG_DM, 'YYYY-MM-DD') AS REG_DM,
+				       REG_MAN,
+				       TO_CHAR(UPD_DM, 'YYYY-MM-DD') AS UPD_DM,
+				       UPD_MAN,
+				       DEL_FG
+				FROM TB_MEMBER_MKT_INFO
+				WHERE 1=1
+				AND DEL_FG = 'N'
+		        <if test="mem_no != null and mem_no != ''">
+		           AND MEM_NO = #{mem_no}
+		        </if>
+		        <if test="markt_info_gbn != null and markt_info_gbn != ''">
+		           AND MARKT_INFO_GBN = #{markt_info_gbn}
+		        </if>
+		        <if test="dateTyp == '01'">
+		            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+		                AND	TO_CHAR(MARKT_DATE, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		            </if>
+		        </if>
+		        <if test="dateTyp == '02'">
+		            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+		                AND	TO_CHAR(REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+		            </if>
+		        </if>
+		 ) TBL
+         WHERE 1=1
+		<if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+             AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+             AND PAGE_INDX <![CDATA[<]]> #{endLine}
+         </if>
+    </select>
+    
+    <select id="DlwMarktMngMap.getMonCntPopList" parameterType="map" resultType="resultMap">
+		/* DlwMarktMngMap.getMonCntPopList */
+        SELECT TBL.*
+          FROM (SELECT SEND_GUBUN
+				      ,SEND_DATE
+				      ,SEND_RESV
+				      ,SEND_YN
+				      ,COUNT(*) AS CNT
+				FROM TB_MEMBER_MMS_MNG
+				WHERE 1=1
+				<if test="send_date != null and send_date != ''">
+		           AND SEND_RESV LIKE #{send_date} || '%'
+		        </if>
+				GROUP BY SEND_GUBUN, SEND_DATE, SEND_RESV, SEND_YN
+				ORDER BY SEND_RESV DESC
+		 ) TBL
+         WHERE 1=1
+    </select>
+    
+    <insert id="DlwMarktMngMap.insertSendMsgForm" parameterType="map">
+        INSERT /* DlwMarktMngMap.insertSendMsgForm */
+        INTO LF_DMUSER.TB_MEMBER_MMS_MNG
+        SELECT 
+            MB.MEM_NO,
+            '00' AS SEND_GUBUN,'' AS SEND_DATE,                       
+            FN_MARKT_MSG(MB.MEM_NO , 'CNTN') AS SEN_MSG,
+            TO_CHAR(SYSDATE, 'YYYYMMDD') AS SEND_RESV,
+             'N' AS SEND_YN,
+             FN_MARKT_MSG(MB.MEM_NO , 'TITL') AS SEND_SUBJEC
+        FROM MEMBER MB INNER JOIN
+            TB_MEMBER_MKT_INFO MMI ON MB.MEM_NO = MMI.MEM_NO AND MMI.DEL_FG ='N'
+        WHERE 1=1   
+        AND MMI.DEL_FG = 'N'
+        AND TO_CHAR(MMI.REG_DM, 'YYYYMMDD') = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        AND MMI.MARKT_INFO_GBN = '01'
+        AND MMI.MEM_NO NOT IN (SELECT MEM_NO FROM TB_MEMBER_MMS_MNG WHERE SEND_YN = 'Y' AND SEND_RESV <![CDATA[ >= ]]> TO_CHAR(ADD_MONTHS(SYSDATE,-12),'YYYYMMDD'))
+        
+    </insert>
+    
+    <!-- LMS 문자메세지를 전송한다.(LMS) -->
+    <insert id="DlwMarktMngMap.insertSendLms" parameterType="map">
+        INSERT /* DlwMarktMngMap.insertSendLms */
+        INTO EM_USER.EM_MMT_TRAN
+        (
+            MT_PR                                 /* sequence */
+            , DATE_CLIENT_REQ                       /* 클라이언트의 전송 요청 시간 */
+            , SUBJECT                               /* 메시지제목 */
+            , CONTENT                               /* 전송메시지 */
+            , CALLBACK                              /* 발신번호 */
+            , SERVICE_TYPE                          /* 메시지전송타입 */
+            , RECIPIENT_NUM                         /* 수신번호 */
+        )
+        SELECT 
+               EM_USER.SQ_EM_MMT_TRAN_01.NEXTVAL AS SEQ,
+               SYSDATE,
+               MM.SEND_SUBJEC,
+               MM.SEND_MSG,
+               '15888511',
+               '3',                                   /* 메시지전송타입 */
+               MB.CELL1    /* 수신번호 */
+        FROM TB_MEMBER_MMS_MNG MM INNER JOIN
+            MEMBER MB ON MM.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+        WHERE 1=1
+        AND MM.SEND_YN = 'N'
+        AND MM.SEND_RESV = TO_CHAR(SYSDATE, 'YYYYMMDD')
+    </insert>
+    
+    <update id="DlwMarktMngMap.updateMktMmsSend" parameterType="map">
+
+        UPDATE TB_MEMBER_MMS_MNG
+           SET SEND_DATE = SYSDATE
+             , SEND_YN = 'Y'
+         WHERE 1=1
+           AND SEND_YN = 'N'
+           AND SEND_RESV = TO_CHAR(SYSDATE, 'YYYYMMDD')
+
+    </update>
+    
+    <delete id="DlwMarktMngMap.deleteSendMsgForm" parameterType="map">
+        /* DlwMarktMngMap.deleteSendMsgForm */
+        DELETE FROM LF_DMUSER.TB_MEMBER_MMS_MNG
+        WHERE SEND_YN = 'N'
+        AND SEND_RESV = TO_CHAR(SYSDATE, 'YYYYMMDD')
+    </delete>
+</mapper>

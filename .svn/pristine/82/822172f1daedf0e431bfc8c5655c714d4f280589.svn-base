@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExccWrkrMap">
+
+    <sql id="ExccWrkrMap.selectCondition_fragment">
+        <where>
+            <if test="chos_bas_yrmn != null and chos_bas_yrmn != ''">
+                AND CHOS_BAS_YRMN = #{chos_bas_yrmn}
+            </if>
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+                AND CHOS_BAS_YRMN BETWEEN #{startd} AND #{endd}
+            </if>
+            <if test="main_yn != null and main_yn != ''">
+                AND CHOS_BAS_YRMN = TO_CHAR(SYSDATE, 'YYYYMM')
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND USER_ID = #{user_id}
+            </if>
+            <if test="user_nm != null and user_nm != ''">
+                AND USER_ID IN (SELECT USER_ID
+                                 FROM TB_USER
+                                WHERE USER_NM LIKE '%' || #{user_nm} || '%')
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="excc_wrkr_id != null and excc_wrkr_id != ''">
+                AND EXCC_WRKR_ID = #{excc_wrkr_id}
+            </if>
+            <if test="bzpt_divs != null and bzpt_divs != ''">
+                AND BZPT_DIV IN (${bzpt_divs})
+            </if>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+        </where>
+    </sql>
+
+    <select id="ExccWrkrMap.getExccWrkrCount" parameterType="map" resultType="int">
+        SELECT /* ExccWrkrMap.getExccWrkrCount */
+               COUNT(*)
+          FROM TB_EXCC_WRKR A
+        <include refid="ExccWrkrMap.selectCondition_fragment" />
+    </select>
+
+    <select id="ExccWrkrMap.getExccWrkrList" parameterType="map" resultType="resultMap">
+     SELECT /* ExccWrkrMap.getExccWrkrList */
+            C.*
+          , (SELECT USER_NM
+               FROM TB_USER
+              WHERE USER_ID = C.RGSR_ID
+                AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+          , (SELECT TEAM_NM
+               FROM TB_CONS_TEAM D
+                  , TB_USER E
+              WHERE USER_ID = C.USER_ID
+                AND D.TEAM_CD = E.TEAM_CD
+                AND D.CNTR_CD = C.CNTR_CD
+                AND E.CNTR_CD = C.CNTR_CD) AS TEAM_NM
+          , (SELECT FILE_ID
+               FROM TB_FILE
+              WHERE RLTN_ITEM_ID = C.USER_ID
+                AND ROWNUM = 1) AS FILE_ID
+       FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+               FROM (SELECT EXCC_WRKR_ID, CNTR_CD, USER_ID, CHOS_BAS_YRMN, CHOS_RNKN
+                          , CHOS_TITL, CHOS_CNTN, RGSR_ID, RGSN_DTTM, AMND_ID
+                          , AMNT_DTTM
+                          , (SELECT USER_NM
+                               FROM TB_USER
+                              WHERE USER_ID = A.USER_ID
+                                AND CNTR_CD = A.CNTR_CD) AS USER_NM
+                          , (SELECT USER_NM
+                               FROM TB_USER
+                              WHERE USER_ID = A.AMND_ID
+                                AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                       FROM TB_EXCC_WRKR A
+        <include refid="ExccWrkrMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                   ORDER BY ${orderBy} ${orderDirection}, CHOS_RNKN ASC
+        </if>
+                   ) B
+           ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+     WHERE PAGE_INDX >= #{startLine}
+       AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ExccWrkrMap.getExccWrkrDuplicateCount" parameterType="map" resultType="int">
+        SELECT /*ExccWrkrMap.getExccWrkrDuplicateCount*/
+               COUNT(*)
+          FROM TB_EXCC_WRKR
+         WHERE CNTR_CD = #{cntr_cd}
+           AND CHOS_RNKN = #{chos_rnkn}
+           AND CHOS_BAS_YRMN = #{chos_bas_yrmn}
+        <if test="excc_wrkr_id != null and excc_wrkr_id != ''">
+           AND EXCC_WRKR_ID != #{excc_wrkr_id}
+        </if>
+        <if test="bzpt_div != null and bzpt_div != ''">
+            AND BZPT_DIV = #{bzpt_div}
+        </if>
+    </select>
+
+    <insert id="ExccWrkrMap.insertExccWrkr" parameterType="map">
+        <selectKey keyProperty="excc_wrkr_id" resultType="String" order="BEFORE">
+            SELECT 'ECW' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* ExccWrkrMap.insertExccWrkr */
+               TB_EXCC_WRKR
+               (EXCC_WRKR_ID, USER_ID, CHOS_BAS_YRMN, CHOS_TITL, CHOS_CNTN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CHOS_RNKN, BZPT_DIV)
+        VALUES (#{excc_wrkr_id}, #{user_id}, #{chos_bas_yrmn}, #{chos_titl}, #{chos_cntn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{chos_rnkn}, #{bzpt_div})
+    </insert>
+
+    <update id="ExccWrkrMap.updateExccWrkr" parameterType="map">
+        UPDATE /* ExccWrkrMap.updateExccWrkr */
+               TB_EXCC_WRKR
+           SET USER_ID = #{user_id}
+             , CHOS_BAS_YRMN = #{chos_bas_yrmn}
+             , CHOS_TITL = #{chos_titl}
+             , CHOS_CNTN = #{chos_cntn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , CHOS_RNKN = #{chos_rnkn}
+         WHERE EXCC_WRKR_ID = #{excc_wrkr_id}
+    </update>
+
+    <delete id="ExccWrkrMap.deleteExccWrkr" parameterType="map">
+        DELETE /* ExccWrkrMap.deleteExccWrkr */
+          FROM TB_EXCC_WRKR
+         WHERE
+        <choose>
+            <when test="excc_wrkr_id == null or excc_wrkr_id == ''">
+               EXCC_WRKR_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               EXCC_WRKR_ID = #{excc_wrkr_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+    <update id="ExccWrkrMap.updateExccWrkrOrder" parameterType="map">
+    <![CDATA[
+        UPDATE /* ExccWrkrMap.updateExccWrkrOrder */
+               TB_EXCC_WRKR
+           SET CHOS_RNKN = CASE USER_ID WHEN #{user_id} THEN ${chos_rnkn}
+                                       ELSE DECODE(${chos_rnkn}, 1, 2, 1)
+                            END
+          WHERE CNTR_CD = #{cntr_cd}
+            AND CHOS_BAS_YRMN = #{chos_bas_yrmn}
+    ]]>
+    </update>
+
+</mapper>

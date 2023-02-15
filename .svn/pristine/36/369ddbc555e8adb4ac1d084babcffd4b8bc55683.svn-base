@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TodoMap">
+
+    <select id="TodoMap.getTodoCount" parameterType="map" resultType="resultMap">
+        SELECT /* TodoMap.getTodoCount */
+               (SELECT COUNT(*) AS CNT
+                  FROM TB_CONS
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND CONS_STAT_CD IN ('10', '20')) AS CONS_CNT  -- 상담미처리
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_VOC_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND VOC_DSPS_STAT_CD IN ('10', '20')) AS VOC_CNT	 -- VOC미처리
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_CALB_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND CALB_RESL_CD = '10') AS CALB_CNT  -- 콜백미할당
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_FAQ_DMND_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND (DMNR_ID IS NULL
+                     OR DMNR_ID = #{user_id})
+                   AND FAQ_DSPS_STAT_CD = '20') AS FAQ_CNT  -- FAQ요청
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_VCTN_APLC_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND APPR_ID = #{user_id}
+                   AND VCTN_DSPS_STAT_CD = '10') AS VCTN_CNT  -- 휴가요청
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_BSWR_DMND_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND BSWR_DMND_STAT_CD IN ('00')
+                   AND TRCT_BOX_ID IN (SELECT TRCT_BOX_ID FROM TB_TRCT_CHPR_ADMN WHERE USER_ID = #{user_id})
+               ) AS N2CONS_USTL_CNT -- 2차상담 미정 (전체)
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_BSWR_DMND_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND TRCT_CHPR_ID = #{user_id}
+                   AND BSWR_DMND_STAT_CD IN ('10')
+                   AND TRCT_BOX_ID IN (SELECT TRCT_BOX_ID FROM TB_TRCT_CHPR_ADMN WHERE USER_ID = #{user_id})
+               ) AS N2CONS_ACPG_CNT -- 2차상담 접수 (개인별)
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_BSWR_DMND_DTL
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND TRCT_CHPR_ID = #{user_id}
+                   AND BSWR_DMND_STAT_CD IN ('20')
+                   AND TRCT_BOX_ID IN (SELECT TRCT_BOX_ID FROM TB_TRCT_CHPR_ADMN WHERE USER_ID = #{user_id})
+               ) AS N2CONS_PRGR_CNT -- 2차상담 처리중 (개인별)
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_WEB_CONS
+                 WHERE CNTR_CD = #{cntr_cd}
+                  AND DSPS_STAT_CD IN ('10')
+                  AND CHPR_ID  = #{user_id} -- 웹상담 접수(개인별)
+               ) AS WEB_ACPG_CNT
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_WEB_CONS
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND DSPS_STAT_CD IN ('20')
+                   AND CHPR_ID  = #{user_id} -- 웹상담 처리중(개인별)
+               ) AS WEB_PRGR_CNT
+             , (SELECT COUNT(*) AS CNT
+                  FROM TB_WEB_CONS
+                 WHERE CNTR_CD = #{cntr_cd}
+                   AND CHPR_ID IS NULL -- 웹상담 찜가능(전체)
+               ) AS WEB_ZZIM_CNT
+          FROM DUAL
+    </select>
+
+</mapper>

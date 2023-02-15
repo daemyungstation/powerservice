@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Temp_FileRead" classname="Temp_FileRead" inheritanceid="" position="absolute 0 0 1024 768" titletext="New Form">
+    <Layouts>
+      <Layout>
+        <Button id="Button00" taborder="0" text="FileRead" position="absolute 65 84 185 134" onclick="Button00_onclick"/>
+        <Button id="Button01" taborder="1" text="FileWrite" position="absolute 216 84 336 134" onclick="Button01_onclick"/>
+        <Grid id="Grid00" taborder="2" useinputpanel="false" position="absolute 57 183 337 361">
+          <Formats/>
+        </Grid>
+        <Button id="Button02" taborder="3" text="FileRead CSV Format" position="absolute 364 84 512 134" onclick="Button02_onclick"/>
+        <Grid id="Grid01" taborder="4" useinputpanel="false" position="absolute 366 184 625 361" binddataset="Dataset00">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Col size="80"/>
+                <Col size="80"/>
+              </Columns>
+              <Rows>
+                <Row band="head" size="24"/>
+                <Row band="body" size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell col="0" displaytype="normal" text="Column0"/>
+                <Cell col="1" displaytype="normal" text="Column1"/>
+              </Band>
+              <Band id="body">
+                <Cell col="0" displaytype="normal" text="bind:Column0"/>
+                <Cell col="1" displaytype="normal" text="bind:Column1"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <FileDialog id="FileDialog00" filter="All(*.*)|*.*|" filterindex="0" defaultextension="false"/>
+      <VirtualFile id="VirtualFile00"/>
+      <Dataset id="Dataset00" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Column0" type="STRING" size="256"/>
+          <Column id="Column1" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="Column0">123456</Col>
+            <Col id="Column1">1234568</Col>
+          </Row>
+          <Row>
+            <Col id="Column0">asdf</Col>
+            <Col id="Column1">a</Col>
+          </Row>
+          <Row>
+            <Col id="Column0">asdf</Col>
+            <Col id="Column1">b</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var vFile = FileDialog00.open("FileOpen", FileDialog.LOAD, "%DOCUMENT%", "a.txt");
+
+	//var rtn = vFile.open(vFile.fullpath, VirtualFile.openRead | VirtualFile.openBinary);
+	var rtn = vFile.open(vFile.fullpath, VirtualFile.openRead | VirtualFile.openText);
+	
+	var txtVal = vFile.read();
+	trace(vFile.getFileSize());
+	vFile.close(); 
+	
+	var ret = txtVal.split("     R"); // text 파일의 줄바꿈 기준으로 데이터 추출
+	
+	trace(ret.length);
+	
+	var ds = new Dataset();
+	this.addChild("Dataset01", ds);
+	
+	ds.addColumn( "Column0", "string" );
+	ds.addColumn( "Column1", "string" );
+		
+	ds.enableevent = false;
+	for(var i=0; i< ret.length; i++) {
+		
+		var nRow = ds.addRow();
+		ds.setColumn(nRow, "Column0", ret[i]);
+	}
+	ds.enableevent = true;
+	
+	this.Grid00.binddataset = "Dataset01";
+	
+	this.Grid00.createFormat();
+	
+	
+}
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	
+	var strCSV;
+	strCSV = this.Dataset00.saveCSV();
+	trace(strCSV);
+	var vFile = FileDialog00.open("FileSave", FileDialog.SAVE, "","abc.txt");
+	var file = "127.0.0.1";
+	var buffer = new Buffer();
+	buffer.appendText(file,1200);
+	//buffer.appendUTF16(file);
+
+	//파일명 만들기
+	//var rtn = new VirtualFile( pUrl+fileNm, VirtualFile.openWrite | VirtualFile.openBinary | VirtualFile.openAppend);
+	var rtn = vFile.open(vFile.fullpath, VirtualFile.openWrite | VirtualFile.openBinary | VirtualFile.openAppend);
+
+	vFile.write(strCSV, "utf-8");
+	vFile.close(); 
+}
+
+function Button02_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var vFile = FileDialog00.open("FileOpen", FileDialog.LOAD, "%DOCUMENT%", "abc.txt");
+	
+	trace(vFile);
+	
+	//var rtn = vFile.open(vFile.fullpath, VirtualFile.openRead | VirtualFile.openBinary);
+	var rtn = vFile.open(vFile.fullpath, VirtualFile.openRead | VirtualFile.openText);
+	
+	trace(rtn);
+	var textCSV = vFile.read();
+	trace(vFile.getFileSize());
+	vFile.close(); 
+	
+	this.Dataset00.loadCSV(textCSV, true);
+}
+]]></Script>
+  </Form>
+</FDL>

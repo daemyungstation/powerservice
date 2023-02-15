@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ChatCntsMap">
+
+    <sql id="ChatCntsMap.selectCondition_fragment">
+        <where>
+            <if test="chat_cnts_id != null and chat_cnts_id != ''">
+                AND CHAT_CNTS_ID = #{chat_cnts_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="chat_cnts_div_cd != null and chat_cnts_div_cd != ''">
+                AND CHAT_CNTS_DIV_CD = #{chat_cnts_div_cd}
+            </if>
+            <if test="chat_msg_typ_cd != null and chat_msg_typ_cd != ''">
+                AND CHAT_MSG_TYP_CD = #{chat_msg_typ_cd}
+            </if>
+
+            <if test="chat_msg_cntn != null and chat_msg_cntn != ''">
+                AND CHAT_MSG_CNTN LIKE '%' || #{chat_msg_cntn} || '%'
+            </if>
+
+            <if test="chat_msg_titl != null and chat_msg_titl != ''">
+                AND CHAT_MSG_TITL LIKE '%' || #{chat_msg_titl} || '%'
+            </if>
+            <if test="chat_dpms_div_cd != null and chat_dpms_div_cd != ''">
+                AND CHAT_DPMS_DIV_CD = #{chat_dpms_div_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+    
+    
+    
+     <sql id="ChatCntsMap.selectCondition_fragment_cj">
+        <where>
+            	AND TMP_CD > ' '
+            <if test="chat_cnts_id != null and chat_cnts_id != ''">
+                AND CHAT_CNTS_ID = #{chat_cnts_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="chat_cnts_div_cd != null and chat_cnts_div_cd != ''">
+                AND CHAT_CNTS_DIV_CD = #{chat_cnts_div_cd}
+            </if>
+            <if test="chat_msg_typ_cd != null and chat_msg_typ_cd != ''">
+                AND CHAT_MSG_TYP_CD = #{chat_msg_typ_cd}
+            </if>
+
+            <if test="chat_msg_cntn != null and chat_msg_cntn != ''">
+                AND CHAT_MSG_CNTN LIKE '%' || #{chat_msg_cntn} || '%'
+            </if>
+
+            
+            <if test="chat_dpms_div_cd != null and chat_dpms_div_cd != ''">
+                AND CHAT_DPMS_DIV_CD = #{chat_dpms_div_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="cbit != null and cbit != ''">
+                AND SUBSTR(TMP_CD,1,2) = #{cbit}
+            </if>
+            <if test="chat_msg_titl != null and chat_msg_titl != ''">
+                AND GETCODENM('WEB120', TMP_CD,'CCA') LIKE '%' || #{chat_msg_titl} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="ChatCntsMap.getChatCntsCount" parameterType="map" resultType="int">
+        SELECT /* ChatCntsMap.getChatCntsCount */
+               COUNT(*)
+          FROM TB_CHAT_CNTS_ADMN A
+        <include refid="ChatCntsMap.selectCondition_fragment"/>
+    </select>
+    
+    <select id="ChatCntsMap.getcjChatCntsCount" parameterType="map" resultType="int">
+        SELECT /* ChatCntsMap.getcjChatCntsCount */
+               COUNT(*)
+          FROM TB_CHAT_CNTS_ADMN A
+        <include refid="ChatCntsMap.selectCondition_fragment_cj"/>
+    </select>
+
+    <select id="ChatCntsMap.getChatCntsList" parameterType="map" resultType="resultMap">
+        SELECT /* ChatCntsMap.getChatCntsList */
+               C.*
+             , GETCODENM('KMS070', CHAT_MSG_TYP_CD, C.CNTR_CD) AS CHAT_MSG_TYP_NM
+             , GETCODENM('KMS080', CHAT_CNTS_DIV_CD, C.CNTR_CD) AS CHAT_CNTS_DIV_NM
+             , GETCODENM('KMS090', CHAT_DPMS_DIV_CD, C.CNTR_CD) AS CHAT_DPMS_DIV_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+              , (SELECT FILE_ID
+                   FROM TB_FILE
+                  WHERE RLTN_ITEM_ID = C.CHAT_CNTS_ID
+                    AND RLTN_TBL_NM = 'TB_CHAT_CNTS_ADMN'
+                    AND ATCH_TYP_CD != '30') AS FILE_ID
+              , (CASE WHEN EXISTS (SELECT *
+                                     FROM TB_FILE C
+                                    WHERE C.RLTN_ITEM_ID = C.CHAT_CNTS_ID
+                                      AND C.RLTN_TBL_NM = 'TB_CHAT_CNTS_ADMN'
+                                      AND C.ATCH_TYP_CD != '30')
+                      THEN 'Y'
+                      ELSE 'N'
+                  END) AS FILE_FLAG
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT CHAT_CNTS_ID, CNTR_CD, CHAT_CNTS_DIV_CD, CHAT_MSG_TYP_CD, CHAT_MSG_LNGT
+                             , CHAT_MSG_CNTN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , DPMS_TLNO, USE_YN, CHAT_MSG_TITL, CHAT_DPMS_DIV_CD, IMG_URL_ADDR
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             ,TMP_CD,BUTTON_GUBUN,BUTTON_NM,BUTTON_URL      
+                          FROM TB_CHAT_CNTS_ADMN A
+        <include refid="ChatCntsMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+    <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+    <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+    </if>
+    </select>
+    
+    
+    <select id="ChatCntsMap.getcjChatCntsList" parameterType="map" resultType="resultMap">
+        SELECT /* ChatCntsMap.getcjChatCntsList */
+               C.*
+             , GETCODENM('KMS070', CHAT_MSG_TYP_CD, C.CNTR_CD) AS CHAT_MSG_TYP_NM
+             , GETCODENM('KMS080', CHAT_CNTS_DIV_CD, C.CNTR_CD) AS CHAT_CNTS_DIV_NM
+             , GETCODENM('KMS090', CHAT_DPMS_DIV_CD, C.CNTR_CD) AS CHAT_DPMS_DIV_NM
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = C.RGSR_ID
+                   AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+              , (SELECT FILE_ID
+                   FROM TB_FILE
+                  WHERE RLTN_ITEM_ID = C.CHAT_CNTS_ID
+                    AND RLTN_TBL_NM = 'TB_CHAT_CNTS_ADMN'
+                    AND ATCH_TYP_CD != '30') AS FILE_ID
+              , (CASE WHEN EXISTS (SELECT *
+                                     FROM TB_FILE C
+                                    WHERE C.RLTN_ITEM_ID = C.CHAT_CNTS_ID
+                                      AND C.RLTN_TBL_NM = 'TB_CHAT_CNTS_ADMN'
+                                      AND C.ATCH_TYP_CD != '30')
+                      THEN 'Y'
+                      ELSE 'N'
+                  END) AS FILE_FLAG
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT CHAT_CNTS_ID, CNTR_CD, CHAT_CNTS_DIV_CD, CHAT_MSG_TYP_CD, CHAT_MSG_LNGT
+                             , CHAT_MSG_CNTN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , DPMS_TLNO, USE_YN, CHAT_MSG_TITL, CHAT_DPMS_DIV_CD, IMG_URL_ADDR
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             ,TMP_CD,BUTTON_GUBUN,BUTTON_NM,BUTTON_URL      
+                          FROM TB_CHAT_CNTS_ADMN A
+        <include refid="ChatCntsMap.selectCondition_fragment_cj"/>
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+    <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+    <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+    </if>
+    </select>
+
+    <insert id="ChatCntsMap.insertChatCnts" parameterType="map">
+        <selectKey keyProperty="chat_cnts_id" resultType="String" order="BEFORE">
+            SELECT 'CCT' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* ChatCntsMap.insertChatCnts */
+                    TB_CHAT_CNTS_ADMN
+                    (CHAT_CNTS_ID, CNTR_CD, CHAT_CNTS_DIV_CD, CHAT_MSG_TYP_CD, CHAT_MSG_LNGT
+                  , CHAT_MSG_CNTN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                  , DPMS_TLNO, USE_YN, CHAT_MSG_TITL, CHAT_DPMS_DIV_CD, IMG_URL_ADDR,TMP_CD,BUTTON_GUBUN,BUTTON_NM,BUTTON_URL)
+             VALUES (#{chat_cnts_id}, #{cntr_cd}, #{chat_cnts_div_cd}, #{chat_msg_typ_cd}, #{chat_msg_lngt}
+                  , #{chat_msg_cntn}<!-- #{chat_msg_cntn_tag} -->, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                  , replace(#{dpms_tlno}, '-', ''), #{use_yn}, #{chat_msg_titl}, #{chat_dpms_div_cd}, #{img_url_addr}
+                  , #{tmp_cd},#{button_gubun},#{button_nm},#{button_url})
+    </insert>
+
+    <update id="ChatCntsMap.updateChatCnts" parameterType="map">
+        UPDATE /* ChatCntsMap.updateChatCnts */
+               TB_CHAT_CNTS_ADMN
+           SET CHAT_CNTS_DIV_CD = #{chat_cnts_div_cd}
+             , CHAT_MSG_TYP_CD = #{chat_msg_typ_cd}
+             , CHAT_MSG_LNGT = #{chat_msg_lngt}
+             , CHAT_MSG_CNTN = #{chat_msg_cntn} <!-- #{chat_msg_cntn_tag} -->
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , DPMS_TLNO = REPLACE(#{dpms_tlno}, '-', '')
+             , USE_YN = #{use_yn}
+             , CHAT_MSG_TITL = #{chat_msg_titl}
+             , CHAT_DPMS_DIV_CD = #{chat_dpms_div_cd}
+             , IMG_URL_ADDR = #{img_url_addr}
+             <if test=' chat_msg_typ_cd != null and  chat_msg_typ_cd != ""  and chat_msg_typ_cd == "40" '>   <!-- 40알림톡 -->
+               ,TMP_CD  =  #{tmp_cd}
+	           ,BUTTON_GUBUN =#{button_gubun} 
+	           <if test= ' button_gubun != null and button_gubun != "" and button_gubun =="C"'>   <!--  버튼타입이 자유설정 인건  -->
+	               ,BUTTON_NM   = #{button_nm}
+	           	   ,BUTTON_URL =#{button_url}
+	           </if>
+	           <if test= ' button_gubun != null and button_gubun != "" and button_gubun !="C"'>   <!--  버튼타입이 자유설정 아닌건 빈값  -->
+	               ,BUTTON_NM   = ''
+	           	   ,BUTTON_URL  = ''
+	           </if>
+	           
+        	 </if>
+        	 <if test=' chat_msg_typ_cd != null and  chat_msg_typ_cd != ""  and chat_msg_typ_cd != "40" '>   <!-- 40알림톡 아니면 빈값 -->
+               ,TMP_CD  =  ''
+	           ,BUTTON_GUBUN = ''
+	           ,BUTTON_NM   = ''
+	           ,BUTTON_URL = ''
+        	 </if>
+             
+        WHERE CHAT_CNTS_ID = #{chat_cnts_id}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="ChatCntsMap.deleteChatCnts" parameterType="map">
+        DELETE /* ChatCntsMap.deleteChatCnts */
+          FROM TB_CHAT_CNTS_ADMN
+         WHERE CHAT_CNTS_ID = #{chat_cnts_id}
+    </delete>
+
+</mapper>

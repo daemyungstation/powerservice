@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMmsMngMap">
+
+
+    <select id="DlwMmsMngMap.selectMMSList" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectMMSList -->
+        SELECT A2.*
+          FROM (SELECT A1.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                   FROM
+                   (
+                        /* sql-life.xml [회원별 MMS 부가서비스 현황 조회] ID : life.selectMMSList 작성자 : 임병근  */
+                        SELECT ACCNT.accnt_no	/* 회원번호 */
+                             , MEM.mem_nm		/* 회원명 */
+                             , ACCNT.join_dt	/* 가입일자 */
+                             , PROD.prod_nm		/* 가입상품 */
+                             , PAY.NO pay_no	/* 실납입회차 */
+                             , CASE WHEN FN_EVENT(ACCNT.ACCNT_NO) = '' THEN '정상' ELSE FN_EVENT(ACCNT.ACCNT_NO) END join_stat /* 가입상태 */
+                             , MEM.cell		/* 휴대전화번호 */
+                             , FN_EMPLE_NM(ACCNT.EMPLE_NO) emple_nm		/* 담당자 */
+                             , OPTSVC.svc_nm							/* 서비스종류 */
+                             , NVL(ISUHIST.ISU_DT, '') snd_dt			/* 발송일 */
+                             , ISUHIST.isu_no							/* 쿠폰번호 */
+                             , NVL(FN_COM_NM('0126', ISUHIST.SND_STAT), '') snd_stat	/* 발송결과 */
+                             , ISUHIST.fail_reason	/* 사유 */
+                             , ISUHIST.note	/* 비고 */
+                             , TO_CHAR(ADD_MONTHS(TO_DATE(ISUHIST.ISU_DT,'YYYYMMDD'),3),'YYYYMMDD') AS expr_dt	/* 휴효기간 */
+                             , SVCDTL.opt_svc_cd	/* 서비스코드 */
+                             , ACCNTSVC.seq		/* 순번 : 여기까지 사용 */
+                             , MEM.mem_no		/* 회원고유번호 */
+                             , ISUHIST.SND_STAT SND_CL
+                             , ACCNT.EMPLE_NO
+                             , MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                         FROM MEM_PROD_ACCNT ACCNT
+                               INNER JOIN PAY_MNG PAY
+                                  ON ACCNT.ACCNT_NO = PAY.ACCNT_NO
+                                 AND PAY.DEL_FG = 'N'
+                                 AND PAY.NO = (SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG = 'N')
+                               INNER JOIN MEMBER MEM
+                                  ON MEM.MEM_NO = ACCNT.MEM_NO
+                               INNER JOIN MEM_PROD_ACCNT_SVC ACCNTSVC
+                                  ON ACCNTSVC.ACCNT_NO = ACCNT.ACCNT_NO
+                               INNER JOIN PROD_OPT_SVC_MST SVC
+                                  ON SVC.SEQ = ACCNTSVC.SEQ
+                               INNER JOIN PROD_OPT_SVC_DTL SVCDTL
+                                  ON SVCDTL.SEQ = SVC.SEQ
+                               INNER JOIN PRODUCT PROD
+                                  ON ACCNT.PROD_CD = PROD.PROD_CD
+                               INNER JOIN OPT_SVC OPTSVC
+                                  ON OPTSVC.SEQ = SVCDTL.OPT_SVC_CD
+                                 AND OPTSVC.SVC_CL != '009'
+                               LEFT OUTER JOIN
+                               (
+                                    SELECT ACCNT_NO
+                                          ,SEQ
+                                          ,ISU_DT
+                                          ,OPTSVC_SEQ
+                                          ,REG_MAN
+                                          ,SND_STAT
+                                          ,FAIL_REASON
+                                          ,NOTE
+                                          ,ISU_NO
+                                      FROM SVC_ISU_HIST
+                                ) ISUHIST
+                                 ON ISUHIST.ACCNT_NO = ACCNT.ACCNT_NO
+                                AND ISUHIST.SEQ =  ACCNTSVC.SEQ
+                                AND ISUHIST.OPTSVC_SEQ = SVCDTL.OPT_SVC_CD
+                        <if test="srch_dt == '03'">
+                               INNER JOIN EVENT
+                                 ON EVENT.ACCNT_NO = ACCNT.ACCNT_NO
+                                AND EVENT.DEL_FG = 'N'
+                        </if>
+                               LEFT OUTER JOIN RESCISSION D
+                                 ON D.ACCNT_NO = ACCNT.ACCNT_NO
+                                AND D.DEL_FG = 'N'
+                          WHERE 1=1
+                            AND ACCNT.DEL_FG = 'N'
+                            AND ROWNUM &lt;= 10000
+                            AND
+                        (
+                           <!--수정 : 기존 사용유무 항목에 상관없이 시작일,종료일에 따라 사용유무 구분되도록 수정
+                              ((CONVERT(VARCHAR, SVC.END_DT, 111) >= CONVERT(VARCHAR, ACCNT.JOIN_DT, 111) AND CONVERT(VARCHAR, SVC.START_DT, 111) &lt;= CONVERT(VARCHAR, ACCNT.JOIN_DT, 111)) AND SVC.USE_YN = 'N')
+                              OR
+                              (CONVERT(VARCHAR, SVC.START_DT, 111) &lt;= CONVERT(VARCHAR, ACCNT.JOIN_DT, 111) AND SVC.USE_YN = 'Y')
+                              -->
+                            (NVL(SVC.END_DT, '99991231') >= ACCNT.JOIN_DT AND SVC.START_DT &lt;= ACCNT.JOIN_DT )
+                        )
+
+                    <if test="isu_cl == null or isu_cl == ''">
+                        AND (PAY.NO >= SVC.APP_NO OR PROD.EXPR_NO = (ACCNT.NEW_CHAN_GUNSU + (SELECT NVL(MAX(NO),0) FROM PAY_MNG WHERE ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG='N')))
+                        /* 발급구분-전체 */
+                    </if>
+
+                    <if test="isu_cl == '01'">
+                        AND ISUHIST.ISU_DT != ''	/* 발급구분:발급 */
+                    </if>
+                    <if test="isu_cl == '02'">
+                        AND (PAY.NO >= SVC.APP_NO OR PROD.EXPR_NO = (ACCNT.NEW_CHAN_GUNSU + (SELECT NVL(MAX(NO),0) FROM PAY_MNG WHERE ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG='N'))) /* 발급구분:미발급 */
+                        AND (ISUHIST.ISU_DT = '' OR ISUHIST.ISU_DT IS NULL) /* 발급구분:미발급 */
+                    </if>
+
+                    <if test="srch_dt != null and srch_dt != ''">
+                        <if test="(stt_dt != null and stt_dt != '') and srch_dt == '01' ">
+                           AND ACCNT.JOIN_DT BETWEEN #{stt_dt} and #{end_dt} /* 가입일자 */
+                        </if>
+                        <if test="(stt_dt != null and stt_dt != '') and srch_dt == '02'">
+                           AND ISUHIST.ISU_DT BETWEEN #{stt_dt} and #{end_dt}	/* 발급일자 */
+                        </if>
+                        <if test="(stt_dt != null and stt_dt != '') and srch_dt == '03'">
+                           AND EVENT.EVENT_PROC_DAY BETWEEN #{stt_dt} and #{end_dt}	/* 행사일자 */
+                        </if>
+                    </if>
+
+                    <if test="accnt_no != null and accnt_no != ''">
+                        AND ACCNT.ACCNT_NO LIKE #{accnt_no} || '%'	/* 회원번호 */
+                    </if>
+
+                    <if test="prod_cd != null and prod_cd != ''">
+                        AND ACCNT.PROD_CD LIKE #{prod_cd} || '%'	/* 상품번호 */
+                    </if>
+
+                    <if test="snd_stat != null and snd_stat != ''">
+                        AND ISUHIST.SND_STAT = #{snd_stat}	/* 발송결과 */
+                    </if>
+                    <if test="svc_cl != null and svc_cl != ''">
+                        AND SVCDTL.OPT_SVC_CD = #{svc_cl}	/* 발송결과 */
+                    </if>
+                    <if test="no_cell == 'Y'.toString()">
+                        AND LENGTH(REPLACE(NVL(MEM.CELL, ''), '-', '')) &lt; 9	/* 휴대폰번호없는 회원 */
+                    </if>
+                        AND NVL(D.RESN_CL, '00') != '02'
+                    ) A1
+                ) A2
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+                ]]>
+            </if>
+<!--
+            ORDER BY PROD_NM, ACCNT_NO
+ -->
+    </select>
+
+
+
+
+    <select id="DlwMmsMngMap.selectMMSList_backup" parameterType="map" resultType="resultMap">
+        <!-- DM sql-id : selectMMSList -->
+        SELECT A2.*
+          FROM (SELECT A1.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                   FROM
+                   (
+                        /* sql-life.xml [회원별 MMS 부가서비스 현황 조회] ID : life.selectMMSList 작성자 : 임병근  */
+                        SELECT ACCNT.accnt_no	/* 회원번호 */
+                             , MEM.mem_nm		/* 회원명 */
+                             , ACCNT.join_dt	/* 가입일자 */
+                             , PROD.prod_nm		/* 가입상품 */
+                             , PAY.NO pay_no	/* 실납입회차 */
+                             , CASE WHEN FN_EVENT(ACCNT.ACCNT_NO) = '' THEN '정상' ELSE FN_EVENT(ACCNT.ACCNT_NO) END join_stat /* 가입상태 */
+                             , MEM.cell		/* 휴대전화번호 */
+                             , FN_EMPLE_NM(ACCNT.EMPLE_NO) emple_nm		/* 담당자 */
+                             , OPTSVC.svc_nm							/* 서비스종류 */
+                             , NVL(ISUHIST.ISU_DT, '') snd_dt			/* 발송일 */
+                             , ISUHIST.isu_no							/* 쿠폰번호 */
+                             , NVL(FN_COM_NM('0126', ISUHIST.SND_STAT), '') snd_stat	/* 발송결과 */
+                             , ISUHIST.fail_reason	/* 사유 */
+                             , ISUHIST.note	/* 비고 */
+                             , TO_CHAR(ADD_MONTHS(TO_DATE(ISUHIST.ISU_DT,'YYYYMMDD'),3),'YYYYMMDD') AS expr_dt	/* 휴효기간 */
+                             , SVCDTL.opt_svc_cd	/* 서비스코드 */
+                             , ACCNTSVC.seq		/* 순번 : 여기까지 사용 */
+                             , MEM.mem_no		/* 회원고유번호 */
+                             , ISUHIST.SND_STAT SND_CL
+                             , ACCNT.EMPLE_NO
+                             , MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                         FROM MEM_PROD_ACCNT ACCNT
+                               INNER JOIN PAY_MNG PAY
+                                  ON ACCNT.ACCNT_NO = PAY.ACCNT_NO
+                                 AND PAY.DEL_FG = 'N'
+                                 AND PAY.NO = (SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG = 'N')
+                               INNER JOIN MEMBER MEM
+                                  ON MEM.MEM_NO = ACCNT.MEM_NO
+                               INNER JOIN MEM_PROD_ACCNT_SVC ACCNTSVC
+                                  ON ACCNTSVC.ACCNT_NO = ACCNT.ACCNT_NO
+                               INNER JOIN PROD_OPT_SVC_MST SVC
+                                  ON SVC.SEQ = ACCNTSVC.SEQ
+                               INNER JOIN PROD_OPT_SVC_DTL SVCDTL
+                                  ON SVCDTL.SEQ = SVC.SEQ
+                               INNER JOIN PRODUCT PROD
+                                  ON ACCNT.PROD_CD = PROD.PROD_CD
+                               INNER JOIN OPT_SVC OPTSVC
+                                  ON OPTSVC.SEQ = SVCDTL.OPT_SVC_CD
+                                 AND OPTSVC.SVC_CL != '009'
+                               LEFT OUTER JOIN
+                               (
+                                    SELECT ACCNT_NO
+                                          ,SEQ
+                                          ,ISU_DT
+                                          ,OPTSVC_SEQ
+                                          ,REG_MAN
+                                          ,SND_STAT
+                                          ,FAIL_REASON
+                                          ,NOTE
+                                          ,ISU_NO
+                                      FROM SVC_ISU_HIST
+                                ) ISUHIST
+                                 ON ISUHIST.ACCNT_NO = ACCNT.ACCNT_NO
+                                AND ISUHIST.SEQ =  ACCNTSVC.SEQ
+                                AND ISUHIST.OPTSVC_SEQ = SVCDTL.OPT_SVC_CD
+                        <if test="srch_dt == '03'">
+                               INNER JOIN EVENT
+                                 ON EVENT.ACCNT_NO = ACCNT.ACCNT_NO
+                                AND EVENT.DEL_FG = 'N'
+                        </if>
+                               LEFT OUTER JOIN RESCISSION D
+                                 ON D.ACCNT_NO = ACCNT.ACCNT_NO
+                                AND D.DEL_FG = 'N'
+                          WHERE 1=1
+                            AND ACCNT.DEL_FG = 'N'
+                            AND ROWNUM &lt;= 10000
+                            AND
+                        (
+                           <!--수정 : 기존 사용유무 항목에 상관없이 시작일,종료일에 따라 사용유무 구분되도록 수정
+                              ((CONVERT(VARCHAR, SVC.END_DT, 111) >= CONVERT(VARCHAR, ACCNT.JOIN_DT, 111) AND CONVERT(VARCHAR, SVC.START_DT, 111) &lt;= CONVERT(VARCHAR, ACCNT.JOIN_DT, 111)) AND SVC.USE_YN = 'N')
+                              OR
+                              (CONVERT(VARCHAR, SVC.START_DT, 111) &lt;= CONVERT(VARCHAR, ACCNT.JOIN_DT, 111) AND SVC.USE_YN = 'Y')
+                              -->
+                            (NVL(SVC.END_DT, '99991231') >= ACCNT.JOIN_DT AND SVC.START_DT &lt;= ACCNT.JOIN_DT )
+                        )
+
+                    <if test="isu_cl == null or isu_cl == ''">
+                        AND (PAY.NO >= SVC.APP_NO OR PROD.EXPR_NO = (ACCNT.NEW_CHAN_GUNSU + (SELECT NVL(MAX(NO),0) FROM PAY_MNG WHERE ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG='N')))
+                        /* 발급구분-전체 */
+                    </if>
+
+                    <if test="isu_cl == '01'">
+                        AND ISUHIST.ISU_DT != ''	/* 발급구분:발급 */
+                    </if>
+                    <if test="isu_cl == '02'">
+                        AND (PAY.NO >= SVC.APP_NO OR PROD.EXPR_NO = (ACCNT.NEW_CHAN_GUNSU + (SELECT NVL(MAX(NO),0) FROM PAY_MNG WHERE ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG='N'))) /* 발급구분:미발급 */
+                        AND (ISUHIST.ISU_DT = '' OR ISUHIST.ISU_DT IS NULL) /* 발급구분:미발급 */
+                    </if>
+
+                    <if test="srch_dt != null and srch_dt != ''">
+                        <if test="(stt_dt != null and stt_dt != '') and srch_dt == '01' ">
+                           AND ACCNT.JOIN_DT BETWEEN #{stt_dt} and #{end_dt} /* 가입일자 */
+                        </if>
+                        <if test="(stt_dt != null and stt_dt != '') and srch_dt == '02'">
+                           AND ISUHIST.ISU_DT BETWEEN #{stt_dt} and #{end_dt}	/* 발급일자 */
+                        </if>
+                        <if test="(stt_dt != null and stt_dt != '') and srch_dt == '03'">
+                           AND EVENT.EVENT_PROC_DAY BETWEEN #{stt_dt} and #{end_dt}	/* 행사일자 */
+                        </if>
+                    </if>
+
+                    <if test="accnt_no != null and accnt_no != ''">
+                        AND ACCNT.ACCNT_NO LIKE #{accnt_no} || '%'	/* 회원번호 */
+                    </if>
+
+                    <if test="prod_cd != null and prod_cd != ''">
+                        AND ACCNT.PROD_CD LIKE #{prod_cd} || '%'	/* 상품번호 */
+                    </if>
+
+                    <if test="snd_stat != null and snd_stat != ''">
+                        AND ISUHIST.SND_STAT = #{snd_stat}	/* 발송결과 */
+                    </if>
+                    <if test="svc_cl != null and svc_cl != ''">
+                        AND SVCDTL.OPT_SVC_CD = #{svc_cl}	/* 발송결과 */
+                    </if>
+                    <if test="no_cell == 'Y'.toString()">
+                        AND LENGTH(REPLACE(NVL(MEM.CELL, ''), '-', '')) &lt; 9	/* 휴대폰번호없는 회원 */
+                    </if>
+                        AND NVL(D.RESN_CL, '00') != '02'
+                    ) A1
+                ) A2
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+                ]]>
+            </if>
+<!--
+            ORDER BY PROD_NM, ACCNT_NO
+ -->
+    </select>
+
+</mapper>

@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="VocMngNewMap">
+    <select id="VocMngNewMap.getVocMngNewCount" parameterType="map" resultType="int">
+        SELECT /* VocMngNewMap.getVocMngNewCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_VOC_MNG_NEW VMN LEFT OUTER JOIN 
+            (
+                SELECT 
+                    SVMNH.VOC_NO,
+                    SVMNH.VOC_SEQ,
+                    SVMNH.PROC_MTHD,
+                    SVMNH.PROC_DESC,
+                    SVMNH.CLEAR_MAN,
+                    SVMNH.CLEAR_DTTM,
+                    SVMNH.DEL_FG
+                FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST SVMNH
+                WHERE 1=1
+                AND SVMNH.DEL_FG = 'N'
+                AND SVMNH.VOC_SEQ = (SELECT MAX(MVMNH.VOC_SEQ) AS MAX_VOC_SEQ FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST MVMNH WHERE 1=1 AND MVMNH.VOC_NO = SVMNH.VOC_NO)
+            ) VMNH ON VMNH.VOC_NO = VMN.VOC_NO LEFT OUTER JOIN
+            PS_WILLVI.TB_USER TU ON TU.CNTR_CD = 'CCA' AND VMNH.CLEAR_MAN = TU.USER_ID LEFT OUTER JOIN 
+            PS_WILLVI.TB_CONS_TEAM TCT ON TCT.CNTR_CD = 'CCA' AND TU.TEAM_CD = TCT.TEAM_CD
+        WHERE 1=1
+        AND VMN.DEL_FG = 'N'
+        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+            AND VMN.RCEPT_DT BETWEEN #{stt_dt} || '000000' AND #{end_dt} || '235959'
+        </if>
+        <if test="ind != null and ind != ''">
+            AND VMN.IND = #{ind}
+        </if>
+        <if test="hgrn_team_cd != null and hgrn_team_cd != ''">
+            AND TCT.HGRN_TEAM_CD = #{hgrn_team_cd}
+        </if>
+        <if test="team_cd != null and team_cd != ''">
+            AND TU.TEAM_CD = #{team_cd}
+        </if>
+        <if test="clear_man != null and clear_man != ''">
+            AND VMN.CLEAR_MAN = #{clear_man}
+        </if>
+        <if test="send_yn != null and send_yn != ''">
+            AND VMN.SEND_YN = #{send_yn}
+        </if>
+        <if test="voc_input != null and voc_input != ''">
+            AND VMN.VOC_INPUT = #{voc_input}
+        </if>
+    </select>
+    
+    <select id="VocMngNewMap.getVocMngNewList" parameterType="map" resultType="resultMap">
+        SELECT /* VocMngNewMap.getVocMngNewList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY VMN.VOC_NO ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                '' AS CHK,
+                VMN.VOC_NO,
+                CASE WHEN VMN.VOC_INPUT = 'CALL' THEN (SELECT CONS.ACCNT_NO FROM PS_WILLVI.TB_CONS CONS WHERE 1=1 AND CONS.CONSNO = VMN.VOC_NO) 
+                    WHEN VMN.VOC_INPUT = 'WEB' THEN ''
+                    ELSE ''
+                END AS ACCNT_NO,
+                VMN.GUEST_NM,
+                VMN.TITLE,
+                VMN.STORE_CD,
+                VMN.IND,
+                VMN.TYPE_CD,
+                VMN.IND_TYPE_CD,
+                VMN.GRAD_CD,
+                VMN.RCEPT_EMPL_NO,
+                (SELECT TU.USER_NM FROM PS_WILLVI.TB_USER TU WHERE 1=1 AND TU.USER_ID = VMN.RCEPT_EMPL_NO) AS RCEPT_EMPL_NM,
+                VMN.RCEPT_DT,
+                VMN.CEPT_OPINION,
+                VMN.MEM,
+                VMN.DTL_DESC,
+                VMN.AGE,
+                VMN.GEN,
+                VMN.MOBL_NO,
+                VMN.EMAIL_ADDR,
+                VMN.ZIPNO,
+                VMN.INIT_ADDR,
+                VMN.DTL_ADDR,
+                VMN.ORG_SNTNC_NO,
+                VMN.REG_EMPL_NO,
+                VMN.REG_DT,
+                VMN.RESIND,
+                VMN.VOC_INPUT,
+                VMN.SEND_YN,
+                VMN.SEND_DATE,
+                VMN.LOCATE,
+                VMN.STORE_DATE,
+                TCT.HGRN_TEAM_CD,
+                TU.TEAM_CD,
+                VMNH.CLEAR_MAN,
+                (SELECT TU.USER_NM FROM PS_WILLVI.TB_USER TU WHERE 1=1 AND TU.USER_ID = VMNH.CLEAR_MAN) AS CLEAR_MAN_NM,
+                VMNH.CLEAR_DTTM,
+                VMNH.VOC_SEQ,
+                VMNH.PROC_MTHD,
+                VMNH.PROC_DESC,
+                VMN.DEL_FG
+            FROM PS_WILLVI.TB_VOC_MNG_NEW VMN LEFT OUTER JOIN 
+                (
+                    SELECT 
+                        SVMNH.VOC_NO,
+                        SVMNH.VOC_SEQ,
+                        SVMNH.PROC_MTHD,
+                        SVMNH.PROC_DESC,
+                        SVMNH.CLEAR_MAN,
+                        SVMNH.CLEAR_DTTM,
+                        SVMNH.DEL_FG
+                    FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST SVMNH
+                    WHERE 1=1
+                    AND SVMNH.DEL_FG = 'N'
+                    AND SVMNH.VOC_SEQ = (SELECT MAX(MVMNH.VOC_SEQ) AS MAX_VOC_SEQ FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST MVMNH WHERE 1=1 AND MVMNH.VOC_NO = SVMNH.VOC_NO)
+                ) VMNH ON VMNH.VOC_NO = VMN.VOC_NO LEFT OUTER JOIN
+                PS_WILLVI.TB_USER TU ON TU.CNTR_CD = 'CCA' AND VMNH.CLEAR_MAN = TU.USER_ID LEFT OUTER JOIN 
+                PS_WILLVI.TB_CONS_TEAM TCT ON TCT.CNTR_CD = 'CCA' AND TU.TEAM_CD = TCT.TEAM_CD
+            WHERE 1=1 
+            AND VMN.DEL_FG = 'N'
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND VMN.RCEPT_DT BETWEEN #{stt_dt} || '000000' AND #{end_dt} || '235959'
+            </if>
+            <if test="ind != null and ind != ''">
+                AND VMN.IND = #{ind}
+            </if>
+            <if test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TCT.HGRN_TEAM_CD = #{hgrn_team_cd}
+            </if>
+            <if test="team_cd != null and team_cd != ''">
+                AND TU.TEAM_CD = #{team_cd}
+            </if>
+            <if test="clear_man != null and clear_man != ''">
+                AND VMNH.CLEAR_MAN = #{clear_man}
+            </if>
+            <if test="send_yn != null and send_yn != ''">
+                AND VMN.SEND_YN = #{send_yn}
+            </if>
+            <if test="voc_input != null and voc_input != ''">
+                AND VMN.VOC_INPUT = #{voc_input}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]>#{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <select id="VocMngNewMap.existsVocMngNewListData" parameterType="map" resultType="int">
+        SELECT /* VocMngNewMap.existsVocMngNewListData */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT 
+                AA.CONSNO AS VOC_NO,
+                MB.MEM_NM AS GUEST_NM,
+                SUBSTR(AA.CONS_MEMO_CNTN,0,20) AS TITLE,
+                'D4' AS STORE_CD, --발생영업장
+                DECODE(AA.CONS_TYP2_CD,'CT01050400','01','CT01050100','02','99') AS IND, --01:칭찬,02:불편,11:단순칭찬,12:단순불편,99:기타 VOC구분
+                'D12' AS TYPE_CD,
+                '' AS IND_TYPE_CD,
+                '' AS GRAD_CD,
+                AA.ACTP_ID AS RCEPT_EMPL_NO, --접수자(대명사번)     
+                TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') AS RCEPT_DT, --접수일자
+                '' AS CEPT_OPINION, --접수자의견
+                '' AS MEM, --대명회원번호
+                CONS_MEMO_CNTN AS DTL_DESC, --VOC본문 내용
+                TO_NUMBER('40') AS AGE, --TRUNC(MONTHS_BETWEEN(TRUNC(SYSDATE), TO_DATE(MB.BRTH_MON_DAY,'YYYYMMDD')) / 12) AS AGE,
+                MB.SEX AS GEN,    
+                MB.CELL AS MOBL_NO,
+                MB.EMAIL AS EMAIL_ADDR,
+                '' AS ZIPNO,           
+                '' AS INIT_ADDR,       
+                '' AS DTL_ADDR,        
+                AA.CONSNO AS ORG_SNTNC_NO,
+                AA.RGSR_ID AS REG_EMPL_NO,
+                TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') AS REG_DT,
+                '03' AS RESIND,
+                'CALL' AS VOC_INPUT, --'CALL OR WEB'
+                'N' AS SEND_YN,
+                '' AS SEND_DATE,
+                '' AS LOCATE,           
+                '' AS STORE_DATE,
+                'N' AS DEL_FG --'N'
+            FROM PS_WILLVI.TB_CONS AA INNER JOIN 
+                LF_DMUSER.MEMBER MB ON AA.MEM_NO = MB.MEM_NO LEFT OUTER JOIN 
+                TB_REC_CONS_DTL REC ON AA.CONSNO = REC.CONSNO LEFT OUTER JOIN 
+                TB_CTI_CRNC_DTL CTI ON REC.CTI_CRNC_DTL_ID = CTI.CTI_CRNC_DTL_ID
+            WHERE 1=1 
+            AND AA.CONS_TYP1_CD = 'CT01050000'
+            AND AA.ACPG_DTTM > '20210412213000' -- 운영에 반영된 이후
+            AND AA.ACPG_DTTM BETWEEN TO_CHAR(SYSDATE -1 ,'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') -- 어제첫시간부터 AND 가져오는시간까지
+        
+            UNION
+            
+            SELECT
+                VOC_NO,
+                GUEST_NM,
+                TITLE,
+                NVL(CATEGORY1,'D4') AS STORE_CD, --발생영업장
+                IND, --01:칭찬,02:불편,11:단순칭찬,12:단순불편,99:기타 VOC구분
+                NVL(CATEGORY2,'D12') AS TYPE_CD,
+                '' AS IND_TYPE_CD,
+                GRAD_CD,
+                RCEPT_EMPL_NO, --접수자(대명사번)     
+                NVL(TO_CHAR(REG_DT,'YYYYMMDDHH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')) AS RCEPT_DT, --접수일자
+                CEPT_OPINION, --접수자의견
+                MEM, --대명회원번호
+                DTL_DESC, --VOC본문 내용
+                AGE,
+                GEN,    
+                MOBL_NO,
+                EMAIL_ADDR,
+                ZIPNO,           
+                INIT_ADDR,       
+                DTL_ADDR,        
+                VOC_NO AS ORG_SNTNC_NO,
+                REG_EMPL_NO,
+                TO_CHAR(REG_DT,'YYYYMMDDHH24MISS') AS REG_DT,
+                RESIND,
+                'WEB' AS VOC_INPUT, --'CALL OR WEB'
+                'N' AS SEND_YN,
+                '' AS SEND_DATE,
+                '' AS LOCATE,           
+                '' AS STORE_DATE,      
+                'N' AS DEL_FG --'N'
+            FROM DMWEB.KM_VOC_INIT@DMWEB
+            WHERE 1=1
+        )
+        WHERE 1=1
+        AND VOC_NO NOT IN (SELECT VOC_NO FROM PS_WILLVI.TB_VOC_MNG_NEW WHERE 1=1)
+    </select>
+    
+    <insert id="VocMngNewMap.insertVocMngNewList" parameterType="map">
+        INSERT INTO /* VocMngNewMap.insertVocMngNewList */
+            PS_WILLVI.TB_VOC_MNG_NEW(VOC_NO, GUEST_NM, TITLE, STORE_CD, IND, TYPE_CD, IND_TYPE_CD, GRAD_CD, RCEPT_EMPL_NO, RCEPT_DT, CEPT_OPINION, MEM, DTL_DESC, AGE, GEN, MOBL_NO, EMAIL_ADDR, 
+                ZIPNO, INIT_ADDR, DTL_ADDR, ORG_SNTNC_NO, REG_EMPL_NO, REG_DT, RESIND, VOC_INPUT, SEND_YN, SEND_DATE, LOCATE, STORE_DATE, DEL_FG)
+        SELECT
+            *
+        FROM
+        (
+            SELECT 
+                AA.CONSNO AS VOC_NO,
+                MB.MEM_NM AS GUEST_NM,
+                SUBSTR(AA.CONS_MEMO_CNTN,0,20) AS TITLE,
+                'D4' AS STORE_CD, --발생영업장
+                DECODE(AA.CONS_TYP2_CD,'CT01050400','01','CT01050100','02','99') AS IND, --01:칭찬,02:불편,11:단순칭찬,12:단순불편,99:기타 VOC구분
+                'D12' AS TYPE_CD,
+                '' AS IND_TYPE_CD,
+                '' AS GRAD_CD,
+                AA.ACTP_ID AS RCEPT_EMPL_NO, --접수자(대명사번)     
+                TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') AS RCEPT_DT, --접수일자
+                '' AS CEPT_OPINION, --접수자의견
+                '' AS MEM, --대명회원번호
+                CONS_MEMO_CNTN AS DTL_DESC, --VOC본문 내용
+                TRUNC(MONTHS_BETWEEN(TRUNC(SYSDATE), TO_DATE(MB.BRTH_MON_DAY,'YYYYMMDD')) / 12) AS AGE,
+                MB.SEX AS GEN,    
+                MB.CELL AS MOBL_NO,
+                MB.EMAIL AS EMAIL_ADDR,
+                '' AS ZIPNO,           
+                '' AS INIT_ADDR,       
+                '' AS DTL_ADDR,        
+                AA.CONSNO AS ORG_SNTNC_NO,
+                AA.RGSR_ID AS REG_EMPL_NO,
+                TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') AS REG_DT,
+                '03' AS RESIND,
+                'CALL' AS VOC_INPUT, --'CALL OR WEB'
+                'N' AS SEND_YN,
+                '' AS SEND_DATE,
+                '' AS LOCATE,           
+                '' AS STORE_DATE,
+                'N' AS DEL_FG --'N'
+            FROM PS_WILLVI.TB_CONS AA INNER JOIN 
+                LF_DMUSER.MEMBER MB ON AA.MEM_NO = MB.MEM_NO LEFT OUTER JOIN 
+                TB_REC_CONS_DTL REC ON AA.CONSNO = REC.CONSNO LEFT OUTER JOIN 
+                TB_CTI_CRNC_DTL CTI ON REC.CTI_CRNC_DTL_ID = CTI.CTI_CRNC_DTL_ID
+            WHERE 1=1 
+            AND AA.CONS_TYP1_CD = 'CT01050000'
+            AND AA.ACPG_DTTM > '20210412213000' -- 운영에 반영된 이후
+            AND AA.ACPG_DTTM BETWEEN TO_CHAR(SYSDATE -1 ,'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') -- 어제첫시간부터 AND 가져오는시간까지
+        
+            UNION
+            
+            SELECT
+                VOC_NO,
+                GUEST_NM,
+                TITLE,
+                NVL(CATEGORY1,'D4') AS STORE_CD, --발생영업장
+                IND, --01:칭찬,02:불편,11:단순칭찬,12:단순불편,99:기타 VOC구분
+                NVL(CATEGORY2,'D12') AS TYPE_CD,
+                '' AS IND_TYPE_CD,
+                GRAD_CD,
+                RCEPT_EMPL_NO, --접수자(대명사번)     
+                NVL(TO_CHAR(REG_DT,'YYYYMMDDHH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')) AS RCEPT_DT, --접수일자
+                CEPT_OPINION, --접수자의견
+                MEM, --대명회원번호
+                DTL_DESC, --VOC본문 내용
+                AGE,
+                GEN,    
+                MOBL_NO,
+                EMAIL_ADDR,
+                ZIPNO,           
+                INIT_ADDR,       
+                DTL_ADDR,        
+                VOC_NO AS ORG_SNTNC_NO,
+                REG_EMPL_NO,
+                TO_CHAR(REG_DT,'YYYYMMDDHH24MISS') AS REG_DT,
+                RESIND,
+                'WEB' AS VOC_INPUT, --'CALL OR WEB'
+                'N' AS SEND_YN,
+                '' AS SEND_DATE,
+                '' AS LOCATE,           
+                '' AS STORE_DATE,      
+                'N' AS DEL_FG --'N'
+            FROM DMWEB.KM_VOC_INIT@DMWEB
+            WHERE 1=1
+        )
+        WHERE 1=1
+        AND VOC_NO NOT IN (SELECT VOC_NO FROM PS_WILLVI.TB_VOC_MNG_NEW WHERE 1=1)
+    </insert>
+    
+    <update id="VocMngNewMap.deleteVocMngNewList" parameterType="map">
+        UPDATE /* VocMngNewMap.deleteVocMngNewList */
+            PS_WILLVI.TB_VOC_MNG_NEW
+        SET DEL_FG = 'Y'
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND VOC_NO = #{voc_no}
+    </update>
+    
+    <update id="VocMngNewMap.updateVocMngNew" parameterType="map">
+        UPDATE /* VocMngNewMap.updateVocMngNew */
+            PS_WILLVI.TB_VOC_MNG_NEW
+        SET STORE_CD = #{store_cd},
+            TYPE_CD = #{type_cd},
+            RESIND = #{resind}
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND VOC_NO = #{voc_no}
+    </update>
+    
+    <insert id="VocMngNewMap.insertVocMngNewHist" parameterType="map">
+        INSERT INTO /* VocMngNewMap.insertVocMngNewHist */
+            PS_WILLVI.TB_VOC_MNG_NEW_HIST(VOC_NO, VOC_SEQ, PROC_MTHD, PROC_DESC, CLEAR_MAN, CLEAR_DTTM, DEL_FG)
+        VALUES
+            (#{voc_no}, (SELECT NVL(MAX(VOC_SEQ), 0) + 1 AS VOC_SEQ FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST WHERE 1=1 AND VOC_NO = #{voc_no}), 
+             #{proc_mthd}, #{proc_desc}, #{clear_man},  TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), 'N')
+    </insert>
+    
+    <insert id="VocMngNewMap.sendVocMngList" parameterType="map">
+        BEGIN /* VocMngNewMap.sendVocMngList */
+            INSERT INTO MIDDLEUSER.KM_VOC_INIT@DMMIDDLE
+            SELECT 
+                NVL((SELECT MAX(TO_NUMBER(KVI.VOC_NO)) FROM MIDDLEUSER.KM_VOC_INIT@DMMIDDLE KVI WHERE 1=1),0) + ROWNUM AS VOC_NO,
+                VMN.GUEST_NM,
+                VMN.TITLE,
+                VMN.STORE_CD,
+                VMN.IND,
+                VMN.TYPE_CD,
+                VMN.IND_TYPE_CD,
+                VMN.GRAD_CD,
+                VMN.RCEPT_EMPL_NO,
+                TO_DATE(VMN.RCEPT_DT, 'YYYYMMDDHH24MISS'),
+                VMN.CEPT_OPINION,
+                VMN.MEM,
+                VMN.DTL_DESC,
+                VMN.AGE,
+                SUBSTR('0' || VMN.GEN, -2) AS GEN,
+                SF_DAMO@DMMIDDLE(VMN.MOBL_NO) AS MOBL_NO,
+                VMN.EMAIL_ADDR,
+                VMN.ZIPNO,
+                VMN.INIT_ADDR,
+                VMN.DTL_ADDR,
+                VMN.ORG_SNTNC_NO,
+                VMN.REG_EMPL_NO,
+                SYSDATE,
+                '' AS COMPLAIN_OCCU_YMD,
+                VMN.RESIND,
+                'N' AS SEND_YN,
+                '' AS SEND_DATE
+            FROM TB_VOC_MNG_NEW VMN
+            WHERE 1=1 
+            AND VMN.DEL_FG = 'N'
+            AND VMN.SEND_YN = 'N'
+            AND VMN.VOC_NO = #{voc_no};
+            
+            UPDATE 
+                PS_WILLVI.TB_VOC_MNG_NEW
+            SET SEND_YN = 'Y',
+                SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            WHERE 1=1 
+            AND DEL_FG = 'N'
+            AND SEND_YN = 'N'
+            AND VOC_NO = #{voc_no};
+        END;
+    </insert>
+    
+    <select id="VocMngNewMap.getVocMngNewHistCount" parameterType="map" resultType="int">
+        SELECT 
+        	COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST VMNH
+        WHERE 1=1 
+        AND VMNH.DEL_FG = 'N' 
+        AND VMNH.VOC_NO = #{voc_no}
+    </select>
+    
+    <select id="VocMngNewMap.getVocMngNewHistList" parameterType="map" resultType="resultMap">
+        SELECT 
+        	VMNH.VOC_NO,
+        	VMNH.VOC_SEQ,
+        	VMNH.PROC_MTHD,
+        	VMNH.PROC_DESC,
+        	VMNH.CLEAR_MAN,
+        	VMNH.CLEAR_DTTM,
+        	VMNH.DEL_FG
+        FROM PS_WILLVI.TB_VOC_MNG_NEW_HIST VMNH
+        WHERE 1=1 
+        AND VMNH.DEL_FG = 'N' 
+        AND VMNH.VOC_NO = #{voc_no}
+        ORDER BY VMNH.VOC_SEQ DESC
+    </select>
+</mapper>

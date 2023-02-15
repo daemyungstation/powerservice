@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SlopIssDtlMap">
+    <!-- 사업원장관리  -> 영업 이슈정보 검색 조건 -->
+    <sql id="SlopIssDtlMap.selectCondition_fragment">
+     WHERE A.BIZ_ID = #{biz_id}
+          <if test="slop_iss_id != null and slop_iss_id != ''">
+                AND SLOP_ISS_ID = #{slop_iss_id}
+          </if>
+    </sql>
+    <!-- //사업원장관리  -> 영업 이슈정보 검색 조건 -->
+
+
+    <!-- 사업원장관리  -> 영업 이슈정보 건수 조회 -->
+    <select id="SlopIssDtlMap.getSlopIssDtlCount" parameterType="map" resultType="int">
+        SELECT /* SlopIssDtlMap.getSlopIssDtlCount */
+               COUNT(*)
+          FROM TB_SLOP_ISS_DTL A JOIN TB_BIZ_BASI B ON A.BIZ_ID = B.BIZ_ID
+         <include refid="SlopIssDtlMap.selectCondition_fragment" />
+    </select>
+    <!-- //사업원장관리  -> 영업 이슈정보 건수 조회 -->
+
+    <!-- 사업원장관리  -> 영업 이슈정보 목록 조회 -->
+    <select id="SlopIssDtlMap.getSlopIssDtlList" parameterType="map" resultType="resultMap">
+      SELECT /* SlopIssDtlMap.getSlopIssDtlList */
+            C.*
+        FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                FROM (SELECT SLOP_ISS_ID
+                            ,A.BIZ_ID
+                            ,A.SLOP_ISS_TITL
+                            ,A.SLOP_ISS_CNTN
+                            ,A.SLOP_ISS_STAT_CD
+                            ,A.ISS_OCCR_DT
+                            ,A.RGSR_ID
+                            ,A.RGSN_DTTM
+                            ,A.AMND_ID
+                            ,A.AMNT_DTTM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                            ,(SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                            ,GETCODENM('PMS220', A.SLOP_ISS_STAT_CD, D.CNTR_CD) AS SLOP_ISS_STAT_NM
+                            ,D.CNTR_CD
+                        FROM TB_SLOP_ISS_DTL A JOIN TB_BIZ_BASI D ON A.BIZ_ID = D.BIZ_ID
+      <include refid="SlopIssDtlMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    ) B
+                   )C
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- //사업원장관리  -> 영업 이슈정보 목록 조회 -->
+
+      <!-- 사업원장관리  -> 영업 이슈정보 등록 -->
+    <insert id="SlopIssDtlMap.insertSlopIssDtl">
+        <selectKey keyProperty="slop_iss_id" resultType="String" order="BEFORE">
+            SELECT 'sISSd' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* SlopIssDtlMap.insertSlopIssDtl */
+          INTO  TB_SLOP_ISS_DTL
+                (SLOP_ISS_ID
+                ,BIZ_ID
+                ,SLOP_ISS_TITL
+                ,SLOP_ISS_CNTN
+                ,SLOP_ISS_STAT_CD
+                ,ISS_OCCR_DT
+                ,CNTR_CD
+                ,RGSR_ID
+                ,RGSN_DTTM
+                ,AMND_ID
+                ,AMNT_DTTM)
+        VALUES  (#{slop_iss_id}
+                ,#{biz_id}
+                ,#{slop_iss_titl}
+                ,#{slop_iss_cntn}
+                ,#{slop_iss_stat_cd}
+                ,#{iss_occr_dt}
+                ,#{cntr_cd}
+                ,#{rgsr_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                ,#{amnd_id}
+                ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- //사업원장관리  -> 영업 이슈정보 등록 -->
+
+
+    <!--사업원장관리  -> 영업 이슈정보 수정 -->
+    <update id="SlopIssDtlMap.updateSlopIssDtl" parameterType="map">
+      UPDATE /* SlopIssDtlMap.updateSlopIssDtl */
+           TB_SLOP_ISS_DTL
+         SET     slop_iss_titl = #{slop_iss_titl}
+                ,slop_iss_stat_cd= #{slop_iss_stat_cd}
+                ,iss_occr_dt = #{iss_occr_dt}
+                ,slop_iss_cntn = #{slop_iss_cntn}
+                ,CNTR_CD =#{cntr_cd}
+                ,AMND_ID = #{amnd_id}
+                ,AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+       WHERE SLOP_ISS_ID = #{slop_iss_id}
+    </update>
+    <!-- //사업원장관리  -> 영업 이슈정보 수정 -->
+
+    <!-- //사업원장관리  -> 영업 이슈정보 삭제 -->
+    <delete id="SlopIssDtlMap.deleteSlopIssDtl" parameterType="map">
+      DELETE /* SlopIssDtlMap.deleteSlopIssDtl */
+        FROM TB_SLOP_ISS_DTL
+       WHERE SLOP_ISS_ID = #{slop_iss_id}
+    </delete>
+    <!-- //사업원장관리  -> 영업 이슈정보 삭제 -->
+
+</mapper>

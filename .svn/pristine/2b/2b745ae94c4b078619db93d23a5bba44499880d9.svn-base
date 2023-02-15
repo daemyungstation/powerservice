@@ -1,0 +1,326 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="test" classname="test" inheritanceid="" position="absolute 0 0 1007 808" titletext="첨부파일 샘플" onload="test_onload">
+    <Layouts>
+      <Layout>
+        <Uobj_DateBetween id="Uobj_DateBetween00" position2="absolute l:157 w:239 t:85 h:26" positiontype="position2" titletext="New Form" taborder="1" text="Uobj_DateBetween00" scrollbars="none"/>
+        <Uobj_TimeBetween id="Uobj_TimeBetween00" position2="absolute l:157 w:297 t:120 h:24" positiontype="position2" titletext="New Form" taborder="1" text="Uobj_TimeBetween00" scrollbars="none"/>
+        <Static id="Static11" text="첨부파일 샘플" class="sta_WF_subtitle" position="absolute 21 18 270 42"/>
+        <Static id="Static01" text="멀티 파일업로드 처리" class="sta_def_subTitle" position="absolute 18 61 202 81"/>
+        <Grid id="grd_files" taborder="1" binddataset="ds_files" autoenter="select" useinputpanel="false" autofittype="col" oncelldblclick="grd_files_oncelldblclick" onexpanddown="grd_files_onexpanddown" position="absolute 18 84 699 260">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="100"/>
+                <Column size="215"/>
+                <Column size="450"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="SERVER_URL"/>
+                <Cell col="1" text="FILE_NAME"/>
+                <Cell col="2" text="LOCAL_PATH"/>
+              </Band>
+              <Band id="body">
+                <Cell style="align:left;" text="bind:URL"/>
+                <Cell col="1" edittype="expand" style="align:left;" text="bind:FILE_NAME" expandshow="show" expandsize="15" expandimage="URL('IMG::btn_grid_expand.png')"/>
+                <Cell col="2" style="align:left;" text="bind:LOCAL_PATH"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_addFiles" taborder="1" text="Add Files" onclick="btn_addFiles_onclick" position="absolute 532 61 609 81"/>
+        <Button id="btn_uploadFiles" taborder="1" text="Upload Files" onclick="btn_uploadFiles_onclick" position="absolute 613 61 698 81"/>
+        <Button id="Button00" taborder="1" text="Button00" position="absolute 874 90 965 130" onclick="Button00_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_files" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <ConstColumn id="SERVER_URL_COL" type="STRING" size="30" value="URL"/>
+          <ConstColumn id="LOCAL_PATH_COL" type="STRING" size="30" value="LOCAL_PATH"/>
+          <Column id="URL" type="STRING" size="256"/>
+          <Column id="FILE_NAME" type="STRING" size="256"/>
+          <Column id="LOCAL_PATH" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <FileDialog id="fd_file" filter="All(*.*)|*.*|" filterindex="0" defaultextension="false"/>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+var fv_UploadUrl = "http://10.3.10.131:7001/mci/fileUpload.do";
+
+function test_onload(obj:Form, e:LoadEventInfo)
+{
+
+}
+
+function btn_addFiles_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (ds_files.getColCount() == 0) return;
+
+	var objFile = gfn_fileSelect("M");
+
+	if (!objFile) return;
+
+	var nRow = -1;
+
+	for (var i = 0; i < objFile.length; i++) {
+		nRow = ds_files.addRow();
+		ds_files.setColumn(nRow, "URL", "sample/" + gfn_getToday());
+		ds_files.setColumn(nRow, "FILE_NAME", objFile[i].filename);
+		ds_files.setColumn(nRow, "LOCAL_PATH", objFile[i].fullpath);
+	}
+}
+
+function btn_uploadFiles_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var nRtn = gfn_multiFileUpload(ds_files);
+
+	if (!nRtn) return;
+
+	trace("파일업로드가 완료되었습니다.");
+}
+
+
+/*
+ * 파일 업로드(Multi)
+ *
+ * param dsObj - File List Dataset
+ *       dsObj.SERVER_URL_COL - Server Url을 담고있는 Dataset Column ID를 지정하는 Const Column(필수)
+ *       dsObj.LOCAL_PATH_COL - 파일의 Local Path를 담고있는 Dataset Column ID를 지정하는 Const Column(필수)
+ *
+ * return 성공/실패
+ */
+ function gfn_multiFileUpload (dsObj)
+{
+	if (gfn_isNull(dsObj)) {
+		trace("File정보가 있는 Dataset을 지정하십시오.");
+		return false;
+	}
+
+	var datasetObject = dsObj;
+
+	var sServerUrlColNm = dsObj.getConstColumn("SERVER_URL_COL");
+	var sLocalPathNm    = dsObj.getConstColumn("LOCAL_PATH_COL");
+	var sFILE_NAME    	= dsObj.getConstColumn("FILE_NAME");
+
+	if (gfn_isNull(sServerUrlColNm) || gfn_isNull(dsObj.getColumnInfo(sServerUrlColNm))) {
+		trace("SERVER_URL_COL Constant Column을 만들고 \nServer Url이 들어있는 Column명을 Constant Column의 value에 기술하십시오.");
+		return false;
+	}
+
+	if (gfn_isNull(sLocalPathNm) || gfn_isNull(dsObj.getColumnInfo(sLocalPathNm))) {
+		trace("LOCAL_PATH_COL Constant Column을 만들고 \nLocal Path가 들어있는 Column명을 Constant Column의 value에 기술하십시오.");
+		return false;
+	}
+
+	if (dsObj.getRowCount() == 0) {
+		trace("업로드할 파일이 없습니다.");
+		return false;
+	}
+
+	var arrUploadCnt = new Array();
+	var nCnt = 0;
+
+	for (var i = 0; i < dsObj.getRowCount(); i++) {
+		if (dsObj.getRowType(i) == 2) {
+			arrUploadCnt[nCnt] = i;
+			nCnt++;
+		} else if (dsObj.getRowType(i) == 4) {
+			if (dsObj.getOrgColumn(i, sServerUrlColNm) != dsObj.getColumn(i, sServerUrlColNm) ||
+				dsObj.getOrgColumn(i, sLocalPathNm) != dsObj.getColumn(i, sLocalPathNm)) {
+				arrUploadCnt[nCnt] = i;
+				nCnt++;
+			}
+		}
+	}
+
+	if (nCnt == 0 || arrUploadCnt.length == 0) {
+		trace("업로드할 파일이 없습니다.");
+		return false;
+	}
+
+	var sUrl = "";
+	sUrl = fv_UploadUrl; 
+	var httpObj = new HttpObject;
+	var nRtn = true;
+	
+	var arrFiles = new Array();
+	
+	for(var i=0;i<arrUploadCnt.length;i++)
+	{
+		trace("AAA>>>>"+dsObj.getColumn(arrUploadCnt[i], sLocalPathNm));
+	
+		var objVirtualFiles = new VirtualFile;
+		nRtn = objVirtualFiles.open(dsObj.getColumn(arrUploadCnt[i], sLocalPathNm), VirtualFile.openRead | VirtualFile.openBinary);
+		
+		if (!nRtn) {
+			objVirtualFiles.close();
+			break;
+		}		
+		
+		arrFiles[i] = objVirtualFiles;
+	}
+	
+	trace("arrFiles::"+arrFiles);
+	trace("sUrl::"+sUrl);
+	
+	nRtn = httpObj.upload(sUrl ,FileDialog.MULTILOAD, arrFiles, false);
+	
+	
+	objVirtualFiles.close();	
+
+
+// 	var httpObj = new HttpObject;
+// 	var objVirtualFiles = new VirtualFile;
+// 	var nRtn = true;
+// 
+// 	for (var i = 0; i < arrUploadCnt.length; i++) {
+// 		//sUrl = fv_UploadUrl + "FileUploader?mode=upload&subDir=" + dsObj.getColumn(arrUploadCnt[i], sServerUrlColNm); // 저장할 디렉토리
+// 		sUrl = fv_UploadUrl; 
+// 		nRtn = objVirtualFiles.open(dsObj.getColumn(arrUploadCnt[i], sLocalPathNm), VirtualFile.openRead | VirtualFile.openBinary);
+// 
+// 		if (!nRtn) {
+// 			objVirtualFiles.close();
+// 			break;
+// 		}
+// 
+// 		nRtn = httpObj.upload(sUrl ,FileDialog.MULTILOAD, objVirtualFiles, false);
+// 
+// 		objVirtualFiles.close();
+// 	}
+
+// 	nRtn = objVirtualFiles.open(objFile, VirtualFile.openRead | VirtualFile.openBinary);
+// 	if (!nRtn) {
+// 		objVirtualFiles.close();
+// 		break;
+// 	}
+// 	nRtn = httpObj.upload(sUrl ,FileDialog.LOAD, objVirtualFiles, false);
+// 	objVirtualFiles.close();
+
+	if (!nRtn) {
+		alert("첨부파일 처리에 실패했습니다.");
+	}
+
+	return nRtn;
+}
+ 
+ 
+ 
+ 
+// function gfn_multiFileUpload (dsObj)
+// {
+// 	if (gfn_isNull(dsObj)) {
+// 		trace("File정보가 있는 Dataset을 지정하십시오.");
+// 		return false;
+// 	}
+// 
+// 	var datasetObject = dsObj;
+// 
+// 	var sServerUrlColNm = dsObj.getConstColumn("SERVER_URL_COL");
+// 	var sLocalPathNm    = dsObj.getConstColumn("LOCAL_PATH_COL");
+// 	var sFILE_NAME    	= dsObj.getConstColumn("FILE_NAME");
+// 
+// 	if (gfn_isNull(sServerUrlColNm) || gfn_isNull(dsObj.getColumnInfo(sServerUrlColNm))) {
+// 		trace("SERVER_URL_COL Constant Column을 만들고 \nServer Url이 들어있는 Column명을 Constant Column의 value에 기술하십시오.");
+// 		return false;
+// 	}
+// 
+// 	if (gfn_isNull(sLocalPathNm) || gfn_isNull(dsObj.getColumnInfo(sLocalPathNm))) {
+// 		trace("LOCAL_PATH_COL Constant Column을 만들고 \nLocal Path가 들어있는 Column명을 Constant Column의 value에 기술하십시오.");
+// 		return false;
+// 	}
+// 
+// 	if (dsObj.getRowCount() == 0) {
+// 		trace("업로드할 파일이 없습니다.");
+// 		return false;
+// 	}
+// 
+// 	var arrUploadCnt = new Array();
+// 	var nCnt = 0;
+// 
+// 	for (var i = 0; i < dsObj.getRowCount(); i++) {
+// 		if (dsObj.getRowType(i) == 2) {
+// 			arrUploadCnt[nCnt] = i;
+// 			nCnt++;
+// 		} else if (dsObj.getRowType(i) == 4) {
+// 			if (dsObj.getOrgColumn(i, sServerUrlColNm) != dsObj.getColumn(i, sServerUrlColNm) ||
+// 				dsObj.getOrgColumn(i, sLocalPathNm) != dsObj.getColumn(i, sLocalPathNm)) {
+// 				arrUploadCnt[nCnt] = i;
+// 				nCnt++;
+// 			}
+// 		}
+// 	}
+// 
+// 	if (nCnt == 0 || arrUploadCnt.length == 0) {
+// 		trace("업로드할 파일이 없습니다.");
+// 		return false;
+// 	}
+// 
+// 	var sUrl = "";
+// 
+// 	var httpObj = new HttpObject;
+// 	var objVirtualFiles = new VirtualFile;
+// 	var nRtn = true;
+// 
+// 	for (var i = 0; i < arrUploadCnt.length; i++) {
+// 		//sUrl = fv_UploadUrl + "FileUploader?mode=upload&subDir=" + dsObj.getColumn(arrUploadCnt[i], sServerUrlColNm); // 저장할 디렉토리
+// 		sUrl = fv_UploadUrl; 
+// 		nRtn = objVirtualFiles.open(dsObj.getColumn(arrUploadCnt[i], sLocalPathNm), VirtualFile.openRead | VirtualFile.openBinary);
+// 
+// 		if (!nRtn) {
+// 			objVirtualFiles.close();
+// 			break;
+// 		}
+// 
+// 		nRtn = httpObj.upload(sUrl ,FileDialog.LOAD, objVirtualFiles, false);
+// 
+// 		objVirtualFiles.close();
+// 	}
+// 
+// // 	nRtn = objVirtualFiles.open(objFile, VirtualFile.openRead | VirtualFile.openBinary);
+// // 	if (!nRtn) {
+// // 		objVirtualFiles.close();
+// // 		break;
+// // 	}
+// // 	nRtn = httpObj.upload(sUrl ,FileDialog.LOAD, objVirtualFiles, false);
+// // 	objVirtualFiles.close();
+// 
+// 	if (!nRtn) {
+// 		alert("첨부파일 처리에 실패했습니다.");
+// 	}
+// 
+// 	return nRtn;
+// }
+
+function gfn_getHttpObjectUrl ()
+{
+	var sRtn = "";
+	sRtn = application.services["SVR"].url + "";
+
+	return sRtn;
+}
+
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var arrFiles = new Array();
+	arrFiles =  fd_file.open("FileOpen", FileDialog.MULTILOAD);
+	
+	var httpObj = new HttpObject;
+	//sUrl = fv_UploadUrl; 
+		
+	nRtn = httpObj.upload(fv_UploadUrl ,FileDialog.MULTILOAD, arrFiles, false);
+	
+	trace("arrFiles::"+arrFiles);
+	trace("nRtn::"+nRtn);
+	
+}
+]]></Script>
+  </Form>
+</FDL>

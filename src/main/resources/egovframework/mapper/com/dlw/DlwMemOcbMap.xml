@@ -1,0 +1,3056 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMemOcbMap">
+
+
+
+
+     <!-- OCB 카드 코드별 카드 수량  -->
+        <select id="DlwMemOcbMap.getSrchOcbCardCntList" parameterType="map" resultType="resultMap">
+
+                SELECT 	/*DlwCondMap.getSrchOcbCardCntList*/
+                        ROW_NUMBER () OVER (ORDER BY CARD_CODE) CNT
+                       ,CARD_CODE
+                       ,(sum(case when USE_YN='Y' then 1 else 0 end)  +  sum(case when USE_YN='X' then 1 else 0 end)) USE_CNT
+                       ,sum(case when USE_YN='N' then 1 else 0 end) UNUSE_CNT
+                       , sum(case when USE_YN='Y' then 1 else 0 end)  +  sum(case when USE_YN='X' then 1 else 0 end) + sum(case when USE_YN='N' then 1 else 0 end) TOTAL
+                 FROM OCB_MNG
+                 GROUP BY card_code
+        </select>
+
+
+     <!--  OCB 카드 코드관리 -->
+        <select id="DlwMemOcbMap.getSrchOcbCardCodeList" parameterType="map" resultType="resultMap">
+                SELECT /* DlwMemOcbMap.getSrchOcbCardCodeList */
+                        ROW_NUMBER () OVER (ORDER BY SEQ) SEQ
+                        ,CARD_CODE
+                        , OCB_POINT
+                        , OCB_FEE
+                        , OCB_ANNUAL_FEE
+                        , APP_DT
+                FROM OCB_CARD_CODE_MNG
+                WHERE CARD_CODE LIKE  '%' || #{card_code} || '%'
+                ORDER BY SEQ
+        </select>
+
+
+      <!--  OCB 카드 코드 등록 -->
+          <insert id="DlwMemOcbMap.insrtOcbCardCode" parameterType="map">
+
+              INSERT INTO /* DlwMemOcbMap.insrtOcbCardCode */
+                        OCB_CARD_CODE_MNG
+
+                        ( 	 SEQ
+                            ,CARD_CODE
+                            ,APP_DT
+                            ,OCB_POINT
+                            ,OCB_FEE
+                            ,OCB_ANNUAL_FEE
+
+                        )
+                VALUES (     #{seq}
+                             ,#{card_code}
+                             ,#{app_dt}
+                             ,NVL(#{point_1}, '0') || '.'|| NVL(#{point_2}, '0')
+                             ,NVL(#{ocb_fee_1}, '0')|| '.'||  NVL(#{ocb_fee_2}, '0')
+                            , #{ocb_annual_fee}
+                         )
+
+          </insert>
+
+         <!-- OCB산출 이력 검증  -->
+        <select id="DlwMemOcbMap.insertOcbpointcnt" parameterType="map" resultType="int">
+            SELECT COUNT(*) FROM OCB_POINT
+            --WHERE CALC_DM = '201707'
+            WHERE CALC_DM = TO_CHAR(SYSDATE,'YYYYMM')
+
+        </select>
+
+
+           <!--  OCB 포인트 카드 산출-->
+          <insert id="DlwMemOcbMap.insrtOcbpoint" parameterType="map">
+                INSERT INTO  /* DlwMemOcbMap.insrtOcbpoint */ OCB_POINT (
+                               ACCNT_NO
+                              ,NO
+                              ,STAT
+                              ,CALC_DM
+                              ,OCB_POINT
+                              ,OCB_FEE
+                              ,REG_DM
+                              ,REG_MAN
+                              ,UPD_DM
+                              ,UPD_MAN
+                              ,DEL_FG
+                            )
+                  SELECT
+                        ACCNT_NO,
+                        NO,
+                        STAT,
+                        TO_CHAR(SYSDATE,'YYYYMM') AS CALC_DM,
+                        --'201707' AS CALC_DM,
+                        ROUND(((NVL(PAY_AMT,0) + NVL(REL_AMT,0)) * OCB_POINT) / 100,0) AS TOTAL_POINT,
+                        ROUND(((NVL(PAY_AMT,0) + NVL(REL_AMT,0)) * OCB_FEE) / 100 ,0) AS POINTFEE,
+                        REG_DM,
+                        REG_MAN,
+                        UPD_DM,
+                        UPD_MAN,
+                        DEL_FG
+                    FROM
+                    (
+                        SELECT
+                            PM.ACCNT_NO,
+                            '01' AS OCB_POINT_GUBN,
+                            MB.SEX,
+                            PD.PROD_NM,
+                            MPA.KSTBIT,
+                            PM.NO,
+                            '01' AS STAT,
+                            /* 만기회차시 입금 1~3회차 포인트 일시지급*/
+                            (
+                                CASE WHEN PM.NO = (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) THEN  (PM.PAY_AMT * 4)
+                                ELSE PM.PAY_AMT
+                                END
+                            ) AS PAY_AMT,
+                            (
+                                CASE WHEN PM.NO = (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) THEN
+                                        ((SELECT PAY_AMT FROM PAY_MNG_DTL WHERE ACCNT_NO = PM.ACCNT_NO AND NO = PM.NO AND DEL_FG = 'N') * 4)
+                                ELSE ((SELECT PAY_AMT FROM PAY_MNG_DTL WHERE ACCNT_NO = PM.ACCNT_NO AND NO = PM.NO AND DEL_FG = 'N'))
+                                END
+                             ) AS REL_AMT,
+                            SYSDATE AS REG_DM,
+                            #{reg_man} AS REG_MAN,
+                            SYSDATE AS UPD_DM,
+                            #{upd_man} AS UPD_MAN,
+                            'N' AS DEL_FG,
+
+                            (
+                                SELECT OCB_POINT
+                                FROM OCB_CARD_CODE_MNG
+                                WHERE CARD_CODE = PD.MEMBERSHIP
+                                AND APP_DT IN
+                                    (
+                                        SELECT MAX(APP_DT)
+                                        FROM OCB_CARD_CODE_MNG
+                                        WHERE APP_DT <![CDATA[<]]> MPA.JOIN_DT AND  CARD_CODE = PD.MEMBERSHIP
+                                     )
+                            ) AS OCB_POINT,
+
+                            (
+                                SELECT OCB_FEE
+                                FROM OCB_CARD_CODE_MNG
+                                WHERE CARD_CODE = PD.MEMBERSHIP
+                                AND APP_DT IN
+                                    (
+                                        SELECT MAX(APP_DT)
+                                        FROM OCB_CARD_CODE_MNG
+                                        WHERE APP_DT <![CDATA[<]]> MPA.JOIN_DT AND  CARD_CODE = PD.MEMBERSHIP
+                                     )
+                             ) AS OCB_FEE,
+
+
+                            (
+                                SELECT MAX(OCB_CD) AS OCB_CD
+                                FROM OCB_HIST
+                                WHERE ACCNT_NO = MPA.ACCNT_NO AND USE_YN = 'Y'
+                            ) AS OCB_CD
+                        FROM PAY_MNG  PM INNER JOIN
+                            MEM_PROD_ACCNT MPA ON PM.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+
+                          /* 전 월 조건 수정 - 2018.01.31 정승철 */
+                            --WHERE PAY_DAY BETWEEN SUBSTR((TO_CHAR(SYSDATE,'YYYYMM') - 1),1,6) ||'01' AND TO_CHAR(LAST_DAY(SUBSTR((TO_CHAR(SYSDATE,'YYYYMM') - 1),1,6) ||'01'),'YYYYMMDD')
+                          WHERE PAY_DAY BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(ADD_MONTHS(SYSDATE,-1)), 'YYYYMMDD')
+                            AND PM.NO <![CDATA[>]]> 3
+                            AND PM.DEL_FG = 'N'
+                            AND NVL(MPA.OCB_POINT_YN,'Y') = 'Y'
+                            AND NVL(MPA.OCB_REG_YN ,'Y') = 'Y'
+                            AND LENGTH(NVL(MB.IDN_NO, ' ')) != 10
+
+                        AND MPA.PROD_CD IN
+                        (
+                            SELECT
+                                B.PROD_CD
+                            FROM OCB_CARD_CODE_MNG A INNER JOIN
+                                PRODUCT B ON A.CARD_CODE = B.MEMBERSHIP AND B.DEL_FG = 'N'
+                            WHERE A.CARD_CODE != 'B999'
+                        )
+                    )
+                    WHERE 1=1
+                    AND NVL(OCB_CD,' ') != ' '
+
+
+                <!--
+                 INSERT INTO  /* DlwMemOcbMap.insrtOcbpoint */ OCB_POINT (
+                   ACCNT_NO
+                  ,NO
+                  ,STAT
+                  ,CALC_DM
+                  ,OCB_POINT
+                  ,OCB_FEE
+                  ,REG_DM
+                  ,REG_MAN
+                  ,UPD_DM
+                  ,UPD_MAN
+                  ,DEL_FG
+                )
+
+                    select   b.accnt_no
+                  ,b.no
+                  ,'01'
+                  ,to_char(sysdate,'YYYYMMDD')
+                  ,cast(b.total_point as int) as total_point
+                ,cast(b.pay_amt*b.OCB_FEE/100 as int) pointFee
+                  ,sysdate
+                  ,#{reg_man}
+                  ,sysdate
+                  ,#{upd_man}
+                  ,'N'
+
+
+          from
+            (select
+                              a.MEM_NO
+                              , a.ACCNT_NO
+                              , a.NO
+                              , a.OCB_POINT_GUBN
+                              , a.MEM_NM
+                              , a.idn_no
+                              , a.PROD_NM
+                              , sum(a.pay_amt) as PAY_AMT
+                              , sum(a.base_point) as BASE_POINT
+                              , sum(a.event_point) as EVENT_POINT
+                              , sum(a.expr_point) as EXPR_POINT
+                              , sum(a.six_point) as SINX_POINT
+                                , sum(a.six_tatal_point) as   SIX_TATAL_POINT
+                              , sum(a.one_point) as ONE_POINT
+                              , sum(a.base_point) + sum(a.event_point) + sum(a.expr_point) + sum(a.six_point) + sum(a.six_tatal_point) + sum(a.one_point) as TOTAL_POINT
+                              , a.USE_YN
+                              , a.OCB_GUBN
+                                , a.PAY_DAY
+                                , a.JOIN_CL
+                                , a.PROD_CL
+                                , a.CI_VAL
+                                , a.BRTH_MON_DAY
+                                , a.OCB_FEE
+                                , a.SEX
+                                ,a.kstbit
+                            from
+
+                    ( select
+                              a.accnt_no
+                              , (select mem_no from member where mem_no = b.MEM_NO and del_fg = 'N') as mem_no
+                              , a.no
+                              , c.prod_nm
+                              , NVL(case when op.stat = '01' then '생성'
+                                              when op.stat = '03' then '오류'
+                                              else '미생성 '
+                                        end,'') as ocb_point_gubn
+                              , a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end) PAY_AMT
+                              , mbr.mem_nm
+                              ,  mbr.IDN_NO idn_no
+                              , mbr.ci_val
+                              , NVL(occm.OCB_POINT, 0) prod_save_point
+                              , (a.PAY_AMT * NVL(occm.OCB_POINT, 0))/100 as point
+
+                             , NVL(case
+                                      when a.no > 3 and c.expr_no != 12
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from PRODUCT p
+                                                                            inner join PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL(occm.OCB_POINT, 0)/100)
+                                    end,0) as base_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.EXPR_NO != 1
+                                           and (select event_proc_day from event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                                between SUBSTR(#{stt_dt},1,6) ||'01'  and (case
+                                                                            when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                            else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                          end)
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from PRODUCT p
+                                                                            inner join PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as event_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.expr_no != 1
+                                           and a.ACCNT_NO !=
+                                               (select accnt_no from event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                           and c.EXPR_NO - b.NEW_CHAN_GUNSU =
+                                               (select MAX(no) from pay_mng where accnt_no = a.ACCNT_NO and del_fg = 'N' )
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from PRODUCT p
+                                                                            inner join PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as expr_point
+                              , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL(occm.OCB_POINT, 0)/100)
+                                  end,0) as six_point
+                                , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no > 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as six_tatal_point
+                              , NVL(case
+                                      when c.expr_no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as one_point
+                              , oh.USE_YN
+                              , b.ocb_gubn
+                                , a.PAY_DAY
+                                , b.join_cl
+                                , c.prod_cl
+                                , fn_event(b.accnt_no) evt_nm
+                                , mbr.BRTH_MON_DAY  BRTH_MON_DAY
+                                , NVL(occm.OCB_FEE, 0) OCB_FEE
+                                , FN_COM_NM('0123', mbr.SEX) SEX
+                                , b.kstbit
+
+                            from pay_mng a
+                                 inner join mem_prod_accnt b on a.ACCNT_NO = b.ACCNT_NO and b.DEL_FG = 'N'
+                                 inner join member mbr on b.mem_no = mbr.mem_no
+                                 inner join product c on b.PROD_CD = c.PROD_CD and c.DEL_FG = 'N'
+                                 left outer join (
+                                       select SEQ
+                                         , CARD_CODE
+                                         , APP_DT
+                                         , NVL((SELECT  TO_CHAR(TO_DATE(MIN(APP_DT))-1,'YYYYMMDD') APP_DT
+                                           FROM OCB_CARD_CODE_MNG
+                                          WHERE CARD_CODE = TMP.CARD_CODE
+                                            AND DEL_FG = 'N'
+                                            AND APP_DT > TMP.APP_DT
+                                        ), '99991231') NEXT_APP_DT
+                                           , OCB_POINT
+                                           , OCB_FEE
+                                           , OCB_ANNUAL_FEE
+                                        from OCB_CARD_CODE_MNG TMP
+                                       where del_fg = 'N'
+                                   ) occm on c.MEMBERSHIP = occm.CARD_CODE
+                                 left outer join OCB_HIST oh on a.ACCNT_NO = oh.ACCNT_NO and oh.USE_YN = 'Y' and oh.stat = '01'
+                                 left outer join OCB_POINT op on a.accnt_no = op.accnt_no and a.no = op.no and op.del_fg = 'N' and op.stat = '01'
+
+
+
+                            where 1=1
+                      and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+
+
+                            and (op.accnt_no is null or op.stat = '03')
+                            and NVL(b.ocb_point_yn, 'Y') = 'Y'
+                            and c.prod_cd != '54'
+                            AND b.JOIN_DT BETWEEN occm.APP_DT  and occm.NEXT_APP_DT
+                            and a.del_fg = 'N'
+                            and length(NVL(mbr.IDN_NO, ' ')) != 10
+                            and (b.ocb_gubn = '00' or oh.ACCNT_NO is not null)
+                            and NVL(b.ocb_gubn, '01') != '00'
+                                  AND op.stat is null
+
+                            )  a
+                            where a.evt_nm != '청약철회'
+                            group by a.mem_no, a.mem_nm, a.idn_no, a.ocb_point_gubn, a.no, a.accnt_no, a.prod_nm, a.USE_YN, a.ocb_gubn, a.PAY_DAY, a.join_cl, a.idn_no, a.mem_nm, a.ci_val, a.prod_cl, a.BRTH_MON_DAY, a.OCB_FEE, a.sex,a.kstbit
+                    )  b
+                    where b.total_point != 0
+                      and length(NVL(b.idn_no, ' ')) != 10
+                      and TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4)) -
+                          TO_NUMBER(SUBSTR(b.BRTH_MON_DAY,1,4)) -
+                         TO_NUMBER(
+                          CASE
+                             WHEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),-4) > SUBSTR(b.BRTH_MON_DAY,-4) THEN 0
+                             ELSE 1
+                          END) >= 14
+
+                           order by b.mem_nm, b.no
+
+
+                 -->
+          </insert>
+
+
+     <!-- OCB 카드 코드 삭제 -->
+            <delete id="DlwMemOcbMap.deleteCardCode" parameterType="map">
+
+                /* DlwMemOcbMap.deleteCardCode */
+                DELETE FROM OCB_CARD_CODE_MNG WHERE SEQ = #{seq}
+
+            </delete>
+
+               <!-- OCB 카드 삭제 -->
+            <delete id="DlwMemOcbMap.deleteocb" parameterType="map">
+
+
+                /* DlwMemOcbMap.deleteocb */
+                DELETE FROM OCB_HIST   WHERE TO_CHAR(CRT_FILE_DM,'YYYYMMDD')= #{cal_stt}
+
+                <if test='cbo_ocbgubun == "Y" '>
+                 AND OCB_CD > ' '
+               </if>
+                <if test='cbo_ocbgubun == "N" '>
+                 AND OCB_CD IS NULL
+               </if>
+
+
+
+
+            </delete>
+
+
+     <!-- 유효 OCB 카드 수량  -->
+        <select id="DlwMemOcbMap.getOcbCardCodeSeq" parameterType="map" resultType="int">
+                 SELECT /* DlwMemOcbMap.getOcbCardCodeSeq */
+                        COUNT(*)
+                 FROM OCB_CARD_CODE_MNG
+                 WHERE SEQ = #{seq}
+        </select>
+
+
+     <!-- 유효 OCB 카드 조회  -->
+        <select id="DlwMemOcbMap.getSrchMemYHCardList" parameterType="map" resultType="resultMap">
+                 SELECT /* DlwMemOcbMap.getMemYHCardList */
+                        ROW_NUMBER () OVER (ORDER BY OH.ACCNT_NO) SEQ
+                       ,OH.ACCNT_NO
+                       ,MPA.MEM_NO
+                       ,MB.MEM_NM
+                       ,P.PROD_NM
+                       ,FN_ACCNT_STAT(OH.ACCNT_NO)
+                       ,OH.OCB_CD
+                        ,TO_CHAR(OH.CRT_FILE_DM,'YYYY-MM-DD') CRT_FILE_DM
+                 FROM OCB_HIST OH
+                      LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON OH.ACCNT_NO = MPA.ACCNT_NO
+                      LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO=MB.MEM_NO
+                      LEFT OUTER JOIN  PRODUCT P ON P.PROD_CD =MPA.PROD_CD
+
+                 WHERE OH.USE_YN ='Y'
+
+                 <if test='gubun_type == "crt_file_dm"' >
+                      and  <![CDATA[ OH.CRT_FILE_DM >= #{stt_dt} AND   OH.CRT_FILE_DM <= #{end_dt} ]]>
+                 </if>
+
+
+                   <if test='gubun_type == "reg_dm"' >
+                      and  <![CDATA[ MPA.JOIN_DT >= #{stt_dt} AND   MPA.JOIN_DT <= #{end_dt} ]]>
+                 </if>
+
+
+               <if test="accnt_no != null and accnt_no != ''">
+                 AND OH.ACCNT_NO = #{accnt_no}
+               </if>
+
+               <if test="ocb_cd != null and ocb_cd != '' ">
+                 AND OCB_CD = #{ocb_cd}
+               </if>
+
+        </select>
+
+
+     <!--OCB 발급이력 조회  -->
+        <select id="DlwMemOcbMap.getSrchMemCrtFileList" parameterType="map" resultType="resultMap">
+                 SELECT /* DlwMemOcbMap.getMemCrtFileList */
+                        ROW_NUMBER () OVER (ORDER BY OH.ACCNT_NO) SEQ
+                        ,OH.ACCNT_NO
+                        ,MPA.MEM_NO
+                        ,MB.MEM_NM
+                        ,P.PROD_NM
+                        ,FN_ACCNT_STAT(OH.ACCNT_NO)
+                        ,OH.OCB_CD
+                        ,OH.USE_YN
+                         ,TO_CHAR(OH.CRT_FILE_DM,'YYYY-MM-DD') CRT_FILE_DM
+                        ,TO_CHAR(OH.DEL_CRT_FILE_DM,'YYYY-MM-DD') DEL_CRT_FILE_DM
+                  FROM OCB_HIST OH
+                       LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON OH.ACCNT_NO =MPA.ACCNT_NO
+                       LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO=MB.MEM_NO
+                       LEFT OUTER JOIN  PRODUCT P ON P.PROD_CD =MPA.PROD_CD
+         WHERE
+                   <if test='gubun_type == "crt_file_dm"' >
+                        <![CDATA[ TO_CHAR(OH.CRT_FILE_DM,'YYYYMMDD') >= #{stt_dt} AND   TO_CHAR(OH.CRT_FILE_DM,'YYYYMMDD') <= #{end_dt} ]]>
+                 </if>
+
+
+                   <if test='gubun_type == "reg_dm"' >
+                        <![CDATA[ MPA.JOIN_DT >= #{stt_dt} AND   MPA.JOIN_DT <= #{end_dt} ]]>
+                 </if>
+                 <if test="accnt_no != null and accnt_no != ''">
+                     AND OH.ACCNT_NO = #{accnt_no}
+                   </if>
+
+                   <if test="ocb_cd != null and ocb_cd != '' ">
+                     AND OCB_CD = #{ocb_cd}
+                   </if>
+
+        </select>
+
+          <!--OCB 발급 조회 list  -->
+        <select id="DlwMemOcbMap.getnewList" parameterType="map" resultType="resultMap">
+
+                       select  /* DlwMemOcbMap.getnewList */
+                             /*+ USE_NL(MPA) */
+                                ROW_NUMBER () OVER (ORDER BY  MPA.ACCNT_NO)  SEQ
+                                ,MPA.ACCNT_NO
+                                ,m.MEM_NM
+                                ,MPA.EMPLE_NO
+                                ,m.CELL
+                                <!-- 상세주소 마스킹작업으로 주소분리함 - 2018.03.23 -->
+                                <!-- ,('우 ' || HOME_ZIP ||')'|| HOME_ADDR ||' ' ||HOME_ADDR2 ) as ADDR -->
+                                ,('우 ' || HOME_ZIP ||')'|| HOME_ADDR ||' ') as ADDR
+                                ,HOME_ADDR2 AS ADDR2
+                                , FN_PAY_MNG( MPA.ACCNT_NO) CNT
+                                ,P.PROD_NM
+                                , RESORT_NO
+                                ,''RESORT_NO_JUNG
+                                ,FN_DAY_ACCSTAT(MPA.ACCNT_NO,'') hsasi
+                                ,m.SEX
+                                ,m.BRTH_MON_DAY  BRTH_MON_DAY
+                                ,'' BALGUBUN
+                                ,NVL(MPA.M_OCB_YN,' ') M_OCB_YN
+                        from MEM_PROD_ACCNT MPA
+                                INNER JOIN PRODUCT P ON mpa.prod_cd = p.prod_cd
+                                LEFT OUTER JOIN (select  * from MEMBER) m ON mpa.mem_no = m.mem_no and m.del_fg='N'
+                                LEFT OUTER JOIN (select  * from  OCB_HIST ) oh ON mpa.accnt_no = oh.accnt_no and oh.use_yn = 'Y'
+                                inner JOIN (SELECT  accnt_no, max(no) AS no FROM pay_mng WHERE del_fg='N' GROUP BY accnt_no)pn ON pn.accnt_no = mpa.accnt_no
+                                LEFT  JOIN (select  *  from RESCISSION ) r ON mpa.accnt_no = r.accnt_no and r.del_fg = 'N'
+                                LEFT  JOIN (select  * from   EVENT ) evt ON mpa.accnt_no = evt.ACCNT_NO and evt.DEL_FG = 'N'
+                        WHERE 1=1
+                                <![CDATA[  AND  MPA.JOIN_dT  >= #{stt_dt} AND MPA.JOIN_dT <= #{end_dt}   ]]>
+                                <if test="accnt_no != null and accnt_no != ''">
+                                  AND MPA.ACCNT_NO = #{accnt_no}
+                                </if>
+                                AND  NVL(P.MEMBERSHIP,' ') > ' '
+                                AND  NVL(MPA.OCB_REG_YN,'Y') ='Y'
+                                <!-- 정상  -->
+                                AND   pn.NO > 0
+                                <!-- 청약철회 제외 조회 조건 추가 by lbk_2013_03_08 -->
+                                and NVL(r.RESN_CL, '00') != '02'
+                                <!-- 정상회원과 해약이라도 3회이상 납입한 회원의 경우 조회되도록 수정 by lbk_2013_03_08 -->
+                                and (r.resn_cl is null or (r.resn_cl is not null and pn.no >= 3))
+                                and (
+                                 mpa.accnt_no not in (select accnt_no from hp_call where accnt_no = mpa.accnt_no and stat not in ('01', '011'))
+                                 AND
+                                 (select accnt_no from hp_call where accnt_no = mpa.accnt_no) IS NOT NULL
+                                )
+                                 <if test="cbo_gubun != null and cbo_gubun.equalsIgnoreCase('01')">
+                                     and oh.use_yn is null
+                                     and NVL((select count(accnt_no) from ocb_hist where accnt_no = mpa.accnt_no and stat = '00' and use_yn = 'N'), 0) = 0
+                                 </if>
+                                 <if test="cbo_gubun != null and cbo_gubun.equalsIgnoreCase('02')">
+                                     and oh.use_yn = 'Y' and oh.stat != '00'
+                                 </if>
+                               <if test="cbo_ocbgubun != null and cbo_ocbgubun.equalsIgnoreCase('Y')">
+                                     AND   NVL(P.MEMBERSHIP,' ') not  in ('B999')
+                               </if>
+                               <if test="cbo_ocbgubun != null and cbo_ocbgubun.equalsIgnoreCase('N')">
+                                      <if test="m_ocb_yn.equalsIgnoreCase('N')">
+                                              AND nvl(MPA.M_OCB_YN,'N') not in ( 'Y' )
+                                      </if>
+                                      AND  NVL(P.MEMBERSHIP,' ')  in ('B999')
+                               </if>
+
+                               <if test="cnt1 != null and cnt1.equalsIgnoreCase('Y')">
+                                    and length(trim(nvl(m.idn_no, '111'))) != 10
+                               </if>
+                               <if test="cnt3 != null and cnt3.equalsIgnoreCase('Y')">
+                                  and r.resn_cl is null
+                               </if>
+                         <!--   20161226 행사자제외는 필요없어서 삭제       <if test='cnt2   == "Y"'>
+                                  and evt.SEQ is  null
+                               </if>  -->
+                               <if test="cnt4 != null and cnt4.equalsIgnoreCase('Y')">
+                                   and
+                                        (
+                                            (m.sex is not null and m.sex > ' ')
+                                            and
+                                            (m.brth_mon_day is not null and m.brth_mon_day > ' ')
+                                        )
+                               </if>
+
+
+
+
+
+
+
+
+
+
+
+        </select>
+
+
+         <!--OCB발급현황  -->
+        <select id="DlwMemOcbMap.getOCBList" parameterType="map" resultType="resultMap">
+
+
+
+        SELECT NVL(TBL1.ROW_ORDER, 0) ROW_ORDER
+             , NVL(TBL1.GUBUN1, '금액총계') GUBUN1
+             , TBL1.GUBUN2
+             , TBL1.TOTAL_CNT
+             , TBL1.PREV_YEAR_TOTAL_CNT
+             , TBL1.LAST_YEAR_TOTAL_CNT
+             , TBL1.CUR_YEAR_TOTAL_CNT
+             , TBL1.JAN
+             , TBL1.FEB
+             , TBL1.MAR
+             , TBL1.APR
+             , TBL1.MAY
+             , TBL1.JUN
+             , TBL1.JUL
+             , TBL1.AUG
+             , TBL1.SEP
+             , TBL1.OCT
+             , TBL1.NOV
+             , TBL1.DEC
+          FROM (
+        SELECT TBL.ROW_ORDER
+             , CASE WHEN TBL.GUBUN1 = 'OCB 연회비' AND TBL.PROD_GUBUN IS NOT NULL
+                    THEN ''
+                    ELSE TBL.GUBUN1
+               END GUBUN1
+             , CASE WHEN TBL.ROW_ORDER = 1
+                    THEN '금액'
+                    WHEN TBL.ROW_ORDER = 2
+                    THEN '금액'
+                    WHEN TBL.ROW_ORDER = 3
+                    THEN NVL(FN_COM_NM('0130', TBL.PROD_GUBUN), '소계')
+                    ELSE ''
+               END GUBUN2
+             , SUM(TBL.PREV_YEAR_TOTAL_CNT+TBL.LAST_YEAR_TOTAL_CNT+TBL.CUR_YEAR_TOTAL_CNT) TOTAL_CNT
+             , SUM(TBL.PREV_YEAR_TOTAL_CNT) PREV_YEAR_TOTAL_CNT
+             , SUM(TBL.LAST_YEAR_TOTAL_CNT) LAST_YEAR_TOTAL_CNT
+             , SUM(TBL.CUR_YEAR_TOTAL_CNT) || '(' || SUM(TBL.CUR_YEAR_TOTAL_CNT_NO)|| ')' CUR_YEAR_TOTAL_CNT
+             , SUM(TBL.JAN)|| '(' || SUM(TBL.JAN_NO)|| ')' JAN
+             , SUM(TBL.FEB)|| '(' || SUM(TBL.FEB_NO)|| ')' FEB
+             , SUM(TBL.MAR)|| '(' || SUM(TBL.MAR_NO)|| ')' MAR
+             , SUM(TBL.APR)|| '(' || SUM(TBL.APR_NO)|| ')' APR
+             , SUM(TBL.MAY)|| '(' || SUM(TBL.MAY_NO)|| ')' MAY
+             , SUM(TBL.JUN)|| '(' || SUM(TBL.JUN_NO)|| ')' JUN
+             , SUM(TBL.JUL)|| '(' || SUM(TBL.JUL_NO)|| ')' JUL
+             , SUM(TBL.AUG)|| '(' || SUM(TBL.AUG_NO)|| ')' AUG
+             , SUM(TBL.SEP)|| '(' || SUM(TBL.SEP_NO)|| ')' SEP
+             , SUM(TBL.OCT)|| '(' || SUM(TBL.OCT_NO)|| ')' OCT
+             , SUM(TBL.NOV)|| '(' || SUM(TBL.NOV_NO)|| ')' NOV
+             , SUM(TBL.DEC)|| '(' || SUM(TBL.DEC_NO)|| ')' DEC
+             , GROUPING(TBL.ROW_ORDER) GRP1
+             , GROUPING(TBL.GUBUN1) GRP2
+             , GROUPING(TBL.PROD_GUBUN) GRP3
+          FROM (
+                 SELECT 1 ROW_ORDER
+                     , 'OCB 적립금' GUBUN1
+                     , '' PROD_GUBUN
+                     , CASE WHEN SUBSTR(#{stt_dt} ,1, 4) = '2013'
+                            THEN 6178000
+                            WHEN SUBSTR(#{stt_dt} ,1, 4) = '2014'
+                            THEN 105050000
+                            ELSE SUM(CASE WHEN SUBSTR( OP.CALC_DM,1, 4)     <![CDATA[ < ]]> TO_CHAR(ADD_MONTHS(to_date(#{stt_dt}),-12),'YYYY')
+                                          THEN OP.OCB_POINT
+                                          ELSE 0
+                                     END)
+                       END PREV_YEAR_TOTAL_CNT
+                     , CASE WHEN SUBSTR(#{stt_dt},1, 4) = '2013'
+                            THEN 105050000
+                            ELSE SUM(CASE WHEN SUBSTR( OP.CALC_DM ,1, 4) <![CDATA[ < ]]>TO_CHAR(ADD_MONTHS(to_date(#{stt_dt}),-12),'YYYY')
+                                          THEN OP.OCB_POINT
+                                          ELSE 0
+                                     END)
+                       END LAST_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1, 4) = SUBSTR(#{stt_dt},1, 4)
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) CUR_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1, 4) = SUBSTR(#{stt_dt}, 4)
+                            THEN 1
+                            ELSE 0
+                       END) CUR_YEAR_TOTAL_CNT_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) = SUBSTR(#{stt_dt},1,4)  ||'01'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) JAN
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM, 1, 6) = SUBSTR(#{stt_dt},1,4) ||'02'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) FEB
+                     , SUM(CASE WHEN SUBSTR( OP.CALC_DM, 1, 6) = SUBSTR(#{stt_dt},1,4) ||'03'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) MAR
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1, 6) = SUBSTR(#{stt_dt},1, 4)||'04'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) APR
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'05'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) MAY
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'06'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) JUN
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) = SUBSTR(#{stt_dt},1, 4)||'07'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) JUL
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'08'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) AUG
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'09'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) SEP
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'10'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) OCT
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'11'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) NOV
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'12'
+                            THEN OP.OCB_POINT
+                            ELSE 0
+                       END) DEC
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'01'
+                            THEN 1
+                            ELSE 0
+                       END) JAN_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'02'
+                            THEN 1
+                            ELSE 0
+                       END) FEB_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) = SUBSTR(#{stt_dt},1, 4)||'03'
+                            THEN 1
+                            ELSE 0
+                       END) MAR_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'04'
+                            THEN 1
+                            ELSE 0
+                       END) APR_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'05'
+                            THEN 1
+                            ELSE 0
+                       END) MAY_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'06'
+                            THEN 1
+                            ELSE 0
+                       END) JUN_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'07'
+                            THEN 1
+                            ELSE 0
+                       END) JUL_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'08'
+                            THEN 1
+                            ELSE 0
+                       END) AUG_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'09'
+                            THEN 1
+                            ELSE 0
+                       END) SEP_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'10'
+                            THEN 1
+                            ELSE 0
+                       END) OCT_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'11'
+                            THEN 1
+                            ELSE 0
+                       END) NOV_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'12'
+                            THEN 1
+                            ELSE 0
+                       END) DEC_NO
+                  FROM OCB_POINT OP
+                       INNER JOIN MEM_PROD_ACCNT ACCNT ON OP.ACCNT_NO = ACCNT.ACCNT_NO
+                  WHERE 1 = 1
+                   AND OP.DEL_FG = 'N'
+                   AND OP.STAT = '01'
+                   AND SUBSTR(OP.CALC_DM, 1, 4) <![CDATA[ <= ]]> SUBSTR(#{stt_dt},1, 4)
+
+                UNION ALL
+
+                SELECT 2 ROW_ORDER
+                     , 'OCB 수수료' GUBUN1
+                     , '' PROD_GUBUN
+                     , CASE WHEN SUBSTR(#{stt_dt},1, 4) = '2013'
+                            THEN 4749000
+                            WHEN SUBSTR(#{stt_dt},1, 4) = '2014'
+                            THEN 77710000
+                            ELSE SUM(CASE WHEN SUBSTR( OP.CALC_DM ,1, 4) <![CDATA[ < ]]> TO_CHAR(ADD_MONTHS(to_date(#{stt_dt}),-12),'YYYY')
+                                          THEN OP.OCB_FEE
+                                          ELSE 0
+                                     END)
+                       END PREV_YEAR_TOTAL_CNT
+                     , CASE WHEN SUBSTR(#{stt_dt},1, 4) = '2013'
+                            THEN 77710000
+                            ELSE SUM(CASE WHEN SUBSTR( OP.CALC_DM ,1, 4) <![CDATA[ < ]]> TO_CHAR(ADD_MONTHS(to_date(#{stt_dt}),-12),'YYYY')
+                                          THEN OP.OCB_FEE
+                                          ELSE 0
+                                     END)
+                       END LAST_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR( OP.CALC_DM ,1, 4) = SUBSTR(#{stt_dt},1, 4)
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) CUR_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR( OP.CALC_DM ,1, 4) = SUBSTR(#{stt_dt}, 4)
+                            THEN 1
+                            ELSE 0
+                       END) CUR_YEAR_TOTAL_CNT_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) = SUBSTR(#{stt_dt},1, 4)||'01'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) JAN
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'02'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) FEB
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'03'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) MAR
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'04'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) APR
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'05'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) MAY
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'06'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) JUN
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'07'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) JUL
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'08'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) AUG
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'09'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) SEP
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'10'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) OCT
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'11'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) NOV
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'12'
+                            THEN OP.OCB_FEE
+                            ELSE 0
+                       END) DEC
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'01'
+                            THEN 1
+                            ELSE 0
+                       END) JAN_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'02'
+                            THEN 1
+                            ELSE 0
+                       END) FEB_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'03'
+                            THEN 1
+                            ELSE 0
+                       END) MAR_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'04'
+                            THEN 1
+                            ELSE 0
+                       END) APR_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'05'
+                            THEN 1
+                            ELSE 0
+                       END) MAY_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'06'
+                            THEN 1
+                            ELSE 0
+                       END) JUN_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'07'
+                            THEN 1
+                            ELSE 0
+                       END) JUL_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'08'
+                            THEN 1
+                            ELSE 0
+                       END) AUG_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'09'
+                            THEN 1
+                            ELSE 0
+                       END) SEP_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'10'
+                            THEN 1
+                            ELSE 0
+                       END) OCT_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'11'
+                            THEN 1
+                            ELSE 0
+                       END) NOV_NO
+                     , SUM(CASE WHEN SUBSTR(OP.CALC_DM,1,6) =  SUBSTR(#{stt_dt},1, 4)||'12'
+                            THEN 1
+                            ELSE 0
+                       END) DEC_NO
+                  FROM OCB_POINT OP
+                       INNER JOIN MEM_PROD_ACCNT ACCNT ON OP.ACCNT_NO = ACCNT.ACCNT_NO
+                  WHERE 1 = 1
+                   AND OP.DEL_FG = 'N'
+                   AND OP.STAT = '01'
+                   AND SUBSTR(OP.CALC_DM, 1, 4)  <![CDATA[ <= ]]>  SUBSTR(#{stt_dt},1, 4)
+
+                UNION ALL
+
+                SELECT 3 ROW_ORDER
+                     , 'OCB 연회비' GUBUN1
+                     , PROD.PROD_GUBUN
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,4)  <![CDATA[ < ]]>  TO_CHAR(ADD_MONTHS(to_date(#{stt_dt}),-12),'YYYY')  AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) PREV_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,4) = TO_CHAR(ADD_MONTHS(to_date(#{stt_dt}),-12),'YYYY')  AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) LAST_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,4) = SUBSTR(#{stt_dt},1,4) AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) CUR_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,4) = SUBSTR(#{stt_dt},1,4) AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) CUR_YEAR_TOTAL_CNT_NO
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,6) = SUBSTR(#{stt_dt},1,4)||'01' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) JAN
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,6) = SUBSTR(#{stt_dt},1,4)||'02' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) FEB
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,6) = SUBSTR(#{stt_dt},1,4)||'03' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) MAR
+                     , SUM(CASE WHEN SUBSTR(OAF.REG_DM,1,6) = SUBSTR(#{stt_dt},1,4)||'04' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) APR
+                     , SUM(CASE WHEN SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'05' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) MAY
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) =SUBSTR(#{stt_dt},1,4)||'06' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) JUN
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'07' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) JUL
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'08' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) AUG
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'09' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) SEP
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'10' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) OCT
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'11' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) NOV
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'12' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN OAF.ANNUAL_FEE
+                            ELSE '0'
+                       END) DEC
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'01' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) JAN_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'02' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) FEB_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) =SUBSTR(#{stt_dt},1,4)||'03' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) MAR_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'04' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) APR_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'05' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) MAY_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'06' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) JUN_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'07' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) JUL_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'08' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) AUG_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'09' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) SEP_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'10' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) OCT_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'11' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) NOV_NO
+                     , SUM(CASE WHEN  SUBSTR( OAF.REG_DM,1, 6) = SUBSTR(#{stt_dt},1,4)||'12' AND OAF.ACCNT_NO IS NOT NULL
+                            THEN 1
+                            ELSE 0
+                       END) DEC_NO
+                  FROM MEM_PROD_ACCNT ACCNT
+                       INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                       LEFT OUTER JOIN OCB_ANNUAL_FEE OAF ON OAF.ACCNT_NO = ACCNT.ACCNT_NO AND OAF.DEL_FG = 'N'
+                  WHERE 1 = 1
+                   AND ACCNT.DEL_FG = 'N'
+                   AND PROD.PROD_GUBUN IS NOT NULL
+                   AND (SUBSTR(OAF.REG_DM,1,4) <![CDATA[ <= ]]> SUBSTR(#{stt_dt},1,4) OR OAF.REG_DM IS NULL)
+                GROUP BY PROD.PROD_GUBUN
+               ) TBL
+        GROUP BY TBL.ROW_ORDER, TBL.GUBUN1, TBL.PROD_GUBUN
+
+        HAVING (GROUPING(TBL.ROW_ORDER) = 1 AND GROUPING(TBL.GUBUN1) = 1 AND GROUPING(TBL.PROD_GUBUN) = 1)
+               OR
+               (GROUPING(TBL.ROW_ORDER) = 0 AND GROUPING(TBL.GUBUN1) = 0 AND GROUPING(TBL.PROD_GUBUN) = 1 AND GUBUN1 = 'OCB 연회비')
+               OR
+               (GROUPING(TBL.ROW_ORDER) = 0 AND GROUPING(TBL.GUBUN1) = 0 AND GROUPING(TBL.PROD_GUBUN) = 0)
+        ) TBL1
+        ORDER BY TBL1.ROW_ORDER, TBL1.GRP3 DESC, TBL1.GUBUN2
+
+
+
+        </select>
+
+             <!--OCB 발급 파일번환조회 list  -->
+        <select id="DlwMemOcbMap.getocb_rejectList" parameterType="map" resultType="resultMap">
+                        select  /* DlwMemOcbMap.getocb_rejectList*/
+                               ROW_NUMBER () OVER (ORDER BY  OH.ACCNT_NO) SEQ,
+                                  case when OH.STAT  ='00' then '미생성' else '발급' end  stat,'' balgubun  , OH.ACCNT_NO,
+                                  TO_CHAR(OH.OCB_CD)||'_' OCB_CD,
+
+                                  MB.MEM_NM,
+                                  MB.HOME_ZIP ||'_' HOME_ZIP,
+                                  <!-- 상세주소 마스킹작업으로 주소분리함 - 2018.03.23 -->
+                                  <!-- MB.HOME_ADDR ||' '|| MB.HOME_ADDR2  HOME_ADDR , -->
+                                  MB.HOME_ADDR ||' '  HOME_ADDR ,
+                                  MB.HOME_ADDR2 ,
+                                  MB.WRPL_ZIP ,
+                                  MB.WRPL_ADDR,
+                                  MB.WRPL_ADDR2,
+                                  MB.HOME_TEL,
+                                  MB.WRPL_TEL,
+                                  PD.MEMBERSHIP,
+                                  RESORT_NO as  ILNUMBER
+
+                                FROM
+                                 OCB_HIST OH
+                                  LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON OH.ACCNT_NO=MPA.ACCNT_NO
+                                  LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO=MB.MEM_NO
+                                  LEFT OUTER JOIN PRODUCT PD ON MPA.PROD_CD=PD.PROD_CD
+                        WHERE 1=1
+
+                             <if test="accnt_no != null and accnt_no != ''">
+                                 AND MPA.ACCNT_NO = #{accnt_no}
+                               </if>
+                               <if test='ocb_mi == "Y"  '>
+                                 AND stat = '01'
+                               </if>
+                                <if test='ocb_mi == "N"  '>
+                                 AND stat = '00'
+                               </if>
+                               <if test='cbo_ocbgubun   == "Y"'>
+                                     AND   NVL(PD.MEMBERSHIP,' ') not  in ('B999')
+                               </if>
+
+                                 <if test='cbo_ocbgubun   == "N"'>
+                                      AND  NVL(PD.MEMBERSHIP,' ')  in ('B999')
+                               </if>
+                               <if test="cal_stt != null and cal_stt != ''">
+                                 AND to_char(crt_file_dm,'yyyymmdd') = #{cal_stt}
+                               </if>
+
+
+        </select>
+
+
+                <!-- OCB발급SAVE -->
+            <insert id="DlwMemOcbMap.re_ocb_save_start" parameterType="map">
+            <!-- DM sql-id : sql-life.insertMemProdAccntSvc -->
+                INSERT /* DlwMemOcbMap.re_ocb_save_start */
+                  INTO OCB_HIST
+                     ( ACCNT_NO
+                     , OCB_CD
+                     , USE_YN
+                     , REG_DM
+                     , REG_MAN
+                     ,stat
+                     ,CRT_FILE_DM
+                     ,del_crt_file_dm
+                     )
+                SELECT MPA.ACCNT_NO,
+                            (SELECT MIN(OCB_CD)  FROM  OCB_MNG 	WHERE USE_YN='N' AND CARD_CODE=PD.MEMBERSHIP 	GROUP BY CARD_CODE ) CC ,
+                                'Y' ,sysdate,#{REG_MAN} , '00' as stat
+                                    ,'',''
+
+                FROM MEM_PROD_ACCNT  MPA
+                  LEFT OUTER JOIN PRODUCT PD ON MPA.PROD_CD=PD.PROD_CD
+                WHERE MPA.ACCNT_NO=  #{accnt_no}
+
+            </insert>
+
+
+            <insert id="DlwMemOcbMap.ocb_save_start" parameterType="map">
+            <!-- DM sql-id : sql-life.insertMemProdAccntSvc -->
+
+          DECLARE
+            P_CNT  VARCHAR2(50);
+            BEGIN
+
+              INSERT /* DlwMemOcbMap.ocb_save_start */
+                  INTO OCB_HIST
+                     ( ACCNT_NO
+                     , OCB_CD
+                     , USE_YN
+                     , REG_DM
+                     , REG_MAN
+                     ,stat
+                     ,CRT_FILE_DM
+                     ,del_crt_file_dm
+                     )
+                SELECT MPA.ACCNT_NO,
+                            (SELECT NVL(MIN(OCB_CD),' ')  FROM  OCB_MNG  	WHERE USE_YN='N' AND CARD_CODE=P.MEMBERSHIP 	GROUP BY CARD_CODE )  ,
+                               'N'  , sysdate,#{reg_man} , '00' as stat,'',''
+                FROM MEM_PROD_ACCNT  MPA
+                  LEFT OUTER JOIN PRODUCT P ON MPA.PROD_CD=P.PROD_CD
+                WHERE MPA.ACCNT_NO=  #{accnt_no}  ;
+
+                SELECT NVL(OCB_CD,' ') INTO  P_CNT  FROM OCB_HIST WHERE    ACCNT_NO=  #{accnt_no} AND stat ='00' ;
+
+
+
+                if P_CNT > ' '  then
+                     UPDATE /* DlwMemOcbMap.ocb_update_hist */
+                           ocb_mng
+                       SET  USE_YN = 'Y'  						/* 11111구분 */
+                     WHERE    OCB_CD	= P_CNT;
+                 end if ;
+
+                end;
+
+            </insert>
+
+           <insert id="DlwMemOcbMap.ocb_save_start_re" parameterType="map">
+            <!-- DM sql-id : sql-life.insertMemProdAccntSvc -->
+
+          DECLARE
+            P_CNT  VARCHAR2(50);
+            BEGIN
+
+
+            /*기존 OCB_HIST  히스토리  업데이트 사용유무 n   파일삭제일자 */
+
+            update OCB_HIST
+            set  use_yn  ='N' ,
+                 del_crt_file_dm =sysdate
+            where  accnt_no =#{accnt_no} and
+                 use_yn ='Y' and stat ='01'  ;
+
+
+
+
+              INSERT /* DlwMemOcbMap.ocb_save_start */
+                  INTO OCB_HIST
+                     ( ACCNT_NO
+                     , OCB_CD
+                     , USE_YN
+                     , REG_DM
+                     , REG_MAN
+                     ,stat
+                     ,CRT_FILE_DM
+                     ,del_crt_file_dm
+                     )
+                SELECT MPA.ACCNT_NO,
+                            (SELECT NVL(MIN(OCB_CD),' ')  FROM  OCB_MNG  	WHERE USE_YN='N' AND CARD_CODE=P.MEMBERSHIP 	GROUP BY CARD_CODE )  ,
+                               'N'  , sysdate,#{reg_man} , '00' as stat,'',''
+                FROM MEM_PROD_ACCNT  MPA
+                  LEFT OUTER JOIN PRODUCT P ON MPA.PROD_CD=P.PROD_CD
+                WHERE MPA.ACCNT_NO=  #{accnt_no}  ;
+
+                SELECT NVL(OCB_CD,' ') INTO  P_CNT  FROM OCB_HIST WHERE    ACCNT_NO=  #{accnt_no} AND stat ='00'  ;
+
+
+
+                if P_CNT > ' '  then
+                     UPDATE /* DlwMemOcbMap.ocb_update_hist */
+                           ocb_mng
+                       SET  USE_YN = 'Y'  						/* 11111구분 */
+                     WHERE    OCB_CD	= P_CNT;
+                 end if ;
+                end;
+            </insert>
+
+
+
+
+              <!-- OCB_MNG 사용 업데이트   -->
+            <update id="DlwMemOcbMap.ocb_update_hist" parameterType="map">
+                UPDATE /* DlwMemOcbMap.ocb_update_hist */
+                       ocb_mng
+                   SET  USE_YN = 'Y'
+                 WHERE OCB_CD	= #{year_mon}
+            </update>
+
+
+               <!-- ocb생성  -->
+            <update id="DlwMemOcbMap.ocb_update_start" parameterType="map">
+                UPDATE /* DlwMemOcbMap.ocb_update_start */
+                       OCB_HIST
+                   SET  STAT = '01' ,
+                        crt_file_dm =  to_date(#{cal_stt1}) ,
+                        USE_YN ='Y'
+
+                 WHERE   STAT = '00'  AND
+                   DEL_CRT_FILE_DM IS NULL  AND  OCB_CD >' '
+
+            </update>
+
+                <!-- ocb생성  -->
+            <update id="DlwMemOcbMap.ocb_update_start_RE" parameterType="map">
+                UPDATE /* DlwMemOcbMap.ocb_update_start */
+                       OCB_HIST
+                   SET  STAT = '01' ,
+                        crt_file_dm =  to_date(#{cal_stt1}) ,
+                        USE_YN ='Y'
+
+                   WHERE   STAT = '00'  AND
+                   DEL_CRT_FILE_DM IS NULL  AND  OCB_CD  IS NULL
+            </update>
+
+                     <!-- ocb포인트 결과처리  -->
+            <update id="DlwMemOcbMap.ocb_point_update_start" parameterType="map">
+                UPDATE /* DlwMemOcbMap.ocb_point_update_start */
+                       OCB_POINT
+                   SET  stat   = #{stat} ,
+                        UPD_DM = SYSDATE,
+                        UPD_MAN = #{upd_man}
+
+                   WHERE  CALC_DM =  #{calc_dm}    AND
+                          ACCNT_NO = #{accnt_no}   AND
+                          NO       = #{no}
+            </update>
+
+
+      <select id="DlwMemOcbMap.getOcbPointCount" parameterType="map" resultType="int">
+                  SELECT /*DlwMemOcbMap.getOcbPointCount*/
+                                 COUNT(*)
+                  FROM OCB_POINT  OP
+                       LEFT OUTER JOIN DM_CON.OCB_HIST  OH ON  OP.ACCNT_NO = OH.ACCNT_NO AND OH.USE_YN ='Y'
+                       LEFT OUTER JOIN DM_CON.MEM_PROD_ACCNT MPA ON OP.ACCNT_NO=MPA.ACCNT_NO
+                       LEFT OUTER JOIN DM_CON.MEMBER MB ON MPA.MEM_NO =MB.MEM_NO
+                       LEFT OUTER JOIN DM_CON.PRODUCT PD ON MPA.PROD_CD=PD.PROD_CD
+    <![CDATA[	  WHERE SUBSTR(OP.CALC_DM,0,6) >=  SUBSTR(#{stt_dt},0,6)
+                        AND SUBSTR(OP.CALC_DM,0,6) <= SUBSTR(#{end_dt},0,6)
+                        AND NO <45 AND NO>40 		]]>
+             <if test="mem_no != null and mem_no != ''">
+                AND MPA.MEM_NO = #{mem_no}
+             </if>
+
+
+
+         <!--
+          SELECT /*DlwMemOcbMap.getOcbPointCount*/
+                         COUNT(*)
+                FROM OCB_POINT  OP
+                     LEFT OUTER JOIN OCB_HIST  OH ON  OP.ACCNT_NO = OH.ACCNT_NO AND OH.USE_YN ='Y'
+                     LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON OP.ACCNT_NO=MPA.ACCNT_NO
+                     LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO =MB.MEM_NO
+                     LEFT OUTER JOIN PRODUCT PD ON MPA.PROD_CD=PD.PROD_CD
+    <![CDATA[	WHERE SUBSTR(OP.CALC_DM,0,6) >=  SUBSTR(#{stt_dt},0,6)
+                AND SUBSTR(OP.CALC_DM,0,6) <= SUBSTR(#{end_dt},0,6)
+                AND NO <45 AND NO>40	]]>
+           AND OH.OCB_CD <>''
+             <if test="mem_no != null and mem_no != ''">
+                AND MPA.MEM_NO = #{mem_no}
+             </if>
+ -->
+
+      </select>
+
+
+  <select id="DlwMemOcbMap.getsrchOcbPointList" parameterType="map" resultType="resultMap">
+      SELECT *
+      FROM
+      (
+      SELECT
+            ROW_NUMBER () OVER (ORDER BY  ACCNT_NO)  SEQ,
+            MEM_NO,
+            MEM_NM,
+            ACCNT_NO,
+            OCB_POINT_GUBN,
+            ROUND(((NVL(PAY_AMT,0) + NVL(REL_AMT,0)) * OCB_FEE) / 100 ,0) AS POINTFEE,
+            (NVL(PAY_AMT,0) + NVL(REL_AMT,0)) AS PAY_AMT,
+            ROUND(((NVL(PAY_AMT,0) + NVL(REL_AMT,0)) * OCB_POINT) / 100,0) AS TOTAL_POINT,
+            BRTH_MON_DAY,
+            SEX,
+            PROD_NM,
+            KSTBIT
+        FROM
+        (
+            SELECT
+                MB.MEM_NO,
+                MB.MEM_NM,
+                PM.ACCNT_NO,
+                '01' AS OCB_POINT_GUBN,
+                MB.BRTH_MON_DAY,
+                MB.SEX,
+                PD.PROD_NM,
+                MPA.KSTBIT,
+                PM.NO,
+                '01' AS STAT,
+                '201705' AS CALC_DM,
+                (
+                   CASE WHEN PM.NO = (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) THEN  (PM.PAY_AMT * 4)
+                   ELSE PM.PAY_AMT
+                   END
+                   ) AS PAY_AMT,
+                   (
+                   CASE WHEN PM.NO = (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) THEN
+                           ((SELECT PAY_AMT FROM PAY_MNG_DTL WHERE ACCNT_NO = PM.ACCNT_NO AND NO = PM.NO AND DEL_FG = 'N') * 4)
+                   ELSE ((SELECT PAY_AMT FROM PAY_MNG_DTL WHERE ACCNT_NO = PM.ACCNT_NO AND NO = PM.NO AND DEL_FG = 'N'))
+                   END
+                ) AS REL_AMT,
+                '20170520' AS REG_DM,
+                '2012060331' AS REG_MAN,
+                '20170520' AS UPD_DM,
+                '2012060331' AS UPD_MAN,
+                'N' AS DEL_FG,
+                (SELECT OCB_POINT
+                FROM OCB_CARD_CODE_MNG
+                WHERE CARD_CODE = PD.MEMBERSHIP
+                AND APP_DT IN
+                (SELECT MAX(APP_DT) FROM OCB_CARD_CODE_MNG
+                <![CDATA[
+                    WHERE APP_DT < MPA.JOIN_DT AND  CARD_CODE = PD.MEMBERSHIP)) AS OCB_POINT,
+                ]]>
+
+                (SELECT OCB_FEE
+                FROM OCB_CARD_CODE_MNG
+                WHERE CARD_CODE = PD.MEMBERSHIP
+                AND APP_DT IN
+                (SELECT MAX(APP_DT) FROM OCB_CARD_CODE_MNG
+                <![CDATA[
+                WHERE APP_DT < MPA.JOIN_DT AND  CARD_CODE = PD.MEMBERSHIP)) AS OCB_FEE,
+                ]]>
+
+                (SELECT MAX(OCB_CD) AS OCB_CD FROM OCB_HIST WHERE ACCNT_NO = MPA.ACCNT_NO AND USE_YN = 'Y') AS OCB_CD
+
+            FROM PAY_MNG  PM INNER JOIN
+                MEM_PROD_ACCNT MPA ON PM.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+
+              WHERE PAY_DAY BETWEEN SUBSTR(#{stt_dt},1,6) ||'01' AND TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+            <![CDATA[
+                AND PM.NO > 3
+            ]]>
+            AND PM.DEL_FG = 'N'
+            AND NVL(MPA.OCB_POINT_YN,'Y') = 'Y'
+            AND NVL(MPA.OCB_REG_YN ,'Y') = 'Y'
+            AND LENGTH(NVL(MB.IDN_NO, ' ')) != 10
+            <if test="accnt_no != null and accnt_no != ''">
+                    AND MPA.ACCNT_NO = #{accnt_no}
+            </if>
+            AND MPA.PROD_CD IN
+            (
+                SELECT
+                    B.PROD_CD
+                FROM OCB_CARD_CODE_MNG A INNER JOIN
+                    PRODUCT B ON A.CARD_CODE = B.MEMBERSHIP AND B.DEL_FG = 'N'
+                WHERE A.CARD_CODE != 'B999'
+
+            )
+            /*
+                AND MPA.ACCNT_NO NOT IN
+                (
+                    SELECT ACCNT_NO
+                    FROM OCB_POINT
+                    WHERE CALC_DM BETWEEN '20170501' AND '20170531'
+                )
+            */
+        )
+        WHERE 1=1
+        AND NVL(OCB_CD,' ') != ' '
+    )
+
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+             <![CDATA[
+                WHERE SEQ >= #{startLine}
+                  AND SEQ < #{endLine}
+            ]]>
+        </if>
+        ORDER BY ACCNT_NO
+
+    <!--
+  SELECT /* DlwMemOcbMap.getsrchOcbPointList */
+               *
+          FROM (
+
+select             ROW_NUMBER () OVER (ORDER BY  b.ACCNT_NO)  SEQ
+                   ,b.mem_no MEM_NO
+                  ,b.mem_nm MEM_NM
+                  ,b.accnt_no  ACCNT_NO
+                  ,b.ocb_point_gubn  OCB_POINT_GUBN
+                ,sum(cast(b.pay_amt*b.OCB_FEE/100 as int)) POINTFEE
+                  ,sum(cast(b.pay_amt as int)) as PAY_AMT
+                  ,sum(cast(b.total_point as int)) as TOTAL_POINT
+                  ,b.ci_val  CI_VAL
+                  ,b.idn_no  IDN_NO
+                  ,b.BRTH_MON_DAY
+                  ,b.sex  SEX
+                   ,b.prod_nm PROD_NM
+                   ,b.kstbit KSTBIT
+          from
+
+            (select
+                              a.MEM_NO
+                              , a.ACCNT_NO
+                              , a.NO
+                              , a.OCB_POINT_GUBN
+                              , a.MEM_NM
+                              , a.idn_no
+                              , a.PROD_NM
+                              , sum(a.pay_amt) as PAY_AMT
+                              , sum(a.base_point) as BASE_POINT
+                              , sum(a.event_point) as EVENT_POINT
+                              , sum(a.expr_point) as EXPR_POINT
+                              , sum(a.six_point) as SINX_POINT
+                                , sum(a.six_tatal_point) as   SIX_TATAL_POINT
+                              , sum(a.one_point) as ONE_POINT
+                              , sum(a.base_point) + sum(a.event_point) + sum(a.expr_point) + sum(a.six_point) + sum(a.six_tatal_point) + sum(a.one_point) as TOTAL_POINT
+                              , a.USE_YN
+                              , a.OCB_GUBN
+                                , a.PAY_DAY
+                                , a.JOIN_CL
+                                , a.PROD_CL
+                                , a.CI_VAL
+                                , a.BRTH_MON_DAY
+                                , a.OCB_FEE
+                                , a.SEX
+                                ,a.kstbit
+                            from
+
+                    ( select
+                              a.accnt_no
+                              , (select mem_no from lf_dmuser.member where mem_no = b.MEM_NO and del_fg = 'N') as mem_no
+                              , a.no
+                              , c.prod_nm
+                              , NVL(case when op.stat = '01' then '생성'
+                                              when op.stat = '03' then '오류'
+                                              else '미생성 '
+                                        end,'') as ocb_point_gubn
+                              , a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end) PAY_AMT
+                              , mbr.mem_nm
+                              ,  mbr.IDN_NO idn_no
+                              , mbr.ci_val
+                              , NVL(occm.OCB_POINT, 0) prod_save_point
+                              , (a.PAY_AMT * NVL(occm.OCB_POINT, 0))/100 as point
+
+                             , NVL(case
+                                      when a.no > 3 and c.expr_no != 12
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL(occm.OCB_POINT, 0)/100)
+                                    end,0) as base_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.EXPR_NO != 1
+                                           and (select event_proc_day from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                                between SUBSTR(#{stt_dt},1,6) ||'01'  and (case
+                                                                            when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                            else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                          end)
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as event_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.expr_no != 1
+                                           and a.ACCNT_NO !=
+                                               (select accnt_no from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                           and c.EXPR_NO - b.NEW_CHAN_GUNSU =
+                                               (select MAX(no) from lf_dmuser.pay_mng where accnt_no = a.ACCNT_NO and del_fg = 'N' )
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as expr_point
+                              , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL(occm.OCB_POINT, 0)/100)
+                                  end,0) as six_point
+                                , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no > 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as six_tatal_point
+                              , NVL(case
+                                      when c.expr_no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as one_point
+                              , oh.USE_YN
+                              , b.ocb_gubn
+                                , a.PAY_DAY
+                                , b.join_cl
+                                , c.prod_cl
+                                , lf_dmuser.fn_event(b.accnt_no) evt_nm
+                                , mbr.BRTH_MON_DAY  BRTH_MON_DAY
+                                , NVL(occm.OCB_FEE, 0) OCB_FEE
+                                , lf_dmuser.FN_COM_NM('0123', mbr.SEX) SEX
+                                , b.kstbit
+
+                            from lf_dmuser.pay_mng a
+                                 inner join lf_dmuser.mem_prod_accnt b on a.ACCNT_NO = b.ACCNT_NO and b.DEL_FG = 'N'
+                                 inner join lf_dmuser.member mbr on b.mem_no = mbr.mem_no
+                                 inner join lf_dmuser.product c on b.PROD_CD = c.PROD_CD and c.DEL_FG = 'N'
+                                 left outer join (
+                                       select SEQ
+                                         , CARD_CODE
+                                         , APP_DT
+                                         , NVL((SELECT  TO_CHAR(TO_DATE(MIN(APP_DT))-1,'YYYYMMDD') APP_DT
+                                           FROM lf_dmuser.OCB_CARD_CODE_MNG
+                                          WHERE CARD_CODE = TMP.CARD_CODE
+                                            AND DEL_FG = 'N'
+                                            AND APP_DT > TMP.APP_DT
+                                        ), '99991231') NEXT_APP_DT
+                                           , OCB_POINT
+                                           , OCB_FEE
+                                           , OCB_ANNUAL_FEE
+                                        from lf_dmuser.OCB_CARD_CODE_MNG TMP
+                                       where del_fg = 'N'
+                                   ) occm on c.MEMBERSHIP = occm.CARD_CODE
+                                 left outer join lf_dmuser.OCB_HIST oh on a.ACCNT_NO = oh.ACCNT_NO and oh.USE_YN = 'Y' and oh.stat = '01'
+                                 left outer join lf_dmuser.OCB_POINT op on a.accnt_no = op.accnt_no and a.no = op.no and op.del_fg = 'N' and op.stat = '01'
+
+
+
+                            where 1=1
+                      and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+
+
+                            and (op.accnt_no is null or op.stat = '03')
+                            and NVL(b.ocb_point_yn, 'Y') = 'Y'
+                            and c.prod_cd != '54'
+                            AND b.JOIN_DT BETWEEN occm.APP_DT  and occm.NEXT_APP_DT
+                            and a.del_fg = 'N'
+                            and length(NVL(mbr.IDN_NO, ' ')) != 10
+                            and (b.ocb_gubn = '00' or oh.ACCNT_NO is not null)
+                            and NVL(b.ocb_gubn, '01') != '00'
+                                  AND op.stat is null
+
+                            )  a
+                            where a.evt_nm != '청약철회'
+                            group by a.mem_no, a.mem_nm, a.idn_no, a.ocb_point_gubn, a.no, a.accnt_no, a.prod_nm, a.USE_YN, a.ocb_gubn, a.PAY_DAY, a.join_cl, a.idn_no, a.mem_nm, a.ci_val, a.prod_cl, a.BRTH_MON_DAY, a.OCB_FEE, a.sex,a.kstbit
+                    )  b
+                    where b.total_point != 0
+                      and length(NVL(b.idn_no, ' ')) != 10
+                      and TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4)) -
+                          TO_NUMBER(SUBSTR(b.BRTH_MON_DAY,1,4)) -
+                         TO_NUMBER(
+                          CASE
+                             WHEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),-4) > SUBSTR(b.BRTH_MON_DAY,-4) THEN 0
+                             ELSE 1
+                          END) >= 14
+
+
+                    group by b.mem_no
+                              ,b.mem_nm
+                              ,b.accnt_no
+                              ,b.ci_val
+                              ,b.ocb_point_gubn
+                              ,b.idn_no
+                              ,b.brth_mon_day
+                              ,b.sex
+                               ,b.prod_nm
+                                ,b.kstbit
+                    order by b.mem_nm
+                ) X
+                  <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                     <![CDATA[
+                     WHERE SEQ >= #{startLine}
+                       AND SEQ < #{endLine}
+                     ]]>
+                 </if>
+
+             -->
+   </select>
+
+
+
+   <select id="DlwMemOcbMap.getsrchOcbPointcount" parameterType="map" resultType="int">
+           SELECT
+            COUNT(ACCNT_NO)
+        FROM
+        (
+            SELECT
+                ROW_NUMBER () OVER (ORDER BY  PM.ACCNT_NO)  SEQ,
+                MB.MEM_NO,
+                MB.MEM_NM,
+                PM.ACCNT_NO,
+                '01' AS OCB_POINT_GUBN,
+                MB.BRTH_MON_DAY,
+                MB.SEX,
+                PD.PROD_NM,
+                MPA.KSTBIT,
+                PM.NO,
+                '01' AS STAT,
+                '201705' AS CALC_DM,
+                PM.PAY_AMT,
+                (SELECT PAY_AMT FROM PAY_MNG_DTL WHERE ACCNT_NO = PM.ACCNT_NO AND NO = PM.NO AND DEL_FG = 'N') AS REL_AMT,
+                '20170520' AS REG_DM,
+                '2012060331' AS REG_MAN,
+                '20170520' AS UPD_DM,
+                '2012060331' AS UPD_MAN,
+                'N' AS DEL_FG,
+                (SELECT OCB_POINT
+                FROM OCB_CARD_CODE_MNG
+                WHERE CARD_CODE = PD.MEMBERSHIP
+                AND APP_DT IN
+                (SELECT MAX(APP_DT) FROM OCB_CARD_CODE_MNG
+                WHERE APP_DT <![CDATA[ < ]]> MPA.JOIN_DT AND  CARD_CODE = PD.MEMBERSHIP)) AS OCB_POINT,
+
+                (SELECT OCB_FEE
+                FROM OCB_CARD_CODE_MNG
+                WHERE CARD_CODE = PD.MEMBERSHIP
+                AND APP_DT IN
+                (SELECT MAX(APP_DT) FROM OCB_CARD_CODE_MNG
+                WHERE APP_DT <![CDATA[ < ]]> MPA.JOIN_DT AND  CARD_CODE = PD.MEMBERSHIP)) AS OCB_FEE,
+
+                (SELECT MAX(OCB_CD) AS OCB_CD FROM OCB_HIST WHERE ACCNT_NO = MPA.ACCNT_NO AND USE_YN = 'Y') AS OCB_CD
+
+            FROM PAY_MNG  PM INNER JOIN
+                MEM_PROD_ACCNT MPA ON PM.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+
+            WHERE PAY_DAY BETWEEN SUBSTR(#{stt_dt},1,6) ||'01' AND TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+
+            AND PM.NO > 3
+            AND PM.DEL_FG = 'N'
+            AND NVL(MPA.OCB_POINT_YN,'Y') = 'Y'
+            AND NVL(MPA.OCB_REG_YN ,'Y') = 'Y'
+            AND LENGTH(NVL(MB.IDN_NO, ' ')) != 10
+            --AND PM.ACCNT_NO = '201101000008'
+            AND MPA.PROD_CD IN
+            (
+                SELECT
+                    B.PROD_CD
+                FROM OCB_CARD_CODE_MNG A INNER JOIN
+                    PRODUCT B ON A.CARD_CODE = B.MEMBERSHIP AND B.DEL_FG = 'N'
+                WHERE A.CARD_CODE != 'B999'
+
+            )
+            /*
+                AND MPA.ACCNT_NO NOT IN
+                (
+                    SELECT ACCNT_NO
+                    FROM OCB_POINT
+                    WHERE CALC_DM BETWEEN '20170501' AND '20170531'
+                )
+            */
+        )
+        WHERE NVL(OCB_CD,' ') != ' '
+
+
+
+
+   <!--
+ SELECT /* DlwMemOcbMap.getsrchOcbPointcount */
+             count(*)
+          FROM (
+
+select             ROW_NUMBER () OVER (ORDER BY  b.ACCNT_NO)  SEQ
+                   ,b.mem_no MEM_NO
+                  ,b.mem_nm MEM_NM
+                  ,b.accnt_no  ACCNT_NO
+                  ,b.ocb_point_gubn  OCB_POINT_GUBN
+                ,sum(cast(b.pay_amt*b.OCB_FEE/100 as int)) POINTFEE
+                  ,sum(cast(b.pay_amt as int)) as PAY_AMT
+                  ,sum(cast(b.total_point as int)) as TOTAL_POINT
+                  ,b.ci_val  CI_VAL
+                  ,b.idn_no  IDN_NO
+                  ,b.BRTH_MON_DAY
+                  ,b.sex  SEX
+                   ,b.prod_nm PROD_NM
+                   ,b.kstbit KSTBIT
+          from
+
+            (select
+                              a.MEM_NO
+                              , a.ACCNT_NO
+                              , a.NO
+                              , a.OCB_POINT_GUBN
+                              , a.MEM_NM
+                              , a.idn_no
+                              , a.PROD_NM
+                              , sum(a.pay_amt) as PAY_AMT
+                              , sum(a.base_point) as BASE_POINT
+                              , sum(a.event_point) as EVENT_POINT
+                              , sum(a.expr_point) as EXPR_POINT
+                              , sum(a.six_point) as SINX_POINT
+                                , sum(a.six_tatal_point) as   SIX_TATAL_POINT
+                              , sum(a.one_point) as ONE_POINT
+                              , sum(a.base_point) + sum(a.event_point) + sum(a.expr_point) + sum(a.six_point) + sum(a.six_tatal_point) + sum(a.one_point) as TOTAL_POINT
+                              , a.USE_YN
+                              , a.OCB_GUBN
+                                , a.PAY_DAY
+                                , a.JOIN_CL
+                                , a.PROD_CL
+                                , a.CI_VAL
+                                , a.BRTH_MON_DAY
+                                , a.OCB_FEE
+                                , a.SEX
+                                ,a.kstbit
+                            from
+
+                    ( select
+                              a.accnt_no
+                              , (select mem_no from lf_dmuser.member where mem_no = b.MEM_NO and del_fg = 'N') as mem_no
+                              , a.no
+                              , c.prod_nm
+                              , NVL(case when op.stat = '01' then '생성'
+                                              when op.stat = '03' then '오류'
+                                              else '미생성 '
+                                        end,'') as ocb_point_gubn
+                              , a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end) PAY_AMT
+                              , mbr.mem_nm
+                              ,  mbr.IDN_NO idn_no
+                              , mbr.ci_val
+                              , NVL(occm.OCB_POINT, 0) prod_save_point
+                              , (a.PAY_AMT * NVL(occm.OCB_POINT, 0))/100 as point
+
+                             , NVL(case
+                                      when a.no > 3 and c.expr_no != 12
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL(occm.OCB_POINT, 0)/100)
+                                    end,0) as base_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.EXPR_NO != 1
+                                           and (select event_proc_day from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                                between SUBSTR(#{stt_dt},1,6) ||'01'  and (case
+                                                                            when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                            else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                          end)
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as event_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.expr_no != 1
+                                           and a.ACCNT_NO !=
+                                               (select accnt_no from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                           and c.EXPR_NO - b.NEW_CHAN_GUNSU =
+                                               (select MAX(no) from lf_dmuser.pay_mng where accnt_no = a.ACCNT_NO and del_fg = 'N' )
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as expr_point
+                              , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL(occm.OCB_POINT, 0)/100)
+                                  end,0) as six_point
+                                , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no > 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as six_tatal_point
+                              , NVL(case
+                                      when c.expr_no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as one_point
+                              , oh.USE_YN
+                              , b.ocb_gubn
+                                , a.PAY_DAY
+                                , b.join_cl
+                                , c.prod_cl
+                                , lf_dmuser.fn_event(b.accnt_no) evt_nm
+                                , mbr.BRTH_MON_DAY  BRTH_MON_DAY
+                                , NVL(occm.OCB_FEE, 0) OCB_FEE
+                                , lf_dmuser.FN_COM_NM('0123', mbr.SEX) SEX
+                                , b.kstbit
+
+                            from lf_dmuser.pay_mng a
+                                 inner join lf_dmuser.mem_prod_accnt b on a.ACCNT_NO = b.ACCNT_NO and b.DEL_FG = 'N'
+                                 inner join lf_dmuser.member mbr on b.mem_no = mbr.mem_no
+                                 inner join lf_dmuser.product c on b.PROD_CD = c.PROD_CD and c.DEL_FG = 'N'
+                                 left outer join (
+                                       select SEQ
+                                         , CARD_CODE
+                                         , APP_DT
+                                         , NVL((SELECT  TO_CHAR(TO_DATE(MIN(APP_DT))-1,'YYYYMMDD') APP_DT
+                                           FROM lf_dmuser.OCB_CARD_CODE_MNG
+                                          WHERE CARD_CODE = TMP.CARD_CODE
+                                            AND DEL_FG = 'N'
+                                            AND APP_DT > TMP.APP_DT
+                                        ), '99991231') NEXT_APP_DT
+                                           , OCB_POINT
+                                           , OCB_FEE
+                                           , OCB_ANNUAL_FEE
+                                        from lf_dmuser.OCB_CARD_CODE_MNG TMP
+                                       where del_fg = 'N'
+                                   ) occm on c.MEMBERSHIP = occm.CARD_CODE
+                                 left outer join lf_dmuser.OCB_HIST oh on a.ACCNT_NO = oh.ACCNT_NO and oh.USE_YN = 'Y' and oh.stat = '01'
+                                 left outer join lf_dmuser.OCB_POINT op on a.accnt_no = op.accnt_no and a.no = op.no and op.del_fg = 'N' and op.stat = '01'
+
+
+
+                            where 1=1
+                      and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+
+
+                            and (op.accnt_no is null or op.stat = '03')
+                            and NVL(b.ocb_point_yn, 'Y') = 'Y'
+                            and c.prod_cd != '54'
+                            AND b.JOIN_DT BETWEEN occm.APP_DT  and occm.NEXT_APP_DT
+                            and a.del_fg = 'N'
+                            and length(NVL(mbr.IDN_NO, ' ')) != 10
+                            and (b.ocb_gubn = '00' or oh.ACCNT_NO is not null)
+                            and NVL(b.ocb_gubn, '01') != '00'
+                                  AND op.stat is null
+
+                            )  a
+                            where a.evt_nm != '청약철회'
+                            group by a.mem_no, a.mem_nm, a.idn_no, a.ocb_point_gubn, a.no, a.accnt_no, a.prod_nm, a.USE_YN, a.ocb_gubn, a.PAY_DAY, a.join_cl, a.idn_no, a.mem_nm, a.ci_val, a.prod_cl, a.BRTH_MON_DAY, a.OCB_FEE, a.sex,a.kstbit
+                    )  b
+                    where b.total_point != 0
+                      and length(NVL(b.idn_no, ' ')) != 10
+                      and TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4)) -
+                          TO_NUMBER(SUBSTR(b.BRTH_MON_DAY,1,4)) -
+                         TO_NUMBER(
+                          CASE
+                             WHEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),-4) > SUBSTR(b.BRTH_MON_DAY,-4) THEN 0
+                             ELSE 1
+                          END) >= 14
+
+
+                    group by b.mem_no
+                              ,b.mem_nm
+                              ,b.accnt_no
+                              ,b.ci_val
+                              ,b.ocb_point_gubn
+                              ,b.idn_no
+                              ,b.brth_mon_day
+                              ,b.sex
+                               ,b.prod_nm
+                                ,b.kstbit
+                    order by b.mem_nm
+                ) X
+
+                 -->
+   </select>
+
+   <select id="DlwMemOcbMap.getsrchOcbPointList_cnt" parameterType="map" resultType="INT">
+
+         select  /* DlwMemOcbMap.getsrchOcbPointList_cnt */
+              count(*) CNT
+          from
+            (select
+                              a.MEM_NO
+                              , a.ACCNT_NO
+                              , a.NO
+                              , a.OCB_POINT_GUBN
+                              , a.MEM_NM
+                              , a.idn_no
+                              , a.PROD_NM
+                              , sum(a.pay_amt) as PAY_AMT
+                              , sum(a.base_point) as BASE_POINT
+                              , sum(a.event_point) as EVENT_POINT
+                              , sum(a.expr_point) as EXPR_POINT
+                              , sum(a.six_point) as SINX_POINT
+                                , sum(a.six_tatal_point) as   SIX_TATAL_POINT
+                              , sum(a.one_point) as ONE_POINT
+                              , sum(a.base_point) + sum(a.event_point) + sum(a.expr_point) + sum(a.six_point) + sum(a.six_tatal_point) + sum(a.one_point) as TOTAL_POINT
+                              , a.USE_YN
+                              , a.OCB_GUBN
+                                , a.PAY_DAY
+                                , a.JOIN_CL
+                                , a.PROD_CL
+                                , a.CI_VAL
+                                , a.BRTH_MON_DAY
+                                , a.OCB_FEE
+                                , a.SEX
+                                ,a.kstbit
+                            from
+
+                    ( select
+                              a.accnt_no
+                              , (select mem_no from lf_dmuser.member where mem_no = b.MEM_NO and del_fg = 'N') as mem_no
+                              , a.no
+                              , c.prod_nm
+                              , NVL(case when op.stat = '01' then '생성'
+                                              when op.stat = '03' then '오류'
+                                              else '미생성 '
+                                        end,'') as ocb_point_gubn
+                              , a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end) PAY_AMT
+                              , mbr.mem_nm
+                              ,  mbr.IDN_NO idn_no
+                              , mbr.ci_val
+                              , NVL(occm.OCB_POINT, 0) prod_save_point
+                              , (a.PAY_AMT * NVL(occm.OCB_POINT, 0))/100 as point
+
+                             , NVL(case
+                                      when a.no > 3 and c.expr_no != 12
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL(occm.OCB_POINT, 0)/100)
+                                    end,0) as base_point   --- 기본 포인트 산출
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.EXPR_NO != 1
+                                           and (select event_proc_day from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                                between SUBSTR(#{stt_dt},1,6) ||'01'  and (case
+                                                                            when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                            else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                          end)
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as event_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.expr_no != 1
+                                           and a.ACCNT_NO !=
+                                               (select accnt_no from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                           and c.EXPR_NO - b.NEW_CHAN_GUNSU =
+                                               (select MAX(no) from lf_dmuser.pay_mng where accnt_no = a.ACCNT_NO and del_fg = 'N' )
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as expr_point
+                              , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL(occm.OCB_POINT, 0)/100)
+                                  end,0) as six_point
+                                , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no > 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as six_tatal_point
+                              , NVL(case
+                                      when c.expr_no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as one_point
+                              , oh.USE_YN
+                              , b.ocb_gubn
+                                , a.PAY_DAY
+                                , b.join_cl
+                                , c.prod_cl
+                                , lf_dmuser.fn_event(b.accnt_no) evt_nm
+                                , mbr.BRTH_MON_DAY  BRTH_MON_DAY
+                                , NVL(occm.OCB_FEE, 0) OCB_FEE
+                                , lf_dmuser.FN_COM_NM('0123', mbr.SEX) SEX
+                                , b.kstbit
+
+                            from lf_dmuser.pay_mng a
+                                 inner join lf_dmuser.mem_prod_accnt b on a.ACCNT_NO = b.ACCNT_NO and b.DEL_FG = 'N'
+                                 inner join lf_dmuser.member mbr on b.mem_no = mbr.mem_no
+                                 inner join lf_dmuser.product c on b.PROD_CD = c.PROD_CD and c.DEL_FG = 'N'
+                                 left outer join (
+                                       select SEQ
+                                         , CARD_CODE
+                                         , APP_DT
+                                         , NVL((SELECT  TO_CHAR(TO_DATE(MIN(APP_DT))-1,'YYYYMMDD') APP_DT
+                                           FROM lf_dmuser.OCB_CARD_CODE_MNG
+                                          WHERE CARD_CODE = TMP.CARD_CODE
+                                            AND DEL_FG = 'N'
+                                            AND APP_DT > TMP.APP_DT
+                                        ), '99991231') NEXT_APP_DT
+                                           , OCB_POINT
+                                           , OCB_FEE
+                                           , OCB_ANNUAL_FEE
+                                        from lf_dmuser.OCB_CARD_CODE_MNG TMP
+                                       where del_fg = 'N'
+                                   ) occm on c.MEMBERSHIP = occm.CARD_CODE
+                                 left outer join lf_dmuser.OCB_HIST oh on a.ACCNT_NO = oh.ACCNT_NO and oh.USE_YN = 'Y' and oh.stat = '01'
+                                 left outer join lf_dmuser.OCB_POINT op on a.accnt_no = op.accnt_no and a.no = op.no and op.del_fg = 'N' and op.stat = '01'
+
+
+
+                            where 1=1
+                      and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+
+
+                            and (op.accnt_no is null or op.stat = '03')
+                            and NVL(b.ocb_point_yn, 'Y') = 'Y'
+                            and c.prod_cd != '54'
+                            AND b.JOIN_DT BETWEEN occm.APP_DT  and occm.NEXT_APP_DT
+                            and a.del_fg = 'N'
+                            and length(NVL(mbr.IDN_NO, ' ')) != 10
+                            and (b.ocb_gubn = '00' or oh.ACCNT_NO is not null)
+                            and NVL(b.ocb_gubn, '01') != '00'
+                                  AND op.stat is null
+
+                            )  a
+                            where a.evt_nm != '청약철회'
+                            group by a.mem_no, a.mem_nm, a.idn_no, a.ocb_point_gubn, a.no, a.accnt_no, a.prod_nm, a.USE_YN, a.ocb_gubn, a.PAY_DAY, a.join_cl, a.idn_no, a.mem_nm, a.ci_val, a.prod_cl, a.BRTH_MON_DAY, a.OCB_FEE, a.sex,a.kstbit
+                    )  b
+                    where b.total_point != 0
+                      and length(NVL(b.idn_no, ' ')) != 10
+                      and TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4)) -
+                          TO_NUMBER(SUBSTR(b.BRTH_MON_DAY,1,4)) -
+                         TO_NUMBER(
+                          CASE
+                             WHEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),-4) > SUBSTR(b.BRTH_MON_DAY,-4) THEN 0
+                             ELSE 1
+                          END) >= 14
+
+                           order by b.mem_nm, b.no
+
+
+        </select>
+
+
+    <select id="DlwMemOcbMap.getsrchOcbPointList_no" parameterType="map" resultType="resultMap">
+
+         select   /* DlwMemOcbMap.getsrchOcbPointList_no */
+                  b.accnt_no accnt_no
+                  ,b.no   no
+                  ,'01'   stat
+                  ,sysdate  calc_dm
+                  ,cast(b.total_point as int) as ocb_point
+                  ,cast(b.pay_amt*b.OCB_FEE/100 as int) ocb_fee
+                  ,b.pay_amt
+                  ,b.brth_mon_day
+                  ,b.mem_nm
+                  ,b.mem_no
+                  ,b.kstbit
+                  ,b.prod_nm
+          from
+            (select
+                              a.MEM_NO
+                              , a.ACCNT_NO
+                              , a.NO
+                              , a.OCB_POINT_GUBN
+                              , a.MEM_NM
+                              , a.idn_no
+                              , a.PROD_NM
+                              , sum(a.pay_amt) as PAY_AMT
+                              , sum(a.base_point) as BASE_POINT
+                              , sum(a.event_point) as EVENT_POINT
+                              , sum(a.expr_point) as EXPR_POINT
+                              , sum(a.six_point) as SINX_POINT
+                                , sum(a.six_tatal_point) as   SIX_TATAL_POINT
+                              , sum(a.one_point) as ONE_POINT
+                              , sum(a.base_point) + sum(a.event_point) + sum(a.expr_point) + sum(a.six_point) + sum(a.six_tatal_point) + sum(a.one_point) as TOTAL_POINT
+                              , a.USE_YN
+                              , a.OCB_GUBN
+                                , a.PAY_DAY
+                                , a.JOIN_CL
+                                , a.PROD_CL
+                                , a.CI_VAL
+                                , a.BRTH_MON_DAY
+                                , a.OCB_FEE
+                                , a.SEX
+                                ,a.kstbit
+                            from
+
+                    ( select
+                              a.accnt_no
+                              , (select mem_no from lf_dmuser.member where mem_no = b.MEM_NO and del_fg = 'N') as mem_no
+                              , a.no
+                              , c.prod_nm
+                              , NVL(case when op.stat = '01' then '생성'
+                                              when op.stat = '03' then '오류'
+                                              else '미생성 '
+                                        end,'') as ocb_point_gubn
+                              , a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end) PAY_AMT
+                              , mbr.mem_nm
+                              ,  mbr.IDN_NO idn_no
+                              , mbr.ci_val
+                              , NVL(occm.OCB_POINT, 0) prod_save_point
+                              , (a.PAY_AMT * NVL(occm.OCB_POINT, 0))/100 as point
+
+                             , NVL(case
+                                      when a.no > 3 and c.expr_no != 12
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL(occm.OCB_POINT, 0)/100)
+                                    end,0) as base_point   --- 기본 포인트 산출
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.EXPR_NO != 1
+                                           and (select event_proc_day from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                                between SUBSTR(#{stt_dt},1,6) ||'01'  and (case
+                                                                            when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                            else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                          end)
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as event_point
+                              , NVL(case
+                                      when c.expr_no != 12
+                                           and c.expr_no != 1
+                                           and a.ACCNT_NO !=
+                                               (select accnt_no from lf_dmuser.event where accnt_no = a.ACCNT_NO and del_fg = 'N')
+                                           and c.EXPR_NO - b.NEW_CHAN_GUNSU =
+                                               (select MAX(no) from lf_dmuser.pay_mng where accnt_no = a.ACCNT_NO and del_fg = 'N' )
+                                           and a.no between 1 and 3
+                                      then (((case when c.prod_cl = '03'
+                                                                then (select pd.MONTH_PAY_AMT + pd.ALLT_AMT
+                                                                       from lf_dmuser.PRODUCT p
+                                                                            inner join lf_dmuser.PRODUCT_DTL pd on p.PROD_CD = pd.PROD_CD
+                                                                      where p.PROD_CD = b.PROD_CD
+                                                                        and a.NO between pd.ST_NO and pd.END_NO)
+                                                                          else a.PAY_AMT
+                                                                            end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as expr_point
+                              , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL(occm.OCB_POINT, 0)/100)
+                                  end,0) as six_point
+                                , NVL(case
+                                      when c.expr_no = 12
+                                           and a.no > 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as six_tatal_point
+                              , NVL(case
+                                      when c.expr_no = 1
+                                           and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+                                      then ((a.PAY_AMT + (case when c.prod_cl = '03'
+                                                    then NVL((select pay_amt from lf_dmuser.pay_mng_dtl where accnt_no=a.accnt_no and del_fg='N' and no=a.no), 0)
+                                                    else 0
+                                                   end)) * NVL( occm.OCB_POINT, 0)/100)
+                                  end,0) as one_point
+                              , oh.USE_YN
+                              , b.ocb_gubn
+                                , a.PAY_DAY
+                                , b.join_cl
+                                , c.prod_cl
+                                , lf_dmuser.fn_event(b.accnt_no) evt_nm
+                                , mbr.BRTH_MON_DAY  BRTH_MON_DAY
+                                , NVL(occm.OCB_FEE, 0) OCB_FEE
+                                , lf_dmuser.FN_COM_NM('0123', mbr.SEX) SEX
+                                , b.kstbit
+
+                            from lf_dmuser.pay_mng a
+                                 inner join lf_dmuser.mem_prod_accnt b on a.ACCNT_NO = b.ACCNT_NO and b.DEL_FG = 'N'
+                                 inner join lf_dmuser.member mbr on b.mem_no = mbr.mem_no
+                                 inner join lf_dmuser.product c on b.PROD_CD = c.PROD_CD and c.DEL_FG = 'N'
+                                 left outer join (
+                                       select SEQ
+                                         , CARD_CODE
+                                         , APP_DT
+                                         , NVL((SELECT  TO_CHAR(TO_DATE(MIN(APP_DT))-1,'YYYYMMDD') APP_DT
+                                           FROM lf_dmuser.OCB_CARD_CODE_MNG
+                                          WHERE CARD_CODE = TMP.CARD_CODE
+                                            AND DEL_FG = 'N'
+                                            AND APP_DT > TMP.APP_DT
+                                        ), '99991231') NEXT_APP_DT
+                                           , OCB_POINT
+                                           , OCB_FEE
+                                           , OCB_ANNUAL_FEE
+                                        from lf_dmuser.OCB_CARD_CODE_MNG TMP
+                                       where del_fg = 'N'
+                                   ) occm on c.MEMBERSHIP = occm.CARD_CODE
+                                 left outer join lf_dmuser.OCB_HIST oh on a.ACCNT_NO = oh.ACCNT_NO and oh.USE_YN = 'Y' and oh.stat = '01'
+                                 left outer join lf_dmuser.OCB_POINT op on a.accnt_no = op.accnt_no and a.no = op.no and op.del_fg = 'N' and op.stat = '01'
+
+
+
+                            where 1=1
+                      and a.PAY_DAY between SUBSTR(#{stt_dt},1,6) ||'01' and (case
+                                                                                      when TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01')+1,'YYYYMMDD') >  to_char(last_day(#{end_dt}),'yyyymmdd') then  to_char(last_day(#{end_dt}),'yyyymmdd')
+                                                                                      else TO_CHAR(LAST_DAY(SUBSTR(#{stt_dt},1,6) ||'01'),'YYYYMMDD')
+                                                                                   end)
+
+
+                            and (op.accnt_no is null or op.stat = '03')
+                            and NVL(b.ocb_point_yn, 'Y') = 'Y'
+                            and c.prod_cd != '54'
+                            AND b.JOIN_DT BETWEEN occm.APP_DT  and occm.NEXT_APP_DT
+                            and a.del_fg = 'N'
+                            and length(NVL(mbr.IDN_NO, ' ')) != 10
+                            and (b.ocb_gubn = '00' or oh.ACCNT_NO is not null)
+                            and NVL(b.ocb_gubn, '01') != '00'
+                                  AND op.stat is null
+
+                            )  a
+                            where a.evt_nm != '청약철회'
+                            group by a.mem_no, a.mem_nm, a.idn_no, a.ocb_point_gubn, a.no, a.accnt_no, a.prod_nm, a.USE_YN, a.ocb_gubn, a.PAY_DAY, a.join_cl, a.idn_no, a.mem_nm, a.ci_val, a.prod_cl, a.BRTH_MON_DAY, a.OCB_FEE, a.sex,a.kstbit
+                    )  b
+                    where b.total_point != 0
+                      and length(NVL(b.idn_no, ' ')) != 10
+                      and TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4)) -
+                          TO_NUMBER(SUBSTR(b.BRTH_MON_DAY,1,4)) -
+                         TO_NUMBER(
+                          CASE
+                             WHEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),-4) > SUBSTR(b.BRTH_MON_DAY,-4) THEN 0
+                             ELSE 1
+                          END) >= 14
+
+                           order by b.mem_nm, b.no
+
+
+        </select>
+
+     <select id="DlwMemOcbMap.getsrchOcbPointhist" parameterType="map" resultType="resultMap">
+
+      <!-- 도저히 안 돌아가서 임동진 수정 20170802
+      select * from  (
+        SELECT  /* DlwMemOcbMap.getsrchOcbPointhist */
+              ROW_NUMBER() OVER (ORDER BY OP.ACCNT_NO ) AS SEQ
+             ,    OP.ACCNT_NO
+             , '산출' OCB_POINT_GUBN
+             , MEM.MEM_NO
+             , MEM.MEM_NM
+             , PROD.PROD_NM
+             , PM.PAY_AMT +
+               NVL(
+               (SELECT PAY_AMT
+                  FROM PAY_MNG_DTL
+                 WHERE ACCNT_NO = PM.ACCNT_NO
+                   AND NO = PM.NO
+                   AND DEL_FG = 'N')
+               , 0) PAY_AMT
+             , OP.OCB_POINT  OCB_POINT
+             , OP.OCB_FEE POINTFEE
+             , FN_COM_NM('0131', OP.STAT) STAT_NM
+             , OP.CALC_DM  CALC_DM
+             , MPA.JOIN_DT JOIN_DT
+             , OH.OCB_CD
+             , MPA.KSTBIT
+             , OP.STAT
+             ,OP.NO
+          FROM OCB_POINT OP
+               LEFT OUTER JOIN OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND OH.USE_YN = 'Y' AND OH.STAT = '01'
+               INNER JOIN(SELECT NO, PAY_AMT, ACCNT_NO, MAX(SEQ) SEQ FROM PAY_MNG GROUP BY PAY_AMT, ACCNT_NO, NO) PM ON OP.ACCNT_NO = PM.ACCNT_NO AND OP.NO = PM.NO
+               INNER JOIN MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = PM.ACCNT_NO
+               INNER JOIN MEMBER MEM ON MPA.MEM_NO = MEM.MEM_NO
+               INNER JOIN PRODUCT PROD ON PROD.PROD_CD = MPA.PROD_CD
+               INNER JOIN EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+           WHERE OP.DEL_FG = 'N'
+           AND OP.CALC_DM BETWEEN SUBSTR(#{stt_dt},1,6) ||'01' AND  to_char(last_day(#{end_dt}),'yyyymmdd')
+
+          -->
+        SELECT *
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER (ORDER BY OP.ACCNT_NO ) AS SEQ
+                , OP.ACCNT_NO
+                , '산출' OCB_POINT_GUBN
+                , MPA.MEM_NO
+                , MB.MEM_NM
+                , PD.PROD_NM
+                , (SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_AMT
+                , OP.OCB_POINT
+                , OP.OCB_FEE AS POINTFEE
+                , FN_COM_NM('0131', OP.STAT) STAT_NM
+                , OP.CALC_DM
+                , MPA.JOIN_DT
+                , OH.OCB_CD
+                , MPA.KSTBIT
+                , OP.STAT
+                ,OP.NO
+            FROM OCB_POINT OP LEFT OUTER JOIN
+                OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND USE_YN = 'Y' AND OH.STAT = '01' LEFT OUTER JOIN
+                MEM_PROD_ACCNT MPA ON OP.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+            WHERE 1=1
+                <!--
+                    AND OP.CALC_DM BETWEEN SUBSTR(#{stt_dt},1,6) ||'01' AND  to_char(last_day(#{end_dt}),'yyyymmdd')
+                -->
+                AND SUBSTR(OP.CALC_DM,0,6) = SUBSTR(#{stt_dt},1,6)
+                AND OP.DEL_FG = 'N'
+
+
+             <if test="accnt_no != null and accnt_no != ''">
+                  AND MPA.ACCNT_NO = #{accnt_no}
+             </if>
+             <if test="stat != null and stat != ''">
+                  AND OP.STAT = #{stat}
+             </if>
+             <if test="card_no != null and card_no != ''">
+                    AND OH.OCB_CD =  #{card_no}
+             </if>
+
+               ) TBL
+
+             <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                <![CDATA[
+                WHERE SEQ >= #{startLine}
+                  AND SEQ < #{endLine}
+                ]]>
+             </if>
+
+
+                </select>
+
+<!-- ocb산출이력 전체조회건수 -->
+      <select id="DlwMemOcbMap.getOcbPointHistCount" parameterType="map" resultType="int">
+              SELECT COUNT(*)
+            FROM
+            (
+                SELECT
+                     OP.ACCNT_NO
+                FROM OCB_POINT OP LEFT OUTER JOIN
+                    OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND USE_YN = 'Y' AND OH.STAT = '01' LEFT OUTER JOIN
+                    MEM_PROD_ACCNT MPA ON OP.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+                WHERE 1=1
+
+                <!--
+                AND OP.CALC_DM BETWEEN SUBSTR(#{stt_dt},1,6) ||'01' AND  to_char(last_day(#{end_dt}),'yyyymmdd')
+                -->
+                AND SUBSTR(OP.CALC_DM,0,6) = SUBSTR(#{stt_dt},1,6)
+                AND OP.DEL_FG = 'N'
+
+             <if test="accnt_no != null and accnt_no != ''">
+                  AND MPA.ACCNT_NO = #{accnt_no}
+             </if>
+             <if test="stat != null and stat != ''">
+                  AND OP.STAT = #{stat}
+             </if>
+             <if test="card_no != null and card_no != ''">
+                    AND OH.OCB_CD =  #{card_no}
+             </if>
+
+               ) TBL
+
+        </select>
+
+
+      <!--ocb산출이력 전체조회건수엑셀-->
+      <select id="DlwMemOcbMap.getsrchOcbPointhist_ex" parameterType="map" resultType="resultMap">
+
+        <!--
+        SELECT  /* DlwMemOcbMap.getsrchOcbPointhist_ex */
+                 'A'  P_ID
+                 ,'A1' P_GUBUN
+                 ,'30022982'  P_GNUM
+                 , MAX(OP.CALC_DM)  CALC_DM
+                 , OH.OCB_CD
+                 , '01'  JP
+                 ,'2'    PAY_GUBUN
+                 ,'01'   KGUBUNCODE
+                 , SUM(OP.OCB_POINT) OCB_POINT
+                 , SUM(OP.OCB_FEE) POINTFEE
+                 ,' ' JHSNUM
+                 ,SUBSTR( '00000000000'||ROW_NUMBER() OVER (ORDER BY OH.OCB_CD ),-7) AS SEQ
+                 ,' ' CI
+          FROM lf_dmuser.OCB_POINT OP
+               LEFT OUTER JOIN lf_dmuser.OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND OH.USE_YN = 'Y' AND OH.STAT = '01'
+               INNER JOIN(SELECT NO, PAY_AMT, ACCNT_NO, MAX(SEQ) SEQ FROM lf_dmuser.PAY_MNG GROUP BY PAY_AMT, ACCNT_NO, NO) PM ON OP.ACCNT_NO = PM.ACCNT_NO AND OP.NO = PM.NO
+               INNER JOIN lf_dmuser.MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = PM.ACCNT_NO
+               INNER JOIN lf_dmuser.MEMBER MEM ON MPA.MEM_NO = MEM.MEM_NO
+               INNER JOIN lf_dmuser.PRODUCT PROD ON PROD.PROD_CD = MPA.PROD_CD
+               INNER JOIN lf_dmuser.EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+
+            -->
+
+            SELECT
+                'A'  P_ID
+                ,'A1' P_GUBUN
+                ,'30022982'  P_GNUM
+                , MAX(OP.CALC_DM)  CALC_DM
+                , OH.OCB_CD
+                , '01'  JP
+                , '2'    PAY_GUBUN
+                , '01'   KGUBUNCODE
+                , SUM(OP.OCB_POINT) OCB_POINT
+                , SUM(OP.OCB_FEE) POINTFEE
+                , ' ' JHSNUM
+                , SUBSTR( '00000000000'||ROW_NUMBER() OVER (ORDER BY OH.OCB_CD ),-7) AS SEQ
+                , ' ' CI
+            FROM OCB_POINT OP LEFT OUTER JOIN
+                OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND USE_YN = 'Y' AND OH.STAT = '01' LEFT OUTER JOIN
+                MEM_PROD_ACCNT MPA ON OP.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+            WHERE 1=1
+                AND OP.DEL_FG = 'N'
+                AND SUBSTR(OP.CALC_DM,0,6) = SUBSTR(#{stt_dt},1,6)
+
+             <if test="accnt_no != null and accnt_no != ''">
+                  AND MPA.ACCNT_NO = #{accnt_no}
+             </if>
+             <if test="stat != null and stat != ''">
+                  AND OP.STAT = #{stat}
+             </if>
+             <if test="card_no != null and card_no != ''">
+                    AND OH.OCB_CD =  #{card_no}
+             </if>
+              GROUP BY OH.OCB_CD
+
+        </select>
+
+
+      <!-- ocb산출이력 전체조회건수엑셀 -->
+      <select id="DlwMemOcbMap.getOcbPointHistCount_ex" parameterType="map" resultType="int">
+
+    <!--
+         SELECT  /* DlwMemOcbMap.getOcbPointHistCount_ex */
+             count(*) FROM
+          (
+              SELECT  /* DlwMemOcbMap.getOcbPointHistCount_ex */
+                     'A'  P_ID
+                     ,'A1' P_GUBUN
+                     ,'30022982'  P_GNUM
+                     , MAX(OP.CALC_DM)  CALC_DM
+                     , OH.OCB_CD
+                     , '01'  JP
+                     ,'2'    PAY_GUBUN
+                     ,'01'   KGUBUNCODE
+                     , SUM(OP.OCB_POINT) OCB_POINT
+                     , SUM(OP.OCB_FEE) POINTFEE
+                     ,' ' JHSNUM
+                     ,SUBSTR( '00000000000'||ROW_NUMBER() OVER (ORDER BY OH.OCB_CD ),-7) AS SEQ
+                     ,' ' CI
+              FROM lf_dmuser.OCB_POINT OP
+                   LEFT OUTER JOIN lf_dmuser.OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND OH.USE_YN = 'Y' AND OH.STAT = '01'
+                   INNER JOIN(SELECT NO, PAY_AMT, ACCNT_NO, MAX(SEQ) SEQ FROM lf_dmuser.PAY_MNG GROUP BY PAY_AMT, ACCNT_NO, NO) PM ON OP.ACCNT_NO = PM.ACCNT_NO AND OP.NO = PM.NO
+                   INNER JOIN lf_dmuser.MEM_PROD_ACCNT MPA ON MPA.ACCNT_NO = PM.ACCNT_NO
+                   INNER JOIN lf_dmuser.MEMBER MEM ON MPA.MEM_NO = MEM.MEM_NO
+                   INNER JOIN lf_dmuser.PRODUCT PROD ON PROD.PROD_CD = MPA.PROD_CD
+                   INNER JOIN lf_dmuser.EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+
+ -->
+             SELECT COUNT(*)
+             FROM
+             (
+                 SELECT
+                    'A'  P_ID
+                    ,'A1' P_GUBUN
+                    ,'30022982'  P_GNUM
+                    , MAX(OP.CALC_DM)  CALC_DM
+                    , OH.OCB_CD
+                    , '01'  JP
+                    , '2'    PAY_GUBUN
+                    , '01'   KGUBUNCODE
+                    , SUM(OP.OCB_POINT) OCB_POINT
+                    , SUM(OP.OCB_FEE) POINTFEE
+                    , ' ' JHSNUM
+                    , SUBSTR( '00000000000'||ROW_NUMBER() OVER (ORDER BY OH.OCB_CD ),-7) AS SEQ
+                    , ' ' CI
+                FROM OCB_POINT OP LEFT OUTER JOIN
+                    OCB_HIST OH ON OP.ACCNT_NO = OH.ACCNT_NO AND USE_YN = 'Y' AND OH.STAT = '01' LEFT OUTER JOIN
+                    MEM_PROD_ACCNT MPA ON OP.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+                   WHERE 1=1
+                   AND OP.DEL_FG = 'N'
+                   AND SUBSTR(OP.CALC_DM,0,6) = SUBSTR(#{stt_dt},1,6)
+
+                     <if test="accnt_no != null and accnt_no != ''">
+                          AND MPA.ACCNT_NO = #{accnt_no}
+                     </if>
+                     <if test="stat != null and stat != ''">
+                          AND OP.STAT = #{stat}
+                     </if>
+                     <if test="card_no != null and card_no != ''">
+                            AND OH.OCB_CD =  #{card_no}
+                     </if>
+                      GROUP BY OH.OCB_CD
+              ) TBL
+
+
+        </select>
+              <!-- OCB 미사용 혜택   모바일증서 발급   -->
+            <update id="DlwMemOcbMap.ocb_m_update" parameterType="map">
+                UPDATE /* DlwMemOcbMap.ocb_m_update */
+                       MEM_PROD_ACCNT
+                   SET  M_OCB_YN = 'Y'
+                 WHERE ACCNT_NO	= #{accnt_no}
+            </update>
+
+
+                <!-- OCB 발급후 미생성 전 삭제  -->
+            <delete id="DlwMemOcbMap.delete_ocb_result" parameterType="map">
+
+
+            DECLARE
+                P_CNT  VARCHAR2(50);
+                P_INT  INT;
+            BEGIN
+                 <!-- 기존 데이터 살리기   ocb_mng카드부여 부터 살리고 > OCB_HIST 발급된거 삭제   >  ocb_hist 발급삭제 데이터 복구  -->
+
+            <!-- 발급된 카드번호 사용 유무  사용안함으로 변경 -->
+               SELECT NVL(OCB_CD,' ') INTO  P_CNT  FROM OCB_HIST WHERE    ACCNT_NO=  #{accnt_no} AND stat ='00'  ;
+
+               if P_CNT > ' '  then
+                     UPDATE /* DlwMemOcbMap.ocb_update_hist */
+                           ocb_mng
+                       SET  USE_YN = 'N'
+                     WHERE    OCB_CD	= P_CNT;
+               end if ;
+
+
+                <!-- 발급 미생성 전 데이터 삭제  -->
+                /* DlwMemOcbMap.delete_ocb_result */
+                DELETE FROM OCB_HIST WHERE ACCNT_NO = #{accnt_no} and stat='00' ;
+
+
+
+                <!-- 기존 데이터가 있으면  원상복구 -->
+                SELECT COUNT(ACCNT_NO) INTO P_INT FROM  OCB_HIST  WHERE  ACCNT_NO =  #{accnt_no}  and use_yn='N' ;
+
+                if P_INT >  0  then
+                    update OCB_HIST
+                    set  use_yn  ='Y' ,
+                         del_crt_file_dm = null
+                    where  accnt_no =#{accnt_no} and stat='01' and
+                         use_yn ='N'  and del_crt_file_dm in ( select max(del_crt_file_dm) from OCB_HIST where  accnt_no=#{accnt_no} and  use_yn ='N' and stat='01' )  ;
+                 end if ;
+
+
+                end;
+
+            </delete>
+
+
+    <!-- OCB,멤버쉽 카드발급신청 엑셀업로드 -->
+    <insert id="DlwMemOcbMap.uploadIssueExcelList" parameterType="map">
+
+        INSERT /* DlwMemOcbMap.uploadIssueExcelList */
+          INTO OCB_TEMP
+               (ACCNT_NO, REQ_DAY, REG_DM, REG_MAN)
+        VALUES (#{accnt_no}, #{req_day}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{reg_man})
+
+    </insert>
+
+    <!-- OCB,멤버쉽 카드발급신청 카운트조회 -->
+    <select id="DlwMemOcbMap.getIssueListCnt" parameterType="map" resultType="int">
+
+        SELECT /* DlwMemOcbMap.getIssueListCnt */
+               COUNT(*)
+          FROM ( SELECT CASE WHEN ( NVL(TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD'), 'N') = 'N'
+                                    OR TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD') <![CDATA[<]]> REQ_DAY )   -- 발급일이 없는 경우, '신규(미처리)'
+                             THEN '신규(미처리)'                                                     -- 발급일이 있는 경우, 요청일에 따라 '신규(미처리)' 또는 '발급'
+                             WHEN TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD') <![CDATA[>=]]> REQ_DAY
+                             THEN '발급'
+                             ELSE ''
+                         END AS NEW_GB
+                   FROM LF_DMUSER.OCB_TEMP MAIN_TBL
+                   INNER JOIN LF_DMUSER.MEM_PROD_ACCNT MPA
+                           ON MPA.DEL_FG = 'N'
+                          AND MPA.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                   INNER JOIN LF_DMUSER.MEMBER MEM
+                           ON MEM.DEL_FG = 'N'
+                          AND MPA.MEM_NO = MEM.MEM_NO
+                   INNER JOIN LF_DMUSER.PRODUCT PROD
+                           ON MPA.PROD_CD = PROD.PROD_CD
+                          <if test="card_type == '01'">
+                          AND PROD.MEMBERSHIP = 'B999'
+                          </if>
+                          <if test="card_type == '02'">
+                          AND PROD.MEMBERSHIP != 'B999'
+                          </if>
+                   INNER JOIN ( SELECT EMPLE_NO
+                                  FROM LF_DMUSER.EMPLOYEE
+                               ) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                   LEFT OUTER JOIN LF_DMUSER.EVENT EVT
+                                ON EVT.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                               AND EVT.DEL_FG = 'N'
+                   LEFT OUTER JOIN LF_DMUSER.RESCISSION RESN
+                                ON RESN.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                               AND RESN.DEL_FG = 'N'
+                   LEFT OUTER JOIN LF_DMUSER.HP_CALL HC
+                                ON HC.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                   LEFT OUTER JOIN OCB_HIST OH
+                                ON OH.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                               AND OH.USE_YN = 'Y'
+                   WHERE 1=1
+                     <if test="accnt_no != null and accnt_no != ''">
+                     AND MAIN_TBL.ACCNT_NO = #{accnt_no}
+                     </if>
+                     <if test="srch_dtType == '01'">
+                     AND MPA.JOIN_DT BETWEEN #{stt_dt} and #{end_dt}
+                     </if>
+                     <if test="srch_dtType == '02'">
+                     AND MAIN_TBL.REQ_DAY BETWEEN #{stt_dt} and #{end_dt}
+                     </if>
+                     <if test="exception_chk1.equalsIgnoreCase('Y')">
+                     AND LENGTH(TRIM(NVL(MEM.IDN_NO, 'NULL IDN_NO'))) != 10 /* 법인회원제외 */
+                     </if>
+                     <if test="exception_chk2.equalsIgnoreCase('Y')">
+                     AND RESN.RESN_CL IS NULL /* 해약,청약철회회원제외 */
+                     </if>
+                     <if test="exception_chk3.equalsIgnoreCase('Y')">
+                     AND ( MEM.SEX IS NOT NULL AND MEM.SEX > ' ' AND MEM.BRTH_MON_DAY IS NOT NULL AND MEM.BRTH_MON_DAY > ' ' ) /* 성별,생일 미입력회원제외 */
+                     </if>
+               )
+         WHERE 1=1
+           <if test="issue_type == '01'">
+           AND NEW_GB = '발급'
+           </if>
+           <if test="issue_type == '02'">
+           AND NEW_GB != '발급'
+           </if>
+
+    </select>
+
+
+    <!-- OCB,멤버쉽 카드발급신청 조회 -->
+    <select id="DlwMemOcbMap.getIssueList" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwMemOcbMap.getIssueList */
+               '' AS CHK,
+               ROW_NUMBER () OVER (ORDER BY REQ_DAY DESC, ACCNT_NO) SEQ,
+               ACCNT_NO,
+               MEM_NM,
+               ISSUE_GB,
+               ISSUE_DT,
+               RESORT_NO,
+               KSTBIT_NM,
+               HP_STAT,
+               PM_NO,
+               CARD_TYPE,
+               REG_DM,
+               REG_MAN,
+               REQ_DAY,
+               JOIN_DT,
+               NEW_GB,
+               RETURN_CHK,
+               RETURN_DT,
+               MEM_NO
+
+          FROM ( SELECT
+                       MAIN_TBL.ACCNT_NO,
+                       MEM.MEM_NM,
+                       CASE WHEN OH.USE_YN = 'Y' AND OH.STAT != '00'
+                            THEN '발급완료'   -- 발급
+                            WHEN OH.USE_YN IS NULL  AND  NVL((SELECT COUNT(ACCNT_NO) FROM OCB_HIST WHERE ACCNT_NO = MAIN_TBL.ACCNT_NO AND STAT = '00' AND USE_YN = 'N'), 0) = 0
+                            THEN '발급전'
+                            ELSE '발급진행중'
+                        END AS ISSUE_GB,
+                       TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD') AS ISSUE_DT,
+                       MPA.RESORT_NO,
+                       CASE WHEN EVT.ACCNT_NO IS NOT NULL THEN '행사'
+                            WHEN RESN.ACCNT_NO IS NOT NULL THEN REPLACE(LF_DMUSER.FN_COM_NM('64',RESN.RESN_CL), CHR(0),'')
+                            ELSE '정상'
+                        END KSTBIT_NM,
+                       REPLACE(NVL(LF_DMUSER.FN_COM_NM('81', HC.STAT), ''),CHR(0),'') AS HP_STAT,
+                       NVL(( SELECT COUNT(PMG.NO) FROM LF_DMUSER.PAY_MNG PMG WHERE PMG.ACCNT_NO = MAIN_TBL.ACCNT_NO AND PMG.DEL_FG = 'N' GROUP BY PMG.ACCNT_NO ), 0) AS PM_NO,
+                       CASE WHEN PROD.MEMBERSHIP = 'B999' THEN '멤버쉽'
+                            WHEN PROD.MEMBERSHIP != 'B999' AND LENGTH(PROD.MEMBERSHIP) = 4 THEN 'OCB'
+                            ELSE ''
+                        END CARD_TYPE,
+                       TO_CHAR(MAIN_TBL.REG_DM, 'YYYYMMDD') AS REG_DM,
+                       MAIN_TBL.REG_MAN,
+                       MAIN_TBL.REQ_DAY,
+                       MPA.JOIN_DT,
+                       CASE WHEN ( NVL(TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD'), 'N') = 'N'
+                                   OR TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD') <![CDATA[<]]> REQ_DAY )   -- 발급일이 없는 경우, '신규(미처리)'
+                            THEN '신규(미처리)'                                                     -- 발급일이 있는 경우, 요청일에 따라 '신규(미처리)' 또는 '발급'
+                            WHEN TO_CHAR(OH.CRT_FILE_DM, 'YYYYMMDD') <![CDATA[>=]]> REQ_DAY
+                            THEN '발급'
+                            ELSE ''
+                        END AS NEW_GB,
+                        CASE WHEN MAIN_TBL.RETURN_DT IS NOT NULL
+                             THEN 1
+                             ELSE 0
+                         END AS RETURN_CHK,
+                        MAIN_TBL.RETURN_DT,
+                        MEM.MEM_NO
+
+                  FROM LF_DMUSER.OCB_TEMP MAIN_TBL
+                  INNER JOIN LF_DMUSER.MEM_PROD_ACCNT MPA
+                          ON MPA.DEL_FG = 'N'
+                         AND MPA.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                  INNER JOIN LF_DMUSER.MEMBER MEM
+                          ON MEM.DEL_FG = 'N'
+                         AND MPA.MEM_NO = MEM.MEM_NO
+                  INNER JOIN LF_DMUSER.PRODUCT PROD
+                          ON MPA.PROD_CD = PROD.PROD_CD
+                         <if test="card_type == '01'">
+                         AND PROD.MEMBERSHIP = 'B999'
+                         </if>
+                         <if test="card_type == '02'">
+                         AND PROD.MEMBERSHIP != 'B999'
+                         </if>
+                  INNER JOIN ( SELECT EMPLE_NO
+                                 FROM LF_DMUSER.EMPLOYEE
+                              ) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                  LEFT OUTER JOIN LF_DMUSER.EVENT EVT
+                               ON EVT.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                              AND EVT.DEL_FG = 'N'
+                  LEFT OUTER JOIN LF_DMUSER.RESCISSION RESN
+                               ON RESN.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                              AND RESN.DEL_FG = 'N'
+                  LEFT OUTER JOIN LF_DMUSER.HP_CALL HC
+                               ON HC.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                  LEFT OUTER JOIN OCB_HIST OH
+                               ON OH.ACCNT_NO = MAIN_TBL.ACCNT_NO
+                              AND OH.USE_YN = 'Y'
+                  WHERE 1=1
+                    <if test="accnt_no != null and accnt_no != ''">
+                    AND MAIN_TBL.ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="srch_dtType == '01'">
+                    AND MPA.JOIN_DT BETWEEN #{stt_dt} and #{end_dt}
+                    </if>
+                    <if test="srch_dtType == '02'">
+                    AND MAIN_TBL.REQ_DAY BETWEEN #{stt_dt} and #{end_dt}
+                    </if>
+                    <if test="exception_chk1.equalsIgnoreCase('Y')">
+                    AND LENGTH(TRIM(NVL(MEM.IDN_NO, 'NULL IDN_NO'))) != 10 /* 법인회원제외 */
+                    </if>
+                    <if test="exception_chk2.equalsIgnoreCase('Y')">
+                    AND RESN.RESN_CL IS NULL /* 해약,청약철회회원제외 */
+                    </if>
+                    <if test="exception_chk3.equalsIgnoreCase('Y')">
+                    AND ( MEM.SEX IS NOT NULL AND MEM.SEX > ' ' AND MEM.BRTH_MON_DAY IS NOT NULL AND MEM.BRTH_MON_DAY > ' ' ) /* 성별,생일 미입력회원제외 */
+                    </if>
+                )
+         WHERE 1=1
+           <if test="issue_type == '01'">
+           AND NEW_GB = '발급'
+           </if>
+           <if test="issue_type == '02'">
+           AND NEW_GB != '발급'
+           </if>
+    </select>
+
+    <!-- OCB,멤버쉽 카드 반송처리 상담기록 -->
+    <insert id="DlwMemOcbMap.saveConsRetrunCard" parameterType="map">
+        <selectKey keyProperty="consno" resultType="String" order="BEFORE">
+            SELECT 'CSL' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(PS_WILLVI.SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* DlwMemOcbMap.saveConsRetrunCard */
+          INTO PS_WILLVI.TB_CONS
+               (
+                 CONSNO, RSPS_DEPT_CD, CONSNO_SQNO, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD,
+                 CONS_STAT_CD, CONS_DSPSMDDL_DTPT_CD, ACPG_CHNL_CD,
+                 MEM_NO, ACCNT_NO, CONS_MEMO_CNTN,
+                 ACTP_ID, ACPG_DTTM, CHPR_ID,
+                 CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+               )
+        VALUES (
+                 #{consno}, #{rsps_dept_cd}, #{consno_sqno}, #{cons_typ1_cd}, #{cons_typ2_cd}, #{cons_typ3_cd},
+                 #{cons_stat_cd}, #{cons_dspsmddl_dtpt_cd}, #{acpg_chnl_cd},
+                 #{mem_no}, #{accnt_no}, #{cons_memo_cntn},
+                 #{actp_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{chpr_id},
+                 #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+               )
+
+    </insert>
+
+    <!-- OCB,멤버쉽 카드 반송처리 상담이력기록 -->
+    <insert id="DlwMemOcbMap.saveConsHstrRetrunCard" parameterType="map">
+
+        INSERT /* DlwMemOcbMap.saveConsHstrRetrunCard */
+          INTO PS_WILLVI.TB_CONS_HSTR
+               (CNTR_CD, CONSNO, CHNG_DTTM, ARS_SRVC_ADDR, INCO_TLNO
+             , CALL_ID, MEM_NO, ACPG_CHNL_CD, ACPG_DTTM, ACTP_ID
+             , TOTL_CONS_HR, CLNT_NM, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+             , CONS_STAT_CD, CONS_DSPSMDDL_DTPT_CD, CONS_DSPS_DTTM, RSPS_DEPT_CD, CHPR_ID
+             , ADMR_AMNT_YN, ADMR_ID, ADMR_AMNT_DTTM, RGSR_ID, RGSN_DTTM
+             , AMND_ID, AMNT_DTTM, CONC_YN, CONS_MEMO_CNTN, CONSNO_GROP_NO
+             , CONSNO_SQNO, MST_KEY, DTPT_KEY, ACCNT_NO, CTI_CRNC_DTL_ID
+             , MEM_NM, SEX, BRTH_MON_DAY, CI_VAL, IDN_NO, HOME_TEL
+             , CELL, WRPL_TEL, HOME_ZIP, HOME_ADDR, HOME_ADDR2
+             , CREDIT_RATING, CRDT_MNG_NO, EMAIL, EMPLE_NO, EMPLE_NM
+             , JOIN_DT, DEPT_CD, NOTE)
+        SELECT CNTR_CD, CONSNO, SYSTIMESTAMP, ARS_SRVC_ADDR, INCO_TLNO
+             , CALL_ID, MEM_NO, ACPG_CHNL_CD, ACPG_DTTM, ACTP_ID
+             , TOTL_CONS_HR, CLNT_NM, CONS_TYP1_CD, CONS_TYP2_CD, CONS_TYP3_CD
+             , CONS_STAT_CD, CONS_DSPSMDDL_DTPT_CD, CONS_DSPS_DTTM, RSPS_DEPT_CD, CHPR_ID
+             , ADMR_AMNT_YN, ADMR_ID, ADMR_AMNT_DTTM, RGSR_ID, RGSN_DTTM
+             , AMND_ID, AMNT_DTTM, CONC_YN, CONS_MEMO_CNTN, CONSNO_GROP_NO
+             , CONSNO_SQNO, MST_KEY, DTPT_KEY, ACCNT_NO, CTI_CRNC_DTL_ID
+             , MEM_NM, SEX, BRTH_MON_DAY, CI_VAL, IDN_NO, HOME_TEL
+             , CELL, WRPL_TEL, HOME_ZIP, HOME_ADDR, HOME_ADDR2
+             , CREDIT_RATING, CRDT_MNG_NO, EMAIL, EMPLE_NO, EMPLE_NM
+             , JOIN_DT, DEPT_CD, NOTE
+          FROM PS_WILLVI.TB_CONS
+         WHERE CONSNO = #{consno}
+
+    </insert>
+
+    <!-- OCB,멤버쉽 카드요청 삭제처리 -->
+    <delete id="DlwMemOcbMap.delRequestIssue" parameterType="map">
+
+        DELETE /* DlwMemOcbMap.delRequestIssue */
+          FROM OCB_TEMP
+         WHERE ACCNT_NO = #{accnt_no}
+           AND REQ_DAY = #{req_day}
+
+    </delete>
+
+    <!-- OCB,멤버쉽카드 발급중인 회원체크 -->
+    <select id="DlwMemOcbMap.chkIssuingStat" parameterType="map" resultType="int">
+
+        SELECT /* DlwMemOcbMap.chkIssuingStat */
+               COUNT(*)
+          FROM OCB_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+           AND STAT = '00'
+
+    </select>
+
+    <!-- OCB,멤버쉽 카드 반송처리시 반송일자 UPDATE -->
+    <update id="DlwMemOcbMap.updateReturnDt" parameterType="map">
+
+        UPDATE /* DlwMemOcbMap.updateReturnDt */
+               OCB_TEMP
+           SET RETURN_DT = #{return_dt}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+         WHERE ACCNT_NO = #{accnt_no}
+           AND REQ_DAY = #{req_day}
+
+    </update>
+
+</mapper>

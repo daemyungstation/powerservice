@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EtcMap">
+    
+    <!-- 카드 수수료율 목록 조회 -->
+	<select id="EtcMap.selectCardFeeRtMngList" parameterType="map" resultType="resultMap">
+		SELECT /* EtcMap.selectCardFeeRtMngList */
+               SEQ seq
+		     , CARD_CD
+		     , FN_COM_NM('0120', CARD_CD) card_nm
+		     , START_DT start_dt
+		     , END_DT end_dt
+		     , FEE_RT fee_Rt
+		     , REG_DM
+		     , REG_MAN
+		     , UPD_DM
+		     , UPD_MAN
+		     , DEL_FG
+		  FROM CARD_FEE_RT
+		 WHERE DEL_FG = 'N'
+            <if test="card_cd != null and card_cd != ''">
+		   AND CARD_CD = #{card_cd}
+		    </if>
+		   <if test="seq != null and seq != ''">
+		   AND SEQ = #{seq}
+		   </if>
+	</select>
+
+	
+    <!-- sql-system.xml [부서별 IP 정보 목록 조회] ID : system.selectDeptIPInfoList 작성자 : 임병근 -->
+    <select id="EtcMap.selectDeptIPInfoList" parameterType="map" resultType="resultMap">
+		SELECT /* EtcMap.selectDeptIPInfoList */
+               SEQ seq
+		     , '' chk
+		     , DEPT_CD
+		     , FN_DEPT_NM(DEPT_CD) dept_Nm
+		     , IP
+		     , NOTE
+		     , FN_EMPLE_NM(REG_MAN) reg_Man
+		     , to_char(REG_DM, 'YYYYMMDD') reg_Dm
+		     , FN_EMPLE_NM(UPD_MAN) upd_Man
+		     , to_char(UPD_DM, 'YYYYMMDD') upd_Dm
+		  FROM DEPT_IP_INFO
+		 WHERE 1=1
+		   AND DEL_FG = 'N'
+           <if test="dept_cd != null and dept_cd != ''">
+		   AND DEPT_CD = #{dept_cd}
+		   </if>
+           <if test="ip != null and ip != ''">
+		   AND IP LIKE '%' || #{ip} || '%'
+		   </if>
+		   <if test="seq != null and seq != ''">
+		   AND SEQ = #{seq}
+		   </if>
+	</select>
+
+    <!-- sql-system.xml [부서별 IP 정보 목록 삭제] ID : system.deleteDeptIPInfoList 작성자 : 임병근 -->
+	<update id="EtcMap.deleteDeptIPInfoList" parameterType="map">
+		UPDATE /* EtcMap.deleteDeptIPInfoList */
+               DEPT_IP_INFO
+		SET DEL_FG = 'Y'
+		WHERE SEQ = #{seq}
+	</update>
+	
+	<!-- 카드 수수료율 등록 -->
+	<update id="EtcMap.insertCardFeeRt" parameterType="map">
+		INSERT /* EtcMap.insertCardFeeRt */
+          INTO CARD_FEE_RT 
+        (
+		   CARD_CD
+		  ,START_DT
+		  ,END_DT
+		  ,FEE_RT
+		  ,REG_DM
+		  ,REG_MAN
+		  ,UPD_DM
+		  ,UPD_MAN
+		  ,DEL_FG
+		) 
+        VALUES 
+        (
+		   #{card_cd}
+		  ,#{start_dt}
+		  ,#{end_dt}
+		  ,#{fee_rt}
+		  ,sysdate
+		  ,#{rgsr_id}
+		  ,sysdate
+		  ,#{rgsr_id}
+		  ,'N'        
+        )
+	</update>
+
+	<update id="EtcMap.updateCardFeeRt" parameterType="map">
+		UPDATE /* EtcMap.updateCardFeeRt */
+               CARD_FEE_RT 
+           SET CARD_CD = #{card_cd}
+             , START_DT = #{start_dt}
+             , END_DT = #{end_dt}
+             , FEE_RT = #{fee_rt}
+             , UPD_DM = sysdate
+             , UPD_MAN = #{rgsr_id}
+             , DEL_FG = #{del_fg}
+		WHERE SEQ = #{seq}
+	</update>
+
+	<!-- sql-system.xml [부서별 IP 정보 목록 수정] ID : system.updateDeptIPInfoList 작성자 : 임병근 -->
+    <update id="EtcMap.updateDeptIPInfoList" parameterType="map">
+		UPDATE /* EtcMap.updateDeptIPInfoList */
+               DEPT_IP_INFO
+           SET DEPT_CD = #{dept_cd}
+             , IP = #{ip}
+             , NOTE = #{note}
+             , UPD_MAN = #{rgsr_id}
+             , UPD_DM = sysdate
+		WHERE SEQ = #{seq}
+	</update>
+
+
+	<!-- sql-system.xml [부서별 IP 정보 목록 등록] ID : system.insertDeptIPInfoList 작성자 : 임병근 -->
+    <update id="EtcMap.insertDeptIPInfoList" parameterType="map">
+		INSERT /* EtcMap.insertDeptIPInfoList */
+          INTO DEPT_IP_INFO (
+		   SEQ
+		  ,DEPT_CD
+		  ,IP
+		  ,NOTE
+		  ,REG_MAN
+		  ,REG_DM
+		  ,UPD_MAN
+		  ,UPD_DM
+		  ,DEL_FG
+		)
+        VALUES
+        (
+		   nvl((SELECT MAX(SEQ) FROM DEPT_IP_INFO), 0) + 1
+		  ,#{dept_cd}
+		  ,#{ip}
+		  ,#{note}
+		  ,#{rgsr_id}
+		  ,sysdate
+		  ,#{rgsr_id}
+		  ,sysdate
+		  ,'N'
+        )
+	</update>    
+	
+    <!-- ================================================================
+     * 날짜 : 20190725
+     * 이름 : 송준빈
+     * 추가내용 : 상담대상자관리(NEW) 조회수
+     * 대상 테이블 : PS_WILLVI.TB_COUNSEL_TARGET
+     * ================================================================
+     * -->
+    <select id="EtcMap.getCounselTargetCount" parameterType="map" resultType="int">
+        SELECT /* EtcMap.getDlwConsCount */
+            COUNT(*) AS ICNT
+        FROM PS_WILLVI.TB_COUNSEL_TARGET
+        WHERE 1=1
+        <if test="target_dm_stt != null and target_dm_stt != '' and target_dm_end != null and target_dm_end != ''">
+          AND TARGET_DM BETWEEN #{target_dm_stt} AND #{target_dm_end}
+        </if>
+        <if test="pay_mthd != null and pay_mthd != ''">
+          AND PAY_MTHD = #{pay_mthd}
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+              AND MEM_NM = #{mem_nm}
+        </if>
+        <if test="cell != null and cell != ''">
+              AND CELL = #{cell}
+        </if>
+        <if test="use_yn != null and use_yn != ''">
+          AND USE_YN = #{use_yn}
+        </if>
+        <if test="prod_gbn != null and prod_gbn != ''">
+          AND PROD_GBN = #{prod_gbn}
+        </if>
+        <if test="trgt_list_id != null and trgt_list_id != ''">
+          AND TRGT_LIST_ID = #{trgt_list_id}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190725
+     * 이름 : 송준빈
+     * 추가내용 : 상담대상자관리(NEW) 리스트 조회
+     * 대상 테이블 : PS_WILLVI.TB_COUNSEL_TARGET
+     * ================================================================
+     * -->
+    <select id="EtcMap.getCounselTargetList" parameterType="map" resultType="resultMap">
+        SELECT /* EtcMap.getDlwConsList */
+            MAIN_TBL.*
+        FROM 
+        (
+        	SELECT 
+        		ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                TARGET_NO,
+                MEM_NM,
+                CELL,
+                PROD_GBN,
+                PROD_T_1,
+                PROD_R_1,
+                PROD_T_2,
+                PROD_R_2,
+                (
+                    CASE WHEN LENGTH(TRIM(PROD_T_1)) > 0 THEN 1 
+                         ELSE 0
+                    END 
+                    + 
+                    CASE WHEN LENGTH(TRIM(PROD_T_2)) > 0 THEN 1 
+                         ELSE 0
+                    END
+                ) AS PROD_CNT,
+                PAY_MTHD,   
+                COUNSEL_TIME,
+                MEMO,
+                CHARGE_MAN,
+                CHARGE_CELL,
+                TARGET_DM,
+                USE_YN
+            FROM PS_WILLVI.TB_COUNSEL_TARGET
+            WHERE 1=1
+            <if test="target_dm_stt != null and target_dm_stt != '' and target_dm_end != null and target_dm_end != ''">
+              AND TARGET_DM BETWEEN #{target_dm_stt} AND #{target_dm_end}
+            </if>
+            <if test="pay_mthd != null and pay_mthd != ''">
+              AND PAY_MTHD = #{pay_mthd}
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+              AND MEM_NM = #{mem_nm}
+            </if>
+            <if test="cell != null and cell != ''">
+              AND CELL = #{cell}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+              AND USE_YN = #{use_yn}
+            </if>
+            <if test="prod_gbn != null and prod_gbn != ''">
+              AND PROD_GBN = #{prod_gbn}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+              AND TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+          AND PAGE_INDX <![CDATA[<]]>  #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190725
+     * 이름 : 송준빈
+     * 추가내용 : 상담대상자관리(NEW) 조회수
+     * 대상 테이블 : PS_WILLVI.TB_COUNSEL_TARGET
+     * ================================================================
+     * -->
+    <select id="EtcMap.getDirectCounselCount" parameterType="map" resultType="int">
+        SELECT /* EtcMap.getDirectCounselCount */
+            COUNT(*) AS ICNT
+        FROM TB_DR_I_ORD_MST@DLCCSUB DOM INNER JOIN
+             TB_DR_I_ORD_DTL@DLCCSUB DOD ON DOM.CI_VAL = DOD.CI_VAL
+        WHERE 1=1
+        <if test="target_dm_stt != null and target_dm_stt != '' and target_dm_end != null and target_dm_end != ''">
+              AND TO_CHAR(DOD.REG_DM, 'YYYYMMDD') BETWEEN #{target_dm_stt} AND #{target_dm_end}
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+          AND MEM_NM = #{mem_nm}
+        </if>
+        <if test="cell != null and cell != ''">
+          AND CELL = #{cell}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190725
+     * 이름 : 송준빈
+     * 추가내용 : 상담대상자관리(NEW) 리스트 조회
+     * 대상 테이블 : PS_WILLVI.TB_COUNSEL_TARGET
+     * ================================================================
+     * -->
+    <select id="EtcMap.getDirectCounselList" parameterType="map" resultType="resultMap">
+        SELECT /* EtcMap.getDirectCounselList */
+            MAIN_TBL.*			
+        FROM 
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+			        DOM.CI_VAL,
+			        DOM.MEM_NM,
+			        DOM.CELL,
+			        DOM.BRTH_MON_DAY,
+			        DOM.SEX,
+			        DOM.HOME_ZIP,
+			        DOM.HOME_ADDR,
+			        DOM.HOME_ADDR2,
+			        DOM.HOME_TEL,
+			        DOM.EMAIL,
+			        DOM.MARKT_AGR_YN,
+			        DOM.DM_YN,
+			        DOM.EMAIL_YN,
+			        DOM.SMS_YN,
+			        DOM.TEL_YN,
+			        DOM.MARRY_YN,
+			        DOM.CHILD_CNT,
+			        DOD.RDP_MST_IDX,
+			        DOD.ORD_MST_IDX,
+			        DOD.B2B_CD,
+			        DOD.PROD_CD,
+			        DOD.PROD_KIND,
+			        DOD.MODEL_CD,
+			        DOD.INSPL_ZIP,
+			        DOD.INSPL_ADDR,
+			        DOD.INSPL_ADDR2,
+			        DOD.HPCALL_TIME,
+			        CASE WHEN DOD.HPCALL_TIME = '01' THEN '빠른상담'
+			             WHEN DOD.HPCALL_TIME = '02' THEN '09:30 ~ 11:00'
+			             WHEN DOD.HPCALL_TIME = '03' THEN '11:00 ~ 13:00'
+			             WHEN DOD.HPCALL_TIME = '04' THEN '13:00 ~ 15:00'
+			             WHEN DOD.HPCALL_TIME = '05' THEN '15:00 ~ 17:00'
+			             WHEN DOD.HPCALL_TIME = '06' THEN '17:00 ~ 18:30'
+			             ELSE '' END AS HPCALL_TIME_NM,
+			        DOD.MAIN_CONTRACT,
+			        DOD.UTM_SOURCE
+			FROM TB_DR_I_ORD_MST@DLCCSUB DOM INNER JOIN
+			     TB_DR_I_ORD_DTL@DLCCSUB DOD ON DOM.CI_VAL = DOD.CI_VAL
+			WHERE 1=1
+            <if test="target_dm_stt != null and target_dm_stt != '' and target_dm_end != null and target_dm_end != ''">
+              AND TO_CHAR(DOD.REG_DM, 'YYYYMMDD') BETWEEN #{target_dm_stt} AND #{target_dm_end}
+            </if>  
+            <if test="mem_nm != null and mem_nm != ''">
+              AND MEM_NM = #{mem_nm}
+            </if>
+            <if test="cell != null and cell != ''">
+              AND CELL = #{cell}   
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+          AND PAGE_INDX <![CDATA[<]]>  #{endLine}
+        </if>
+    </select>
+    
+    <update id="EtcMap.updateDirectSessionClose" parameterType="map">
+        BEGIN
+        	COMMIT;
+	        EXECUTE IMMEDIATE ('ALTER SESSION CLOSE DATABASE LINK DLCCSUB');
+        END;
+    </update>
+</mapper>

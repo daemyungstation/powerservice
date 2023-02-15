@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="pdsMap">
+    
+    <select id="pdsMap.testConn02" resultType="resultMap">
+        <![CDATA[
+	        SELECT *
+			FROM TB_CTI_MAIN_INFO
+			WHERE ROWNUM <= 5
+		]]>
+    </select>
+    
+    <select id="pdsMap.findData" parameterType="map" resultType="resultMap">
+        SELECT 
+        	SEQ
+        	, 'N' AS CHK
+        	, WORK_KIND
+        	, MEM_NM
+        	, ACCNT_NO
+        	, MEM_NO
+        	, TEL
+        	, MEMO
+        	, MEMO2
+        	, MEMO3
+        	, MEMO4
+        	, MEMO5
+        	, REG_MAN, TO_CHAR(TO_DATE(REG_DM, 'YYYYMMDDHH24MISS') , 'YYYY-MM-DD HH24:MI:SS') AS reg_dm
+        <if test="work_kind == 'DF'"> <!--  미납  -->
+            FROM PDS_CONN_CS01
+        </if>
+        <if test="work_kind == 'CD'"> <!--  해약방어  -->
+            FROM PDS_CONN_CS02
+        </if>
+        <if test="work_kind == 'HC'"> <!--  해피콜  -->
+            FROM PDS_CONN_PARTNERS01
+        </if>        
+		WHERE 1 = 1 
+       	<!-- AND REG_MAN = #{reg_man} -->
+       	AND DEL_KIND = 'N'
+       	AND CONN_KIND = 'TM'
+        <if test="startDate != ''">
+        	AND REG_DM <![CDATA[>=]]> CONCAT(#{startDate}, '000000')
+        </if>
+        <if test="endDate != ''">
+            AND REG_DM <![CDATA[<=]]> CONCAT(#{endDate}, '235959')
+        </if>
+        <if test="work_kind != ''">
+            AND WORK_KIND = #{work_kind}
+        </if>
+        <if test="mem_nm != ''">
+             AND MEM_NM = #{mem_nm}
+        </if>
+        <if test="accnt_no != ''">
+            AND ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="mem_no != ''">
+            AND MEM_NO = #{mem_no}
+        </if>
+        <if test="tel != ''">
+            AND TEL = #{tel}
+        </if>
+    </select>
+    
+    <!--  
+    	useGeneratedKeys="true" keyColumn="REG_DM" keyProperty="reg_dm"
+    -->
+    
+    <insert id="pdsMap.insertDF" parameterType="map">
+        <selectKey keyProperty="reg_dm" resultType="map">
+            SELECT SEQ_PDS_CONN.CURRVAL AS SEQ, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM
+			FROM DUAL
+        </selectKey>
+        
+        INSERT INTO PDS_CONN_CS01(
+			SEQ, WORK_KIND, CONN_KIND, MEM_NM
+			, ACCNT_NO, MEM_NO, TEL, MEMO
+			, DATE_PDS, DATE_RESULT, RESULT_KIND, DEL_KIND
+			, REG_MAN, REG_DM, MOD_MAN, MOD_DM
+			, DEL_MAN, DEL_DM, MEMO2, MEMO3
+		) 
+		VALUES
+        (
+            SEQ_PDS_CONN.NEXTVAL, 'DF', 'TM', #{mem_nm}
+            , #{accnt_no}, #{mem_no}, #{tel}, #{memo}
+            , '', '', 28, 'N'
+            , #{reg_man}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), '', ''
+            , '', '', #{memo2}, #{memo3}
+        )
+    </insert>
+    
+    <insert id="pdsMap.insertCD" parameterType="map">
+        <selectKey keyProperty="reg_dm" resultType="map">
+            SELECT SEQ_PDS_CONN.CURRVAL AS SEQ, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM
+			FROM DUAL
+        </selectKey>
+        
+        INSERT INTO PDS_CONN_CS02(
+			SEQ, WORK_KIND, CONN_KIND, MEM_NM
+			, ACCNT_NO, MEM_NO, TEL, MEMO
+			, DATE_PDS, DATE_RESULT, RESULT_KIND, DEL_KIND
+			, REG_MAN, REG_DM, MOD_MAN, MOD_DM
+			, DEL_MAN, DEL_DM, MEMO2, MEMO3
+		) 
+		VALUES
+        (
+            SEQ_PDS_CONN.NEXTVAL, 'CD', 'TM', #{mem_nm}
+            , #{accnt_no}, #{mem_no}, #{tel}, #{memo}
+            , '', '', 28, 'N'
+            , #{reg_man}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), '', ''
+            , '', '', #{memo2}, #{memo3}
+        )
+    </insert>
+    
+    <insert id="pdsMap.insertHC" parameterType="map">
+        <selectKey keyProperty="reg_dm" resultType="map">
+            SELECT SEQ_PDS_CONN.CURRVAL AS SEQ, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM
+			FROM DUAL
+        </selectKey>
+        
+        INSERT INTO PDS_CONN_PARTNERS01(
+			SEQ, WORK_KIND, CONN_KIND, MEM_NM
+			, ACCNT_NO, MEM_NO, TEL, MEMO
+			, DATE_PDS, DATE_RESULT, RESULT_KIND, DEL_KIND
+			, REG_MAN, REG_DM, MOD_MAN, MOD_DM
+			, DEL_MAN, DEL_DM, MEMO2, MEMO3
+		) 
+		VALUES
+        (
+            SEQ_PDS_CONN.NEXTVAL, 'HC', 'TM', #{mem_nm}
+            , #{accnt_no}, #{mem_no}, #{tel}, #{memo}
+            , '', '', 28, 'N'
+            , #{reg_man}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), '', ''
+            , '', '', #{memo2}, #{memo3}
+        )
+    </insert>
+    
+    <update id="pdsMap.checkDelete" parameterType="map">
+        <if test="work_kind == 'DF'"> <!--  미납  -->
+            UPDATE PDS_CONN_CS01
+        </if>
+        <if test="work_kind == 'CD'"> <!--  해약방어  -->
+            UPDATE PDS_CONN_CS02
+        </if>
+        <if test="work_kind == 'HC'"> <!--  해피콜  -->
+            UPDATE PDS_CONN_PARTNERS01
+        </if>
+		SET DEL_KIND = 'Y'
+		    , DEL_MAN = #{id}
+		    , DEL_DM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		WHERE SEQ = #{seq}
+    </update>
+    
+	<select id="pdsMap.findResultData" parameterType="map" resultType="resultMap">
+	    SELECT 
+			WORK_KIND
+			, MEM_NM
+			, MEM_NO
+		    , ACCNT_NO
+		    , TEL, TO_CHAR(TO_DATE(REG_DM, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS reg_dm
+		    , TO_CHAR(TO_DATE(DATE_PDS, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS date_pds
+		    , NVL(DATE_RESULT, '정보 없음') AS date_result
+		    , CASE WHEN RESULT_KIND = 28 THEN '초기설정' 
+		          WHEN RESULT_KIND = 21 THEN '포기콜'
+		          WHEN RESULT_KIND = 33 THEN '응답'
+		          WHEN RESULT_KIND = 9 THEN '기계음(자동응답)'
+		          WHEN RESULT_KIND = 4 THEN '통화중'
+		          WHEN RESULT_KIND = 17 THEN '팩스,에러'
+		          WHEN RESULT_KIND = 7 THEN '전화안받음'
+		          WHEN RESULT_KIND = 5 THEN '전화끊음'
+		          WHEN RESULT_KIND = 32 THEN '묵음'
+		          WHEN RESULT_KIND = 15 THEN '결번'
+		          WHEN RESULT_KIND = 46 THEN 'Stale'
+		          ELSE '정보없음' 
+		      END AS RESULT_KIND 
+		    , MEMO
+		    , MEMO2
+		    , MEMO3
+		    , MEMO4
+		    , MEMO5
+        <if test="work_kind == 'DF'"> <!--  미납  -->
+            FROM PDS_CONN_CS01
+        </if>
+        <if test="work_kind == 'CD'"> <!--  해약방어  -->
+            FROM PDS_CONN_CS02
+        </if>
+        <if test="work_kind == 'HC'"> <!--  해피콜  -->
+            FROM PDS_CONN_PARTNERS01
+        </if>  
+		WHERE 1 = 1
+       	AND DEL_KIND = 'N'
+		AND CONN_KIND = 'CN'
+		<if test="startDate != ''">
+		      AND DATE_PDS <![CDATA[>=]]> CONCAT(#{startDate}, '000000')
+		</if>
+		<if test="endDate != ''">
+		      AND DATE_PDS <![CDATA[<=]]> CONCAT(#{endDate}, '235959')
+		</if>
+		<if test="mem_nm != ''">      
+		      AND MEM_NM = #{mem_nm}
+		</if>
+		<if test="tel != ''">      
+		      AND TEL = #{tel}
+		</if>
+		<if test="accnt_no != ''">      
+		      AND ACCNT_NO = #{accnt_no}
+		</if>
+		<if test="result_kind != ''">      
+		      AND RESULT_KIND = #{result_kind}
+		</if>
+		<if test="work_kind != ''">      
+		      AND WORK_KIND = #{work_kind}
+		</if>
+		<if test="mem_no != ''">      
+		      AND MEM_NO = #{mem_no}
+		</if>  
+	</select>
+	
+	<select id="pdsMap.getAllCount" parameterType="map" resultType="int">
+		SELECT 
+			COUNT(SEQ) AS PDSCOUNT
+        <if test="work_kind == 'DF'"> <!--  미납  -->
+            FROM PDS_CONN_CS01
+        </if>
+        <if test="work_kind == 'CD'"> <!--  해약방어  -->
+            FROM PDS_CONN_CS02
+        </if>
+        <if test="work_kind == 'HC'"> <!--  해피콜  -->
+            FROM PDS_CONN_PARTNERS01
+        </if>  
+		WHERE 1 = 1
+       	AND DEL_KIND = 'N'
+		AND CONN_KIND = 'CN'
+		<if test="startDate != ''">
+		      AND DATE_PDS <![CDATA[>=]]> CONCAT(#{startDate}, '000000')
+		</if>
+		<if test="endDate != ''">
+		      AND DATE_PDS <![CDATA[<=]]> CONCAT(#{endDate}, '235959')
+		</if>
+		<if test="mem_nm != ''">      
+		      AND MEM_NM = #{mem_nm}
+		</if>
+		<if test="tel != ''">      
+		      AND TEL = #{tel}
+		</if>
+		<if test="accnt_no != ''">      
+		      AND ACCNT_NO = #{accnt_no}
+		</if>
+		<if test="result_kind != ''">      
+		      AND RESULT_KIND = #{result_kind}
+		</if>
+		<if test="work_kind != ''">      
+		      AND WORK_KIND = #{work_kind}
+		</if>
+		<if test="mem_no != ''">      
+		      AND MEM_NO = #{mem_no}
+		</if>  
+	</select>
+	
+	<update id="pdsMap.updateStatus" parameterType="map">
+	    <if test="work_kind == 'DF'"> <!--  미납  -->
+	        UPDATE PDS_CONN_CS01
+	    </if>
+	    <if test="work_kind == 'CD'"> <!--  해약방어  -->
+            UPDATE PDS_CONN_CS02
+        </if>
+        <if test="work_kind == 'HC'"> <!--  해피콜  -->
+            UPDATE PDS_CONN_PARTNERS01
+        </if>
+			SET CONN_KIND = 'CN'
+			    , DATE_PDS = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			WHERE SEQ = #{seq}
+	</update>
+	
+	<update id="pdsMap.updateDataDF" parameterType="map">
+	    UPDATE PDS_CONN_CS01
+		SET RESULT_KIND = #{result_kind}
+		    , DATE_RESULT = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		WHERE SEQ = #{seq}
+		      AND DATE_RESULT IS NULL
+	</update>
+	
+	<update id="pdsMap.updateDataCD" parameterType="map">
+	    UPDATE PDS_CONN_CS02
+		SET RESULT_KIND = #{result_kind}
+		    , DATE_RESULT = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		WHERE SEQ = #{seq}
+		      AND DATE_RESULT IS NULL
+	</update>
+	
+	<update id="pdsMap.updateDataHC" parameterType="map">
+	    UPDATE PDS_CONN_PARTNERS01
+		SET RESULT_KIND = #{result_kind}
+		    , DATE_RESULT = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		WHERE SEQ = #{seq}
+		      AND DATE_RESULT IS NULL
+	</update>
+    
+	<update id="pdsMap.updateAlct" parameterType="map">
+	    DELETE FROM PS_WILLVI.TB_TRGT_CUST_ALCT
+		WHERE CNSR_ID = '9999999999'
+		AND TRGT_CUST_DTPT_ID = #{memo3}
+	</update>
+    
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

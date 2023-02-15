@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="BasVlMap">
+
+    <sql id="BasVlMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="bas_vl_nm != null and bas_vl_nm != ''">
+                AND BAS_VL_NM LIKE '%' || #{bas_vl_nm} || '%'
+            </if>
+            <if test="bas_vl_nm_full != null and bas_vl_nm_full != ''">
+                AND BAS_VL_NM = #{bas_vl_nm_full}
+            </if>
+            <if test="bas_vl != null and bas_vl != ''">
+                AND BAS_VL LIKE '%' || #{bas_vl} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="bas_vl_id != null and bas_vl_id != ''">
+                AND BAS_VL_ID = #{bas_vl_id}
+            </if>
+            <if test="srvr_id != null and srvr_id != ''">
+                AND SRVR_ID IN (#{srvr_id}, 'Z')
+            </if>
+        </where>
+    </sql>
+
+    <select id="BasVlMap.getBasVlCount" parameterType="map" resultType="int">
+        SELECT /* BasVlMap.getBasVlCount */
+               COUNT(*)
+          FROM TB_BAS_VL
+        <include refid="BasVlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="BasVlMap.getBasVlList" parameterType="map" resultType="resultMap">
+        SELECT /* BasVlMap.getBasVlList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , BAS_VL_ID, SRVR_ID, BAS_VL_NM, BAS_VL, BAS_VL_EXPI
+                     , USE_YN
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , RGSR_NM, AMND_NM, SRVR_NM
+                  FROM (SELECT BAS_VL_ID, SRVR_ID, BAS_VL_NM, BAS_VL, BAS_VL_EXPI
+                             , USE_YN
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT B.SRVR_NM
+                                  FROM TB_SRVR_INFO B
+                                 WHERE B.SRVR_ID = A.SRVR_ID) AS SRVR_NM
+                          FROM TB_BAS_VL A
+        <include refid="BasVlMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       )
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="BasVlMap.insertBasVl" parameterType="map">
+        <selectKey keyProperty="bas_vl_id" resultType="String" order="BEFORE">
+            SELECT 'BAS' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* BasVlMap.insertBasVl */
+                    TB_BAS_VL
+                    (BAS_VL_ID, SRVR_ID, BAS_VL_NM, BAS_VL, BAS_VL_EXPI
+                   , USE_YN
+                   , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{bas_vl_id}, #{srvr_id}, #{bas_vl_nm}, #{bas_vl}, #{bas_vl_expi}
+                   , #{use_yn}
+                   , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="BasVlMap.updateBasVl" parameterType="map">
+        UPDATE /* BasVlMap.updateBasVl */
+               TB_BAS_VL
+           SET SRVR_ID = #{srvr_id}
+             , BAS_VL_NM = #{bas_vl_nm}
+             , BAS_VL = #{bas_vl}
+             , BAS_VL_EXPI = #{bas_vl_expi}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE BAS_VL_ID = #{bas_vl_id}
+    </update>
+
+    <update id="BasVlMap.updateMonthUnpy" parameterType="map">
+        UPDATE /* BasVlMap.updateMonthUnpy */
+               TB_BAS_VL
+           SET SRVR_ID = #{srvr_id}
+             , BAS_VL_NM = #{bas_vl_nm}
+             , BAS_VL = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , BAS_VL_EXPI = #{bas_vl_expi}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE BAS_VL_ID = #{bas_vl_id}
+    </update>
+
+    <select id="BasVlMap.getBasVlListByStringArray" parameterType="map" resultType="resultMap">
+        SELECT /* BasVlMap.getBasVlListByStringArray */
+               BAS_VL_ID, BAS_VL_NM, BAS_VL, BAS_VL_EXPI
+          FROM TB_BAS_VL
+         WHERE USE_YN = 'Y'
+           AND (SRVR_ID = #{srvr_id} OR SRVR_ID = 'Z')
+           AND BAS_VL_NM IN
+        <foreach collection="sItemList" item="item" separator="," close=")" open="(">
+            #{item}
+        </foreach>
+    </select>
+
+</mapper>

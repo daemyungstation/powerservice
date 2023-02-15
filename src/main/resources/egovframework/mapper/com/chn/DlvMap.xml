@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlvMap">
+
+    <sql id="DlvMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="dlv_id != null and dlv_id != ''">
+                AND A.DLV_ID = #{dlv_id}
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND A.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="sndg_kind_cd != null and sndg_kind_cd != ''">
+                AND A.SNDG_KIND_CD = #{sndg_kind_cd}
+            </if>
+            <if test="dlv_type_cd != null and dlv_type_cd != ''">
+                AND A.DLV_TYPE_CD = #{dlv_type_cd}
+            </if>
+            <if test="dlv_stat_cd != null and dlv_stat_cd != ''">
+                AND A.DLV_STAT_CD = #{dlv_stat_cd}
+            </if>
+            <if test="dsps_mthd_cd != null and dsps_mthd_cd != ''">
+                AND A.DSPS_MTHD_CD = #{dsps_mthd_cd}
+            </if>
+            <if test="dsps_rsn_cd != null and dsps_rsn_cd != ''">
+                AND A.DSPS_RSN_CD = #{dsps_rsn_cd}
+            </if>
+            <if test="dlv_dsps_dt != null and dlv_dsps_dt != ''">
+                AND A.DLV_DSPS_DT = #{dlv_dsps_dt}
+            </if>
+            <if test="dlv_dsps_rsn_cd != null and dlv_dsps_rsn_cd != ''">
+                AND A.DLV_DSPS_RSN_CD != #{dlv_dsps_rsn_cd}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 신규 등록 시 회원번호  여부  -->
+    <select id="DlvMap.getDlvAccntCount" parameterType="map" resultType="int">
+        SELECT /* DlvMap.getDlvAccntCount */
+               COUNT(*)
+        FROM TB_DLV
+	    WHERE ACCNT_NO = #{accnt_no}
+    </select>
+
+    <select id="DlvMap.getDlvCount" parameterType="map" resultType="int">
+        SELECT /* DlvMap.getDlvCount */
+               COUNT(*)
+            FROM (SELECT A.DLV_ID, A.ACCNT_NO, A.MEM_NO, A.MEM_NM, A.DLV_TYPE_CD
+                       , B.DLV_NO, B.SQNC_NO, B.DLV_STAT_CD, B.DLV_STAT_CD AS OLD_DLV_STAT_CD
+                       , B.DSPS_MTHD_CD, B.DSPS_RSN_CD, B.DLV_DSPS_DT, B.DLV_DSPS_RSN_CD
+                       , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, B.AMND_ID, B.AMNT_DTTM
+                    FROM (SELECT A.*
+                            FROM TB_DLV A
+                         ) A
+                   INNER JOIN
+                         (SELECT A.*
+                            FROM (SELECT ROW_NUMBER() OVER (PARTITION BY DLV_ID ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX
+                                       , A.*
+                                    FROM TB_DLV_DTL A
+                                 ) A
+                           WHERE A.DLV_INDEX = 1
+                         ) B
+                      ON A.DLV_ID = B.DLV_ID
+                 ) A
+        <include refid="DlvMap.selectCondition_fragment" />
+    </select>
+
+    <select id="DlvMap.getDlvList" parameterType="map" resultType="resultMap">
+        SELECT /* DlvMap.getDlvList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY DLV_ID DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                     , SNDG_KIND_NM || '(' || DLV_TYPE_NM || '_' || DLV_STAT_NM || ') ' || DLV_DSPS_DT  || ' : ' || DLV_NO AS DLV_NM
+                  FROM (SELECT A.*
+                               , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.SNDG_KIND_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL120'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS SNDG_KIND_NM
+                               , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DLV_TYPE_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL080'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DLV_TYPE_NM
+                               , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DLV_STAT_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL090'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DLV_STAT_NM
+                              , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DSPS_MTHD_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL100'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DSPS_MTHD_NM
+                              , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DLV_DSPS_RSN_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL110'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DLV_DSPS_RSN_NM
+                              , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DSPS_RSN_CD
+                                     AND TB_CD.CD_SET_CD = (SELECT ADTL_CD
+                                                             FROM TB_CD
+                                                            WHERE CD_SET_CD='CHL100'
+                                                              AND CD = A.DSPS_MTHD_CD
+                                                              AND CNTR_CD = A.CNTR_CD)
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DSPS_RSN_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER C
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+           			FROM (
+                         SELECT A.DLV_ID,
+                               A.ACCNT_NO,
+                               MB.MEM_NO,
+                               MB.MEM_NM ,
+								MB.CELL AS CELL,
+								(MB.HOME_ZIP || ') ' || MB.HOME_ADDR || ' ' || MB.HOME_ADDR2) AS HOME_ZIP,
+                               MPA.RESORT_NO AS CSMM_PRFL_NO,
+                               A.SNDG_KIND_CD,
+                               A.DLV_TYPE_CD ,
+                               B.DLV_NO,
+                               B.SQNC_NO,
+                               B.DLV_STAT_CD,
+                               B.DLV_STAT_CD AS OLD_DLV_STAT_CD ,
+                               B.DSPS_MTHD_CD,
+                               B.DSPS_RSN_CD,
+                               B.DLV_DSPS_DT,
+                               B.DLV_DSPS_RSN_CD ,
+                               A.CNTR_CD,
+                               A.RGSR_ID,
+                               A.RGSN_DTTM,
+                               B.AMND_ID,
+                               B.AMNT_DTTM
+                         FROM
+                          (SELECT A.*
+                           FROM TB_DLV A ) A INNER JOIN
+                            (SELECT B.* FROM
+                                (
+                                    SELECT ROW_NUMBER() OVER (PARTITION BY DLV_ID ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX ,
+                                           DLV_ID, DLV_NO, SQNC_NO, DLV_STAT_CD, DSPS_MTHD_CD, DSPS_RSN_CD, DLV_DSPS_DT, DLV_DSPS_RSN_CD, AMND_ID, AMNT_DTTM
+                                    FROM TB_DLV_DTL
+                                 ) B
+                                WHERE B.DLV_INDEX = 1) B ON A.DLV_ID = B.DLV_ID INNER JOIN
+                              LF_DMUSER.MEM_PROD_ACCNT MPA ON A.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                              LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'
+                        	) A
+
+                         <!-- 20170216수정
+                          FROM (SELECT A.DLV_ID, A.ACCNT_NO, A.MEM_NO, A.MEM_NM
+                                     , A.CSMM_PRFL_NO, A.SNDG_KIND_CD, A.DLV_TYPE_CD
+                                     , B.DLV_NO, B.SQNC_NO, B.DLV_STAT_CD, B.DLV_STAT_CD AS OLD_DLV_STAT_CD
+                                     , B.DSPS_MTHD_CD, B.DSPS_RSN_CD, B.DLV_DSPS_DT, B.DLV_DSPS_RSN_CD
+                                     , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, B.AMND_ID, B.AMNT_DTTM
+                                  FROM (SELECT A.*
+                                          FROM TB_DLV A
+                                       ) A
+                                 INNER JOIN
+                                       (SELECT A.*
+                                          FROM (SELECT ROW_NUMBER() OVER (PARTITION BY DLV_ID ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX
+                                                     , A.*
+                                                  FROM TB_DLV_DTL A
+                                               ) A
+                                         WHERE A.DLV_INDEX = 1
+                                       ) B
+                                    ON A.DLV_ID = B.DLV_ID
+                               ) A
+                         -->
+                      <include refid="DlvMap.selectCondition_fragment" />
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+
+    </select>
+
+    <insert id="DlvMap.insertDlv" parameterType="map">
+        <selectKey keyProperty="dlv_id" resultType="String" order="BEFORE">
+            SELECT 'DLV' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* DlvMap.insertDlv */
+          INTO TB_DLV
+               (DLV_ID, ACCNT_NO, MEM_NO, MEM_NM, CSMM_PRFL_NO, SNDG_KIND_CD, DLV_TYPE_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{dlv_id}, #{accnt_no}, #{mem_no}, #{mem_nm}, #{csmm_prfl_no}, #{sndg_kind_cd}, #{dlv_type_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="DlvMap.updateDlv" parameterType="map">
+        UPDATE /* DlvMap.updateDlv */
+               TB_DLV
+           SET AMNT_DTTM	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID		= #{amnd_id}
+         WHERE DLV_ID		= #{dlv_id}
+    </update>
+
+    <delete id="DlvMap.deleteDlv" parameterType="map">
+        DELETE /* DlvMap.deleteDlv */
+          FROM TB_DLV
+         WHERE
+         <choose>
+            <when test="dlv_id == null or dlv_id == ''">
+               DLV_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               DLV_ID = #{dlv_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+
+
+    <select id="DlvMap.getDlvDtlCount" parameterType="map" resultType="int">
+        SELECT /* DlvMap.getDlvDtlCount */
+               COUNT(*)
+            FROM (SELECT A.DLV_ID, A.SQNC_NO, B.ACCNT_NO, B.MEM_NO, B.MEM_NM, B.DLV_TYPE_CD
+                       , A.DLV_NO, A.DLV_STAT_CD, A.DSPS_MTHD_CD, A.DSPS_RSN_CD
+                       , A.DLV_DSPS_DT, A.DLV_DSPS_RSN_CD
+                       , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                    FROM (SELECT A.*
+                           FROM TB_DLV_DTL A
+                         ) A
+                   INNER JOIN
+                         (SELECT A.*
+                            FROM TB_DLV A
+                         ) B
+                      ON A.DLV_ID = B.DLV_ID
+                 ) A
+        <include refid="DlvMap.selectCondition_fragment" />
+    </select>
+
+    <select id="DlvMap.getDlvDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* DlvMap.getDlvDtlList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY DLV_ID DESC, SQNC_NO DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                         FROM (SELECT A.*
+                               , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.SNDG_KIND_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL120'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS SNDG_KIND_NM
+                               , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DLV_TYPE_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL080'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DLV_TYPE_NM
+                               , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DLV_STAT_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL090'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DLV_STAT_NM
+                              , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DSPS_MTHD_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL100'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DSPS_MTHD_NM
+                              , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DLV_DSPS_RSN_CD
+                                     AND TB_CD.CD_SET_CD = 'CHL110'
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DLV_DSPS_RSN_NM
+                              , ( SELECT CD_NM
+                                     FROM TB_CD
+                                     WHERE TB_CD.CD    = A.DSPS_RSN_CD
+                                     AND TB_CD.CD_SET_CD = (SELECT ADTL_CD
+                                                             FROM TB_CD
+                                                            WHERE CD_SET_CD='CHL100'
+                                                              AND CD = A.DSPS_MTHD_CD
+                                                              AND CNTR_CD = A.CNTR_CD)
+                                   AND TB_CD.CNTR_CD  =  A.CNTR_CD) AS DSPS_RSN_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER C
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+           			FROM (
+                         SELECT A.DLV_ID,
+                               A.ACCNT_NO,
+                               MB.MEM_NO,
+                               MB.MEM_NM ,
+								MB.CELL AS CELL,
+								(MB.HOME_ZIP || ') ' || MB.HOME_ADDR || ' ' || MB.HOME_ADDR2) AS HOME_ZIP,
+                               MPA.RESORT_NO AS CSMM_PRFL_NO,
+                               A.SNDG_KIND_CD,
+                               A.DLV_TYPE_CD ,
+                               B.DLV_NO,
+                               B.SQNC_NO,
+                               B.DLV_STAT_CD,
+                               B.DLV_STAT_CD AS OLD_DLV_STAT_CD ,
+                               B.DSPS_MTHD_CD,
+                               B.DSPS_RSN_CD,
+                               B.DLV_DSPS_DT,
+                               B.DLV_DSPS_RSN_CD ,
+                               A.CNTR_CD,
+                               A.RGSR_ID,
+                               A.RGSN_DTTM,
+                               B.AMND_ID,
+                               B.AMNT_DTTM
+                         FROM
+                          (SELECT A.*
+                           FROM TB_DLV A ) A INNER JOIN
+                            (SELECT B.* FROM
+                                (
+                                    SELECT ROW_NUMBER() OVER (PARTITION BY DLV_ID ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX ,
+                                           DLV_ID, DLV_NO, SQNC_NO, DLV_STAT_CD, DSPS_MTHD_CD, DSPS_RSN_CD, DLV_DSPS_DT, DLV_DSPS_RSN_CD, AMND_ID, AMNT_DTTM
+                                    FROM TB_DLV_DTL
+                                 ) B
+                              ) B ON A.DLV_ID = B.DLV_ID INNER JOIN
+                              LF_DMUSER.MEM_PROD_ACCNT MPA ON A.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                              LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'
+                        	) A
+                      <include refid="DlvMap.selectCondition_fragment" />
+                       ) A
+               ) A
+
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+
+    </select>
+
+    <insert id="DlvMap.insertDlvDtl" parameterType="map">
+        <selectKey keyProperty="sqnc_no" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(SQNC_NO),0)+1 FROM TB_DLV_DTL WHERE DLV_ID = #{dlv_id}
+        </selectKey>
+
+        INSERT /* DlvMap.insertDlvDtl */
+          INTO TB_DLV_DTL
+               (DLV_ID, SQNC_NO, DLV_NO
+              , DLV_STAT_CD, DSPS_MTHD_CD, DSPS_RSN_CD, DLV_DSPS_DT, DLV_DSPS_RSN_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{dlv_id}, #{sqnc_no}, #{dlv_no}
+              , #{dlv_stat_cd}, #{dsps_mthd_cd}, #{dsps_rsn_cd}, #{dlv_dsps_dt}, #{dlv_dsps_rsn_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="DlvMap.updateDlvDtl" parameterType="map">
+        UPDATE /* DlvMap.updateDlvDtl */
+               TB_DLV_DTL
+           SET AMNT_DTTM	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID		= #{amnd_id}
+            <if test="dsps_mthd_cd != null and dsps_mthd_cd != ''">
+             , DSPS_MTHD_CD = #{dsps_mthd_cd}
+            </if>
+            <if test="dsps_rsn_cd != null and dsps_rsn_cd != ''">
+             , DSPS_RSN_CD	= #{dsps_rsn_cd}
+            </if>
+            <if test="dlv_dsps_dt != null and dlv_dsps_dt != ''">
+             , DLV_DSPS_DT = #{dlv_dsps_dt}
+            </if>
+            <if test="dlv_dsps_rsn_cd != null and dlv_dsps_rsn_cd != ''">
+             , DLV_DSPS_RSN_CD = #{dlv_dsps_rsn_cd}
+            </if>
+         WHERE DLV_ID = #{dlv_id}
+           AND SQNC_NO = #{sqnc_no}
+    </update>
+
+    <delete id="DlvMap.deleteDlvDtl" parameterType="map">
+        DELETE /* DlvMap.deleteDlvDtl */
+          FROM TB_DLV_DTL
+         WHERE
+         <choose>
+            <when test="dlv_id == null or dlv_id == ''">
+               DLV_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               DLV_ID = #{dlv_id}
+            </otherwise>
+        </choose>
+    </delete>
+</mapper>

@@ -1,0 +1,1414 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[var ARIGCSP_OPEN_YN = "N";		// genesys 연결여부
+var ARIGCSP_OPEN_TRY_YN = "N";	// genesys 연결시도 여부
+var ARIGCSP_OPEN_TRY_CNT = 0;	// genesys 연결시도 건수
+var ARIGCSP_LOGIN_YN = "N";		// genesys 로그인여부
+var ARIGCSP_MAKECALL_YN = "N";	// genesys 전화걸기 여부
+var ARIGCSP_CLEAR_YN = "N";		// genesys 전환끊기 여부
+var ARIGCSP_CONSULT_YN = "N";	// genesys 협의통화시도 여부
+var ARIGCSP_CONF_YN = "N"		// genesys 3자통화시도 여부
+
+
+// Genesys function 호출로 변경(2021.08.02)
+function callMethod(func) 
+{
+	trace("callMethod(fund)>>>>>>>>>>>>> func : " + func);
+
+	if ( (ARIGCSP_OPEN_YN == "N" && func != "OpenServer") )
+	{
+		return;
+	}
+	
+	switch (func) {
+		//trace("[lib_CTI] " + func + " 시작 ---------------");
+        
+        // CTI 서버 연결
+		case "OpenServer":
+			fn_OpenServer();
+		break;
+
+		// CTI 모니터링 시작
+		case "MonitorStart":
+			callMethod("LogIn"); 
+		break;
+		
+		// CTI 모니터링 중지
+		case "MonitorStop":				
+		break;
+		
+		// CTI 서버 연결 해제
+		case "CloseServer":
+			fn_CloseServer();
+		break;
+		
+		// 전화 끊기
+		case "ClearConnection":
+			fn_ReleaseCall();
+		break;
+		
+		// 전화걸기
+		case "MakeCall":
+			var _uui = "";
+            var _uei = "";
+            var _ci = "";
+            
+            trace("### gTelNo : " + gTelNo + " / " + cbo_tac_cd.value);
+            var _telno = gfn_makeCallTlno(gTelNo, cbo_tac_cd.value);
+			fn_MakeCall(_telno, "", "", "");
+		break;
+		
+		// 전화받기
+		case "AnswerCall":
+			fn_AnswerCall();
+		break;
+		
+		// 전화보류
+		case "Hold":
+			fn_Hold();
+		break;
+		
+		// 전화보류 해제
+		case "Retrieve":
+			fn_Retrieve();
+		break;
+		
+		// 호전환 시도
+		case "ConsultationTrans":
+			fn_InitTransfer();
+		break;
+		
+		// 호전환/3자 시도 취소
+		case "ReconnectCall" :
+			fn_ReconnectCall();
+		break;
+		
+		// 호전환
+		case "Transfer":
+			fn_CompTransfer();
+		break;
+		
+		// 3자통화 시도
+		case "ConsultationConfe":
+			fn_InitConference();
+        break;
+		
+		// 3자통화
+		case "Conference":
+			fn_CompConference();
+		break;
+				
+		// 대기
+		case "Ready":
+			fn_Ready();
+		break;
+		
+		// 로그인
+		case "LogIn":
+			fn_Login();
+		break;
+		
+		// 비대기
+		case "NotReady":
+			fn_NotReady();
+		break;
+
+		// 로그아웃
+		case "LogOut":
+			fn_Logout();
+		break;
+		
+		// 후처리
+		case "AfterCallWork":		
+			fn_NotReadyACW();
+		break;
+
+		/*
+        // 대기 상담사 수
+		case "AgentReadyGet":
+			gGateID = CAPI3X.GateId;
+			          // ctmpagentreadyget(gate, invoke, gCtiGroup, gCtiParty, 0);
+			//ret = CAPI3X.ctmpagentreadyget(gGateID, gInvokeID, gCtiGroup, gCtiParty, 0);
+			ret = CAPI3X.ctmpagentreadyget(gGateID, gInvokeID, gCtiGroup, gCtiParty, 100);
+			gInvokeID++;			
+
+			if(ret >= 0 && ret < 1000) ap_TodoFrame.form.stc_readyUser.text = ret;
+		break;
+		
+		// 대기 고객 수
+		case "WaitTimeGet":
+			gGateID = CAPI3X.GateId;
+			//ctmpwaittimegetevtget(long gate, long invoke, long queuedn)
+			// 대명스테이션 Queue번호 내역
+			// * 테스트 환경
+			//   - 2320 : 테스트Queue번호
+			
+			// * 운영 환경
+			//   - 2597 : 바로Queue로 인입된 전화(미납)
+			//   - 2826 : IVR멘트를 통해서 인입된 전화(상담사)
+			ret = CAPI3X.ctmpwaittimegetevtget(gGateID, gInvokeID, 2826);
+			gInvokeID++;
+
+			if(ret >= 0 && ret < 1000) ap_TodoFrame.form.stc_waitMemberCnt.text = ret;
+		break;
+ 		*/
+ 		case "OneStepTransfer":
+			fn_SingleStepTransfer(gTelNo);
+		break;
+		
+	}
+}
+
+var gConnId        = "";	// connection ID
+var gTranConnId	   = "";    // 호전환 connection ID
+
+var gCallId        = 0;		// call ID
+var gUserData      = "";	// user data
+
+var gCallRefId     = 0;  // 콜아이디
+var gActiveCallId  = 0;  // 콜활성아이디
+var gActiveDevice  = "";
+var gHeldCallId    = 0;  // 보류아이디
+var gHeldDevice    = "";
+var gMonitorParty  = "";
+var gOtherParty    = ""; // 인입번호
+var gQueueDn       = "";
+var gArgs          = "";
+var gHeldFlag      = 0;  // 보류여부
+
+//var gHeldCnId      = 0;
+var gInOutFlag     = ""; // 수발신구분 I:inbound O:outbound
+var gMakeCallTlno  = "";
+
+var gRecConsDataTm = 0; // 녹취 상담 데이터 전송 시간(ms)
+var gRecTagCnt	   = 0;	// 부분녹취건수
+
+// =======================================
+// Genesys 기능호출
+// =======================================
+/**
+ * ARIGCSP 정보 초기화
+ */
+function fn_ClearARIGCSP()
+{
+	trace("fn_ClearARIGCSP() >>>>>>>>>>>> ARIGCSP_MAKECALL_YN : " + ARIGCSP_MAKECALL_YN);
+
+	ARIGCSP_MAKECALL_YN = "N";	// genesys 전화걸기 여부
+	ARIGCSP_CONSULT_YN = "N";	// genesys 협의통화시도 여부
+	ARIGCSP_CONF_YN = "N"		// genesys 3자통화시도 여부
+	
+	gConnId = "";
+	gTranConnId = "";
+	gRecTagCnt = 0;	// 부분녹취
+}
+
+/**
+ * Genesys 서버연결 시도
+ */
+function fn_OpenServer()
+{
+	trace("fn_OpenServer() >>>>>>>>>>>>>>>>>>>>>>>>>>");
+
+	// Genesys정보 초기화
+	fn_ClearARIGCSP();
+	
+	// Genesys 연결이 되어 있다면 내선등록부터 실행
+	if ( ARIGCSP_OPEN_YN == "N" )
+	{
+		// Genesys 연결시도 중이면 기다리기
+		if ( ARIGCSP_OPEN_TRY_YN == "N" )
+		{
+			ARIGCSP.logDelOption(15);	// 로그파일 보관기간 설정
+			// 서버1_IP, 서버1_Port, 서버2_IP, 서버2_Port, timeout, 개인정보로그여부, encoding 
+			ARIGCSP.Connect(gCtiIp1, gCtiPort1, gCtiIp2, gCtiPort2, 3000, true, "UTF-8");
+			//
+			ARIGCSP_OPEN_TRY_YN = "Y";
+			ARIGCSP_OPEN_TRY_CNT++;
+		}
+	}
+}
+
+/**
+ * Genesys 서버연결종료 시도
+ */
+function fn_CloseServer()
+{
+	trace("fn_CloseServer >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+	
+	if ( ARIGCSP_OPEN_YN == "Y" )
+	{
+		ARIGCSP.Disconnect();
+	}
+}
+
+/**
+ * Genesys 로그인
+ * FIXME : 중복로그인 체크?
+ */
+function fn_Login()
+{
+	ARIGCSP.Register(gExtnNo);
+}
+
+/**
+ * Genesys 로그아웃
+ */
+function fn_Logout()
+{
+	ARIGCSP.Logout();
+}
+
+/**
+ * Genesys 이석
+ */
+function fn_NotReady()
+{
+	ARIGCSP.NotReady(gReasonCd, 4);
+}
+
+/**
+ * Genesys 대기
+ */
+function fn_Ready()
+{
+	ARIGCSP.ReadyManualIn();
+}
+
+/**
+ * Genesys 전화걸기
+ */
+function fn_MakeCall(tno, location, udKey, udVal)
+{
+	trace("***** tno : " + tno);
+//	ARIGCSP.AttachUserData("CPNDigits", cpnDigits);
+	ARIGCSP.MakeCall(tno, location, udKey, udVal);
+}
+
+/**
+ * 전화받기
+ */
+function fn_AnswerCall()
+{
+	trace("fn_AnswerCall() >>>>>>>>>>>>>>>>>>>>>>>>>>>");
+	
+	ARIGCSP.AnswerCall();
+}
+
+/**
+ * Genesys 전화끊기
+ */
+function fn_ReleaseCall()
+{
+	trace("fn_ReleaseCall >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+
+	ARIGCSP.ReleaseCall();
+	
+	ARIGCSP_CLEAR_YN = "Y";
+}
+
+/**
+ * Genesys 보류
+ */
+function fn_Hold()
+{
+	trace("fn_Hold() >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+	
+	ARIGCSP.Hold();
+}
+
+/**
+ * Genesys 보류해제
+ */
+function fn_Retrieve()
+{
+	trace("fn_Retrieve() >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+	
+	ARIGCSP.Retrieve();
+}
+
+/**
+ * Genesys 후처리
+ */
+function fn_NotReadyACW()
+{
+	gfn_log("I", "CTI", "fn_NotReadyACW");
+	ARIGCSP.NotReadyACW();
+}
+
+/**
+ * Genesys 호전환시도
+ */
+function fn_InitTransfer()
+{
+	// pbx type = meridian이면 _callclass 지정 할 것!
+	var _callclass = 0;
+	var _uui = "";
+	var _uei = gArsUei;
+	var _ci = "";
+	var _telno = gfn_makeCallTlno(gTelNo);
+	
+	ARIGCSP.AttachUserData("TRAN_YN", "Y");
+	ARIGCSP.InitTransfer(_telno, "", "ARSUEI", _uei, "", "");
+	//ARIGCSP.InitTransfer(_telno, "", "", "", "", "");
+}
+
+/**
+ * Genesys 호전환
+ */
+function fn_CompTransfer()
+{
+	ARIGCSP.CompTransfer();
+}
+
+/**
+ * Genesys 3자통화 시도
+ */
+function fn_InitConference()
+{
+	// pbx type = meridian이면 _callclass 지정 할 것!
+	var _callclass = 1;
+	var _uui = "";
+	var _uei = gArsUei;
+	var _ci = "";
+	var _telno = gfn_makeCallTlno(gTelNo);
+	
+	//ARIGCSP.InitConference(_telno, "", "ARSUEI", _uei, "", "")
+	ARIGCSP.InitTransfer(_telno, "", "ARSUEI", _uei, "", "");
+}
+
+/**
+ * Genesys 3자통화
+ */
+function fn_CompConference()
+{
+	ARIGCSP.CompConference();
+}
+
+/**
+ * Genesys 호전환/3자시도 취소
+ */
+function fn_ReconnectCall()
+{
+	if ( ARIGCSP_CONSULT_YN == "Y" || ARIGCSP_CONF_YN == "Y" )
+	{
+		ARIGCSP.ReconnectCall();
+	}
+	else
+	{
+		ARIGCSP.ReleaseCall();
+	}
+}
+
+/**
+ * Genesys 즉시호전환
+ */
+function fn_SingleStepTransfer(tranTno)
+{
+	//ARIGCSP.SingleStepTransfer(tranTno, "", "", "", "", "");
+	ARIGCSP.MuteTransfer(tranTno, "", "", "", "", "");
+}
+
+
+
+// =======================================
+// Genesys 이벤트
+// =======================================
+/**
+ * Genesys 연결 성공 이벤트
+ */
+function gfn_OnConnected(e)
+{
+	gfn_log("I", "CTI", "gfn_OnConnected", "appName : " + e.appName);
+	
+	ARIGCSP_OPEN_YN = "Y";
+	ARIGCSP_OPEN_TRY_YN = "N";
+	ARIGCSP_OPEN_TRY_CNT = 0;
+	
+	gv_ctiSrvrConnSucc = 1;
+	gConnectYn = "Y";
+}
+
+/**
+ * Genessys 연결종료 성공 이벤트
+ */
+function gfn_OnDisconnected(e)
+{
+	gfn_log("I", "CTI", "gfn_OnDisconnected", "appName : " + e.appName);
+	
+	ARIGCSP_OPEN_YN = "N";
+	
+	gConnectYn = "N"; // 서버 연결 여부
+	
+	// 서버연결시도 10회이상시 연결종료
+	if ( ARIGCSP_OPEN_TRY_CNT >= 10 ) {
+		ARIGCSP.Disconnect();
+		ARIGCSP_OPEN_TRY_CNT = 0;
+		alert("CTI 서버 접속 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]");
+	}
+}
+
+/**
+ * Genesys 내선번호등록 성공 이벤트
+ */
+function gfn_OnRegistered(e)
+{
+	gfn_log("I", "CTI", "gfn_OnRegistered", "dn : " + e.dn);
+	ARIGCSP.Login(gCtiId, "", "", 4);
+}
+
+/**
+ * Genesys 로그인 성공 이벤트
+ */
+function gfn_OnLogin(e)
+{
+	gfn_log("I", "CTI", "gfn_OnLogin", "agentId : " + e.agentId + ", queue : " + e. queue + ", workMode : " + e.workMode);
+	
+	ARIGCSP_LOGIN_YN = "Y";
+	
+	gArgs = "LoggedOn.";
+	btn_ctiLogin.class = "btn_Top_CtiLogout"; // 버튼 이미지 변경
+	
+	gfn_agentNotReady(0); // 휴식 상태 변경
+	
+	fn_movePageIbound(); // 인바운드 화면 전환
+}
+
+/**
+ * Genesys 로그아웃 성공 이벤트
+ */
+function gfn_OnLogout(e)
+{
+	gfn_log("I", "CTI", "gfn_OnLogout", "");
+	
+	ARIGCSP.Unregister(gExtnNo);
+}
+
+/**
+ * Genesys 내선등록해제 성공 이벤트
+ */
+function gfn_OnUnregistered(e)
+{
+	gfn_log("I", "CTI", "gfn_OnUnregistered", "dn : " + e.dn);
+	
+	ARIGCSP_LOGIN_YN = "N";
+	
+	callMethod("MonitorStop"); // 모니터링 중지
+				
+	btn_ctiLogin.class = "btn_Top_CtiLogin"; // 버튼 이미지 변경
+				
+	trace("[event] gfn_changeCtiStatus [CTI_STATUS_LOGOUT]");
+	gArgs = "LoggedOff.";
+				
+	for (var i = 0; i < ap_WorkFrame.all.length; i++) {
+		if (ap_WorkFrame.all[i].prgmCode == "DL500001") {//if (ap_WorkFrame.all[i].prgmCode == "PS020001") { // 인바운드 화면
+			ap_WorkFrame.all[i].form.div_Work.div_member.fn_init("click");
+			ap_WorkFrame.all[i].form.div_Work.div_cons_memo.fn_init();
+			break;
+		}
+	}
+}
+
+/**
+ * Genesys 이석 성공 이벤트
+ */
+function gfn_OnNotReady(e)
+{
+	gfn_log("I", "CTI", "gfn_OnNotReady", "reason : " + e.reason + ", workmode : " + e.workMode);
+	
+	if (gReasonCd == 0) {
+		gfn_changeCtiStatus(CTI_STATUS_NOT_READY_0);
+	} else if (gReasonCd == 2) {
+		gfn_changeCtiStatus(CTI_STATUS_NOT_READY_2);
+	} else if (gReasonCd == 4) {
+		gfn_changeCtiStatus(CTI_STATUS_NOT_READY_4);
+	}
+	
+	gArgs = "NotReady.";
+}
+
+/**
+ * Genesys 대기 성공 이벤트
+ */
+function gfn_OnReady(e)
+{
+	
+
+	gfn_log("I", "CTI", "gfn_OnReady", "");
+
+	gClickButton = ""; // 클릭 버튼 초기화
+
+	gHeldFlag = 0;
+	gRecTagCnt = 0;	// 부분녹취
+	gUei = "";
+	
+	gfn_changeCtiStatus(CTI_STATUS_READY);				
+	trace("[event] gfn_changeCtiStatus [CTI_STATUS_READY]");
+	
+	gArgs = "Ready.";
+}
+
+/**
+ * Genesys 후처리 성공 이벤트
+ */
+function gfn_OnNotReadyACW()
+{
+	gfn_log("I", "CTI", "gfn_OnNotReadyACW", "");
+	
+	gfn_changeCtiStatus(CTI_STATUS_ACW);
+	trace("[event] gfn_changeCtiStatus [CTI_STATUS_ACW]");
+
+	gArgs = "AfterCallWork.";
+}
+
+/**
+ * Genesys 전화연결이 되지 못한 콜 이벤트
+ */
+function gfn_OnAbandoned(e)
+{
+	trace("gfn+onAbandoned(e) e.callState : " + e.callState);
+	
+	gfn_log("I", "CTI", "gfn_OnAbandoned", "connId : " + e.connId + ", ani : " + e.ani + ", callType : " + e.callType + ", userData : " + e.userData);
+	
+	fn_openPopupChk("전화수신알림"); // 팝업 닫기
+	
+	ARIGCSP.NotReadyACW();
+}
+
+/**
+ * Genesys 전화걸기 성공 이벤트
+ */
+function gfn_OnDialing(e)
+{
+	gfn_log("I", "CTI", "gfn_OnDialing", "connId : " + e.connId + ", userData : " + e.userData + ", callId : " + e.callId);
+	
+	if ( ARIGCSP_CONSULT_YN == "N" && ARIGCSP_CONF_YN == "N" ) {
+		gConnId = e.connId;
+		gCallId = e.callId;
+		gUserData = e.userData;
+		gArgs = "Delivered.";
+		gRecTagCnt = 0;	// 부분녹취
+		gUei = "";
+		
+		trace("내가 전화를 걸었을 때");
+		
+		if (gHeldFlag == 0) {
+			gInOutFlag = "O";
+		}
+		
+		trace("[Frame_Top] Delivered gUei => " + gUei);
+		
+		gfn_changeCtiStatus(CTI_STATUS_INITIATED, gOtherParty);
+		trace("[event] gfn_changeCtiStatus [CTI_STATUS_INITIATED]");
+		
+		if ( gHeldFlag == 0 ) {
+			fn_saveCtiCrncHstr("delivered");// CTI통화이력 저장
+			gfn_CTIDeliveredHandler(); 		// 콜발생 처리
+		}
+	}
+}
+
+/**
+ * Genesys 전화인입 이벤트
+ */
+function gfn_OnRinging(e)
+{
+	gfn_log("I", "CTI", "gfn_OnRinging", "connId : " + e.connId + ", ani : " + e.ani + ", callType : " + e.callType + ", userData : " + e.userData + ", callState : " + e.callState);
+	
+	trace("**********************************************");
+	trace("e.callState : " + e.callState);
+	trace("**********************************************");
+	
+	trace("상대방이 전화를 걸었을 때");
+//	trace("[Frame_Top] Ringing gUei => " + gUei);
+
+	gConnId = e.connId;
+	
+	var tran_yn = gfn_getUserData("TRAN_YN", e.userData);
+	var pds_ani = gfn_getUserData("GSW_PHONE", e.userData);	// PDS 전화번호 (2021.11.12)
+	
+	// 호전환 인입 구분
+	if ( tran_yn == "Y" ) {
+		gUei = gfn_getUserData("ARSUEI", e.userData);
+		
+		if (!gfn_isNull(gUei)) {
+			gCallTyp = gUei.substring(0, 1);
+			// 호전환시도
+			if (gCallTyp == "T") {
+				gfn_changeCtiStatus(CTI_STATUS_CONSULTATION_1);
+				trace("[event] gfn_changeCtiStatus [CTI_STATUS_CONSULTATION_1]");
+			} 
+			// 3자통화 시도
+			else if (gCallTyp == "C") {
+				gfn_changeCtiStatus(CTI_STATUS_CONSULTATIONCONF_1);
+				trace("[event] gfn_changeCtiStatus [CTI_STATUS_CONSULTATIONCONF_1]");
+			} 
+			// 호전환시도 3자통화가 아닌 경우
+			else {
+				gfn_changeCtiStatus(CTI_STATUS_INITIATED, gOtherParty);
+				trace("[event] gfn_changeCtiStatus [CTI_STATUS_INITIATED]");
+			}
+		} else {
+			gfn_changeCtiStatus(CTI_STATUS_INITIATED, gOtherParty);
+			trace("[event] gfn_changeCtiStatus [CTI_STATUS_INITIATED]");
+		}
+		
+		gOtherParty = e.ani;
+		gQueueDn = 0;
+		
+	} else {
+	
+		// PDS 체크 (2021.11.12)
+		if ( e.callType == 3 && pds_ani != "" ) {
+			gUei = pds_ani;
+			gOtherParty = pds_ani;
+			gQueueDn = 9999;
+		} else {
+			gUei = gfn_getUserData("ivr_ani", e.userData);
+			gOtherParty = gfn_getUserData("ivr_ani", e.userData);
+			gQueueDn = gfn_getUserData("ivr_dnis", e.userData);	
+		}
+	}
+	
+	trace("gUei : " + gUei);  
+	trace("gOtherParty : " + gOtherParty);  
+	trace("gQueueDn : " + gQueueDn);  
+	
+	gInOutFlag = "I";
+		
+	gfn_changeCtiStatus(CTI_STATUS_RINGING, gOtherParty);
+	trace("[event] changeCtiStatus [CTI_STATUS_RINGING]");
+	
+	fn_saveCtiCrncHstr("delivered");// CTI통화이력 저장
+	gfn_CTIDeliveredHandler(); 		// 콜발생 처리
+}
+
+/**
+ * Genesys 통화연결 이벤트
+ */
+function gfn_OnEstablished(e)
+{
+	gfn_log("I", "CTI", "gfn_OnEstablished", "connId : " + e.connId + ", ani : " + e.ani + ", callType : " + e.callType + ", userData : " + e.userData + ", callState : " + e.callState);
+	gfn_log("I", "CTI", "gfn_OnEstablished", "ARIGCSP_CONSULT_YN : " + ARIGCSP_CONSULT_YN + ", ARIGCSP_CONF_YN : " + ARIGCSP_CONF_YN);
+	
+	if ( ARIGCSP_CONSULT_YN == "N" && ARIGCSP_CONF_YN == "N" ) {
+		if ( gInOutFlag == "I" )
+		{
+			ap_TodoFrame.form.inTimeStart();
+		}
+		else
+		{
+			ap_TodoFrame.form.outTimeStart();
+		}
+		
+		gv_rec_id = gfn_getTodayFull() + "" + gExtnNo;	// 녹취ID 생성
+		
+		trace("[Frame_Top] Established-gv_rec_id [" + gv_rec_id + "]");
+		
+		gfn_changeCtiStatus(CTI_STATUS_BUSY); 			// 통화중
+		trace("[event] gfn_changeCtiStatus [CTI_STATUS_BUSY]");
+		
+		// 2016. 07. 12 추가
+		for ( var i=0;i<ap_WorkFrame.all.length; i++ )
+		{
+			if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') { // 인바운드 화면
+				ap_WorkFrame.all[i].form.div_Work.div_product.btn_recDual.visible = true;	// 부분녹취 시작 버튼
+				ap_WorkFrame.all[i].form.div_Work.div_product.btn_concCmpl.visible = false;	// 계약완료 버튼
+				ap_WorkFrame.all[i].form.div_Work.div_product.btn_concCmpl.enable = false;
+			}
+		}
+		
+		gfn_recConsData(CTI_STATUS_BUSY); // 녹취 상담 데이터 전송
+		fn_saveCtiCrncHstr("established");	// CTI통화이력 저장
+		gfn_CTIEstablishedHandler(); 		// 콜연결 처리
+		
+		gArgs = "Established.";
+	}
+}
+
+/**
+ * Genesys 통화종료 이벤트
+ */
+function gfn_OnReleased(e)
+{
+	trace("gfn_OnReleased(e) e.callState : " + e.callState);
+
+	gfn_log("I", "CTI", "gfn_OnReleased", "connId : " + e.connId + ", otherDn : " + e.otherDn + ", party : " + e.party + ", userData : " + e.userData);
+	gfn_log("I", "CTI", "gfn_OnReleased", "gConnId : " + gConnId + ", gTranConnId : " + gTranConnId);
+	gfn_log("I", "CTI", "gfn_OnReleased", "ARIGCSP_CONSULT_YN : " + ARIGCSP_CONSULT_YN + ", ARIGCSP_CONF_YN : " + ARIGCSP_CONF_YN);
+
+	if ( ARIGCSP_CONSULT_YN == "Y" || ARIGCSP_CONF_YN == "Y" )
+	{
+		if ( gConnId == e.connId )
+		{
+			trace("[event] 고객이 전화끊음");
+		}
+		else if ( gTranConnId == e.connId )
+		{
+			trace("[event] 협의통화 전화끊음");
+		}
+		
+		gfn_changeCtiStatus(CTI_STATUS_BUSY); 				// 통화 중
+		trace("[event] gfn_changeCtiStatus [CTI_STATUS_BUSY]");
+		
+		ARIGCSP_CONSULT_YN = "N";
+		ARIGCSP_CONF_YN = "N";
+		
+		return;
+	}
+
+	gfn_Release();	
+}
+
+function gfn_Release()
+{
+	gArgs = "ConnectionCleared.";
+	
+	gClickButton = ""; // 클릭 버튼 초기화
+	
+	trace("ctiStatus => " + ctiStatus + ", gHeldFlag => " + gHeldFlag);
+	
+	if ( gHeldFlag == 1 ) {
+		gfn_changeCtiStatus(CTI_STATUS_BUSY); 				// 통화 중
+		trace("[event] gfn_changeCtiStatus [CTI_STATUS_BUSY]");
+		btn_hold.class = "btn_Top_Cti05"; // 보류 해제 class 변경
+		gHeldFlag = 0;
+	}
+	
+	// 전화를 건 사람이 끊었을 때
+	if ( ARIGCSP_CLEAR_YN == "Y" ) {
+		trace("[event] 전화 건 사람이 끊음");
+		
+		fn_openPopupChk("전화수신알림"); // 팝업 닫기
+	}
+			
+	gfn_agentACW();      // 후처리 -- 통화종료시 후처리 이벤트 옴
+	fn_endTotalConsHr(); // 상담 시간설정 종료
+	
+	if ( gInOutFlag == "I" )
+	{
+		ap_TodoFrame.form.inTimeStop();
+	}
+	else
+	{
+		ap_TodoFrame.form.outTimeStop();
+	}
+	
+	if (gv_rec_dual_yn == "Y") {
+		gv_rec_dual_id = gv_rec_id;
+	}
+	
+	// 부분녹취종료
+	for(var i=0;i<ap_WorkFrame.all.length; i++){
+		if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') { 								// 인바운드 화면
+			if (ap_WorkFrame.all[i].form.div_Work.div_product.btn_recDual.text == CTI_STATUS_CANCELRECDUAL) {
+				ap_WorkFrame.all[i].form.div_Work.div_product.fn_endRecHr();			// 부분녹취 종료
+			}
+			ap_WorkFrame.all[i].form.div_Work.div_product.btn_recDual.visible = false;	// 부분녹취 시작 버튼
+			ap_WorkFrame.all[i].form.div_Work.div_product.btn_concCmpl.visible = true;	// 계약완료 버튼
+			if (gv_rec_dual_yn == "Y") {
+				ap_WorkFrame.all[i].form.div_Work.div_product.btn_concCmpl.enable = true;
+			}
+		}
+	}
+	
+	gfn_recConsData(CTI_STATUS_ACW); // 녹취 상담 데이터 전송
+	fn_saveCtiCrncHstr("clear"); // CTI통화이력 저장
+	fn_ClearARIGCSP();
+}
+
+/**
+ * Genesys 보류 성공 이벤트
+ */
+function gfn_OnHeld(e)
+{
+	trace("gfn_OnHeld(e) e.callState : " + e.callState);
+
+	gfn_log("I", "CTI", "gfn_OnHeld", "connId : " + e.connId + ", gConnId : " + gConnId);
+		
+	if ( ARIGCSP_CONSULT_YN == "N" && ARIGCSP_CONF_YN == "N" )
+	{
+		gArgs = "Held.";
+		gHeldFlag = 1;
+		
+		gfn_changeCtiStatus(CTI_STATUS_HELD);
+		trace("[event] gfn_changeCtiStatus [CTI_STATUS_HELD]");
+	}
+}
+
+/**
+ * Genesys 보류해제 성공 이벤트
+ */
+function gfn_OnRetrieved(e)
+{
+	trace("gfn_OnRetrieved(e) e.callState : " + e.callState);
+
+	gfn_log("I", "CTI", "gfn_OnRetrieved", "connId : " + e.connId + ", gConnId : " + gConnId);
+	
+	if ( ARIGCSP_CONSULT_YN == "N" && ARIGCSP_CONF_YN == "N" )
+	{
+		gArgs = "Retrieved.";
+		
+		gHeldFlag = 0;
+
+		gfn_changeCtiStatus(CTI_STATUS_BUSY);
+		trace("[event] gfn_changeCtiStatus [CTI_STATUS_BUSY]");
+	}
+}
+
+/**
+ * Genesys 호전환시도 성공 이벤트
+ */
+function gfn_OnInitTransfered(e)
+{
+	gfn_log("I", "CTI", "gfn_OnInitTransfered", "connId : " + e.connId + ", transferConnId : " + e.transferConnId + ", otherDn : " + e.otherDn );
+	
+	ARIGCSP_CONSULT_YN = "Y";
+	
+	gTranConnId = e.connId;
+	
+	gCallTyp = "T";	// AS-IS gUei 첫번째 문자인데 우선 "T"로 세팅함.
+	
+	gfn_changeCtiStatus(CTI_STATUS_CONSULTATION_1);
+	trace("[event] gfn_changeCtiStatus [CTI_STATUS_CONSULTATION_1]");
+}
+
+/**
+ * Genesys 호전환/3자통화 시도취소 성공 이벤트
+ */
+function gfn_OnReconnected(e)
+{
+	gfn_log("I", "CTI", "gfn_OnReconnected", "connId : " + e.connId + ", transferConnId : " + e.transferConnId + ", otherDn : " + e.otherDn );
+}
+
+/**
+ * Genesys 호전환 성공 이벤트
+ */
+function gfn_OnCompTransfered(e)
+{
+	trace("gfn_OnCompTransfered(e) e.callState : " + e.callState);
+
+	gfn_log("I", "CTI", "gfn_OnCompTransfered", "connId : " + e.connId + ", transferConnId : " + e.transferConnId + ", otherDn : " + e.otherDn );
+	
+	// 이벤트 순서가 아무렇게나 와서 체크한 후 로직실행
+	if ( ARIGCSP_CONSULT_YN == "Y" )
+	{
+		ARIGCSP_CONSULT_YN = "N";
+	}
+	else
+	{
+		gfn_Release();
+	}
+}
+
+/**
+ * Genesys 3자통화시도 성공 이벤트
+ */
+function gfn_OnInitConferenced(e)
+{
+	gfn_log("I", "CTI", "gfn_OnInitConferenced", "connId : " + e.connId + ", otherDn : " + e.otherDn );
+	
+	ARIGCSP_CONF_YN = "Y";
+	gTranConnId = e.connId;
+	
+	gCallTyp = "C";	// FIXME 확인필요
+}
+
+/**
+ * Genesys 3자통화 성공 이벤트
+ */
+function gfn_OnCompConferenced(e)
+{
+	gfn_log("I", "CTI", "gfn_OnCompConferenced", "connId : " + e.connId + ", transferConnId : " + e.transferConnId + ", otherDn : " + e.otherDn );
+}
+
+/**
+ * Genesys 3자통화 중 3자통화 대상자 호를 종료한 경우 이벤트
+ */
+function gfn_OnConferenceReleased(e)
+{
+	gfn_log("I", "CTI", "gfn_OnConferenceReleased", "connId : " + e.connId + ", otherDn : " + e.otherDn );
+}
+
+/**
+ * Genesys 3자통화 중 1명이 통화종료하는 경우
+ */
+function gfn_OnPartyDeleted(e)
+{
+	gfn_log("I", "CTI", "gfn_OnPartyDeleted", "thisDn : " + e.thisDn + ", dnis : " + e.dnis + ", otherDn : " + e.otherDn + ", thirdPartyDn : " + e.thirdPartyDn + ", userData : " + e.userData );
+	
+	ARIGCSP_CONSULT_YN = "N";
+	ARIGCSP_CONF_YN = "N";
+	
+	gfn_changeCtiStatus(CTI_STATUS_BUSY);
+	trace("[event] gfn_changeCtiStatus [CTI_STATUS_BUSY]");
+}
+
+/**
+ * Genesys 3자통화가 연결이 추가된 경우 이벤트
+ */
+function gfn_OnPartyAdded(e)
+{
+	gfn_log("I", "CTI", "gfn_OnPartyAdded", "thisDn : " + e.thisDn + ", dnis : " + e.dnis + ", otherDn : " + e.otherDn + ", thirdPartydn : " + e.thirdPartyDn + ", userData : " + e.userData + ", callState : " + e.callState);
+	
+	gHeldFlag = 0;
+	
+	gfn_changeCtiStatus(CTI_STATUS_CONSULTATIONCONF_3); // 3자통화
+	trace("[event] gfn_changeCtiStatus [CTI_STATUS_CONSULTATIONCONF_3]");
+}
+
+function gfn_OnPartyChanged(e)
+{
+	gfn_log("I", "CTI", "gfn_OnPartyChanged", "");
+	
+	// ds_callInfo 재설정
+	trace("[Frame_Top] Transfering gCallId => "+gCallId+", gIncoTlno => "+gIncoTlno);
+	if (gIncoTlno.length != 4) { // 내선번호
+		// fn_incomingCall(); // 상담저장 호출
+		fn_srchInboundMain(gv_memNo, gv_consGrpNo, 1, gv_totl_cons_hr); // 고객 및 상담 조회
+	}
+}
+
+/**
+ * Genesys 즉시호전환 이벤트
+ */
+function gfn_OnSingleStepTransfered(e)
+{
+	gfn_log("I", "CTI", "gfn_OnSingleStepTransfered", "connId : " + e.connId + ", otherDn : " + e.otherDn);
+}
+
+/**
+ * Genesys 즉시호전환 이벤트
+ */
+function gfn_OnMuteTransfered(e)
+{
+	gfn_log("I", "CTI", "gfn_OnMuteTransfered", "connId : " + e.connId + ", otherDn : " + e.otherDn);
+}
+
+/**
+ * Genesys 전화기의 수화기를 들은 경우 이벤트
+ */
+function gfn_OnOffHook(e)
+{
+	gfn_log("I", "CTI", "gfn_OnOffHook", "dn : " + e.dn );
+}
+
+/**
+ * Genesys 전화기의 수화기를 내려놓은 경우 이벤트
+ */
+function gfn_OnOnHook(e)
+{
+	gfn_log("I", "CTI", "gfn_OnOnHook", "dn : " + e.dn );
+}
+
+/**
+ * Genesys Exception
+ */
+function gfn_OnException(e)
+{
+	gfn_log("I", "CTI", "gfn_OnException", "objName : " + e.objName + ", msg : " + e.msg + ", code : " + e.code );
+	
+	switch ( e.objName ) {
+		case "CheckTSClientIsNull":
+		case "Connect":
+			alert("CTI 서버 접속 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]");
+			break;
+		case "Register":
+			alert("CTI 로그인 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "Login":
+			alert("CTI 로그인 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "ReadyManualIn":
+			alert("CTI 대기 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "NotReadyACW":
+			alert("CTI 후처리 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "NotReady":
+			alert("CTI 상태변경 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "NotReady":
+			alert("CTI 상태변경 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "MakeCall":
+			alert("CTI 전화걸기 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "AnswerCall":
+			alert("CTI 전화받기 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "ReleaseCall":
+			alert("CTI 전화끊기 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "Hold":
+			alert("CTI 전화보류 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "Retrieve":
+			alert("CTI 전화보류해제 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "MuteTransfer":
+			alert("CTI 전환 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;
+		case "InitTransfer":
+			alert("호전환 시도간 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;	
+		case "InitTransfer":
+			alert("호전환 시도간 오류가 발생하였습니다. [ERRORCODE : " + e.code + "]:" + e.msg);
+			break;	
+			
+	}
+}
+
+/**
+ * 사용자데이터 파싱
+ */
+function gfn_getUserData(userKey, userData)
+{
+	if ( userData == "" )
+	{
+		return "";
+	}
+	
+	userData = userData.replace("\"", "");
+	
+	var key = "";
+	var data = "";
+	var temp = "";
+	var dataArr = userData.split(",");
+	
+	var subDataArr = null;
+	
+	for ( var i=0; i<dataArr.length; i++ ) 
+	{
+		temp = dataArr[i];
+		temp = temp.replace("{", "");
+		temp = temp.replace("}", "");
+		
+		subDataArr = temp.split(":");
+		
+		if ( subDataArr[0] == userKey )
+		{
+			data = subDataArr[1];
+			trace("data : " + data);
+			break;
+		}
+	}
+	
+	return data;
+}
+
+/**
+ * Genesys 연결 여부
+ */
+function gfn_openYn()
+{
+	return ARIGCSP_OPEN_YN;
+}
+
+/**
+ * Genesys 로그인 여부
+ */
+function gfn_loginYn()
+{
+	return ARIGCSP_LOGIN_YN;
+}
+
+/**
+ * 로그출력(trace)
+ */
+function gfn_log(type, id, func, msg, flag)
+{
+	var objDate = new Date();
+	var strDate = objDate.toFormatString("%c");
+	
+	trace("[" + strDate + "][" + type + "][" + id + "][" + func + "] " + msg);
+}
+
+// =======================================
+// Description : 녹취
+// =======================================
+
+// 녹취 상담 데이터 전송
+function gfn_recConsData(psCtiStatus)
+{
+    trace("[lib_CTI] gfn_recConsData is Call");
+    // CTI 사용자가 아닌 경우 종료
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sCtiUseYn = gds_UserInfo.getColumn(0, "cti_use_yn");
+	if (sCtiUseYn != "Y" ||
+	    gfn_isNull(gExtnNo) ||
+	    gfn_isNull(gCtiId) ||
+	    gfn_isNull(gv_rec_id)) {
+	    return;
+	}
+	
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+
+	// VTMAPI.VTMOCXEndCall(0, 내선번호, 상담사ID, callId, 전화번호, I/O...녹취청취키
+	// 회원명, 회원번호, 전화번호, empty
+	var sMemNo = "";
+	var sMemNm = "";
+	var sAccntNo = "";
+	var sProdCd = "";
+
+	for(var i=0;i<ap_WorkFrame.all.length; i++){
+		trace("* prgmCode : " + ap_WorkFrame.all[i].prgmCode);
+		if (ap_WorkFrame.all[i].prgmCode =='DL500001') {//if (ap_WorkFrame.all[i].prgmCode =='PS020001') {
+			sMemNo = ap_WorkFrame.all[i].form.div_Work.div_member.mem_no.value; 		// 회원고유번호
+			sMemNm = ap_WorkFrame.all[i].form.div_Work.div_member.mem_nm.value; 		// 회원명
+			sAccntNo = ap_WorkFrame.all[i].form.div_Work.div_product.edt_accnt_no.value;// 회원번호
+			sProdCd = ap_WorkFrame.all[i].form.div_Work.div_product.edt_prod_cd.value; 	// 상품코드
+		}
+	}
+	
+	if (!gfn_isNull(gv_oMemNo)) {
+		sMemNo = gv_oMemNo;
+		sMemNm = gv_oMemNm;
+		sAccntNo = gv_oAccntNo;
+		sProdCd = gv_oProdCd;	
+    }
+	
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	
+	if (psCtiStatus == null || psCtiStatus == "") {
+	    psCtiStatus = ctiStatus;
+	}
+	
+	trace("[lib_CTI] gfn_recConsData psCtiStatus-["+psCtiStatus+"]");
+	trace("[lib_CTI] gfn_recConsData gExtnNo-["+gExtnNo+"] sUserId-["+sUserId+"] gCallId=["+gCallId+"] sTlno-["+sTlno+"] gInOutFlag-["+gInOutFlag+"]");
+	trace("[lib_CTI] gfn_recConsData sMemNm=["+sMemNm+"] sMemNo-["+sMemNo+"] sTlno-["+sTlno+"] gv_rec_id-["+gv_rec_id+"] sAccntNo-["+sAccntNo+"] sProdCd-["+sProdCd+"]");
+	
+	var ret = 0;
+	var recWebUrl1 = "http://" + gRecIp1 + ":" + gRecPort1;
+	var optParams = gfn_getRecParam(gv_rec_id, sMemNm, sMemNo, sTlno, sAccntNo, sProdCd, "", "", "");
+	    
+	if (psCtiStatus == CTI_STATUS_BUSY || // 통화중
+	    psCtiStatus == CTI_STATUS_HELD) { // 보류중
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateOpenCall is Call start");
+		
+        var recParams = "station=" + gExtnNo + "&agent_id=" + gCtiId + "&overwrite=1" + optParams;
+        
+        trace(recWebUrl1 + "/callServer/updatecall/open/common?" + recParams);
+//        alert(recWebUrl1 + "/callServer/updatecall/open/common?" + recParams);
+        ret = VTMWEB1.Navigate(recWebUrl1 + "/callServer/updatecall/open/common?" + recParams);
+        
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateOpenCall is Call end [" + ret + "]");
+    } else {
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateCloseCall is Call start");
+	    
+        var recParams = "station=" + gExtnNo + "&overwrite=1&keyfield=1" + optParams;
+        
+        trace(recWebUrl1 + "/callServer/updatecall/close/common?" + recParams);
+//        alert(recWebUrl1 + "/callServer/updatecall/close/common?" + recParams);        
+        ret = VTMWEB1.Navigate(recWebUrl1 + "/callServer/updatecall/close/common?" + recParams);
+        
+	    trace("[lib_CTI] gfn_recConsData VTMOCXUpdateCloseCall is Call end [" + ret + "]");
+    }
+    
+    // 녹취 상담 데이터 전송 시간(ms) 저장
+    if (ret == 0) {
+        gRecConsDataTm = (new Date()).getTime();
+    }
+    
+	return ret;
+}
+
+// 녹취 청취
+function gfn_recPlay(rec_id)
+{
+	var sPrmr = {p_playsvr_ip:gPlayIp1, p_playsvr_port:gPlayPort1, p_rec_id:rec_id, p_part_yn:"N"};
+	trace("#1 - " + sPrmr);
+	var reVal = gfn_diaLog("녹취청취", -1, -1, 483,192, "FRAME::Frame_Top_Play.xfdl", false, sPrmr, true, false, true, null, null, true);
+	trace("#2 - " + reVal);
+	
+	reVal = 0;
+	return reVal;
+}
+
+// 부분녹취 시작
+function gfn_recStartDual(sAccntNo, sMemNo, sProdCd, sMemNm)
+{
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sTeamCd = gds_UserInfo.getColumn(0, "team_cd");
+
+	if (gfn_isNull(sTeamCd)) sTeamCd = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	
+	// 팀코드 "T" 제거
+	if (sTeamCd.length > 1 && sTeamCd.charAt(0) == "T") {
+	    sTeamCd = sTeamCd.substring(1, sTeamCd.length);
+	}
+	
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	
+	gRecTagCnt = (gRecTagCnt + 1);
+	gv_rec_dual_id = gv_rec_id + "_" + gRecTagCnt;
+	
+	trace("[lib_CTI] gfn_recStartDual gRecDualIp-["+gRecDualIp+"] gRecDualPort-["+gRecDualPort+"] gExtnNo-["+gExtnNo+"]");
+	trace("[lib_CTI] gfn_recStartDual sTeamCd=["+sTeamCd+"] sUserId=["+sUserId+"] gCtiId=["+gCtiId+"] sTlno=["+sTlno+"]");
+	trace("[lib_CTI] gfn_recStartDual sAccntNo-["+sAccntNo+"] sMemNo-["+sMemNo+"] sProdCd-["+sProdCd+"] gv_rec_dual_id-["+gv_rec_dual_id+"]");
+	
+	var ret = 0;
+	var recWebUrl1 = "http://" + gRecIp1 + ":" + gRecPort1;
+	var optParams = gfn_getRecParam(gv_rec_dual_id, sMemNm, sMemNo, sTlno, sAccntNo, sProdCd, "", sTeamCd, gCtiId);
+	
+	var recParams = "station=" + gExtnNo + optParams;
+	    
+	trace(recWebUrl1 + "/callServer/tagstartcall/common?" + recParams);
+//	alert(recWebUrl1 + "/callServer/tagstartcall/common?" + recParams);
+	ret = VTMWEB1.Navigate(recWebUrl1 + "/callServer/tagstartcall/common?" + recParams);
+
+	return ret;
+}
+
+// 부분녹취 종료
+function gfn_recEndDual(sAccntNo, sMemNo, sProdCd, sMemNm, sCancFg)
+{	
+	var sUserId = gds_UserInfo.getColumn(0, "user_id");
+	var sTeamCd = gds_UserInfo.getColumn(0, "team_cd");
+	
+	if (gfn_isNull(sTeamCd)) sTeamCd = "";
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	
+	// 팀코드 "T" 제거
+	if (sTeamCd.length > 1 && sTeamCd.charAt(0) == "T") {
+	    sTeamCd = sTeamCd.substring(1, sTeamCd.length);
+	}
+	
+	var sTlno = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	if (gfn_isNull(sCancFg)) {
+		sCancFg = "";	// 녹취 취소 여부(1 : 취소)
+		gv_rec_dual_yn = "Y";
+	} else {
+		gv_rec_dual_yn = "N";
+	}
+	
+	trace("[lib_CTI] gfn_recEndDual gRecDualIp-["+gRecDualIp+"] gRecDualPort-["+gRecDualPort+"] gExtnNo-["+gExtnNo+"]");
+	trace("[lib_CTI] gfn_recEndDual sTeamCd=["+sTeamCd+"] sUserId=["+sUserId+"] gCtiId=["+gCtiId+"] sTlno=["+sTlno+"]");
+	trace("[lib_CTI] gfn_recEndDual sAccntNo-["+sAccntNo+"] sMemNo-["+sMemNo+"] sProdCd-["+sProdCd+"] gv_rec_id-["+gv_rec_id+"]");
+	
+	var ret = 0;
+	var recWebUrl1 = "http://" + gRecIp1 + ":" + gRecPort1;
+	var optParams = gfn_getRecParam(gv_rec_dual_id, sMemNm, sMemNo, sTlno, sAccntNo, sProdCd, sCancFg, sTeamCd, gCtiId);
+	
+	var recParams = "station=" + gExtnNo + optParams;
+	    
+	trace(recWebUrl1 + "/callServer/tagendcall/common?" + recParams);
+//	alert(recWebUrl1 + "/callServer/tagendcall/common?" + recParams);
+	ret = VTMWEB1.Navigate(recWebUrl1 + "/callServer/tagendcall/common?" + recParams);
+
+	return ret;
+}
+
+// 부분 녹취 청취
+function gfn_recPlayDual(rec_id)
+{
+	var sPrmr = {p_playsvr_ip:gPlayIp1, p_playsvr_port:gPlayPort1, p_rec_id:rec_id, p_part_yn:"Y"};
+	trace("#1 - " + sPrmr);
+	var reVal = gfn_diaLog("녹취청취", -1, -1, 483,192, "FRAME::Frame_Top_Play.xfdl", false, sPrmr, true, false, true, null, null, true);
+	trace("#2 - " + reVal);
+	
+	reVal = 0;
+	return reVal;
+}
+
+// 부분 녹취 추가정보 저장(끊었을 경우)
+function gfn_recUpdateCloseCallDual(sAccntNo, sMemNo, sProdCd, sMemNm)
+{
+	var sTlno = "";
+
+	if (gfn_isNull(sAccntNo)) sAccntNo = "";
+	if (gfn_isNull(sMemNo)) sMemNo = "";
+	if (gfn_isNull(sProdCd)) sProdCd = "";
+	if (gfn_isNull(sMemNm)) sMemNm = "";
+	if (gInOutFlag == "I") {
+		sTlno = gIncoTlno;
+	} else {
+		sTlno = gTelNo;
+	}
+	
+	trace("[lib_CTI] gfn_recStartDual gRecDualIp-["+gRecDualIp+"] gRecDualPort-["+gRecDualPort+"] gExtnNo-["+gExtnNo+"]");
+	trace("[lib_CTI] gfn_recStartDual sTlno-["+sTlno+"] sAccntNo-["+sAccntNo+"] sProdCd-["+sProdCd+"] gv_rec_id-["+gv_rec_id+"]");
+	
+	var ret = 0;
+	var recWebUrl1 = "http://" + gRecIp1 + ":" + gRecPort1;
+	var optParams = gfn_getRecParam(sMemNm, sMemNo, sTlno, sAccntNo, sProdCd, "", "", "");
+	
+	var recParams = "station=" + gExtnNo + "&overwrite=1&keyfield=1" + optParams;     				  
+	    
+	trace(recWebUrl1 + "/callServer/updatecall/key/common?" + recParams);
+//	alert(recWebUrl1 + "/callServer/updatecall/key/common?" + recParams);
+	ret = VTMWEB1.Navigate(recWebUrl1 + "/callServer/tagendcall/common?" + recParams);
+
+	return ret;
+}
+
+function gfn_getRecParam(sRecId, sMemNm, sMemNo, sTlno, sAccntNo, sProdCd, sCancFg, sTeamCd, gCtiId)
+{
+	var optParams = "&opt1=" + sRecId;
+	
+	if ( sMemNm != "" )
+	{
+		optParams += "&opt2=" + encodeURIComponent(sMemNm);
+	}
+	
+	if ( sMemNo != "" )
+	{
+		optParams += "&opt3=" + sMemNo;
+	}
+	
+	if ( sTlno != "" )
+	{
+		optParams += "&opt4=" + sTlno;
+	}
+	
+	if ( sAccntNo != "" )
+	{
+		optParams += "&opt6=" + sAccntNo;
+	}
+	
+	if ( sProdCd != "" )
+	{
+		optParams += "&opt7=" + sProdCd;
+	}
+	
+	if ( sCancFg != "" )
+	{
+		optParams += "&opt11=" + sCancFg;
+	}
+	
+	if ( sTeamCd != "" )
+	{
+		optParams += "&opt12=" + sTeamCd;
+	}
+	
+	if ( gCtiId != "" )
+	{
+		optParams += "&opt13=" + gCtiId;
+	}
+	
+	return optParams;
+}
+]]></Script>

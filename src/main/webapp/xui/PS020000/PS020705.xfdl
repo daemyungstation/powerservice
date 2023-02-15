@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS020705" classname="PS020705" inheritanceid="" position="absolute 0 0 676 282" titletext="VOC" scrollbars="none" onload="PS020705_onload" onactivate="PS020705_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_144" class="sta_popupBg1" enable="false" position="absolute 0 0 676 282"/>
+        <Button id="btn_close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 646 8 666 27"/>
+        <Static id="stc_148" text="VOC콜" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Grid id="grd_list" taborder="1" binddataset="ds_list_voc" useinputpanel="false" autofittype="col" position="absolute 12 70 664 270" autosizingtype="none" cellsizingtype="col" onheadclick="grd_list_onheadclick" scrollbars="autoboth" oncellclick="grd_list_oncellclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="50"/>
+                <Column size="80"/>
+                <Column size="105"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="80"/>
+              </Columns>
+              <Rows>
+                <Row size="25" band="head"/>
+                <Row size="25"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="NO"/>
+                <Cell col="1"/>
+                <Cell col="2" text="고객명" id="voc_cust_nm"/>
+                <Cell col="3" text="접수일시" id="voc_acpg_dttm"/>
+                <Cell col="4" text="중요도" id="voc_impc_cd"/>
+                <Cell col="5" text="VOC유형" id="voc_typ_cd"/>
+                <Cell col="6" text="연락번호" id="tlph_rpl_cnpl_tlno"/>
+                <Cell col="7" text="시도횟수" id="hpcl_sido_tmcnt"/>
+              </Band>
+              <Band id="body">
+                <Cell text="expr:currow+1"/>
+                <Cell col="1" displaytype="button" edittype="none" text="처리"/>
+                <Cell col="2" style="font: ;" text="bind:voc_cust_nm"/>
+                <Cell col="3" text="bind:voc_acpg_dttm" mask="####-##-## ##:##"/>
+                <Cell col="4" text="bind:voc_impc_nm"/>
+                <Cell col="5" text="bind:voc_typ_nm"/>
+                <Cell col="6" displaytype="expr:gfn_isNull(tlph_rpl_cnpl_tlno) ? &quot;none&quot; : &quot;mask&quot;" text="bind:tlph_rpl_cnpl_tlno" expr="expr:gfn_isNull(tlph_rpl_cnpl_tlno) ? &quot;&quot; : tlph_rpl_cnpl_tlno" mask="expr:gfn_SetTelNoGrdMask(tlph_rpl_cnpl_tlno)"/>
+                <Cell col="7" text="bind:hpcl_sido_tmcnt"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_gdInit" taborder="2" onclick="btn_gdInit_onclick" class="btn_grd_Change" position="absolute 646 51 662 67" tooltiptext="다중정렬"/>
+        <Static id="sta_TotalCnt" text="검색결과   &lt;fs v='9'&gt;&lt;fc v='#f0850c'&gt;&lt;b v='true'&gt;0&lt;/b&gt;&lt;/fc&gt;&lt;/fs&gt; &lt;fc v='#a1a1a1'&gt;건&lt;/fc&gt;" usedecorate="true" class="sta_workTitle5" position="absolute 15 49 207 69"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_voc" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="256"/>
+          <Column id="consno" type="STRING" size="256"/>
+          <Column id="mem_no" type="STRING" size="256"/>
+          <Column id="voc_cust_nm" type="STRING" size="256"/>
+          <Column id="voc_acpg_dttm" type="STRING" size="256"/>
+          <Column id="voc_impc_cd" type="STRING" size="256"/>
+          <Column id="voc_impc_nm" type="STRING" size="256"/>
+          <Column id="voc_typ_cd" type="STRING" size="256"/>
+          <Column id="voc_typ_nm" type="STRING" size="256"/>
+          <Column id="tlph_rpl_cnpl_tlno" type="STRING" size="256"/>
+          <Column id="hpcl_sido_tmcnt" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+var tc_voc = 0; // 전체 건수
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS020705_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	fn_commSearch(); // 조회
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg)
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {
+			case "srchVocList":
+			gfn_setTotalRowCountOfNotPaging(sta_TotalCnt, tc_voc);
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+// 조회 전
+function fn_preSearch()
+{
+	ds_inqCndt.clearData();
+	ds_inqCndt.addRow();
+		
+	ds_inqCndt.setColumn(0, "orderBy", "voc_acpg_dttm");
+	ds_inqCndt.setColumn(0, "orderDirection", "asc");
+	
+	return true;
+}
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+// 미처리 조회
+function fn_commSearch()
+{
+ 	if (!fn_preSearch()) return false;
+
+	if(!gfn_pageSearch(gfn_getCommTypeOrderBy(), ds_list_voc, sta_TotalCnt, 200)) return;
+
+ 	var szSvcid       = "srchVocList";
+    var szController  = "/cons/voc-dtl/list/happycall";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_list_voc=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+// 닫기 버튼
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+// 그리드 헤더 사이즈 초기화
+function btn_gdInit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_resetColsize(grd_list);
+}
+
+// 그리드 헤더 클릭(정렬)
+function grd_list_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	ds_inqCndt.setColumn(0, "sController", "/cons/voc-dtl/list/happycall"); // 재정렬 위한 DB조회
+	ds_inqCndt.setColumn(0, "dsName", "ds_output");	// 결과를 받을 데이터셋명
+	
+	if(!gfn_pageSearch(gfn_getCommTypeOrderBy(), ds_list_voc, sta_TotalCnt, 200)) return;
+	
+	gfn_grdHeadClick(obj, e, ds_inqCndt, null, ds_list_voc);
+	gfn_setTotalRowCountOfNotPaging(sta_TotalCnt, tc_voc); // 페이지건수 표출
+}
+
+// cell click
+function grd_list_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+	if (e.cell == "1") { // 처리 버튼
+		var sPrmr = {p_voc_id:ds_list_voc.getColumn(grd_list.selectendrow, "voc_id"), p_mem_no:ds_list_voc.getColumn(grd_list.selectendrow, "mem_no")};
+		var reVal = gfn_diaLog("VOC콜처리", -1, -1, 884, 601, "PS020000::PS020706.xfdl", false, sPrmr, true, false, true, null, null, true);
+	}
+}
+
+// onactivate
+function PS020705_onactivate(obj:Form, e:ActivateEventInfo)
+{
+	if (!gfn_isNull(this.userParam)) {
+		if (this.userParam.p_srch_yn == "Y") {
+			fn_commSearch();
+		}
+		// 폼에 parameter 초기화한다.
+		this.userParam = null;
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

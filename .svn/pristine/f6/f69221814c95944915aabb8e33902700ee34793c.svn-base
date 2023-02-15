@@ -1,0 +1,2282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwExtcTrgtMap">
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtCount1100" parameterType="map" resultType="int">
+
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtCount1100 증서멤버쉽*/
+         COUNT(*)
+        FROM (
+	            SELECT A.ACCNT_NO,
+	                B.CELL,
+	                B.MEM_NM,
+	                A.MEM_NO,
+	                (SELECT NVL(ACUON_YN,'N') FROM PRODUCT WHERE PROD_CD = A.PROD_CD) AS ACUON_YN,
+	                (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+	                (FN_ACCNT_STAT(A.ACCNT_NO)) AS ACC_STAT,
+	                NVL((SELECT STAT FROM HP_CALL WHERE ACCNT_NO = A.ACCNT_NO),' ') AS HP_STAT
+	            FROM MEM_PROD_ACCNT A INNER JOIN
+	                MEMBER B ON A.MEM_NO = B.MEM_NO AND A.DEL_FG = 'N'
+	            WHERE  JOIN_DT BETWEEN  #{stt_join_dt}   AND  #{end_join_dt}
+            ) TBL
+        WHERE ACUON_YN = 'N' AND ACC_STAT = 'Y' AND HP_STAT IN ('01','011') AND TRUE_COUNT > 0
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtList1100" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtList1100 증서멤버쉽*/
+         *
+        FROM (
+            SELECT A.ACCNT_NO,
+                B.CELL,
+                B.MEM_NM,
+                A.MEM_NO,
+                (SELECT NVL(ACUON_YN,'N') FROM PRODUCT WHERE PROD_CD = A.PROD_CD) AS ACUON_YN,
+                (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+                (FN_ACCNT_STAT(A.ACCNT_NO)) AS ACC_STAT,
+                NVL((SELECT STAT FROM HP_CALL WHERE ACCNT_NO = A.ACCNT_NO),' ') AS HP_STAT
+            FROM MEM_PROD_ACCNT A INNER JOIN
+                MEMBER B ON A.MEM_NO = B.MEM_NO AND A.DEL_FG = 'N'
+            WHERE  JOIN_DT BETWEEN  #{stt_join_dt}   AND  #{end_join_dt}
+            ) TBL
+        WHERE ACUON_YN = 'N' AND ACC_STAT = 'Y' AND HP_STAT IN ('01','011') AND TRUE_COUNT > 0
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtCount1200" parameterType="map" resultType="int">
+
+
+       SELECT /* DlwExtcTrgtMap.getExtcTrgtCount1200 가입승인*/
+             COUNT(*)
+        FROM (
+            SELECT A.ACCNT_NO,
+                B.CELL,
+                B.MEM_NM,
+                A.MEM_NO,
+                 NVL((SELECT STAT FROM HP_CALL WHERE ACCNT_NO = A.ACCNT_NO),' ') AS HP_STAT,
+                A.JOIN_CL AS USER_DEFN2_CNTN,
+                A.REG_DM AS USER_DEFN1_CNTN,
+                (SELECT PROD_NM  FROM PRODUCT WHERE PROD_CD = A.PROD_CD AND DEL_FG = 'N') AS USER_DEFN3_CNTN
+            FROM MEM_PROD_ACCNT A INNER JOIN
+                MEMBER B ON A.MEM_NO = B.MEM_NO AND A.DEL_FG = 'N'
+            WHERE TO_CHAR(A.REG_DM,'YYYYMMDD') BETWEEN  #{stt_reg_dt}   AND  #{end_reg_dt}
+            ) TBL
+        WHERE HP_STAT = ' ' AND USER_DEFN2_CNTN IN ('01','02','03')
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtList1200" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtList1200 가입승인*/
+            *
+        FROM (
+            SELECT A.ACCNT_NO,
+                B.CELL,
+                B.MEM_NM,
+                A.MEM_NO,
+                 NVL((SELECT STAT FROM HP_CALL WHERE ACCNT_NO = A.ACCNT_NO),' ') AS HP_STAT,
+                A.JOIN_CL AS USER_DEFN2_CNTN,
+                TO_CHAR(A.REG_DM,'YYYYMMDD') AS USER_DEFN1_CNTN,
+                (SELECT PROD_NM  FROM PRODUCT WHERE PROD_CD = A.PROD_CD AND DEL_FG = 'N') AS USER_DEFN3_CNTN
+            FROM MEM_PROD_ACCNT A INNER JOIN
+                MEMBER B ON A.MEM_NO = B.MEM_NO AND A.DEL_FG = 'N'
+            WHERE TO_CHAR(A.REG_DM,'YYYYMMDD') BETWEEN  #{stt_reg_dt}   AND  #{end_reg_dt}
+            ) TBL
+        WHERE HP_STAT = ' ' AND USER_DEFN2_CNTN IN ('01','02','03')
+
+    </select>
+
+   <select id="DlwExtcTrgtMap.getExtcTrgtCount1700" parameterType="map" resultType="int">
+	    SELECT /* DlwExtcTrgtMap.getExtcTrgtCount1700 해약미처리*/
+		    COUNT(*)
+		FROM (
+		    SELECT MPA.ACCNT_NO,
+		        MB.CELL,
+		        MB.MEM_NM,
+		        MB.MEM_NO,
+		        KSTBIT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		        NVL(RESN_PROC_YN,'N') AS RESN_PROC_YN
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' AND RS.RESN_CL NOT IN ('02','04')
+		    WHERE MPA.DEL_FG = 'N'
+
+		    ) TBL
+		WHERE TRUE_COUNT > 0 AND KSTBIT = '03' AND RESN_PROC_YN != 'Y'
+
+
+		<!--
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtCount1700 해약미처리*/
+                COUNT(*)
+        FROM (
+            SELECT A.ACCNT_NO,
+                B.CELL,
+                B.MEM_NM,
+                A.MEM_NO,
+                (FN_ACCNT_STAT(A.ACCNT_NO)) AS ACC_STAT,
+                (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+                C.RESN_PROC_YN
+            FROM MEM_PROD_ACCNT A INNER JOIN
+                MEMBER B ON A.MEM_NO = B.MEM_NO AND A.DEL_FG = 'N' LEFT OUTER JOIN
+                RESCISSION C ON A.ACCNT_NO = C.ACCNT_NO AND C.DEL_FG = 'N'
+            ) TBL
+             <![CDATA[
+                WHERE TRUE_COUNT > 0 AND ACC_STAT = 'R' AND NVL(RESN_PROC_YN,'N') <> 'Y'
+              ]]>
+ 			-->
+    </select>
+
+   <select id="DlwExtcTrgtMap.getExtcTrgtCount1700Add" parameterType="map" resultType="int">
+	    SELECT /* DlwExtcTrgtMap.getExtcTrgtCount1700Add 해약미처리 중간 추가건*/
+		    COUNT(*)
+		FROM (
+		    SELECT MPA.ACCNT_NO,
+		        MB.CELL,
+		        MB.MEM_NM,
+		        MB.MEM_NO,
+		        KSTBIT,
+		        (TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),(SUBSTR(MPA.JOIN_DT,0,6) || '01'))) + 1) AS MONTH_COUNT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		        NVL(RESN_PROC_YN,'N') AS RESN_PROC_YN
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' AND RS.RESN_CL NOT IN ('02','04')
+		    WHERE MPA.DEL_FG = 'N'
+		    AND RS.RESON NOT IN ('011', '23')
+            AND RESN_ACPT_DAY >= TO_CHAR(SYSDATE,'YYYYMM') || '01'
+
+		    ) TBL
+		WHERE 1=1
+		AND TRUE_COUNT > 0
+		<if test='yenche_yn == "Y"'>
+			AND (MONTH_COUNT - TRUE_COUNT)  <![CDATA[>]]> 1
+		</if>
+
+		<if test='yenche_yn == "N"'>
+			AND (MONTH_COUNT - TRUE_COUNT)  <![CDATA[<=]]> 1
+		</if>
+		AND KSTBIT = '03'
+		AND RESN_PROC_YN != 'Y'
+        AND NOT EXISTS
+        (
+            SELECT ACCNT_NO FROM PS_WILLVI.TB_TRGT_CUST_DTPT
+            WHERE 1=1
+            AND ACCNT_NO = TBL.ACCNT_NO
+            AND TRGT_LIST_ID = #{trgt_list_id}
+            AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+        )
+
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtList1700" parameterType="map" resultType="resultMap">
+	    SELECT /* DlwExtcTrgtMap.getExtcTrgtList1700 해약미처리*/
+		    *
+		FROM (
+		    SELECT MPA.ACCNT_NO,
+		        MB.CELL,
+		        MB.MEM_NM,
+		        MB.MEM_NO,
+		        KSTBIT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		        NVL(RESN_PROC_YN,'N') AS USER_DEFN1_CNTN,
+		        RESN_ACPT_DAY AS USER_DEFN1_CNTN2
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' AND RS.RESN_CL NOT IN ('02','04')
+		    WHERE MPA.DEL_FG = 'N'
+
+		    ) TBL
+		WHERE TRUE_COUNT > 0 AND KSTBIT = '03' AND USER_DEFN1_CNTN != 'Y'
+
+    	<!--
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtList1700 해약미처리*/
+            *
+        FROM (
+            SELECT A.ACCNT_NO,
+                B.CELL,
+                B.MEM_NM,
+                A.MEM_NO,
+                (FN_ACCNT_STAT(A.ACCNT_NO)) AS ACC_STAT,
+                (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+                C.RESN_PROC_YN
+            FROM MEM_PROD_ACCNT A INNER JOIN
+                MEMBER B ON A.MEM_NO = B.MEM_NO AND A.DEL_FG = 'N' LEFT OUTER JOIN
+                RESCISSION C ON A.ACCNT_NO = C.ACCNT_NO AND C.DEL_FG = 'N'
+            ) TBL
+             <![CDATA[
+                WHERE TRUE_COUNT > 0 AND ACC_STAT = 'R' AND NVL(RESN_PROC_YN,'N') <> 'Y'
+              ]]>
+
+             -->
+
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtList1700Add" parameterType="map" resultType="resultMap">
+	    SELECT /* DlwExtcTrgtMap.getExtcTrgtCount1700Add 해약미처리 중간 추가건*/
+		    *
+		FROM (
+		    SELECT MPA.ACCNT_NO,
+		        MB.CELL,
+		        MB.MEM_NM,
+		        MB.MEM_NO,
+				PD.PROD_NM,
+		        KSTBIT,
+		        (TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),(SUBSTR(MPA.JOIN_DT,0,6) || '01'))) + 1) AS MONTH_COUNT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		        NVL(RESN_PROC_YN,'N') AS USER_DEFN1_CNTN,
+		        RESN_ACPT_DAY AS USER_DEFN1_CNTN2
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' AND RS.RESN_CL NOT IN ('02','04')
+		    WHERE MPA.DEL_FG = 'N'
+		    AND RS.RESON NOT IN ('011', '23')
+            AND RESN_ACPT_DAY >= TO_CHAR(SYSDATE,'YYYYMM') || '01'
+		    ) TBL
+		WHERE 1=1
+		AND TRUE_COUNT > 0
+		AND KSTBIT = '03'
+		AND USER_DEFN1_CNTN != 'Y'
+		<if test='yenche_yn == "Y"'>
+			AND (MONTH_COUNT - TRUE_COUNT)  <![CDATA[>]]> 1
+		</if>
+
+		<if test='yenche_yn == "N"'>
+			AND (MONTH_COUNT - TRUE_COUNT)  <![CDATA[<=]]> 1
+		</if>
+        AND NOT EXISTS
+        (
+            SELECT ACCNT_NO FROM PS_WILLVI.TB_TRGT_CUST_DTPT
+            WHERE 1=1
+            AND ACCNT_NO = TBL.ACCNT_NO
+            AND TRGT_LIST_ID = #{trgt_list_id}
+            AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+        )
+
+    </select>
+
+   <select id="DlwExtcTrgtMap.getExtcTrgtCount2100" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtCount2100 업체관리*/
+                COUNT(*)
+          FROM TB_UNPY_MNGE
+         WHERE CAMP_TYPE = #{cmpg_typ_cd2}
+           AND ALCT_YN = #{alct_yn}
+           AND DIV_TYPE = 'A'
+          /*AND ECCL_DT <![CDATA[ = ]]>SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'),0,7)+'01'*/
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtList2100" parameterType="map" resultType="resultMap">
+    <![CDATA[
+		SELECT
+		    ACCNT_NO,
+		    MONTH_CNT,
+		    TRUE_CNT,
+		    ICHAE_DT,
+		    ACC_STAT,
+		    FN_COM_NM('01',PAY_MTHD) AS PAY_MTHD,
+		    (MONTH_CNT - TRUE_CNT) - 1 AS PAY_STATE,
+		    PAY_DAY,
+		    TRUE_AMT,
+		    REL_AMT AS RELAT_AMT,
+		    ADD_AMT,
+		    DIV_TYPE,
+		    CAMP_TYPE,
+		    DATA_DT,
+		    MEM_NM,
+		    PROD_CD,
+		    PROD_NM,
+		    JOIN_DT,
+		    FN_COM_NM('81',HPCALL_STAT) AS HPCALL_STAT,
+		    CALL_CORP,
+		    CELL,
+		    MEM_NO,
+		    COM_NM AS B2B_COMP_NM,
+		    COM_CD AS B2B_COMP_CD,
+		    SECTION_T
+		FROM
+		(
+		    SELECT
+		        MPA.ACCNT_NO,
+		        (TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT)) +1) AS MONTH_CNT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT,
+		        FN_ICHAE_DT2(MPA.ACCNT_NO,MPA.PAY_MTHD)  AS ICHAE_DT,
+		        KSTBIT AS ACC_STAT,
+		        MPA.PAY_MTHD,
+		        '납입상태',
+		        (SELECT MAX(PAY_DAY) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_DAY,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_AMT,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS REL_AMT,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS ADD_AMT,
+		        'A' AS DIV_TYPE ,
+		        '2100' AS CAMP_TYPE,
+		        SYSDATE AS DATA_DT,
+		        MB.MEM_NM,
+		        MPA.PROD_CD,
+		        PD.PROD_NM,
+		        MPA.JOIN_DT,
+		        (SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS HPCALL_STAT,
+		        DP.DEPT_NM AS CALL_CORP,
+		        MB.CELL,
+		        MPA.MEM_NO,
+		        B2B.COM_NM,
+		        B2B.COM_CD,
+		        PD.SECTION_T
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		        EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO INNER JOIN
+		        DEPARTMENT DP ON EMP.DEPT_CD = DP.DEPT_CD LEFT OUTER JOIN
+		        B2BCOMCD B2B ON MPA.B2B_COMP_CD = B2B.COM_CD
+		    WHERE JOIN_DT BETWEEN TO_CHAR(ADD_MONTHS(sysdate,-3),'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(ADD_MONTHS(sysdate,-3)),'YYYYMMDD')
+		    AND KSTBIT = '02'
+		    AND EMP.DEPT_CD IN ('1694','1695','1719')
+		)
+		WHERE  (MONTH_CNT - TRUE_CNT) - 1 > 0
+
+		]]>
+
+
+
+		<!--
+		SELECT  /* DlwExtcTrgtMap.getExtcTrgtList2100 업체관리*/
+		       A.ACCNT_NO, A.MONTH_COUNT AS MONTH_CNT
+		      ,A.TRUE_COUNT AS TRUE_CNT ,FN_ICHAE_DT (A.ACCNT_NO,A.PAY_MTHD)  AS ICHAE_DT
+		      ,A.ACC_STAT ,A.PAY_MTHD ,A.PAY_STATE ,A.PAY_DAY ,A.TRUE_AMT ,A.RELAT_AMT
+		      ,A.ADD_AMT ,'A' AS DIV_TYPE ,'2100' AS CAMP_TYPE, sysdate DATA_DT
+		      ,A.MEM_NM, A.PROD_CD, A.PROD_NM ,A.JOIN_DT ,HPCALL_STAT
+		      ,FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) AS CALL_CORP
+		      ,CELL , MEM_NO, B2B_COMP_NM , B2B_COMP_CD, B.SECTION_T
+		FROM USERNPRODUCT_VIEW A
+            INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+		WHERE A.TRUE_COUNT <![CDATA[>]]> 0
+			AND JOIN_DT <![CDATA[>=]]> SUBSTR(TO_CHAR(ADD_MONTHS(sysdate,-3),'YYYYMMDD'),1,6) || '01'
+			AND JOIN_DT <![CDATA[ <  ]]>SUBSTR(TO_CHAR(ADD_MONTHS(sysdate,-2),'YYYYMMDD'),1,6) || '01'
+			AND ACC_STAT = '미만기'
+			AND SUBSTR(PAY_STATE,-2) = '연체'
+			AND FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) IN ('본사/특수판매/LG베샵','본사/특수판매/스마트라이프','본사/특수판매/LG유플')
+
+	 -->
+
+         <!--    201704월부터 모든이에,홈쇼핑은 컨텍에서 관리      김미경센터장 요청!!!
+         AND FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) IN ('본사/특수판매/LG베샵',
+                                                      '본사/특수판매/스마트라이프',
+                                                      '본사/특수판매/LG유플',
+                                                      '본사/특수판매/모든이에',
+                                                      '본사/특수판매/홈쇼핑')
+
+                                                       -->
+       <!--
+       ORDER BY A.ACCNT_NO
+        -->
+    </select>
+
+   <select id="DlwExtcTrgtMap.getExtcTrgtCount2200" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtCount2200 해약방어 */
+               COUNT(*)
+           FROM TB_UNPY_MNGE
+         WHERE CAMP_TYPE = #{cmpg_typ_cd2}
+           AND ALCT_YN = #{alct_yn}
+           AND DIV_TYPE = 'B'
+          /*AND ECCL_DT <![CDATA[ = ]]>SUBSTRING(CONVERT(VARCHAR, getdate(), 112),0,7)+'01'*/
+    </select>
+
+
+   <select id="DlwExtcTrgtMap.getExtcTrgtList2200" parameterType="map" resultType="resultMap">
+   <![CDATA[
+       SELECT
+		    ACCNT_NO,
+		    (CASE WHEN MONTH_CNT > MAX_REL_CNT THEN MAX_REL_CNT ELSE MONTH_CNT END) AS MONTH_CNT ,
+		    REL_CNT AS TRUE_CNT,
+		    ICHAE_DT,
+		    ACC_STAT,
+		    FN_COM_NM('01',PAY_MTHD) AS PAY_MTHD,
+		    ((CASE WHEN MONTH_CNT > MAX_REL_CNT THEN MAX_REL_CNT + 1 ELSE MONTH_CNT END) - REL_CNT) - 1 AS OVRD_CNT,
+		    PAY_DAY,
+		    TRUE_AMT,
+		    REL_AMT AS RELAT_AMT,
+		    ADD_AMT,
+		    DIV_TYPE,
+		    CAMP_TYPE,
+		    DATA_DT,
+		    MEM_NM,
+		    PROD_CD,
+		    PROD_NM,
+		    JOIN_DT,
+		    FN_COM_NM('81',HPCALL_STAT) AS HPCALL_STAT,
+		    CALL_CORP,
+		    CELL,
+		    MEM_NO,
+		    COM_NM,
+		    COM_CD AS B2B_COMP_CD,
+		    SECTION_T
+		FROM
+		(
+		    SELECT
+		        MPA.ACCNT_NO,
+		        (TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))) + 1 AS MONTH_CNT,
+		        (SELECT COUNT(*) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND REL_AMT > 0) AS MAX_REL_CNT,
+		        (SELECT COUNT(*) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD AND ADD_AMT > 0) AS MAX_ADD_CNT,
+		        --(SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT,
+		        (SELECT COUNT(*) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS REL_CNT,
+		        FN_ICHAE_DT2(MPA.ACCNT_NO,MPA.PAY_MTHD)  AS ICHAE_DT,
+		        KSTBIT AS ACC_STAT,
+		        MPA.PAY_MTHD,
+		        (SELECT MAX(PAY_DAY) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_DAY,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_AMT,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS REL_AMT,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS ADD_AMT,
+		        'B' AS DIV_TYPE ,
+		        '2200' AS CAMP_TYPE,
+		        SYSDATE AS DATA_DT,
+		        MB.MEM_NM,
+		        MPA.PROD_CD,
+		        PD.PROD_NM,
+		        MPA.JOIN_DT,
+		        (SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS HPCALL_STAT,
+		        DP.DEPT_NM AS CALL_CORP,
+		        MB.CELL,
+		        MPA.MEM_NO,
+		        B2B.COM_NM,
+		        PD.SECTION_T,
+		        B2B.COM_CD
+		    FROM RESCISSION RS LEFT OUTER JOIN
+		        MEM_PROD_ACCNT MPA  ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		        EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO INNER JOIN
+		        DEPARTMENT DP ON EMP.DEPT_CD = DP.DEPT_CD LEFT OUTER JOIN
+		        B2BCOMCD B2B ON MPA.B2B_COMP_CD = B2B.COM_CD
+		    WHERE PD.SECTION_T = '0002'
+		     AND NVL(RS.RESN_CL,'00') IN ('01','03')
+		)
+		WHERE   ((CASE WHEN MONTH_CNT > MAX_REL_CNT THEN MAX_REL_CNT + 1 ELSE MONTH_CNT END) - REL_CNT) - 1 > 0
+ ]]>
+
+<!--
+ <![CDATA[
+
+
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtList2200 해약방어*/
+                A.ACCNT_NO  , (CASE WHEN A.MONTH_COUNT >=
+                                         (SELECT COUNT(PROD_CD)
+                                            FROM PRODUCT_NO_DATA
+                                           WHERE PROD_CD = B.PROD_CD AND REL_AMT > 0)
+                                    THEN (SELECT COUNT(PROD_CD)
+                                            FROM PRODUCT_NO_DATA
+                                           WHERE PROD_CD = B.PROD_CD
+                                             AND REL_AMT > 0)
+                                    ELSE A.MONTH_COUNT END) AS MONTH_CNT
+               , FN_MON_PAY_COUNT(A.ACCNT_NO, '20120301', TO_cHAR(LAST_DAY(ADD_MONTHS(sysdate,-1)),'YYYYMMDD'), 'REL') AS TRUE_CNT
+               , FN_ICHAE_DT (A.ACCNT_NO,A.PAY_MTHD) ICHAE_DT
+               , A.ACC_STAT
+               , A.PAY_MTHD
+               , B2B_COMP_NM
+               , (CASE WHEN A.MONTH_COUNT >= (SELECT COUNT(PROD_CD)
+                                                  FROM PRODUCT_NO_DATA
+                                                 WHERE PROD_CD = B.PROD_CD
+                                                   AND REL_AMT > 0)
+                  THEN (SELECT COUNT(PROD_CD)
+                          FROM PRODUCT_NO_DATA
+                         WHERE PROD_CD = B.PROD_CD
+                           AND REL_AMT > 0)
+                  ELSE A.MONTH_COUNT END)
+                 - FN_MON_PAY_COUNT(A.ACCNT_NO, '20120301',  TO_CHAR(SYSDATE,'YYYYMM')||'01' , 'REL') AS OVRD_CNT
+         , A.PAY_DAY, A.TRUE_AMT, A.RELAT_AMT, A.ADD_AMT
+         , 'B' AS DIV_TYPE , '2200' AS CAMP_TYPE, SYSDATE DATA_DT
+         , A.MEM_NM, A.PROD_CD, A.PROD_NM, A.JOIN_DT
+         , HPCALL_STAT
+         , FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) AS CALL_CORP
+         , CELL, MEM_NO , B2B_COMP_CD, B.SECTION_T
+      FROM USERNPRODUCT_VIEW A INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+     WHERE B.SECTION_T = '0002'
+       AND TRUE_COUNT > 0
+       AND (CASE WHEN A.MONTH_COUNT >= (SELECT COUNT(PROD_CD)
+                                            FROM PRODUCT_NO_DATA
+                                           WHERE PROD_CD = B.PROD_CD
+                                             AND REL_AMT > 0)
+                 THEN (SELECT COUNT(PROD_CD)
+                         FROM PRODUCT_NO_DATA
+                        WHERE PROD_CD = B.PROD_CD
+                          AND REL_AMT  > 0)
+                 ELSE A.MONTH_COUNT -1 END)
+            - FN_MON_PAY_COUNT(A.ACCNT_NO, '20120301', TO_CHAR(SYSDATE,'YYYYMM')||'01' , 'REL')  >= 1
+       AND SUBSTR(A.ACC_STAT,-2) = '해약'
+          ]]>
+
+ -->
+    </select>
+
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtListUnpy" parameterType="map" resultType="resultMap">
+    <![CDATA[
+		SELECT
+		    ACCNT_NO,
+		    MONTH_CNT,
+		    TRUE_CNT,
+		    ICHAE_DT,
+		    ACC_STAT,
+		    FN_COM_NM('01',PAY_MTHD) AS PAY_MTHD,
+		    ((CASE WHEN EXPR_NO = (TRUE_CNT + NEW_CHAN_GUNSU) THEN 0 ELSE ((MONTH_CNT - TRUE_CNT) - 1) END)) AS PAY_STATE,
+		    PAY_DAY,
+		    TRUE_AMT,
+		    REL_AMT AS RELAT_AMT,
+		    ADD_AMT,
+		    MEM_NM,
+		    PROD_CD,
+		    PROD_NM,
+		    JOIN_DT,
+		    FN_COM_NM('81',HPCALL_STAT) AS HPCALL_STAT,
+		    CALL_CORP,
+		    CELL,
+		    MEM_NO,
+		    SECTION_T ,
+		    COM_NM AS B2B_COMP_NM,
+		    COM_CD AS B2B_COMP_CD
+
+		FROM
+		(
+		    SELECT
+		        MPA.ACCNT_NO,
+		        (TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT)) +1) AS MONTH_CNT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT,
+		        FN_ICHAE_DT2(MPA.ACCNT_NO,MPA.PAY_MTHD)  AS ICHAE_DT,
+		        KSTBIT AS ACC_STAT,
+		        MPA.PAY_MTHD,
+		        '납입상태',
+		        (SELECT MAX(PAY_DAY) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_DAY,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_AMT,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS REL_AMT,
+		        (SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS ADD_AMT,
+		        SYSDATE AS DATA_DT,
+		        MB.MEM_NM,
+		        MPA.PROD_CD,
+		        PD.PROD_NM,
+		        MPA.JOIN_DT,
+		        (SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS HPCALL_STAT,
+		        DP.DEPT_NM AS CALL_CORP,
+		        MB.CELL,
+		        MPA.MEM_NO,
+		        B2B.COM_NM,
+		        B2B.COM_CD,
+		        PD.SECTION_T,
+		        MPA.NEW_CHAN_GUNSU,
+		        PD.EXPR_NO
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		        EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO INNER JOIN
+		        DEPARTMENT DP ON EMP.DEPT_CD = DP.DEPT_CD LEFT OUTER JOIN
+		        B2BCOMCD B2B ON MPA.B2B_COMP_CD = B2B.COM_CD
+		    WHERE KSTBIT = '02'
+		)
+		WHERE  ((CASE WHEN EXPR_NO = (TRUE_CNT + NEW_CHAN_GUNSU) THEN 0 ELSE ((MONTH_CNT - TRUE_CNT) - 1) END)) > 0
+
+		AND ACCNT_NO NOT IN (
+		    SELECT
+		        ACCNT_NO
+		    FROM
+		    (
+		        SELECT
+		            MPA.ACCNT_NO,
+		            (TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT)) +1) AS MONTH_CNT,
+		            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT,
+		            MPA.JOIN_DT
+		        FROM MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+		            EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO
+		        WHERE JOIN_DT BETWEEN TO_CHAR(ADD_MONTHS(sysdate,-3),'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(ADD_MONTHS(sysdate,-3)),'YYYYMMDD')
+		        AND KSTBIT = '02'
+		        AND EMP.DEPT_CD IN ('1694','1695','1719')
+		    )
+		    WHERE  (MONTH_CNT - TRUE_CNT) - 1 > 0
+		)
+	]]>
+	<!--
+      <![CDATA[      SELECT /* DlwExtcTrgtMap.getExtcTrgtListUnpy 단기 장기 미납 */
+               A.ACCNT_NO, A.MONTH_COUNT AS MONTH_CNT, A.TRUE_COUNT AS TRUE_CNT
+             , FN_ICHAE_DT (A.ACCNT_NO,A.PAY_MTHD) ICHAE_DT
+             , A.ACC_STAT, A.PAY_MTHD, A.PAY_STATE, A.PAY_DAY, A.TRUE_AMT, A.RELAT_AMT, A.ADD_AMT
+             , A.MEM_NM, A.PROD_CD, A.PROD_NM, A.JOIN_DT, HPCALL_STAT
+             , FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) AS CALL_CORP
+             , CELL, MEM_NO, B.SECTION_T
+             , B2B_COMP_NM , B2B_COMP_CD
+          FROM USERNPRODUCT_VIEW A INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+         WHERE A.TRUE_COUNT > 0 AND ACC_STAT = '미만기' AND SUBSTR(PAY_STATE,-2) = '연체'
+           AND ACCNT_NO NOT IN (SELECT A.ACCNT_NO
+                                  FROM USERNPRODUCT_VIEW A INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+                                 WHERE A.TRUE_COUNT > 0
+                                   AND JOIN_DT >=SUBSTR(TO_CHAR(ADD_MONTHS(sysdate,-3),'YYYYMMDD'),1,6) || '01'
+                                   AND JOIN_DT < SUBSTR(TO_CHAR(ADD_MONTHS(sysdate,-2),'YYYYMMDD'),1,6) || '01'
+                                   AND ACC_STAT = '미만기'
+                                   AND SUBSTR(PAY_STATE,-2) = '연체'
+                                   AND FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) IN ('본사/특수판매/LG베샵',
+                                                                             '본사/특수판매/스마트라이프',
+                                                                             '본사/특수판매/LG유플'))
+     ]]>
+     -->
+
+              <!--  201704월부터     모든이에,홈쇼핑  도 1회차부터 컨텍에서 관리  ( 김미경센터장 요청)
+                                    AND FN_DEPT_NM_BY_EMPLE_NO(EMPLE_NO) IN ('본사/특수판매/LG베샵',
+                                                                             '본사/특수판매/스마트라이프',
+                                                                             '본사/특수판매/LG유플',
+                                                                             '본사/특수판매/모든이에',
+                                                                        '본사/특수판매/홈쇼핑'))
+				-->
+		<!--
+         <![CDATA[
+         AND ACCNT_NO NOT IN (SELECT A.ACCNT_NO
+                                FROM USERNPRODUCT_VIEW A INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+                               WHERE B.SECTION_T = '0002'
+                                 AND TRUE_COUNT > 0
+                                 AND (CASE WHEN A.MONTH_COUNT >= (SELECT COUNT(PROD_CD)
+                                                                      FROM PRODUCT_NO_DATA
+                                                                     WHERE PROD_CD = B.PROD_CD
+                                                                       AND REL_AMT > 0)
+                                           THEN (SELECT COUNT(PROD_CD)
+                                                   FROM PRODUCT_NO_DATA
+                                                  WHERE PROD_CD = B.PROD_CD
+                                                    AND REL_AMT > 0)
+                                           ELSE A.MONTH_COUNT END) - FN_MON_PAY_COUNT(A.ACCNT_NO,'20120301', TO_CHAR(SYSDATE,'YYYYMM')||'01','REL') > 1
+                                AND SUBSTR(A.ACC_STAT,-2) = '해약')
+                                 ]]>
+       -->
+
+    </select>
+
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtCount3300" parameterType="map" resultType="int">
+
+        SELECT  /* DlwExtcTrgtMap.getExtcTrgtCount3300 당월미납  */
+            COUNT(*)
+        FROM
+        (
+            SELECT
+                MPA.ACCNT_NO,
+                NVL((TRUNC(MONTHS_BETWEEN(SYSDATE,JOIN_DT),0) + 1),0) AS MONTH_CNT,
+                NVL((SELECT COUNT(*) FROM PAY_MNG PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS TRUE_COUNT ,
+                FN_ICHAE_DT2(MPA.ACCNT_NO,MPA.PAY_MTHD) AS ICHAE_DT,
+                DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS ACC_STAT,
+                FN_COM_NM('01',PAY_MTHD) AS PAY_MTHD,
+                FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STATE,
+                (SELECT MAX(PAY_DAY) FROM PAY_MNG PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N') AS PAY_DAY,
+                NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS TRUE_AMT,
+                NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS RELAT_AMT,
+                NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS ADD_AMT,
+                'F' AS DIV_TYPE,
+                '3300' AS CAMP_TYPE,
+                TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') DATA_DT,
+                B.MEM_NM,
+                MPA.PROD_CD,
+                C.PROD_NM,
+                MPA.JOIN_DT,
+                FN_COM_NM('81',(SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO)) AS HPCALL_STAT,
+                B.CELL,
+                B.MEM_NO,
+                C.SECTION_T,
+                (SELECT COM_NM FROM B2BCOMCD B2B WHERE B2B.COM_CD = MPA.B2B_COMP_CD) AS B2B_COMP_NM,
+                MPA.B2B_COMP_CD
+            FROM MEM_PROD_ACCNT MPA INNER JOIN
+               MEMBER B ON MPA.MEM_NO = B.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+               PRODUCT C ON MPA.PROD_CD = C.PROD_CD AND C.DEL_FG = 'N'
+               WHERE 1=1
+           ) TBL
+           WHERE TBL.ICHAE_DT = #{ichae_dt}
+            AND TBL.ACC_STAT = '정상'
+            AND TBL.JOIN_DT <![CDATA[ < ]]>  TO_CHAR(SYSDATE, 'YYYYMM') || '01'
+            AND TBL.TRUE_COUNT > 0
+            AND TBL.PAY_STATE = '당월미납'
+            AND NOT EXISTS (SELECT 'x'
+                            FROM YENCHE_MNG Y
+                            WHERE Y.ACCNT_NO = TBL.ACCNT_NO
+                            AND Y.DIV_DAY = TO_CHAR(SYSDATE, 'YYYY-MM-') || '01' )
+
+        <!--
+        SELECT /* DlwExtcTrgtMap.getExtcTrgtCount3300 당월미납  */
+         COUNT(*)
+          FROM USERNPRODUCT_VIEW A INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+         WHERE A.TRUE_COUNT > 0
+           AND FN_ICHAE_DT(A.ACCNT_NO,A.PAY_MTHD) = #{ichae_dt}
+           AND A.ACC_STAT = '미만기'
+           AND JOIN_DT<![CDATA[ < ]]> TO_CHAR(SYSDATE, 'YYYYMM') || '01'
+           AND A.TRUE_COUNT > 0
+           AND A.PAY_STATE = '당월미납'
+           AND ACCNT_NO NOT IN (SELECT ACCNT_NO
+                                  FROM YENCHE_MNG
+                                 WHERE DIV_DAY = TO_CHAR(SYSDATE, 'YYYY-MM-') || '01'
+                                 )
+        -->
+    </select>
+
+    <select id="DlwExtcTrgtMap.getExtcTrgtList3300" parameterType="map" resultType="resultMap">
+        <!--
+         SELECT /* DlwExtcTrgtMap.getExtcTrgtList3300 당월미납  */
+                A.ACCNT_NO
+              , A.MONTH_COUNT AS MONTH_CNT
+              , A.TRUE_COUNT  AS TRUE_CNT
+              , FN_ICHAE_DT(A.ACCNT_NO,A.PAY_MTHD) ICHAE_DT
+              , A.ACC_STAT
+              , A.PAY_MTHD
+              , A.PAY_STATE
+              , A.PAY_DAY
+              , A.TRUE_AMT
+              , A.RELAT_AMT
+              , A.ADD_AMT
+              , 'F' AS DIV_TYPE
+              ,'3300' AS CAMP_TYPE
+              , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') DATA_DT
+              , A.MEM_NM
+              , A.PROD_CD
+              , A.PROD_NM
+              , A.JOIN_DT
+              , HPCALL_STAT
+              , CELL
+              , MEM_NO
+              , B.SECTION_T
+              , B2B_COMP_NM
+              , B2B_COMP_CD
+           FROM USERNPRODUCT_VIEW A INNER JOIN PRODUCT B ON A.PROD_CD = B.PROD_CD
+          WHERE A.TRUE_COUNT > 0
+            AND FN_ICHAE_DT (A.ACCNT_NO,A.PAY_MTHD) = #{ichae_dt}
+            AND A.ACC_STAT = '미만기'
+            AND JOIN_DT<![CDATA[ < ]]> TO_CHAR(SYSDATE, 'YYYYMM') || '01'
+            AND A.TRUE_COUNT > 0
+            AND A.PAY_STATE = '당월미납'
+            AND NOT EXISTS (SELECT 'x'
+                              FROM YENCHE_MNG Y
+                             WHERE Y.ACCNT_NO = A.ACCNT_NO
+                               AND Y.DIV_DAY = TO_CHAR(SYSDATE, 'YYYY-MM-') || '01' )
+ -->
+
+     SELECT  /* DlwExtcTrgtMap.getExtcTrgtList3300 당월미납  */
+        ACCNT_NO
+      , MONTH_CNT AS MONTH_CNT
+      , TRUE_COUNT  AS TRUE_CNT
+      , FN_ICHAE_DT(ACCNT_NO,PAY_MTHD) ICHAE_DT
+      , ACC_STAT
+      , PAY_MTHD
+      , PAY_STATE
+      , PAY_DAY
+      , TRUE_AMT
+      , RELAT_AMT
+      , ADD_AMT
+      , 'F' AS DIV_TYPE
+      ,'3300' AS CAMP_TYPE
+      , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') DATA_DT
+      , MEM_NM
+      , PROD_CD
+      , PROD_NM
+      , JOIN_DT
+      , HPCALL_STAT
+      , CELL
+      , MEM_NO
+      , SECTION_T
+      , B2B_COMP_NM
+      , B2B_COMP_CD
+    FROM
+    (
+        SELECT
+            MPA.ACCNT_NO,
+            NVL((TRUNC(MONTHS_BETWEEN(SYSDATE,JOIN_DT),0) + 1),0) AS MONTH_CNT,
+            NVL((SELECT COUNT(*) FROM PAY_MNG PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS TRUE_COUNT ,
+            FN_ICHAE_DT2(MPA.ACCNT_NO,MPA.PAY_MTHD) AS ICHAE_DT,
+            DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS ACC_STAT,
+            FN_COM_NM('01',PAY_MTHD) AS PAY_MTHD,
+            FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STATE,
+            (SELECT MAX(PAY_DAY) FROM PAY_MNG PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N') AS PAY_DAY,
+            NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS TRUE_AMT,
+            NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS RELAT_AMT,
+            NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 PM WHERE PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG='N'),0) AS ADD_AMT,
+            'F' AS DIV_TYPE,
+            '3300' AS CAMP_TYPE,
+            TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') DATA_DT,
+            B.MEM_NM,
+            MPA.PROD_CD,
+            C.PROD_NM,
+            MPA.JOIN_DT,
+            FN_COM_NM('81',(SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO)) AS HPCALL_STAT,
+            B.CELL,
+            B.MEM_NO,
+            C.SECTION_T,
+            (SELECT COM_NM FROM B2BCOMCD B2B WHERE B2B.COM_CD = MPA.B2B_COMP_CD) AS B2B_COMP_NM,
+            MPA.B2B_COMP_CD
+        FROM MEM_PROD_ACCNT MPA INNER JOIN
+           MEMBER B ON MPA.MEM_NO = B.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+           PRODUCT C ON MPA.PROD_CD = C.PROD_CD AND C.DEL_FG = 'N'
+           WHERE 1=1
+       ) TBL
+       WHERE TBL.ICHAE_DT = #{ichae_dt}
+        AND TBL.ACC_STAT = '정상'
+        AND TBL.JOIN_DT <![CDATA[ < ]]> TO_CHAR(SYSDATE, 'YYYYMM') || '01'
+        AND TBL.TRUE_COUNT > 0
+        AND TBL.PAY_STATE = '당월미납'
+        AND NOT EXISTS (SELECT 'x'
+                        FROM YENCHE_MNG Y
+                        WHERE Y.ACCNT_NO = TBL.ACCNT_NO
+                        AND Y.DIV_DAY = TO_CHAR(SYSDATE, 'YYYY-MM-') || '01' )
+
+    </select>
+
+   <select id="DlwExtcTrgtMap.getCnctAcrs" parameterType="map" resultType="resultMap">
+        <!--
+         SELECT /* DlwExtcTrgtMap.getCnctAcrs 해약방어 실적  */
+                TO_CHAR(A.ACCNT_NO) AS ACCNT_NO
+              , B.ACC_STAT,
+      <choose>
+           <when test="sFg != null and sFg.equalsIgnoreCase('N')">
+               FN_MON_PAY_COUNT(A.ACCNT_NO,'20120301',TO_CHAR(LAST_DAY(ADD_MONTHS(sysdate,-1)),'YYYYMMDD'),'REL')
+                - A.TRUE_COUNT AS ACRS_TDAY_UNPY_RCVR_RNTM,
+               (NVL(FN_MON_PAY_AMT (A.ACCNT_NO,'20110101',TO_CHAR(LAST_DAY(ADD_MONTHS(sysdate,-1)),'YYYYMMDD'),'REL'),0)
+                +  NVL(FN_MON_PAY_AMT (A.ACCNT_NO,'20110101',TO_CHAR(LAST_DAY(ADD_MONTHS(sysdate,-1)),'YYYYMMDD'),'ADD'),0))
+                - (A.RELAT_SUM + A.ADD_SUM)  AS ACRS_TODAY
+           </when>
+           <otherwise>
+                FN_MON_PAY_COUNT(A.ACCNT_NO,'20120301',TO_CHAR(SYSDATE,'YYYYMMDD'),'REL')
+                - A.TRUE_COUNT AS ACRS_TDAY_UNPY_RCVR_RNTM,
+               (NVL(FN_MON_PAY_AMT (A.ACCNT_NO,'20110101',TO_CHAR(SYSDATE,'YYYYMMDD'),'REL'),0)
+                +  NVL(FN_MON_PAY_AMT (A.ACCNT_NO,'20110101',TO_CHAR(SYSDATE,'YYYYMMDD'),'ADD'),0))
+                - (A.RELAT_SUM + A.ADD_SUM)  AS ACRS_TODAY
+           </otherwise>
+       </choose>
+           FROM YENCHE_MNG A INNER JOIN
+                USERNPRODUCT_VIEW B ON A.ACCNT_NO  = B.ACCNT_NO
+          WHERE DIV_TYPE = 'B'
+          <choose>
+              <when test="sFg != null and sFg.equalsIgnoreCase('N')">
+                  AND A.DIV_DAY =  TO_CHAR(ADD_MONTHS(sysdate,-1),'YYYY-MM-') || '01'
+              </when>
+              <otherwise>
+                  AND A.DIV_DAY = TO_CHAR(SYSDATE,'YYYY-MM-') || '01'
+              </otherwise>
+          </choose>
+           -->
+
+            SELECT /* DlwExtcTrgtMap.getUnpyAcrs 미납 실적  */
+			    ACCNT_NO,
+			    ACC_STAT,
+			    (NVL(TRUE_COUNT,0) - NVL(YM_COUNT,0)) AS ACRS_TDAY_UNPY_RCVR_RNTM,
+			    ((NVL(RELAT_AMT,0) + NVL(ADD_AMT,0)) - (NVL(YM_REL,0) + NVL(YM_ADD,0))) AS ACRS_TODAY
+			FROM
+			(
+			SELECT
+			    TO_CHAR(YM.ACCNT_NO) AS ACCNT_NO
+			  , DECODE(MPA.KSTBIT,'01','대기','02','정상','03','해약','행사') AS ACC_STAT
+			  ,(SELECT COUNT(*) FROM PAY_MNG_DTL WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+			  ,(SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS RELAT_AMT
+			  ,(SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS ADD_AMT
+			  ,YM.TRUE_COUNT AS YM_COUNT
+			  ,YM.TRUE_SUM AS YM_AMT
+			  ,YM.RELAT_SUM AS YM_REL
+			  ,YM.ADD_SUM AS YM_ADD
+			FROM YENCHE_MNG YM LEFT OUTER JOIN
+			    MEM_PROD_ACCNT MPA ON YM.ACCNT_NO = MPA.ACCNT_NO
+            WHERE 1=1
+            AND MPA.DEL_FG = 'N'
+         <choose>
+             <when test="sFg != null and sFg.equalsIgnoreCase('N')">
+                 AND YM.DIV_DAY = TO_CHAR(ADD_MONTHS(sysdate,-1),'YYYY-MM-') || '01'
+             </when>
+             <otherwise>
+                 AND YM.DIV_DAY = TO_CHAR(SYSDATE,'YYYY-MM-')||'01'
+             </otherwise>
+         </choose>
+                 AND YM.DIV_TYPE = 'B'
+             ) TBL
+    </select>
+
+    <select id="DlwExtcTrgtMap.getUnpyAcrs" parameterType="map" resultType="resultMap">
+        <!-- 20170802 임동진 수정
+         SELECT /* DlwExtcTrgtMap.getUnpyAcrs 미납 실적  */
+                TO_CHAR(A.ACCNT_NO) AS ACCNT_NO
+              , B.ACC_STAT
+              , (B.TRUE_COUNT - A.TRUE_COUNT) AS ACRS_TDAY_UNPY_RCVR_RNTM
+               , ((TRUE_AMT + RELAT_AMT + ADD_AMT) / B.TRUE_COUNT) * (B.TRUE_COUNT - A.TRUE_COUNT) AS ACRS_TODAY   실적반영잘못 됨!! 20170314 수정
+
+              , ((TRUE_AMT + RELAT_AMT + ADD_AMT) - (TRUE_SUM + RELAT_SUM + ADD_SUM)) AS ACRS_TODAY
+
+           FROM YENCHE_MNG A INNER JOIN
+                USERNPRODUCT_VIEW B ON A.ACCNT_NO = B.ACCNT_NO
+         -->
+	        SELECT /* DlwExtcTrgtMap.getUnpyAcrs 미납 실적  */
+			    ACCNT_NO,
+			    ACC_STAT,
+			    (NVL(TRUE_COUNT,0) - NVL(YM_COUNT,0)) AS ACRS_TDAY_UNPY_RCVR_RNTM,
+			    ((NVL(TRUE_AMT,0) + NVL(RELAT_AMT,0) + NVL(ADD_AMT,0)) - (NVL(YM_AMT,0) + NVL(YM_REL,0) + NVL(YM_ADD,0))) AS ACRS_TODAY
+			FROM
+			(
+			SELECT
+			    TO_CHAR(YM.ACCNT_NO) AS ACCNT_NO
+			  , DECODE(MPA.KSTBIT,'01','대기','02','정상','03','해약','행사') AS ACC_STAT
+			  ,(SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+			  ,(SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS TRUE_AMT
+			  ,(SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS RELAT_AMT
+			  ,(SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = YM.ACCNT_NO AND DEL_FG = 'N') AS ADD_AMT
+			  ,YM.TRUE_COUNT AS YM_COUNT
+			  ,YM.TRUE_SUM AS YM_AMT
+			  ,YM.RELAT_SUM AS YM_REL
+			  ,YM.ADD_SUM AS YM_ADD
+			FROM YENCHE_MNG YM LEFT OUTER JOIN
+			    MEM_PROD_ACCNT MPA ON YM.ACCNT_NO = MPA.ACCNT_NO
+            WHERE 1=1
+            AND MPA.DEL_FG = 'N'
+         <choose>
+             <when test="sFg != null and sFg.equalsIgnoreCase('N')">
+                 AND YM.DIV_DAY = TO_CHAR(ADD_MONTHS(sysdate,-1),'YYYY-MM-') || '01'
+             </when>
+             <otherwise>
+                 AND YM.DIV_DAY = TO_CHAR(SYSDATE,'YYYY-MM-')||'01'
+             </otherwise>
+         </choose>
+                 AND YM.DIV_TYPE <![CDATA[<>]]> 'B'
+             ) TBL
+    </select>
+
+
+    <select id="DlwExtcTrgtMap.getYenche" parameterType="map" resultType="int">
+          SELECT /* DlwExtcTrgtMap.getYenche */
+                 COUNT(*)
+            FROM YENCHE_MNG
+           WHERE DIV_DAY = TO_CHAR(SYSDATE, 'YYYY-MM-') || '01'
+             AND ACCNT_NO =#{accnt_no}
+    </select>
+
+    <insert id="DlwExtcTrgtMap.insertDlwYenche" parameterType="map">
+        INSERT /* DlwExtcTrgtMap.insertDlwYenche */
+          INTO YENCHE_MNG
+               (DIV_DAY, ACCNT_NO, MOTH_COUNT, TRUE_COUNT, ICHAE_DT
+              , ACC_STAT, PAY_MTHD, PAY_STAT, PAY_DAY, DIV_TYPE, TRUE_SUM, RELAT_SUM, ADD_SUM, CNSL_EMPLE_NO)
+        VALUES (TO_CHAR(SYSDATE,'YYYY-MM')||'-01',#{accnt_no} ,#{moth_count},#{true_count},#{ichae_dt}
+              , #{acc_stat}, #{pay_mthd}, #{pay_stat}, SUBSTR(#{pay_day},1,10), #{div_type}, #{true_sum}, #{relat_sum}, #{add_sum} ,#{cnsl_emple_no}
+               )
+    </insert>
+
+
+    <select id="DlwExtcTrgtMap.getUnpyStat" parameterType="map" resultType="resultMap">
+        SELECT /* DlwExtcTrgtMap.getUnpyStat*/
+                 UV.*
+               , FN_PAY_STATE(#{accnt_no}) AS UNION_PAY_STATE
+          FROM USERNPRODUCT_VIEW UV
+         WHERE ACCNT_NO = #{accnt_no}
+    </select>
+
+
+    <select id="DlwExtcTrgtMap.selectB2BList" parameterType="map" resultType="resultMap">
+        /* DlwExtcTrgtMap.selectB2BList [b2b업체코드 조회]  */
+        SELECT  ROW_NUMBER() OVER(ORDER BY COM_CD ASC) SEQ
+             , COM_CD
+             , COM_NM
+             , EVENT_YN
+             , EMPLE_NO
+             , FN_EMPLE_NM(EMPLE_NO) EMPLE_NM
+             , USE_YN
+             , FN_COM_NM('112', SITE_CD) SITE_CD_NM
+             , SITE_CD
+             , AFFL_YN
+             , NVL(FN_COM_NM('0125', SALE_TYPE), '') SALE_TYPE
+             , SALE_TYPE SALE_CL
+          FROM B2BCOMCD
+         WHERE 1=1
+         <if test = " com_nm != null and com_nm != '' ">
+            AND COM_NM LIKE #{com_nm} || '%'
+         </if>
+         <if test = "use_yn != null and use_yn != '' ">
+           AND USE_YN = #{use_yn}
+         </if>
+         <if test = "event_yn != null and event_yn != '' ">
+           AND EVENT_YN = #{event_yn}
+         </if>
+         <if test = "site_cd != null and site_cd != '' ">
+           AND SITE_CD = #{site_cd}
+         </if>
+         <if test = "com_cd != null and com_cd != ''">
+           AND COM_CD = #{com_cd}
+         </if>
+        ORDER BY TO_NUMBER(COM_CD) ASC
+    </select>
+
+
+<!--     거래처 중복 확인
+        <select id="DlwExtcTrgtMap.getDuplB2BCd" parameterType="map" resultType="int">
+                 SELECT /* DlwExtcTrgtMap.getDuplB2BCd */
+                        COUNT(*)
+                 FROM B2BCOMCD
+                 WHERE COM_CD = #{com_cd}
+        </select> -->
+
+
+    <insert id="DlwExtcTrgtMap.insertB2BComp"  parameterType="map">
+        /* DlwExtcTrgtMap.insertB2BComp */
+        INSERT INTO
+                    B2BCOMCD (
+                                   COM_CD
+                                  ,COM_NM
+                                  ,EVENT_YN
+                                  ,EMPLE_NO
+                                  ,USE_YN
+                                  ,SITE_CD
+                                  ,SALE_TYPE
+                                )
+                     VALUES (
+                                   (SELECT  MAX(TO_NUMBER(COM_CD))+1 FROM B2BCOMCD)
+                                  ,#{com_nm}
+                                  ,#{event_yn}
+                                  ,#{emple_no}
+                                  ,#{use_yn}
+                                  ,#{site_cd}
+                                  ,#{sale_type}
+                             )
+    </insert>
+
+    <update id="DlwExtcTrgtMap.updateB2BComp" parameterType="map">
+        /* sql-life.xml [b2b 수정] ID : life.updateB2BComp 작성자 : 임병근  */
+        UPDATE
+                B2BCOMCD SET
+                       COM_NM 		= #{com_nm}
+                      ,EVENT_YN 	= #{event_yn}
+                      ,EMPLE_NO 	= #{emple_no}
+                      ,USE_YN 		= #{use_yn}
+                      ,SITE_CD 		= #{site_cd}
+                      ,SALE_TYPE	= #{sale_cl}
+        WHERE COM_CD = #{com_cd}
+    </update>
+
+    <delete id="DlwExtcTrgtMap.deleteB2bcd">
+        /* sql-life.xml [b2b코드 삭제] ID : life.deleteB2BComp 작성자 : 임병근  */
+        DELETE FROM B2BCOMCD
+        WHERE COM_CD = #{com_cd}
+    </delete>
+
+    <select id="DlwExtcTrgtMap.countCpHist" parameterType="map" resultType="int">
+        SELECT /* DlwExtcTrgtMap.countCpHist */
+            COUNT(*) AS ICNT
+        FROM
+        (           
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) AS PAGE_INDX,
+                TBL.*
+            FROM
+            (
+                /* 정상 회원 */
+                SELECT
+                    ACCNT_NO,
+                    MEM_NM,
+                    CELL,
+                    JOIN_DT,
+                    PAY_NO,
+                    '' AS EVENT_PROC_DAY,
+                    '' AS RESN_ACPT_DAY,
+                    '01' AS PAY_GUBUN,
+                    'L11' AS RESORT_MEM_GUBUN,
+                    RESORT_NO,
+                    CI_VAL,
+                    <if test="search_el != '99' ">
+                        '01' AS TRANS_STAT
+                    </if>
+                    <if test="search_el == '99' ">
+                        '06' AS TRANS_STAT
+                    </if>
+                FROM
+                (
+                    SELECT
+                        MPA.ACCNT_NO,
+                        MB.MEM_NM,
+                        MB.CELL,
+                        MPA.JOIN_DT,
+                        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_NO,
+                        MPA.RESORT_NO,
+                        MB.CI_VAL,
+                        (SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS STAT
+                    FROM MEM_PROD_ACCNT MPA INNER JOIN
+                        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                        RESORT_MNG_HSTR RMH ON MPA.ACCNT_NO = RMH.ACCNT_NO AND TRANS_STAT = '01'
+                    WHERE MPA.DEL_FG = 'N'
+                    AND MPA.KSTBIT = '02'
+                    <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                        AND LENGTH(NVL(MB.CI_VAL,0)) = 88
+                    </if>
+                    <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                        AND LENGTH(NVL(MB.CI_VAL,0)) != 88
+                    </if>
+                    AND NVL(MPA.RESORT_NO, ' ') != ' '
+                    <if test="search_el != '99' ">
+                        AND NVL(RMH.ACCNT_NO,'N') = 'N'
+                    </if>
+                )
+                WHERE 1=1
+                AND STAT IN ('01','11','011')
+                AND PAY_NO <![CDATA[>]]> 0
+
+                UNION ALL
+
+                /* 해약 회원 */
+                SELECT
+                    RS.ACCNT_NO,
+                    MEM_NM,
+                    CELL,
+                    JOIN_DT,
+                    0 AS PAY_NO,
+                    '' AS EVENT_PROC_DAY,
+                    RS.RESN_PROC_DAY AS RESN_ACPT_DAY,
+                    PAY_GUBUN,
+                    RESORT_MEM_GUBUN,
+                    RESORT_NO,
+                    CI_VAL,
+                    '02' AS TRANS_STAT
+                FROM RESCISSION RS INNER JOIN
+                    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                    RESORT_MNG_HSTR RMH ON MPA.ACCNT_NO = RMH.ACCNT_NO AND TRANS_STAT = '02'
+                WHERE RS.DEL_FG = 'N'
+                AND (RS.RESN_CL = '02' OR (RS.RESN_CL != '02' AND NVL(RS.RESN_PROC_YN,'N') = 'Y'))
+                AND MPA.KSTBIT = '03'
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) = 88
+                </if>
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) != 88
+                </if>
+                AND NVL(MPA.RESORT_NO, ' ') != ' '
+                AND NVL(RMH.ACCNT_NO,'N') = 'N'
+
+                UNION ALL
+
+                /* 행사 회원 */
+                SELECT
+                    EV.ACCNT_NO,
+                    MEM_NM,
+                    CELL,
+                    JOIN_DT,
+                    0 AS PAY_NO,
+                    EV.EVENT_PROC_DAY,
+                    '' AS RESN_ACPT_DAY,
+                    PAY_GUBUN,
+                    RESORT_MEM_GUBUN,
+                    RESORT_NO,
+                    CI_VAL,
+                    '03' AS TRANS_STAT
+                FROM EVENT EV INNER JOIN
+                    MEM_PROD_ACCNT MPA ON EV.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                    RESORT_MNG_HSTR RMH ON MPA.ACCNT_NO = RMH.ACCNT_NO AND TRANS_STAT = '03'
+                WHERE EV.DEL_FG = 'N'
+                AND MPA.KSTBIT = '04'
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) = 88
+                </if>
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) != 88
+                </if>
+                AND NVL(MPA.RESORT_NO, ' ') != ' '
+                AND NVL(RMH.ACCNT_NO,'N') = 'N'
+            ) TBL
+            WHERE 1=1
+            <if test=" accnt_no !=null and accnt_no != ''">
+                AND TBL.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="search_el != '00' and search_el != '99' ">
+                AND	TBL.TRANS_STAT =  #{search_el}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+
+    <!-- 레저연동 리스트 조회  -->
+    <select id="DlwExtcTrgtMap.getCpHist" parameterType="map" resultType="resultMap">
+        SELECT /* DlwExtcTrgtMap.getCpHist */
+            MAIN_TBL.*
+        FROM
+        (           
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) AS PAGE_INDX,
+                TBL.*
+            FROM
+            (
+                /* 정상 회원 */
+                SELECT
+                    ACCNT_NO,
+                    MEM_NM,
+                    CELL,
+                    JOIN_DT,
+                    PAY_NO,
+                    '' AS EVENT_PROC_DAY,
+                    '' AS RESN_ACPT_DAY,
+                    '01' AS PAY_GUBUN,
+                    'L11' AS RESORT_MEM_GUBUN,
+                    RESORT_NO,
+                    CI_VAL,
+                    <if test="search_el != '99' ">
+                        '01' AS TRANS_STAT
+                    </if>
+                    <if test="search_el == '99' ">
+                        '06' AS TRANS_STAT
+                    </if>
+                FROM
+                (
+                    SELECT
+                        MPA.ACCNT_NO,
+                        MB.MEM_NM,
+                        MB.CELL,
+                        MPA.JOIN_DT,
+                        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_NO,
+                        MPA.RESORT_NO,
+                        MB.CI_VAL,
+                        (SELECT STAT FROM HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS STAT
+                    FROM MEM_PROD_ACCNT MPA INNER JOIN
+                        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                        RESORT_MNG_HSTR RMH ON MPA.ACCNT_NO = RMH.ACCNT_NO AND TRANS_STAT = '01'
+                    WHERE MPA.DEL_FG = 'N'
+                    AND MPA.KSTBIT = '02'
+                    <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                        AND LENGTH(NVL(MB.CI_VAL,0)) = 88
+                    </if>
+                    <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                        AND LENGTH(NVL(MB.CI_VAL,0)) != 88
+                    </if>
+                    AND NVL(MPA.RESORT_NO, ' ') != ' '
+                    <if test="search_el != '99' ">
+                        AND NVL(RMH.ACCNT_NO,'N') = 'N'
+                    </if>
+                )
+                WHERE 1=1
+                AND STAT IN ('01','11','011')
+                AND PAY_NO <![CDATA[>]]> 0
+
+                UNION ALL
+
+                /* 해약 회원 */
+                SELECT
+                    RS.ACCNT_NO,
+                    MEM_NM,
+                    CELL,
+                    JOIN_DT,
+                    0 AS PAY_NO,
+                    '' AS EVENT_PROC_DAY,
+                    RS.RESN_PROC_DAY AS RESN_ACPT_DAY,
+                    PAY_GUBUN,
+                    RESORT_MEM_GUBUN,
+                    RESORT_NO,
+                    CI_VAL,
+                    '02' AS TRANS_STAT
+                FROM RESCISSION RS INNER JOIN
+                    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                    RESORT_MNG_HSTR RMH ON MPA.ACCNT_NO = RMH.ACCNT_NO AND TRANS_STAT = '02'
+                WHERE RS.DEL_FG = 'N'
+                AND (RS.RESN_CL = '02' OR (RS.RESN_CL != '02' AND NVL(RS.RESN_PROC_YN,'N') = 'Y'))
+                AND MPA.KSTBIT = '03'
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) = 88
+                </if>
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) != 88
+                </if>
+                AND NVL(MPA.RESORT_NO, ' ') != ' '
+                AND NVL(RMH.ACCNT_NO,'N') = 'N'
+
+                UNION ALL
+
+                /* 행사 회원 */
+                SELECT
+                    EV.ACCNT_NO,
+                    MEM_NM,
+                    CELL,
+                    JOIN_DT,
+                    0 AS PAY_NO,
+                    EV.EVENT_PROC_DAY,
+                    '' AS RESN_ACPT_DAY,
+                    PAY_GUBUN,
+                    RESORT_MEM_GUBUN,
+                    RESORT_NO,
+                    CI_VAL,
+                    '03' AS TRANS_STAT
+                FROM EVENT EV INNER JOIN
+                    MEM_PROD_ACCNT MPA ON EV.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+                    RESORT_MNG_HSTR RMH ON MPA.ACCNT_NO = RMH.ACCNT_NO AND TRANS_STAT = '03'
+                WHERE EV.DEL_FG = 'N'
+                AND MPA.KSTBIT = '04'
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) = 88
+                </if>
+                <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                    AND LENGTH(NVL(MB.CI_VAL,0)) != 88
+                </if>
+                AND NVL(MPA.RESORT_NO, ' ') != ' '
+                AND NVL(RMH.ACCNT_NO,'N') = 'N'
+            ) TBL
+            WHERE 1=1
+            <if test=" accnt_no !=null and accnt_no != ''">
+                AND TBL.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="search_el != '00' and search_el != '99' ">
+                AND	TBL.TRANS_STAT =  #{search_el}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+
+<!-- 레저연체 조회 건수  -->
+ <select id="DlwExtcTrgtMap.countResortYenCheInfoList" parameterType="map" resultType="int">
+        SELECT
+     		/* DlwExtcTrgtMap.countResortYenCheInfoList*/
+			COUNT(*)
+		FROM
+		(
+		SELECT
+		    RYCM.ACCNT_NO,
+		    MB.MEM_NM,
+		    MB.CELL,
+		    MPA.JOIN_DT,
+		    FN_EMPLE_NM(MPA.EMPLE_NO) AS EMPLE_NM,
+		    CASE WHEN PD.EXPR_NO <![CDATA[<=]]> TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		        THEN PD.EXPR_NO
+		    ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		    END  AS MONTH_COUNT,
+		    (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		    MPA.KSTBIT,
+		    '01' AS PAY_GUBUN,
+		    'L11' AS RESORT_MEM_GUBUN,
+		    MPA.RESORT_NO,
+		    RYCM.TRANS_DT,
+		    RYCM.TRANS_STAT,
+		    DECODE(RYCM.TRANS_STAT,'Y','전송','F','실패','미전송') AS TRANS_STAT_NM,
+		    DECODE(SUBSTR(RYCM.YEN_CHE,-2),'연체','y','n') AS YENCHAE_YN,
+		    RYCM.YEN_CHE,
+		    TO_CHAR(RYCM.REG_DM,'YYYYMMDD') AS REG_DM,
+		    RYCM.REG_MAN,
+		    TO_CHAR(RYCM.UPD_DM,'YYYYMMDD') AS UPD_DM,
+		    RYCM.UPD_MAN
+		FROM RESORT_YEN_CHE_MNG RYCM INNER JOIN
+		    MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO  AND MPA.DEL_FG = 'N' INNER JOIN
+		    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+		    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+		WHERE 1=1
+		    AND NVL(RYCM.TRANS_STAT,'E') != 'Y'
+		    AND LENGTH(NVL(MB.IDN_NO,0)) != 10
+		    AND KSTBIT = '02'
+		    AND RYCM.DEL_FG = 'N'
+		) TBL
+		WHERE TBL.TRUE_COUNT > 0 AND NVL(TBL.RESORT_NO, ' ') != ' '
+			AND NVL(TBL.TRANS_STAT, 'E') = 'E'
+
+     <!--
+       SELECT /* DlwExtcTrgtMap.countResortYenCheInfoList */
+            COUNT(*)
+          FROM RESORT_YEN_CHE_MNG RYCM
+               INNER JOIN MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO
+               INNER JOIN MEMBER MEM ON MEM.MEM_NO = MPA.MEM_NO
+               INNER JOIN PROD_OPT_SVC_MST SVC ON SVC.SEQ = (SELECT SEQ
+                                                                   FROM PROD_OPT_SVC_MST MST
+                                                                  WHERE MST.PROD_CD = MPA.PROD_CD
+
+                                                                    AND MPA.JOIN_DT >= MST.START_DT AND NVL(MST.END_DT, '9999.12/31') >= MPA.JOIN_DT
+                                                                    AND MST.MEM_CL = (SELECT CASE WHEN MPA.PAY_GUBUN = '01' OR MPA.PAY_GUBUN = '02' THEN 'T'
+                                                                                                      ELSE 'L'
+                                                                                                 END FROM DUAL )
+                                                                AND RESORT_MEM_CL != ' ' and
+                                                                    ROWNUM = 1 )
+               LEFT OUTER JOIN EVENT EVT ON MPA.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+               LEFT OUTER JOIN RESCISSION RESN ON MPA.ACCNT_NO = RESN.ACCNT_NO AND RESN.DEL_FG = 'N'
+               LEFT OUTER JOIN (
+                 SELECT ACCNT_NO,MAX(NO) NO
+                   FROM PAY_MNG
+                  WHERE DEL_FG = 'N'
+                 GROUP BY ACCNT_NO
+               ) PM ON PM.ACCNT_NO = MPA.ACCNT_NO
+         WHERE 1 = 1
+           AND MPA.RESORT_NO IS NOT NULL
+           AND LENGTH(TO_CHAR(MEM.IDN_NO)) != 10
+           AND RESN.ACCNT_NO IS NULL
+
+           <if test=" start_dt != null and start_dt != ''">
+                   <if test = "cl == '01' ">
+           AND TO_CHAR(RYCM.REG_DM, 'YYYYMMDD') BETWEEN #{start_dt} AND #{end_dt}
+                   </if>
+                   <if test = "cl == '02'">
+           AND TO_CHAR(TO_DATE(RYCM.TRANS_DT), 'YYYYMMDD') BETWEEN  #{start_dt} AND #{end_dt}
+                   </if>
+           </if>
+           <if test=" accnt_no != null and accnt_no != ''">
+           AND MPA.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="ls_snd_rslt != null and ls_snd_rslt!=''">
+           AND NVL(RYCM.TRANS_STAT, 'E') = #{ls_snd_rslt}
+           </if>
+           <if test="pay_stat != null and pay_stat != ''">
+                   <if test=" pay_stat == '01'">
+                           AND SUBSTR(RYCM.YEN_CHE, -2) != '연체'
+                   </if>
+                   <if test="pay_stat == '02'">
+                           AND SUBSTR(RYCM.YEN_CHE, -2) = '연체'
+                   </if>
+           </if>
+      <![CDATA[     AND NVL(PM.NO, 0) > 0	]]>
+          ORDER BY MPA.JOIN_DT, MPA.ACCNT_NO
+ -->
+    </select>
+
+  <select id="DlwExtcTrgtMap.countResortYenCheInfo" parameterType="map" resultType="int">
+      <!-- 연체 정상 업데이트 할  건수  -->
+	    SELECT
+	    	/* DlwExtcTrgtMap.countResortYenCheInfo */
+		    COUNT(ACCNT_NO)
+		FROM
+		(
+		    SELECT
+		        SEQ,
+		        ACCNT_NO,
+		        INSTR(YEN_CHE,'연체',1) AS YEN_CHE,
+		        (
+		            CASE WHEN (MONTH_COUNT - NVL(TRUE_COUNT,0)) <![CDATA[>]]> 0 THEN 1
+		            ELSE 0
+		            END
+		        ) AS YEN_CHE_REAL,
+		        TRANS_DT,
+		        TRANS_STAT,
+		        REG_DM,
+		        REG_MAN,
+		        UPD_DM,
+		        UPD_MAN
+		    FROM
+		    (
+
+		        SELECT
+		            (NVL((SELECT  MAX(SEQ) FROM RESORT_YEN_CHE_MNG ), 0) + ROW_NUMBER()OVER(ORDER BY MPA.ACCNT_NO)) SEQ,
+		            TBL.ACCNT_NO,
+		            YEN_CHE,
+		            CASE WHEN (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) <![CDATA[<=]]> TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		            THEN (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU)
+		            ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		            --ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY('20170601'),MPA.JOIN_DT))
+		            END  AS MONTH_COUNT,
+		            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		            '' AS TRANS_DT,
+		            'E' AS TRANS_STAT,
+		            '' AS REG_MAN,
+		            SYSDATE AS REG_DM,
+		            '' AS UPD_MAN,
+		            SYSDATE AS UPD_DM
+		        FROM
+		        (
+		            SELECT SEQ,
+		                ACCNT_NO,
+		                YEN_CHE,
+		                TRANS_DT,
+		                TRANS_STAT
+		            FROM RESORT_YEN_CHE_MNG RYCM
+		            WHERE SEQ IN (
+		            SELECT MAX(SEQ)
+		            FROM RESORT_YEN_CHE_MNG A
+		            WHERE A.ACCNT_NO = RYCM.ACCNT_NO
+		            GROUP BY ACCNT_NO
+		            )
+		        )TBL INNER JOIN
+		        MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+		        WHERE TBL.TRANS_STAT = 'Y'
+		        AND MPA.DEL_FG = 'N'
+		        AND MPA.KSTBIT = '02'
+		    )
+		)
+		WHERE 1=1
+		--AND ACCNT_NO = '201102002775'
+		AND (YEN_CHE > 0 AND YEN_CHE_REAL = 0)
+		OR (YEN_CHE = 0 AND YEN_CHE_REAL > 0)
+
+  </select>
+  
+  <select id="DlwExtcTrgtMap.countResortYenCheInfoDataCnt" parameterType="map" resultType="int">
+      SELECT
+	  count(*)
+	 FROM
+	 (
+     SELECT
+     		/* DlwExtcTrgtMap.selectResortYenCheInfoList*/
+     		ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) AS PAGE_INDX,
+		    ACCNT_NO,
+		    MEM_NM,
+		    CELL,
+		    JOIN_DT,
+		    EMPLE_NM,
+		    TRUE_COUNT AS PAY_NO,
+		    KSTBIT,
+		    PAY_GUBUN,
+		    RESORT_MEM_GUBUN,
+		    RESORT_NO,
+		    TRANS_DT,
+		    TRANS_STAT,
+		    TRANS_STAT_NM,
+		    YENCHAE_YN,
+		    YEN_CHE,
+		    REG_DM,
+		    REG_MAN,
+		    UPD_DM,
+		    UPD_MAN
+		FROM
+		(
+		SELECT
+
+		    RYCM.ACCNT_NO,
+		    MB.MEM_NM,
+		    MB.CELL,
+		    MPA.JOIN_DT,
+		    FN_EMPLE_NM(MPA.EMPLE_NO) AS EMPLE_NM,
+		    CASE WHEN PD.EXPR_NO <![CDATA[<=]]> TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		        THEN PD.EXPR_NO
+		    ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		    END  AS MONTH_COUNT,
+		    (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		    MPA.KSTBIT,
+		    '01' AS PAY_GUBUN,
+		    'L11' AS RESORT_MEM_GUBUN,
+		    MPA.RESORT_NO,
+		    RYCM.TRANS_DT,
+		    RYCM.TRANS_STAT,
+		    DECODE(RYCM.TRANS_STAT,'Y','전송','F','실패','미전송') AS TRANS_STAT_NM,
+		    DECODE(SUBSTR(RYCM.YEN_CHE,-2),'연체','y','n') AS YENCHAE_YN,
+		    RYCM.YEN_CHE,
+		    TO_CHAR(RYCM.REG_DM,'YYYYMMDD') AS REG_DM,
+		    RYCM.REG_MAN,
+		    TO_CHAR(RYCM.UPD_DM,'YYYYMMDD') AS UPD_DM,
+		    RYCM.UPD_MAN
+		FROM RESORT_YEN_CHE_MNG RYCM INNER JOIN
+		    MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO  AND MPA.DEL_FG = 'N' INNER JOIN
+		    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+		    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+		WHERE 1=1
+			<if test = "cl == '01'">
+		    	AND NVL(RYCM.TRANS_STAT,'E') != 'Y'
+		    </if>
+
+			<if test = "cl == '02'">
+		    	AND NVL(RYCM.TRANS_STAT,'E') = 'Y'
+		    </if>
+		    AND LENGTH(NVL(MB.IDN_NO,0)) != 10
+		    AND KSTBIT = '02'
+		    AND RYCM.DEL_FG = 'N'
+		) TBL
+		WHERE TBL.TRUE_COUNT > 0 AND NVL(TBL.RESORT_NO, ' ') != ' '
+
+		<if test=" start_dt != null and start_dt != ''">
+           <if test = "cl == '02'">
+           		AND TO_CHAR(TO_DATE(TBL.TRANS_DT), 'YYYYMMDD') BETWEEN  #{start_dt} AND #{end_dt}
+           </if>
+        </if>
+
+          <if test=" accnt_no != null and accnt_no != ''">
+          AND TBL.ACCNT_NO = #{accnt_no}
+          </if>
+
+          <if test="ls_snd_rslt != null and ls_snd_rslt!=''">
+          AND NVL(TBL.TRANS_STAT, 'E') = #{ls_snd_rslt}
+          </if>
+
+          <if test="pay_stat != null and pay_stat != ''">
+                  <if test=" pay_stat == '01'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) != '연체'
+                  </if>
+                  <if test="pay_stat == '02'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                  </if>
+          </if>
+
+	)
+  </select>
+
+
+
+<!-- 레저연체 리스트 조회  -->
+ <select id="DlwExtcTrgtMap.selectResortYenCheInfoList" parameterType="map" resultType="resultMap">
+	 SELECT
+	 *
+	 FROM
+	 (
+     SELECT
+     		/* DlwExtcTrgtMap.selectResortYenCheInfoList*/
+     		ROW_NUMBER() OVER(ORDER BY ACCNT_NO ASC) AS PAGE_INDX,
+		    ACCNT_NO,
+		    MEM_NM,
+		    CELL,
+		    JOIN_DT,
+		    EMPLE_NM,
+		    TRUE_COUNT AS PAY_NO,
+		    KSTBIT,
+		    PAY_GUBUN,
+		    RESORT_MEM_GUBUN,
+		    RESORT_NO,
+		    TRANS_DT,
+		    TRANS_STAT,
+		    TRANS_STAT_NM,
+		    YENCHAE_YN,
+		    YEN_CHE,
+		    REG_DM,
+		    REG_MAN,
+		    UPD_DM,
+		    UPD_MAN
+		FROM
+		(
+		SELECT
+
+		    RYCM.ACCNT_NO,
+		    MB.MEM_NM,
+		    MB.CELL,
+		    MPA.JOIN_DT,
+		    FN_EMPLE_NM(MPA.EMPLE_NO) AS EMPLE_NM,
+		    CASE WHEN PD.EXPR_NO <![CDATA[<=]]> TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		        THEN PD.EXPR_NO
+		    ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		    END  AS MONTH_COUNT,
+		    (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+		    MPA.KSTBIT,
+		    '01' AS PAY_GUBUN,
+		    'L11' AS RESORT_MEM_GUBUN,
+		    MPA.RESORT_NO,
+		    RYCM.TRANS_DT,
+		    RYCM.TRANS_STAT,
+		    DECODE(RYCM.TRANS_STAT,'Y','전송','F','실패','미전송') AS TRANS_STAT_NM,
+		    DECODE(SUBSTR(RYCM.YEN_CHE,-2),'연체','y','n') AS YENCHAE_YN,
+		    RYCM.YEN_CHE,
+		    TO_CHAR(RYCM.REG_DM,'YYYYMMDD') AS REG_DM,
+		    RYCM.REG_MAN,
+		    TO_CHAR(RYCM.UPD_DM,'YYYYMMDD') AS UPD_DM,
+		    RYCM.UPD_MAN
+		FROM RESORT_YEN_CHE_MNG RYCM INNER JOIN
+		    MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO  AND MPA.DEL_FG = 'N' INNER JOIN
+		    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+		    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+		WHERE 1=1
+			<if test = "cl == '01'">
+		    	AND NVL(RYCM.TRANS_STAT,'E') != 'Y'
+		    </if>
+
+			<if test = "cl == '02'">
+		    	AND NVL(RYCM.TRANS_STAT,'E') = 'Y'
+		    </if>
+		    AND LENGTH(NVL(MB.IDN_NO,0)) != 10
+		    AND KSTBIT = '02'
+		    AND RYCM.DEL_FG = 'N'
+		) TBL
+		WHERE TBL.TRUE_COUNT > 0 AND NVL(TBL.RESORT_NO, ' ') != ' '
+
+		<if test=" start_dt != null and start_dt != ''">
+           <if test = "cl == '02'">
+           		AND TO_CHAR(TO_DATE(TBL.TRANS_DT), 'YYYYMMDD') BETWEEN  #{start_dt} AND #{end_dt}
+           </if>
+        </if>
+
+          <if test=" accnt_no != null and accnt_no != ''">
+          AND TBL.ACCNT_NO = #{accnt_no}
+          </if>
+
+          <if test="ls_snd_rslt != null and ls_snd_rslt!=''">
+          AND NVL(TBL.TRANS_STAT, 'E') = #{ls_snd_rslt}
+          </if>
+
+          <if test="pay_stat != null and pay_stat != ''">
+                  <if test=" pay_stat == '01'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) != '연체'
+                  </if>
+                  <if test="pay_stat == '02'">
+                          AND SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                  </if>
+          </if>
+
+	)
+	<if test= "pageSet == 'SET'">
+		 <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+			<![CDATA[
+				WHERE  PAGE_INDX >= #{startLine}
+				AND PAGE_INDX < #{endLine}
+			]]>
+		</if>
+	</if>
+	ORDER BY JOIN_DT, ACCNT_NO
+    <!--
+       SELECT /* DlwExtcTrgtMap.selectResortYenCheInfoList */
+             MPA.ACCNT_NO
+             , FN_MEM_NM(MPA.MEM_NO) MEM_NM
+             , FN_EMPLE_NM(MPA.EMPLE_NO) EMPLE_NM
+             , PM.NO LAST_NO
+             , MEM.CELL
+             , MEM.IDN_NO
+             , CASE WHEN EVT.ACCNT_NO IS NOT NULL
+                    THEN EVT.EVENT_PROC_DAY
+                    WHEN RESN.ACCNT_NO IS NOT NULL
+                    THEN RESN.RESN_ACPT_DAY
+                    ELSE ''
+               END EVT_DT
+             , NVL(EVT.EVENT_PROC_DAY, '') EVENT_PROC_DAY
+             , NVL(RESN.RESN_ACPT_DAY, '') RESN_ACPT_DAY
+             , MPA.JOIN_DT JOIN_DT
+             , MPA.RESORT_NO
+             , MPA.RESORT_MEM_NO
+             , SVC.RESORT_MEM_CL RESORT_MEM_GUBUN
+             , MPA.PAY_GUBUN
+             , RYCM.YEN_CHE
+             , RYCM.TRANS_DT
+             , CASE WHEN RYCM.TRANS_STAT = 'Y' THEN '전송'
+                    WHEN RYCM.TRANS_STAT = 'F' THEN '실패'
+                    ELSE '미전송'
+               END TRANS_STAT
+             , TO_CHAR(RYCM.REG_DM, 'YYYYMMDD') REG_DM
+             , FN_EMPLE_NM(RYCM.REG_MAN) REG_MAN
+             , TO_CHAR(RYCM.UPD_DM, 'YYYYMMDD') UPD_DM
+             , FN_EMPLE_NM(RYCM.UPD_MAN) UPD_MAN
+             , CASE WHEN SUBSTR(RYCM.YEN_CHE, -2) = '연체' THEN 'y'
+                     ELSE 'n'
+               END YENCHAE_YN
+              ,'' chk
+              ,'' exception
+              ,'' success
+              ,'' errCnt
+          FROM RESORT_YEN_CHE_MNG RYCM
+               INNER JOIN MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO
+               INNER JOIN MEMBER MEM ON MEM.MEM_NO = MPA.MEM_NO
+               INNER JOIN PROD_OPT_SVC_MST SVC ON SVC.SEQ = (SELECT SEQ
+                                                                   FROM PROD_OPT_SVC_MST MST
+                                                                  WHERE MST.PROD_CD = MPA.PROD_CD
+
+                                                                    AND MPA.JOIN_DT >= MST.START_DT AND NVL(MST.END_DT, '9999.12/31') >= MPA.JOIN_DT
+                                                                    AND MST.MEM_CL = (SELECT CASE WHEN MPA.PAY_GUBUN = '01' OR MPA.PAY_GUBUN = '02' THEN 'T'
+                                                                                                      ELSE 'L'
+                                                                                                 END FROM DUAL )
+                                                                AND RESORT_MEM_CL != ' ' and
+                                                                    ROWNUM = 1 )
+               LEFT OUTER JOIN EVENT EVT ON MPA.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+               LEFT OUTER JOIN RESCISSION RESN ON MPA.ACCNT_NO = RESN.ACCNT_NO AND RESN.DEL_FG = 'N'
+               LEFT OUTER JOIN (
+                 SELECT ACCNT_NO,MAX(NO) NO
+                   FROM PAY_MNG
+                  WHERE DEL_FG = 'N'
+                 GROUP BY ACCNT_NO
+               ) PM ON PM.ACCNT_NO = MPA.ACCNT_NO
+         WHERE 1 = 1
+           AND MPA.RESORT_NO IS NOT NULL
+           AND LENGTH(TO_CHAR(MEM.IDN_NO)) != 10
+           AND RESN.ACCNT_NO IS NULL
+-->
+		<!--
+            SELECT * FROM
+            (
+                SELECT MPA.ACCNT_NO,
+                    MB.MEM_NM,
+                    MB.CELL,
+                    MPA.JOIN_DT,
+                    FN_EMPLE_NM(MPA.EMPLE_NO) AS EMPLE_NM,
+                    (SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+                    FN_ACCNT_STAT(MPA.ACCNT_NO) AS ACC_STAT,
+                    DECODE(MPA.PAY_GUBUN,'01',MPA.PAY_GUBUN,'02',MPA.PAY_GUBUN,'01') AS PAY_GUBUN,
+                    RESORT_MEM_CL AS RESORT_MEM_GUBUN,
+                    MPA.RESORT_NO,
+                    FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STAT,
+
+                    RYCM.TRANS_DT,
+                    RYCM.TRANS_STAT,
+                    DECODE(RYCM.TRANS_STAT,'Y','전송','F','실패','미전송') AS TRANS_STAT_NM,
+                    DECODE(SUBSTR(RYCM.YEN_CHE,-2),'연체','y','n') AS YENCHAE_YN,
+                    RYCM.YEN_CHE,
+                    TO_CHAR(RYCM.REG_DM,'YYYYMMDD') AS REG_DM,
+                    RYCM.REG_MAN,
+                    TO_CHAR(RYCM.UPD_DM,'YYYYMMDD') AS UPD_DM,
+                    RYCM.UPD_MAN
+                FROM RESORT_YEN_CHE_MNG RYCM INNER JOIN
+                    MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' LEFT OUTER JOIN
+                    PROD_OPT_SVC_MST SVC ON MPA.PROD_CD = SVC.PROD_CD AND SVC.MEM_CL IN ('T','L') AND SVC.SEQ = FN_PROD_OPT_SEQ(MPA.PROD_CD,MPA.JOIN_DT)
+                WHERE 1=1 AND NVL(MB.SEX,' ') != ' '
+            ) TBL
+           <![CDATA[
+            WHERE TBL.TRUE_COUNT > 0 AND NVL(TBL.RESORT_NO, ' ') <> ' ' AND ACC_STAT = 'Y']]>
+
+           <if test=" start_dt != null and start_dt != ''">
+                   <if test = "cl == '01' ">
+           AND TBL.REG_DM BETWEEN #{start_dt} AND #{end_dt}
+                   </if>
+                   <if test = "cl == '02'">
+           AND TO_CHAR(TO_DATE(TBL.TRANS_DT), 'YYYYMMDD') BETWEEN  #{start_dt} AND #{end_dt}
+                   </if>
+           </if>
+           <if test=" accnt_no != null and accnt_no != ''">
+           AND TBL.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="ls_snd_rslt != null and ls_snd_rslt!=''">
+           AND NVL(TBL.TRANS_STAT, 'E') = #{ls_snd_rslt}
+           </if>
+           <if test="pay_stat != null and pay_stat != ''">
+                   <if test=" pay_stat == '01'">
+                           AND SUBSTR(TBL.YEN_CHE, -2) != '연체'
+                   </if>
+                   <if test="pay_stat == '02'">
+                           AND SUBSTR(TBL.YEN_CHE, -2) = '연체'
+                   </if>
+           </if>
+          ORDER BY TBL.JOIN_DT, TBL.ACCNT_NO
+ -->
+    </select>
+
+
+
+  <select id="DlwExtcTrgtMap.isEvent" parameterType="String" resultType="String">
+        SELECT CASE WHEN FN_EVENT(#{accntNo}) = '행사' THEN 'Y'
+                    ELSE 'N'
+               END
+        FROM DUAL
+    </select>
+
+
+     <update id="DlwExtcTrgtMap.updateRsSndEnd" parameterType="map" >
+
+        UPDATE /*  [레저연동 종료 여부 수정] DlwExtcTrgtMap.updateRsSndEnd  */
+                MEM_PROD_ACCNT SET
+                 ls_snd_end_yn = 'Y'
+            <if test="ls_snd_rslt != null and ls_snd_rslt != ''">
+             , LS_SND_RSLT = #{ls_snd_rslt}
+             , LS_SND_RSLT_DT = SYSDATE
+             , LS_SND_EMPLE_NO = #{emple_no}
+            </if>
+        WHERE accnt_no = #{accnt_no}
+
+     </update>
+
+    <update id="DlwExtcTrgtMap.updateRsYenCheSndEnd"  parameterType="map" >
+        UPDATE RESORT_YEN_CHE_MNG
+            SET TRANS_STAT = #{ls_snd_rslt}
+                ,YEN_CHE = FN_YEN_CHE(ACCNT_NO)  <!-- YEN_CHE = '정상' -->
+                ,TRANS_DT =  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                ,UPD_DM = SYSDATE
+                ,UPD_MAN = #{upd_man}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <update id="DlwExtcTrgtMap.deleteYenCheInfo" parameterType="map">
+        UPDATE RESORT_YEN_CHE_MNG
+		SET DEL_FG = 'N',
+			UPD_MAN = #{amnd_id},
+			UPD_DM = SYSDATE
+		WHERE ACCNT_NO IN
+		(
+			SELECT
+				ACCNT_NO
+		    FROM
+		    (
+		        SELECT
+		        RYCM.ACCNT_NO,
+		        CASE WHEN PD.EXPR_NO  <![CDATA[<=]]>  TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		                        THEN PD.EXPR_NO
+		                    ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+		                    END  AS MONTH_COUNT,
+		        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+		        FROM
+		        RESORT_YEN_CHE_MNG RYCM INNER JOIN
+		            MEM_PROD_ACCNT MPA ON RYCM.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+		            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+		        WHERE TRANS_STAT = 'E'
+		        AND SUBSTR(YEN_CHE, -2) = '연체'
+		        AND MPA.DEL_FG = 'N'
+		    )
+	    	WHERE (MONTH_COUNT - TRUE_COUNT) <![CDATA[<=]]> 0
+		)
+
+        <!--
+        DELETE
+        FROM RESORT_YEN_CHE_MNG
+        WHERE TRANS_STAT = 'E'
+           AND SUBSTR(YEN_CHE, -2) = '연체'
+           AND SUBSTR(FN_YEN_CHE(ACCNT_NO), -2) != '연체'
+         -->
+    </update>
+
+    <update id="DlwExtcTrgtMap.insertYenCheInfo" parameterType="map">
+        /*  [등록되지 않은 구좌 중 연체1회이상 인건 인서트] DlwExtcTrgtMap.insertYenCheInfo  20170808수정 */
+        /* DEL_FG 기능 추가 / DEL_FG UPDATE*/
+
+       	   INSERT INTO RESORT_YEN_CHE_MNG
+           (
+           	   SEQ,
+               ACCNT_NO,
+               YEN_CHE,
+               TRANS_DT,
+               TRANS_STAT,
+               DEL_FG,
+               REG_DM,
+               REG_MAN,
+               UPD_DM,
+               UPD_MAN
+            )
+            SELECT
+			    SEQ,
+			    ACCNT_NO,
+			    TO_CHAR(MONTH_COUNT - TRUE_COUNT) || '회 연체' AS DIFF_CNT,
+			    TRANS_DT,
+			    TRANS_STAT,
+			    'N',
+			    REG_DM,
+			    REG_MAN,
+			    UPD_DM,
+			    UPD_MAN
+			FROM
+			(
+			    SELECT
+			        (NVL((SELECT  MAX(SEQ) FROM RESORT_YEN_CHE_MNG), 0) + ROW_NUMBER()OVER(ORDER BY MPA.ACCNT_NO)) SEQ,
+			        MPA.ACCNT_NO,
+			        CASE WHEN PD.EXPR_NO  <![CDATA[<=]]>  TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+			        THEN PD.EXPR_NO
+			        ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+			        --ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY('20170601'),MPA.JOIN_DT))
+			        END  AS MONTH_COUNT,
+			        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+			        '' AS TRANS_DT,
+			        'E' AS TRANS_STAT,
+			        #{rgsr_id} AS REG_MAN,
+			        SYSDATE AS REG_DM,
+			        #{rgsr_id} AS UPD_MAN,
+			        SYSDATE AS UPD_DM
+			    FROM MEM_PROD_ACCNT MPA INNER JOIN
+			        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO INNER JOIN
+			        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			        RESORT_YEN_CHE_MNG RYCM ON MPA.ACCNT_NO = RYCM.ACCNT_NO
+			    WHERE MPA.DEL_FG = 'N'
+			        AND NVL(MPA.LS_SND_RSLT,'N') = 'Y'
+			        AND LENGTH(NVL(MB.IDN_NO,0)) != 10
+			        AND KSTBIT = '02'
+			        AND RYCM.DEL_FG = 'N'
+			        AND NVL(RYCM.ACCNT_NO,' ') = ' '
+			)
+			WHERE TRUE_COUNT <![CDATA[>]]> 0 AND (MONTH_COUNT - TRUE_COUNT) <![CDATA[>]]> 0
+
+            <!--
+
+            SELECT
+                (NVL((SELECT  MAX(SEQ) FROM RESORT_YEN_CHE_MNG), 0) + ROW_NUMBER()OVER(ORDER BY TBL.ACCNT_NO)) SEQ,
+                TBL.ACCNT_NO, TBL.YEN_CHE, TBL.TRANS_DT, TBL.TRANS_STAT, TBL.REG_DM, TBL.REG_MAN, TBL.UPD_DM, TBL.UPD_MAN
+            FROM(
+            SELECT  MPA.ACCNT_NO
+                     , FN_YEN_CHE(MPA.ACCNT_NO) YEN_CHE
+                     , NULL TRANS_DT
+                     , 'E' TRANS_STAT
+                     , SYSDATE REG_DM
+                     , #{rgsr_id} REG_MAN
+                     , SYSDATE UPD_DM
+                     , #{rgsr_id} UPD_MAN
+                     , FN_EVENT(MPA.ACCNT_NO) EVT_NM
+                     , (SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT
+                     , FN_ACCNT_STAT(MPA.ACCNT_NO) AS ACC_STAT
+                     , FN_YEN_CHE(MPA.ACCNT_NO) AS PAY_STAT
+            FROM MEM_PROD_ACCNT MPA INNER JOIN
+                 MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' LEFT OUTER JOIN
+                 RESORT_YEN_CHE_MNG RYCM ON MPA.ACCNT_NO = RYCM.ACCNT_NO
+            WHERE 1=1
+            AND RYCM.ACCNT_NO IS NULL
+            AND MPA.RESORT_NO IS NOT NULL
+            AND NVL(MB.SEX,' ') != ' '
+            ) TBL
+            WHERE ACC_STAT = 'Y' AND SUBSTR(PAY_STAT,-2) = '연체' AND TRUE_COUNT > 0
+ -->
+<!--
+         SELECT  (NVL((SELECT  MAX(SEQ)
+                       FROM RESORT_YEN_CHE_MNG), 0) + ROW_NUMBER()OVER(ORDER BY TBL.ACCNT_NO)) SEQ
+                   ,TBL.ACCNT_NO
+                   , TBL.YEN_CHE
+                   , TBL.TRANS_DT
+                   , TBL.TRANS_STAT
+                   , TBL.REG_DM
+                   , TBL.REG_MAN
+                   , TBL.UPD_DM
+                   , TBL.UPD_MAN
+         FROM (
+                SELECT  /*+INDEX(mem_prod_accnt IDX_MEM_PROD_ACCNT_JOIN_DT )*/
+                        MPA.ACCNT_NO
+                     , FN_YEN_CHE(MPA.ACCNT_NO) YEN_CHE
+                     , NULL TRANS_DT
+                     , 'E' TRANS_STAT
+                     , SYSDATE REG_DM
+                     , #{rgsr_id} REG_MAN
+                     , SYSDATE UPD_DM
+                     , #{rgsr_id} UPD_MAN
+                     , FN_EVENT(MPA.ACCNT_NO) EVT_NM
+                 FROM MEM_PROD_ACCNT MPA
+                         INNER JOIN MEMBER MEM ON MPA.MEM_NO = MEM.MEM_NO
+                         INNER JOIN PROD_OPT_SVC_MST SVC ON SVC.SEQ = FN_PROD_OPT_SEQ(MPA.PROD_CD,MPA.JOIN_DT)
+                         LEFT OUTER JOIN   RESORT_YEN_CHE_MNG RYCM ON MPA.ACCNT_NO = RYCM.ACCNT_NO
+                 WHERE 1 = 1
+                   AND MPA.DEL_FG = 'N'
+                   AND RYCM.ACCNT_NO IS NULL
+                   AND MPA.RESORT_NO IS NOT NULL
+                   AND LENGTH(TO_CHAR(MEM.IDN_NO)) != 10
+                   AND NVL(FN_PAY_MNG(MPA.ACCNT_NO), 0) > 0
+               ) TBL
+         WHERE 1 = 1
+           AND TBL.EVT_NM IN (' ', '부활')
+           AND SUBSTR(TBL.YEN_CHE, -2) IN ('연체', '부활')
+  -->
+    </update>
+
+    <select id="DlwExtcTrgtMap.select_before_updateYenCheInfo"  resultType="resultMap">
+        SELECT TBL.ACCNT_NO
+            , TBL.YEN_CHE_REAL
+            , #{rgsr_id} AS  rgsr_id
+        FROM
+        (
+            SELECT ACCNT_NO
+                , SUBSTR(YEN_CHE,-2) AS YEN_CHE
+                , SUBSTR(FN_YEN_CHE(ACCNT_NO),-2) YEN_CHE_REAL
+                , FN_ACCNT_STAT(ACCNT_NO) AS ACC_STAT
+            FROM RESORT_YEN_CHE_MNG
+        ) TBL
+        WHERE ACC_STAT IN ('Y','E')
+        AND
+        (
+            (TBL.YEN_CHE = '연체' AND TBL.YEN_CHE_REAL != '연체') OR
+            (TBL.YEN_CHE != '연체' AND TBL.YEN_CHE_REAL = '연체')
+        )
+     </select>
+
+
+
+    <update id="DlwExtcTrgtMap.updateYenCheInfo" parameterType="map">
+  		BEGIN
+        	UPDATE RESORT_YEN_CHE_MNG
+        	SET DEL_FG = 'Y'
+        	WHERE ACCNT_NO IN
+        	(
+				SELECT
+				    ACCNT_NO
+				FROM
+				(
+				    SELECT
+				        SEQ,
+				        ACCNT_NO,
+				        SUBSTR(YEN_CHE,-2) AS YEN_CHE,
+				        (
+				            CASE WHEN (MONTH_COUNT - NVL(TRUE_COUNT,0)) <![CDATA[>]]> 0 THEN '연체'
+				            ELSE '정상'
+				            END
+				        ) AS YEN_CHE_REAL,
+				        TRANS_DT,
+				        TRANS_STAT,
+				        REG_DM,
+				        REG_MAN,
+				        UPD_DM,
+				        UPD_MAN
+				    FROM
+				    (
+
+				        SELECT
+				            (NVL((SELECT  MAX(SEQ) FROM RESORT_YEN_CHE_MNG ), 0) + ROW_NUMBER()OVER(ORDER BY MPA.ACCNT_NO)) SEQ,
+				            TBL.ACCNT_NO,
+				            YEN_CHE,
+				            CASE WHEN (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) <![CDATA[<=]]>  TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+				            THEN (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU)
+				            ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+				            END  AS MONTH_COUNT,
+				            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+				            '' AS TRANS_DT,
+				            'E' AS TRANS_STAT,
+				            '' AS REG_MAN,
+				            SYSDATE AS REG_DM,
+				            '' AS UPD_MAN,
+				            SYSDATE AS UPD_DM
+				        FROM
+				        (
+				            SELECT SEQ,
+				                ACCNT_NO,
+				                YEN_CHE,
+				                TRANS_DT,
+				                TRANS_STAT
+				            FROM RESORT_YEN_CHE_MNG RYCM
+				            WHERE SEQ IN (
+				            SELECT MAX(SEQ)
+				            FROM RESORT_YEN_CHE_MNG A
+				            WHERE A.ACCNT_NO = RYCM.ACCNT_NO
+				            GROUP BY ACCNT_NO
+				            )
+				        )TBL INNER JOIN
+				        MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+				        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+				        WHERE TBL.TRANS_STAT = 'Y'
+				        AND MPA.DEL_FG = 'N'
+				        AND MPA.KSTBIT = '02'
+				    )
+				)
+				WHERE 1=1
+				AND (YEN_CHE = '연체' AND YEN_CHE_REAL != '연체')
+				OR (YEN_CHE != '연체' AND YEN_CHE_REAL = '연체')
+
+    		);
+
+    		   INSERT INTO RESORT_YEN_CHE_MNG
+			   (
+			       SEQ,
+			       ACCNT_NO,
+			       YEN_CHE,
+			       TRANS_DT,
+			       TRANS_STAT,
+			       DEL_FG,
+			       REG_DM,
+			       REG_MAN,
+			       UPD_DM,
+			       UPD_MAN
+			    )
+
+				SELECT
+				    SEQ,
+				    ACCNT_NO,
+				    YEN_CHE_REAL,
+				    TRANS_DT,
+				    TRANS_STAT,
+				    'N',
+				    REG_DM,
+				    REG_MAN,
+				    UPD_DM,
+				    UPD_MAN
+				FROM
+				(
+				    SELECT
+				        SEQ,
+				        ACCNT_NO,
+				        SUBSTR(YEN_CHE,-2) AS YEN_CHE,
+				        (
+				            CASE WHEN (MONTH_COUNT - NVL(TRUE_COUNT,0)) <![CDATA[>]]> 0 THEN '연체'
+				            ELSE '정상'
+				            END
+				        ) AS YEN_CHE_REAL,
+				        TRANS_DT,
+				        TRANS_STAT,
+				        REG_DM,
+				        REG_MAN,
+				        UPD_DM,
+				        UPD_MAN
+				    FROM
+				    (
+
+				        SELECT
+				            (NVL((SELECT  MAX(SEQ) FROM RESORT_YEN_CHE_MNG ), 0) + ROW_NUMBER()OVER(ORDER BY MPA.ACCNT_NO)) SEQ,
+				            TBL.ACCNT_NO,
+				            YEN_CHE,
+				            CASE WHEN (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU) <![CDATA[<=]]> TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+				            THEN (PD.EXPR_NO - MPA.NEW_CHAN_GUNSU)
+				            ELSE TRUNC(MONTHS_BETWEEN(LAST_DAY(SYSDATE),MPA.JOIN_DT))
+				            END  AS MONTH_COUNT,
+				            (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_COUNT,
+				            '' AS TRANS_DT,
+				            'E' AS TRANS_STAT,
+				            #{rgsr_id} AS REG_MAN,
+				            SYSDATE AS REG_DM,
+				            #{rgsr_id} AS UPD_MAN,
+				            SYSDATE AS UPD_DM
+				        FROM
+				        (
+				            SELECT SEQ,
+				                ACCNT_NO,
+				                YEN_CHE,
+				                TRANS_DT,
+				                TRANS_STAT
+				            FROM RESORT_YEN_CHE_MNG RYCM
+				            WHERE SEQ IN (
+				            SELECT MAX(SEQ)
+				            FROM RESORT_YEN_CHE_MNG A
+				            WHERE A.ACCNT_NO = RYCM.ACCNT_NO
+				            GROUP BY ACCNT_NO
+				            )
+				        )TBL INNER JOIN
+				        MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+				        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+				        WHERE TBL.TRANS_STAT = 'Y'
+				        AND MPA.DEL_FG = 'N'
+				        AND MPA.KSTBIT = '02'
+				    )
+				)
+				WHERE 1=1
+				AND (YEN_CHE = '연체' AND YEN_CHE_REAL != '연체')
+				OR (YEN_CHE != '연체' AND YEN_CHE_REAL = '연체')
+                ;
+        END;
+
+        <!-- 20170808 임동진 수정
+        UPDATE RESORT_YEN_CHE_MNG
+          SET YEN_CHE = FN_YEN_CHE(ACCNT_NO)
+            , TRANS_DT = NULL
+            , TRANS_STAT = 'E'
+            , UPD_DM = SYSDATE
+            , UPD_MAN = #{rgsr_id}
+         WHERE ACCNT_NO = #{accnt_no}
+ 		-->
+    </update>
+
+
+    <!-- 레저연동 히스토리   -->
+    <insert id="DlwExtcTrgtMap.insertResortMngHstr" parameterType="map">
+        INSERT /* DlwExtcTrgtMap.insertResortMngHstr */
+          INTO RESORT_MNG_HSTR
+               (ACCNT_NO, TRANS_DT, TRANS_STAT, TRANS_EMPLE, ETC, REG_MAN, REG_DM)
+        VALUES (#{accnt_no}, TO_CHAR(SYSDATE,'YYYYMMDD'), #{trans_stat}, #{trans_emple}, #{etc}, #{rgsr_id}, SYSDATE )
+    </insert>
+
+	<select id="DlwExtcTrgtMap.selectResortMngHstr_cnt" parameterType="map" resultType="int">
+		SELECT
+			/* DlwExtcTrgtMap.selectResortMngHstr_cnt */
+			COUNT(*)
+		FROM RESORT_MNG_HSTR RMH INNER JOIN
+		    MEM_PROD_ACCNT MPA ON RMH.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' LEFT OUTER JOIN
+		    RESCISSION RS ON MPA.ACCNT_NO  = RS.ACCNT_NO  AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+		    EVENT EVT ON MPA.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+		    WHERE 1=1
+		    	AND TRANS_DT BETWEEN  #{start_dt} AND  #{end_dt}
+		    	<if test="ls_snd_rslt != '00'">
+		    	AND TRANS_STAT = #{ls_snd_rslt}
+		    	</if>
+
+				<if test=" accnt_no != null and accnt_no != ''">
+					AND MPA.ACCNT_NO = #{accnt_no}
+				</if>
+
+	</select>
+
+    <select id="DlwExtcTrgtMap.selectResortMngHstr"  resultType="resultMap">
+			SELECT
+				/* DlwExtcTrgtMap.selectResortMngHstr */
+			 *
+		    FROM
+		    (
+		    SELECT
+		        ROW_NUMBER()OVER(ORDER BY RMH.ACCNT_NO ASC) AS PAGE_INDX,
+		        RMH.TRANS_DT,
+		        DECODE(RMH.TRANS_STAT,'01','가입','02','해약','03','행사','04','연체','05','정상(회복)','기타(긴급)') AS TRANS_STAT,
+		        RMH.ACCNT_NO,
+		        MPA.JOIN_DT,
+		        RS.RESN_PROC_DAY AS RESN_ACPT_DAY,
+		        EVT.EVENT_PROC_DAY,
+		        MPA.RESORT_NO,
+		        RMH.REG_DM,
+		        RMH.REG_MAN
+		    FROM RESORT_MNG_HSTR RMH INNER JOIN
+		        MEM_PROD_ACCNT MPA ON RMH.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO  = RS.ACCNT_NO  AND RS.DEL_FG = 'N' LEFT OUTER JOIN
+		        EVENT EVT ON MPA.ACCNT_NO = EVT.ACCNT_NO AND EVT.DEL_FG = 'N'
+		    WHERE 1=1
+		    	AND TRANS_DT BETWEEN  #{start_dt} AND  #{end_dt}
+
+		    	<if test="ls_snd_rslt != '00'">
+		    		AND TRANS_STAT = #{ls_snd_rslt}
+		    	</if>
+
+				<if test=" accnt_no != null and accnt_no != ''">
+					AND MPA.ACCNT_NO = #{accnt_no}
+				</if>
+
+		    ORDER BY ACCNT_NO, JOIN_DT
+		    ) TBL
+		    <![CDATA[
+				WHERE  PAGE_INDX >= #{startLine}
+					AND PAGE_INDX < #{endLine}
+			]]>
+    </select>
+
+</mapper>
+

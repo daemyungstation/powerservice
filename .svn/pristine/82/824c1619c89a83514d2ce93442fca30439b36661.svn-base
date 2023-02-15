@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="FaqHstrMap">
+
+    <sql id="FaqHstrMap.selectCondition_fragment">
+        <where>
+            <if test="faq_id != null and faq_id != ''">
+                AND FAQ_ID = #{faq_id}
+            </if>
+        </where>
+    </sql>
+
+    <select id="FaqHstrMap.getFaqHstrCount" parameterType="map" resultType="int">
+        SELECT /* FaqHstrMap.getFaqHstrCount */
+               COUNT(*)
+          FROM TB_FAQ_DTL_HSTR
+        <include refid="FaqHstrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="FaqHstrMap.getFaqHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* FaqHstrMap.getFaqHstrList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, A.*
+                  FROM (SELECT FAQ_ID, FAQ_CHNG_CNTN, AMND_ID
+                               , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                             , AMNT_DTTM
+                          FROM TB_FAQ_DTL_HSTR A
+        <include refid="FaqHstrMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) A
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="FaqHstrMap.insertFaqHstr" parameterType="map">
+        INSERT INTO /* FaqHstrMap.insertFaqHstr */
+                    TB_FAQ_DTL_HSTR
+                    (FAQ_ID, FAQ_CHNG_CNTN, AMND_ID, AMNT_DTTM, CHNG_DTTM
+                   , RGSR_ID, RGSN_DTTM, CNTR_CD)
+             VALUES (#{faq_id}, #{faq_chng_cntn}, #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                    , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{cntr_cd})
+    </insert>
+
+    <delete id="FaqHstrMap.deleteFaqHstr" parameterType="map">
+        DELETE /* FaqHstrMap.deleteFaqHstr */
+          FROM TB_FAQ_DTL_HSTR
+         WHERE FAQ_ID
+         <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+    </delete>
+
+</mapper>

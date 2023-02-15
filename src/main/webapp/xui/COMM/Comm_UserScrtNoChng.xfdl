@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_UserScrtNoChng" classname="Comm_UserScrtNoChng" inheritanceid="" position="absolute 0 0 265 165" titletext="New Form" onload="Comm_UserScrtNoChng_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_63" class="sta_popupBg1" enable="false" position="absolute 0 0 255 155"/>
+        <Static id="stc_62" text="비밀번호 변경" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="1" class="btn_popupClose" position="absolute 230 8 250 27" onclick="btn_Close_onclick"/>
+        <Button id="btn_Save" taborder="1" text="저장" position="absolute 175 45 244 65" onclick="btn_Save_onclick"/>
+        <Static id="stc_75" class="sta_workData" position="absolute 139 68 244 94"/>
+        <Static id="stc_76" class="sta_workData" position="absolute 139 93 244 119"/>
+        <Static id="stc_77" class="sta_workData" position="absolute 139 118 244 144"/>
+        <Static id="stc_80" text="현재 비밀번호" class="sta_workLabel1_P" position="absolute 11 68 140 94"/>
+        <Static id="stc_81" text="새 비밀번호" class="sta_workLabel1_P" position="absolute 11 93 140 119"/>
+        <Static id="stc_82" text="새 비밀번호 확인" class="sta_workLabel1_P" position="absolute 11 118 140 144"/>
+        <Edit id="userPwd_input" taborder="1" password="false" position="absolute 142 71 241 91"/>
+        <Edit id="newPwd_input" taborder="1" password="false" position="absolute 142 96 241 116"/>
+        <Edit id="testPwd_input" taborder="1" password="false" position="absolute 142 121 241 141"/>
+        <Static id="sta_OrangeLine01" class="sta_WF_Line1" position="absolute 11 68 244 69"/>
+        <Static id="stc_02" text="비밀번호정보" class="sta_workTitle2" position="absolute 12 48 146 68"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_input" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="userId" type="STRING" size="256"/>
+          <Column id="userPwd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="userId" type="STRING" size="256"/>
+          <Column id="userPwd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function Comm_UserScrtNoChng_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_searchPwd();
+}
+
+function btn_Close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+
+
+
+
+function btn_Save_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var newPwd = newPwd_input.value;
+	var testPwd = testPwd_input.value;
+	
+	if(gfn_getLength(newPwd) < 4 || gfn_getLength(newPwd) > 8){
+		alert("새 비밀번호의 길이는 최소 4자 이상 8자 이하입니다.");	
+		
+		return;
+	}
+	
+	if(gfn_getLength(testPwd) < 4 || gfn_getLength(testPwd) > 8){
+		alert("새 비밀번호 확인의 길이는 최소 4자 이상 8자 이하입니다.");
+		
+		return;
+	}
+	
+	if(newPwd != testPwd){
+		alert("입력하신 비밀번호는 동일해야합니다.");
+		
+		return;
+	}
+	
+	/*비밀 번호 수정*/
+	var rtn = gfn_getUserInfo();
+	
+	ds_input.clearData();
+	ds_input.addRow();
+	ds_input.setColumn(0, "userId", rtn.userId);
+	ds_input.setColumn(0, "userPwd", gfn_seedEncryptByString(newPwd));
+		
+    gfn_kwDataInit();					
+	gfn_setKwData_trscCode("SYS00010R04");
+	gfn_tranNMCI(gfn_getCommTypeAppend()
+				, "ds_input=ds_input"
+				, ""
+				, "fn_Save_callBack");
+}
+
+function fn_Save_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	fn_searchPwd();
+}
+
+function fn_searchPwd(){	
+	userPwd_input.value = "";
+	newPwd_input.value = "";
+	testPwd_input.value = "";
+	
+	ds_list.clearData();
+	ds_input.clearData();
+	ds_input.addRow();	
+	var rtn = gfn_getUserInfo();
+	ds_input.setColumn(0, "userId", rtn.userId);
+
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.querydc.DCStupSqlMap");
+	gfn_setKwData_trscCode("SYS00010R03");
+	gfn_setKwData_sqlId("getUserPwd");
+	gfn_tranDIS(gfn_getCommTypeAppend() 
+				, "ds_input=ds_input"
+				, "ds_list=datas"
+				, ""
+				, false);
+	
+	if(ds_list.getColumn(0, "userPwd") != null && ds_list.getColumn(0, "userPwd") != ""){
+		userPwd_input.value = gfn_seedDecryptByString(ds_list.getColumn(0, "userPwd"));
+	}else{
+		alert("현재 비밀번호가 지정되지 않았습니다");
+	}
+	
+}]]></Script>
+  </Form>
+</FDL>

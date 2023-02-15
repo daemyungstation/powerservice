@@ -1,0 +1,1610 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="UnpyMngeMap">
+    <sql id="UnpyMngeMap.selectCondition_fragment">
+
+       <if test="pay_mthd != null and pay_mthd != ''">
+          AND PAY_MTHD = #{pay_mthd}
+       </if>
+       <if test="special_yn != null and special_yn != ''">
+          AND SPECIAL_YN = #{special_yn}
+       </if>
+       <if test="ichae_dt != null and ichae_dt != ''">
+          AND ICHAE_DT = ${ichae_dt}
+       </if>
+       <if test="stt_month_cnt != null and stt_month_cnt != '' and end_month_cnt != null and end_month_cnt != ''">
+          AND MONTH_CNT >= TO_NUMBER(#{stt_month_cnt}) AND  MONTH_CNT <![CDATA[<=]]> TO_NUMBER(#{end_month_cnt})
+       </if>
+       <if test="stt_true_cnt != null and stt_true_cnt != '' and end_true_cnt != null and end_true_cnt != ''">
+          AND TRUE_CNT >= TO_NUMBER(#{stt_true_cnt}) AND  TRUE_CNT <![CDATA[<=]]> TO_NUMBER(#{end_true_cnt})
+       </if>
+       <if test="stt_pay_state != null and stt_pay_state != '' and end_pay_state != null and end_pay_state != ''">
+          AND PAY_STATE >= TO_NUMBER(#{stt_pay_state}) AND  PAY_STATE <![CDATA[<=]]>  TO_NUMBER(#{end_pay_state})
+       </if>
+       <if test="stt_join_dt != null and stt_join_dt != '' and end_join_dt != null and end_join_dt != ''">
+          AND JOIN_DT >= #{stt_join_dt} || '000000' AND  JOIN_DT <![CDATA[<=]]> #{end_join_dt} || '235959'
+       </if>
+        <if test="mem_nm != null and mem_nm != '' ">
+          AND MEM_NM LIKE #{mem_nm}||'%'
+       </if>
+       <if test="chk_excd != null and chk_excd != '' and chk_excd.equalsIgnoreCase('Y')">
+          AND EXTC_YN = 'Z'
+       </if>
+       <if test="chk_excd != null and chk_excd != '' and chk_excd.equalsIgnoreCase('N')">
+          AND EXTC_YN != 'Z'
+       </if>
+       <if test="camp_type != null and camp_type != '' ">
+          AND CAMP_TYPE = #{camp_type}
+       </if>
+       <if test="type_a != null and type_a != '' ">
+          AND TYPE_A = #{type_a}
+       </if>
+       <if test="type_b != null and type_b != '' ">
+          AND TYPE_B = #{type_b}
+       </if>
+       <if test="type_c != null and type_c != '' ">
+          AND TYPE_C = #{type_c}
+       </if>
+
+
+    </sql>
+
+    <select id="UnpyMngeMap.getMonthUnpyCount" parameterType="map" resultType="int">
+        SELECT /* UnpyMngeMap.getMonthUnpyCount*/
+                COUNT(*)
+          FROM TB_UNPY_MNGE
+         WHERE ACCNT_NO = #{accnt_no}
+          AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+     </select>
+
+    <insert id="UnpyMngeMap.insertUnpy" parameterType="map">
+        <selectKey keyProperty="unpy_id" resultType="String" order="BEFORE">
+            SELECT 'UNP' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* UnpyMngeMap.insertUnpy */
+                    TB_UNPY_MNGE
+                    (ACCNT_NO, MONTH_CNT, TRUE_CNT, ICHAE_DT, ACC_STAT
+                    , PAY_MTHD, PAY_STATE, PAY_DAY, TRUE_AMT, RELAT_AMT
+                    , ADD_AMT, DIV_TYPE, CAMP_TYPE, MEM_NM, PROD_CD
+                    , PROD_NM, JOIN_DT, HPCALL_STAT, CALL_CORP, CELL
+                    , MEM_NO, DATA_DT, OVRD_CNT, EXTC_YN, ALCT_YN ,CNTR_CD
+                    , RGSR_ID ,RGSN_DTTM,AMND_ID,AMNT_DTTM, UNPY_ID, B2B_COMP_NM, SECTION_T, B2B_COMP_CD
+                    )
+             VALUES (#{accnt_no}, #{month_cnt}, #{true_cnt}, #{ichae_dt}, #{acc_stat}
+                    ,#{pay_mthd}, #{pay_state}, REPLACE(#{pay_day},'/','')||'000000', #{true_amt}, #{relat_amt}
+                    , #{add_amt}, #{div_type}, #{camp_type}, #{mem_nm}, #{prod_cd}
+                    , #{prod_nm}, REPLACE(#{join_dt},'/','')||'000000', #{hpcall_stat}, #{call_corp}, TRIM(REPLACE(#{cell}, '-', ''))
+                    , #{mem_no}, TO_CHAR(SYSDATE,'YYYYMM'), #{ovrd_cnt},  'N', 'N' , #{cntr_cd}
+                    , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),#{unpy_id} ,#{b2b_comp_nm},#{section_t},#{b2b_comp_cd}
+                   )
+    </insert>
+
+    <select id="UnpyMngeMap.getUnpy" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpy */
+               *
+          FROM (SELECT ACCNT_NO, MEM_NO, MEM_NM, CELL, UNPY_ID AS PRMV_ID
+            , MONTH_CNT AS USER_DEFN1_CNTN, TRUE_CNT AS USER_DEFN2_CNTN
+            , ICHAE_DT AS USER_DEFN3_CNTN, ACC_STAT AS USER_DEFN4_CNTN, PAY_MTHD AS USER_DEFN5_CNTN
+            , PAY_STATE AS USER_DEFN6_CNTN, PAY_DAY AS USER_DEFN7_CNTN, TRUE_AMT AS USER_DEFN8_CNTN
+            , RELAT_AMT AS USER_DEFN9_CNTN, ADD_AMT AS USER_DEFN10_CNTN
+            , PROD_CD AS USER_DEFN11_CNTN, PROD_NM AS USER_DEFN12_CNTN, JOIN_DT AS USER_DEFN13_CNTN
+            , HPCALL_STAT AS USER_DEFN14_CNTN, CALL_CORP AS USER_DEFN15_CNTN,  DIV_TYPE AS USER_DEFN16_CNTN
+         FROM TB_UNPY_MNGE
+        WHERE CAMP_TYPE = #{cmpg_typ_cd2}
+          AND EXTC_YN = #{extc_yn}
+        <if test="stt_join_dt != null and stt_join_dt != ''">
+          AND JOIN_DT  <![CDATA[ >= ]]> #{stt_join_dt} || '000000'
+          AND JOIN_DT <![CDATA[ <= ]]> #{end_join_dt}|| '235959'
+        </if>
+          AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+         <include refid="UnpyMngeMap.selectCondition_fragment" />
+         )
+     </select>
+
+     <select id="UnpyMngeMap.getMemYenche" parameterType="map" resultType="resultMap">
+         	SELECT  /* UnpyMngeMap.getMemYenche */
+         		*
+         	FROM
+         	(
+				SELECT
+				    EXT_ID AS PRMV_ID,
+				    ACCNT_NO,
+				    MEM_NO,
+				    CELL,
+				    REAL_CNT,
+				    PAY_DAY,
+				    PAY_DAY AS USER_DEFN8_CNTN,
+				    DIFF_AMT,
+				    PAY_MTHD AS USER_DEFN5_CNTN ,
+				    PAY_MTHD,
+				    TYPE_A,
+				    TYPE_B,
+				    TYPE_C,
+				    ICHAE_DT AS USER_DEFN3_CNTN,
+				    ICHAE_DT,
+				    REAL_CNT AS TRUE_CNT,
+				    DIFF_CNT AS USER_DEFN6_CNTN,
+				    DIFF_CNT AS PAY_STATE,
+				    NVL((SELECT MAX('Y') FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL SPE WHERE SPE.ACCNT_NO = ACCNT_NO AND SPECIAL_BIT = '01' AND DEL_FG = 'N'),'N') AS SPECIAL_YN
+				FROM LF_DMUSER.TB_MEMBER_YENCHE_MNG
+				WHERE NVL(EXT_YN,'N') = 'N'
+			)
+			WHERE 1=1
+			<include refid="UnpyMngeMap.selectCondition_fragment" />
+     </select>
+
+    <select id="UnpyMngeMap.getMemYenche_cnt" parameterType="map" resultType="int">
+		SELECT
+		    /* UnpyMngeMap.getMemYenche_cnt */
+		    COUNT(*)
+		FROM
+		(
+			SELECT
+			    EXT_ID,
+			    ACCNT_NO,
+			    PAY_MTHD,
+			    TYPE_A,
+			    TYPE_B,
+			    TYPE_C,
+			    ICHAE_DT,
+			    REAL_CNT AS TRUE_CNT,
+			    DIFF_CNT AS PAY_STATE,
+			    NVL((SELECT MAX('Y') FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL SPE WHERE SPE.ACCNT_NO = ACCNT_NO AND SPECIAL_BIT = '01' AND DEL_FG = 'N'),'N') AS SPECIAL_YN
+			FROM LF_DMUSER.TB_MEMBER_YENCHE_MNG
+			WHERE NVL(EXT_YN,'N') = 'N'
+		) TBL
+		WHERE 1=1
+		<include refid="UnpyMngeMap.selectCondition_fragment" />
+     </select>
+
+    <select id="UnpyMngeMap.getSmsUnpy" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getSmsUnpy */
+              *
+          FROM (SELECT *
+                  FROM TB_UNPY_MNGE
+                 WHERE CAMP_TYPE = #{cmpg_typ_cd2}
+                          AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+                         <include refid="UnpyMngeMap.selectCondition_fragment" />
+                          <!--
+                             수정자 :정훈연구원
+                             수정이유: 회수되지 않는 그달의 미납내용은(채권당월당일)포함은 나와야한다.
+                             수정일시: 20160811
+                          -->
+                   AND EXTC_YN = 'N'
+                   AND ACC_STAT = '정상'
+                          AND (ACRS_TODAY IS NULL OR ACRS_TODAY = 0)
+                )
+         WHERE  MEM_NO     NOT IN
+                (SELECT    MEM_NO
+                   FROM    TB_PERS_INFO_PCUS_CNSN
+                  WHERE    CHAT_PCUS_CNSN_YN = 'N'
+                    AND    CNTR_CD = 'CCA'
+                )
+           AND CELL NOT IN
+               (SELECT REPLACE(EXCP_ID, '-', '') EXCP_ID
+                  FROM TB_TRGT_EXCP
+                 WHERE EXCP_GBN_CD = '40'
+                   AND USE_YN = 'Y')
+     </select>
+
+
+<select id="UnpyMngeMap.getSmsUnpyCount" parameterType="map" resultType="int">
+        SELECT /* UnpyMngeMap.getSmsUnpyCount */
+               COUNT(*)
+          FROM (SELECT *
+                  FROM TB_UNPY_MNGE
+                 WHERE CAMP_TYPE = #{cmpg_typ_cd2}
+                          AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+                         <include refid="UnpyMngeMap.selectCondition_fragment" />
+                         <!--
+                             수정자 :정훈연구원
+                             수정이유: 회수되지 않는 그달의 미납내용은(채권당월당일)포함은 나와야한다.
+                             문의사항있을시 요청자에게 문의하세요
+                          -->
+                          AND EXTC_YN = 'N'
+                   AND ACC_STAT = '미만기'
+                          AND (ACRS_TODAY IS NULL OR ACRS_TODAY = 0)
+                )
+         WHERE  MEM_NO     NOT IN
+                (SELECT    MEM_NO
+                   FROM    TB_PERS_INFO_PCUS_CNSN
+                  WHERE    CHAT_PCUS_CNSN_YN = 'N'
+                    AND    CNTR_CD = 'CCA'
+                )
+           AND CELL NOT IN
+               (SELECT REPLACE(EXCP_ID, '-', '') EXCP_ID
+                  FROM TB_TRGT_EXCP
+                 WHERE EXCP_GBN_CD = '40'
+                   AND USE_YN = 'Y')
+     </select>
+
+    <select id="UnpyMngeMap.getUnpyCount" parameterType="map" resultType="int">
+        SELECT /* UnpyMngeMap.getUnpyCount*/
+                COUNT(*)
+          FROM TB_UNPY_MNGE
+         WHERE CAMP_TYPE = #{cmpg_typ_cd2}
+           AND EXTC_YN = #{extc_yn}
+           AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+        <if test="stt_join_dt != null and stt_join_dt != ''">
+           AND JOIN_DT  <![CDATA[ >= ]]> #{stt_join_dt} || '000000'
+           AND JOIN_DT <![CDATA[ < ]]> #{end_join_dt} || '235959'
+        </if>
+        <include refid="UnpyMngeMap.selectCondition_fragment" />
+     </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeCount" parameterType="map" resultType="int">
+        SELECT /* UnpyMngeMap.getUnpyMngeCount */
+                COUNT(*)
+          FROM TB_UNPY_MNGE
+         WHERE DATA_DT = #{data_dt}
+          <include refid="UnpyMngeMap.selectCondition_fragment" />
+     </select>
+
+    <select id="UnpyMngeMap.getOrgUnpyMngeList" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getOrgUnpyMngeList */
+            *
+          FROM TB_UNPY_MNGE
+         WHERE RGSN_DTTM <![CDATA[>=]]> TO_CHAR(SYSDATE,'YYYYMMDD')||'000000'
+           AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+    </select>
+                <select id="UnpyMngeMap.getUnpyMngeList" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeList */
+                replace(a.eccl_dt,chr(0),' ') eccl_dt
+                ,replace(a.accnt_no,chr(0),' ') accnt_no
+                ,replace(a.month_cnt,chr(0),' ') month_cnt
+                ,replace(a.true_cnt,chr(0),' ') true_cnt
+                ,replace(a.ichae_dt,chr(0),' ') ichae_dt
+                ,replace(a.zip,chr(0),' ') zip
+                ,replace(a.addr,chr(0),' ') addr
+                /**********************************************
+                2017.09.20 김준호 마스킹 작업으로 주소 분리작업
+                ***********************************************/
+                ,replace(a.addr1,chr(0),' ') addr1 /* 주소1 */
+                ,replace(a.addr2,chr(0),' ') addr2 /* 주소2 */
+                ,replace(a.acc_stat,chr(0),' ') acc_stat
+                ,replace(a.pay_mthd,chr(0),' ')	 pay_mthd
+                ,replace(a.pay_day,chr(0),' ')	 pay_day
+                ,replace(a.pay_state,chr(0),' ')	 pay_state
+                ,replace(a.true_amt,chr(0),' ') true_amt
+                ,replace(a.relat_amt,chr(0),' ') relat_amt
+                ,replace(a.add_amt,chr(0),' ')  add_amt
+                ,replace(a.div_type,chr(0),' ') div_type
+                ,replace(a.mem_nm,chr(0),' ') mem_nm
+                ,replace(a.prod_cd,chr(0),' ')	 prod_cd
+                ,replace(a.prod_nm,chr(0),' ') prod_nm
+                ,replace(a.join_dt,chr(0),' ') join_dt
+                ,replace(a.hpcall_stat,chr(0),' ') hpcall_stat
+                ,replace(a.call_corp,chr(0),' ') call_corp
+                ,replace(a.cell,chr(0),' ')	 cell
+                ,replace(a.mem_no,chr(0),' ')	 mem_no
+                ,replace(a.alct_yn,chr(0),' ')	 alct_yn
+                ,replace(a.extc_yn,chr(0),' ')  extc_yn
+                ,replace(a.cmpg_nm,chr(0),' ') cmpg_nm
+                ,replace(a.trgt_list_nm,chr(0),' ') trgt_list_nm
+                ,replace(a.sub_trgt_list_nm,chr(0),' ') sub_trgt_list_nm
+                ,a.acrs_tday_unpy_rcvr_rntm
+                ,a.acrs_today acrs_today
+                ,a.acrs_5dy_unpy_rcvr_rntm
+                ,a.acrs_day_5
+                ,a.acrs_10dy_unpy_rcvr_rntm
+                ,a.acrs_day_10
+                ,a.acrs_15dy_unpy_rcvr_rntm
+                ,a.acrs_day_15
+                ,a.acrs_20dy_unpy_rcvr_rntm
+                ,a.acrs_day_20
+                ,a.acrs_25dy_unpy_rcvr_rntm
+                ,a.acrs_day_25
+                ,a.acrs_enmn_unpy_rcvr_rntm
+                ,a.acrs_day_end
+                ,a.excd_cndt
+                ,nvl(a.altn_amt,0)  ALTN_AMT
+
+            ,(SELECT USER_NM
+                      FROM TB_USER
+                     WHERE USER_ID = A.CNSR_ID
+                   ) AS CNSR_NM ,
+               FN_GETHRCHCDNM('CAM990', A.CAMP_TYPE, A.CNTR_CD) AS CAMP_TYPE_NM
+               ,
+               /*******************************************************
+               2017-08-22 김준호 성별 및 생일 추가 요청 조미애 매니저
+               *******************************************************/
+               case when SEX = '0001' then '1'
+                       when SEX = '0002' then '0'
+                       else ''
+               end SEX -- 성별
+               , BRTH_MON_DAY -- 생일
+               <!-- 고객상담 내용(최근) 추가 : 2018.01.24 정승철 -->
+               <!-- 상담메모 주석요청 - 2018.04.10 -->
+               <!--
+               , ( SELECT CONS_MEMO_CNTN
+                    FROM TB_CONS
+                    WHERE ACCNT_NO = A.ACCNT_NO
+                    AND CONSNO = (SELECT MAX(CONSNO)
+                                    FROM TB_CONS_HSTR
+                                   WHERE ACCNT_NO = A.ACCNT_NO
+                                 )
+                  ) AS DPMS_RESL_CNTN
+               -->
+          FROM
+               (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX,
+                          </otherwise>
+                       </choose>
+                      A.*  , B.DPMS_RESL_CNTN , MB.HOME_ZIP ZIP
+                      ,  ( MB.HOME_ADDR ||  MB.HOME_ADDR2)  ADDR
+                        /**********************************************
+                       2017.09.20 김준호 마스킹 작업으로 주소 분리작업
+                       ***********************************************/
+                      , MB.HOME_ADDR as addr1 -- 주소1
+                      , MB.HOME_ADDR2 as addr2 -- 주소2
+                       /*******************************************************
+                       2017-08-22 김준호 성별 및 생일 추가 요청 조미애 매니저
+                       *******************************************************/
+                      , MB.SEX AS SEX -- 성별
+                     , MB.BRTH_MON_DAY AS BRTH_MON_DAY -- 생일
+                 FROM
+                      (SELECT A.*
+                         FROM TB_UNPY_MNGE A
+                        WHERE DATA_DT = #{data_dt}
+                             <include refid="UnpyMngeMap.selectCondition_fragment" />
+                      ) A
+                      LEFT OUTER JOIN
+                      (SELECT replace(TA.DPMS_RESL_CNTN ,chr(0),'') DPMS_RESL_CNTN,
+                             TD.PRMV_ID
+                        FROM TB_TRGT_CUST_ALCT TA
+                         JOIN TB_TRGT_CUST_DTPT TD
+                             ON TA.TRGT_CUST_DTPT_ID = TD.TRGT_CUST_DTPT_ID
+                      )B
+                      ON A.UNPY_ID = B.PRMV_ID
+                      INNER JOIN LF_DMUSER.MEM_PROD_ACCNT MPA ON A.ACCNT_NO=MPA.ACCNT_NO
+                      LEFT OUTER  JOIN LF_DMUSER.MEMBER MB ON  MPA.MEM_NO=MB.MEM_NO
+
+               ) A
+               <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+                    <![CDATA[
+                     WHERE PAGE_INDX >= #{startLine}
+                       AND PAGE_INDX < #{endLine}
+                    ]]>
+              </if>
+     </select>
+
+    <update id="UnpyMngeMap.updateExcdProd" parameterType="map" >
+        UPDATE /* UnpyMngeMap.updateExcdProd */
+               TB_UNPY_MNGE
+           SET EXTC_YN = 'Z'
+           , EXCD_CNDT = '20'
+         WHERE DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+           AND EXTC_YN = 'N'
+           AND PROD_CD IN
+                (SELECT    EXCP_ID
+                   FROM    TB_TRGT_EXCP
+                  WHERE    EXCP_GBN_CD = '20'
+                    AND    USE_YN = 'Y'
+                )
+    </update>
+
+    <update id="UnpyMngeMap.updateExcdAccnt" parameterType="map" >
+         UPDATE /* UnpyMngeMap.updateExcdAccnt */
+               TB_UNPY_MNGE
+           SET EXTC_YN = 'Z'
+           , EXCD_CNDT = '10'
+         WHERE DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+           AND EXTC_YN = 'N'
+           AND ACCNT_NO IN (SELECT EXCP_ID
+                   FROM    TB_TRGT_EXCP
+                  WHERE    EXCP_GBN_CD = '10'
+                    AND    USE_YN = 'Y'
+                )
+    </update>
+
+    <update id="UnpyMngeMap.updateExcdB2bComp" parameterType="map" >
+         UPDATE /* UnpyMngeMap.updateExcdB2bComp */
+               TB_UNPY_MNGE
+           SET EXTC_YN = 'Z'
+           , EXCD_CNDT = '30'
+         WHERE DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+           AND EXTC_YN = 'N'
+           AND B2B_COMP_CD IN (SELECT EXCP_ID
+                   FROM    TB_TRGT_EXCP
+                  WHERE    EXCP_GBN_CD = '30'
+                    AND    USE_YN = 'Y'
+                )
+           AND CAMP_TYPE IN ('3300','3400')
+           AND JOIN_DT <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-4),'YYYYMMDD')||'000000'
+           AND JOIN_DT <![CDATA[<]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-1),'YYYYMMDD')||'000000'
+    </update>
+
+    <update id="UnpyMngeMap.updateExcdAccntAndExcdProd" parameterType="map" >
+         UPDATE /* UnpyMngeMap.updateExcdAccntAndExcdProd */
+               TB_UNPY_MNGE
+           SET EXTC_YN = 'Z'
+           , EXCD_CNDT = '40'
+         WHERE DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+           AND EXTC_YN = 'N'
+           AND ((  ACCNT_NO IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '10'
+                       AND    USE_YN = 'Y'
+                   )AND
+                   PROD_CD IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '20'
+                       AND    USE_YN = 'Y'
+                   )
+                ) OR
+                (  ACCNT_NO IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '10'
+                       AND    USE_YN = 'Y'
+                   )AND
+                   B2B_COMP_CD IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '30'
+                       AND    USE_YN = 'Y'
+                   )
+                    AND CAMP_TYPE = '3300'
+                    AND JOIN_DT <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-4),'YYYYMMDD')||'000000'
+                    AND JOIN_DT <![CDATA[<]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-1),'YYYYMMDD')||'000000'
+                ) OR
+                (
+                    PROD_CD IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '20'
+                       AND    USE_YN = 'Y'
+                   )AND
+                   B2B_COMP_CD IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '30'
+                       AND    USE_YN = 'Y'
+                   )
+                    AND CAMP_TYPE = '3300'
+                    AND JOIN_DT <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-4),'YYYYMMDD')||'000000'
+                    AND JOIN_DT <![CDATA[<]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-1),'YYYYMMDD')||'000000'
+                )OR
+                (
+                   ACCNT_NO IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '10'
+                       AND    USE_YN = 'Y'
+                   )AND
+                   PROD_CD IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '20'
+                       AND    USE_YN = 'Y'
+                   )AND
+                   B2B_COMP_CD IN
+                   (SELECT    EXCP_ID
+                      FROM    TB_TRGT_EXCP
+                     WHERE    EXCP_GBN_CD = '30'
+                       AND    USE_YN = 'Y'
+                   )
+                    AND CAMP_TYPE = '3300'
+                    AND JOIN_DT <![CDATA[>=]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-4),'YYYYMMDD')||'000000'
+                    AND JOIN_DT <![CDATA[<]]> TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE)+1,-1),'YYYYMMDD')||'000000'
+                ))
+    </update>
+
+    <update id="UnpyMngeMap.updateAltnAmt" parameterType="map" >
+       UPDATE /* UnpyMngeMap.updateAltnAmt */
+           TB_UNPY_MNGE
+           SET (ALTN_AMT, OVRD_TRUE_AMT, OVRD_ADD_ATM, OVRD_RELAT_AMT, OVRD_TRUE_TOT_AMT, OVRD_ADD_TOT_ATM, OVRD_RELAT_TOT_AMT, PROD_GBN_CD) =
+           (SELECT
+              CASE
+                  WHEN A.DIV_TYPE = 'A' AND SECTION_T = '0002'
+                  THEN ((NVL(B.MNPY_AMT,0) + NVL(B.ADTL_BRAMT_AMT,0)) *  A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'A' AND SECTION_T = '0001'
+                  THEN (NVL(B.MNPY_AMT,0) * A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'B' AND A.TRUE_CNT <![CDATA[<]]>37
+                  THEN ((NVL(B.ADTL_BRAMT_AMT,0)+NVL(B.RELAT_MNPY_AMT,0))* (36-A.TRUE_CNT))
+                  WHEN A.DIV_TYPE = 'B' AND A.TRUE_CNT >36
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'C' AND A.TRUE_CNT >36
+                  THEN (NVL(B.MNPY_AMT,0) * A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'C' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) <![CDATA[<=]]> A.PAY_STATE
+                  THEN ((NVL(B.MNPY_AMT,0) + NVL(B.ADTL_BRAMT_AMT,0))* (36 - A.TRUE_CNT)) + (NVL(B.MNPY_AMT,0) *  (A.PAY_STATE - (36 - A.TRUE_CNT)))
+                  WHEN A.DIV_TYPE = 'C' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) > A.PAY_STATE
+                  THEN ((NVL(B.MNPY_AMT,0) + NVL(B.ADTL_BRAMT_AMT,0))* A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'M'
+                  THEN (NVL(B.MNPY_AMT,0) * A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0001'
+                  THEN (NVL(B.MNPY_AMT,0) * A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0002' AND A.TRUE_CNT >36
+                  THEN (NVL(B.MNPY_AMT,0) * A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0002' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) <![CDATA[<=]]> A.PAY_STATE
+                  THEN ((NVL(B.MNPY_AMT,0) + NVL(B.ADTL_BRAMT_AMT,0))* (36 - A.TRUE_CNT)) + (NVL(B.MNPY_AMT,0) *  (A.PAY_STATE - (36 - A.TRUE_CNT)))
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0002' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) > A.PAY_STATE
+                  THEN ((NVL(B.MNPY_AMT,0) + NVL(B.ADTL_BRAMT_AMT,0))* A.PAY_STATE)
+                  ELSE NULL
+              END AS ALTN_AMT,
+              NVL(B.MNPY_AMT,0) AS OVRD_TRUE_AMT, NVL(B.ADTL_BRAMT_AMT,0) AS OVRD_ADD_ATM, NVL(B.RELAT_MNPY_AMT,0) AS OVRD_RELAT_AMT,
+              CASE
+                  WHEN A.DIV_TYPE = 'A' OR A.DIV_TYPE = 'C' OR A.DIV_TYPE = 'M' OR A.DIV_TYPE = 'F'
+                  THEN (NVL(B.MNPY_AMT,0) *  A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'B'
+                  THEN 0
+                  ELSE NULL
+              END AS OVRD_TRUE_TOT_AMT,
+              CASE
+                  WHEN A.DIV_TYPE = 'A' AND SECTION_T = '0002'
+                  THEN ( NVL(B.ADTL_BRAMT_AMT,0) *  A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'A' AND SECTION_T = '0001'
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'B' AND A.TRUE_CNT <![CDATA[<]]> 37
+                  THEN (NVL(B.ADTL_BRAMT_AMT,0)* (36-A.TRUE_CNT))
+                  WHEN A.DIV_TYPE = 'B' AND A.TRUE_CNT <![CDATA[>]]>36
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'C' AND A.TRUE_CNT >36
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'C' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) <![CDATA[<=]]> A.PAY_STATE
+                  THEN (NVL(B.ADTL_BRAMT_AMT,0) * (36 - A.TRUE_CNT))
+                  WHEN A.DIV_TYPE = 'C' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) > A.PAY_STATE
+                  THEN (NVL(B.ADTL_BRAMT_AMT,0)* A.PAY_STATE)
+                  WHEN A.DIV_TYPE = 'M'
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0001'
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0002' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) <![CDATA[<=]]> A.PAY_STATE
+                  THEN (NVL(B.ADTL_BRAMT_AMT,0) * (36 - A.TRUE_CNT))
+                  WHEN A.DIV_TYPE = 'F' AND SECTION_T = '0002' AND A.TRUE_CNT <![CDATA[<]]> 37 AND (36 - A.TRUE_CNT) > A.PAY_STATE
+                  THEN (NVL(B.ADTL_BRAMT_AMT,0)* A.PAY_STATE)
+                  ELSE NULL
+              END AS OVRD_ADD_TOT_ATM,
+              CASE
+                  WHEN A.DIV_TYPE = 'A' OR A.DIV_TYPE = 'C' OR A.DIV_TYPE = 'M' OR A.DIV_TYPE = 'F'
+                  THEN 0
+                  WHEN A.DIV_TYPE = 'B' AND A.TRUE_CNT <![CDATA[<]]>37
+                  THEN (NVL(B.RELAT_MNPY_AMT,0) * (36-A.TRUE_CNT))
+                  WHEN A.DIV_TYPE = 'B' AND A.TRUE_CNT >36
+                  THEN 0
+                  ELSE NULL
+              END AS OVRD_RELAT_TOT_AMT
+              ,B.DIV_CD AS PROD_GBN_CD
+         FROM TB_UNPY_MNGE A
+         JOIN TB_OVRD_PROD_EXCD_ADMN B
+              ON A.PROD_CD = B.PROD_CD
+        WHERE A.ACCNT_NO = TB_UNPY_MNGE.ACCNT_NO
+              AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+           )
+    </update>
+
+
+<!-- 통계 장표에서 사용 -->
+    <sql id="UnpyMngeMap.selectCondition_fragment_report">
+        <if test="data_dt != null and data_dt != ''">
+            AND DATA_DT = SUBSTR(#{data_dt}, 1, 6)
+        </if>
+        <if test="pay_state != null and pay_state != ''">
+            AND EXISTS(SELECT 'Y'
+                         FROM TB_CD
+                        WHERE CD_SET_CD = 'CAM170'
+                          AND TO_NUMBER(A.PAY_STATE) BETWEEN CD AND ADTL_CD
+                          AND CD = #{pay_state})
+        </if>
+    </sql>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithIchaeDtCnt" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithIchaeDtCnt */
+               A.*
+          FROM (SELECT ICHAE_DT
+                     , SUM(CNT01) AS CNT01
+                     , SUM(CNT02) AS CNT02
+                     , SUM(CNT01_01) AS CNT01_01
+                     , SUM(CNT01_02) AS CNT01_02
+                     , SUM(CNT01_03) AS CNT01_03
+                     , SUM(CNT02_01) AS CNT02_01
+                     , SUM(CNT02_02) AS CNT02_02
+                     , SUM(CNT02_03) AS CNT02_03
+                  FROM (SELECT (CASE
+                                WHEN ICHAE_DT IN ('05', '10', '15', '20', '25')
+                                THEN ICHAE_DT
+                                WHEN ICHAE_DT IS NULL
+                                THEN '결제일 없음'
+                                ELSE '기타'
+                                END) ICHAE_DT
+                             , SUM(CNT01) AS CNT01
+                             , SUM(CNT02) AS CNT02
+                             , SUM(CNT01_01) AS CNT01_01
+                             , SUM(CNT01_02) AS CNT01_02
+                             , SUM(CNT01_03) AS CNT01_03
+                             , SUM(CNT02_01) AS CNT02_01
+                             , SUM(CNT02_02) AS CNT02_02
+                             , SUM(CNT02_03) AS CNT02_03
+                          FROM (SELECT LPAD(ICHAE_DT, 2, '0') AS ICHAE_DT
+                                     , DECODE(SECTION_T, '0001', 1, 0) AS CNT01
+                                     , DECODE(SECTION_T, '0002', 1, 0) AS CNT02
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, '카드', 1, 0), 0) AS CNT01_01
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, 'CMS', 1, 0), 0) AS CNT01_02
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, '손수', 1, 0), 0) AS CNT01_03
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, '카드', 1, 0), 0) AS CNT02_01
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, 'CMS', 1, 0), 0) AS CNT02_02
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, '손수', 1, 0), 0) AS CNT02_03
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE
+                                 <if test="kgubun == null or kgubun == ''">
+                                              EXTC_YN != 'Z'  AND  <!-- 추출제외 -->
+                                              DIV_TYPE != 'B'  AND   <!-- 해약방어제외 -->
+                                         </if>
+                                         DIV_TYPE != 'F'
+                             <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+                              ) A
+                        GROUP BY ICHAE_DT
+                      ) A
+                GROUP BY ICHAE_DT
+              ) A
+        ORDER BY ICHAE_DT
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithIchaeDtPrice" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithIchaeDtPrice */
+               A.*
+          FROM (SELECT ICHAE_DT
+                     , SUM(CNT01) AS CNT01
+                     , SUM(CNT02) AS CNT02
+                     , SUM(PRICE01) AS PRICE01
+                     , SUM(PRICE02) AS PRICE02
+                     , SUM(CNT01_01) AS CNT01_01
+                     , SUM(CNT01_02) AS CNT01_02
+                     , SUM(CNT01_03) AS CNT01_03
+                     , SUM(CNT02_01) AS CNT02_01
+                     , SUM(CNT02_02) AS CNT02_02
+                     , SUM(CNT02_03) AS CNT02_03
+                     , SUM(PRICE01_01) AS PRICE01_01
+                     , SUM(PRICE01_02) AS PRICE01_02
+                     , SUM(PRICE01_03) AS PRICE01_03
+                     , SUM(PRICE02_01) AS PRICE02_01
+                     , SUM(PRICE02_02) AS PRICE02_02
+                     , SUM(PRICE02_03) AS PRICE02_03
+                  FROM (SELECT (CASE
+                                WHEN ICHAE_DT IN ('05', '10', '15', '20', '25')
+                                THEN ICHAE_DT
+                                WHEN ICHAE_DT IS NULL
+                                THEN '결제일 없음'
+                                ELSE '기타'
+                                END) ICHAE_DT
+                             , SUM(CNT01) AS CNT01
+                             , SUM(CNT02) AS CNT02
+                             , SUM(PRICE01) AS PRICE01
+                             , SUM(PRICE02) AS PRICE02
+                             , SUM(CNT01_01) AS CNT01_01
+                             , SUM(CNT01_02) AS CNT01_02
+                             , SUM(CNT01_03) AS CNT01_03
+                             , SUM(CNT02_01) AS CNT02_01
+                             , SUM(CNT02_02) AS CNT02_02
+                             , SUM(CNT02_03) AS CNT02_03
+                             , SUM(PRICE01_01) AS PRICE01_01
+                             , SUM(PRICE01_02) AS PRICE01_02
+                             , SUM(PRICE01_03) AS PRICE01_03
+                             , SUM(PRICE02_01) AS PRICE02_01
+                             , SUM(PRICE02_02) AS PRICE02_02
+                             , SUM(PRICE02_03) AS PRICE02_03
+                          FROM (SELECT LPAD(ICHAE_DT, 2, '0') AS ICHAE_DT
+                                     , DECODE(SECTION_T, '0001', 1, 0) AS CNT01
+                                     , DECODE(SECTION_T, '0002', 1, 0) AS CNT02
+                                     , DECODE(SECTION_T, '0001', ALTN_AMT, 0) AS PRICE01
+                                     , DECODE(SECTION_T, '0002', ALTN_AMT, 0) AS PRICE02
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, '카드', 1, 0), 0) AS CNT01_01
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, 'CMS', 1, 0), 0) AS CNT01_02
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, '손수', 1, 0), 0) AS CNT01_03
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, '카드', 1, 0), 0) AS CNT02_01
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, 'CMS', 1, 0), 0) AS CNT02_02
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, '손수', 1, 0), 0) AS CNT02_03
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, '카드', ALTN_AMT, 0), 0) AS PRICE01_01
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, 'CMS', ALTN_AMT, 0), 0) AS PRICE01_02
+                                     , DECODE(SECTION_T, '0001', DECODE(PAY_MTHD, '손수', ALTN_AMT, 0), 0) AS PRICE01_03
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, '카드', ALTN_AMT, 0), 0) AS PRICE02_01
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, 'CMS', ALTN_AMT, 0), 0) AS PRICE02_02
+                                     , DECODE(SECTION_T, '0002', DECODE(PAY_MTHD, '손수', ALTN_AMT, 0), 0) AS PRICE02_03
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE
+                                      <if test="kgubun == null or kgubun == ''">
+                                              EXTC_YN != 'Z'  AND  <!-- 추출제외 -->
+                                              DIV_TYPE != 'B'  AND   <!-- 해약방어제외 -->
+                                         </if>
+                                         DIV_TYPE != 'F'
+                             <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+                              ) A
+                        GROUP BY ICHAE_DT
+                      ) A
+                GROUP BY ICHAE_DT
+              ) A
+        ORDER BY ICHAE_DT
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithTotal" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithTotal */
+               A.*
+          FROM (SELECT TO_CHAR(SYSDATE,'YYYYMM') AS DATE_DT
+                     , NVL(ALCT_CNT, 0) AS ALCT_CNT
+                     , NVL(ALCT_PRICE, 0) AS ALCT_PRICE
+                     , NVL(RCVR_CNT, 0) AS RCVR_CNT
+                     , NVL(RCVR_PRICE, 0) AS RCVR_PRICE
+                  FROM (SELECT SUM(ALCT_FG) AS ALCT_CNT
+                             , SUM(ALCT_PRICE) AS ALCT_PRICE
+                             , SUM(RCVR_FG) AS RCVR_CNT
+                             , SUM(RCVR_PRICE) AS RCVR_PRICE
+                          FROM (SELECT (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS ALCT_FG
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN ALTN_AMT
+                                        ELSE 0
+                                        END) AS ALCT_PRICE
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS RCVR_FG
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_TODAY
+                                        ELSE 0
+                                        END) AS RCVR_PRICE
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE
+                                      <if test="kgubun == null or kgubun == ''">
+                                          EXTC_YN != 'Z'  AND  <!-- 추출제외 -->
+                                          DIV_TYPE != 'B'  AND   <!-- 해약방어제외 -->
+                                     </if>
+                                     DIV_TYPE != 'F'
+
+
+                                   AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+                               ) A
+                       ) A
+               ) A
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithCnsr" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithCnsr */
+               A.*
+          FROM (SELECT D.TEAM_NM AS TEAM1_NM
+                     , F.SUB_TRGT_LIST_NM AS SUB_TRGT_LIST_NM
+                     , C.TEAM_NM AS TEAM2_NM
+                     , B.USER_NM AS USER_NM
+                     , D.TEAM_CD AS TEAM1_CD
+                     , C.TEAM_CD AS TEAM2_CD
+                     , B.USER_ID AS USER_ID
+                     , NVL(ALCT_CNT, 0) AS ALCT_CNT
+                     , NVL(ALCT_PRICE, 0) AS ALCT_PRICE
+                     , NVL(RCVR_CNT, 0) AS RCVR_CNT
+                     , NVL(RCVR_PRICE, 0) AS RCVR_PRICE
+                  FROM (SELECT CNSR_ID ,SUB_TRGT_LIST_ID
+                             , SUM(ALCT_FG) AS ALCT_CNT
+                             , SUM(ALCT_PRICE) AS ALCT_PRICE
+                             , SUM(RCVR_FG) AS RCVR_CNT
+                             , SUM(RCVR_PRICE) AS RCVR_PRICE
+                          FROM (SELECT A.CNSR_ID, A.SUB_TRGT_LIST_ID
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS ALCT_FG
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN ALTN_AMT
+                                        ELSE 0
+                                        END) AS ALCT_PRICE
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS RCVR_FG
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_TODAY
+                                        ELSE 0
+                                        END) AS RCVR_PRICE
+                                  FROM (SELECT A.*
+                                          FROM TB_UNPY_MNGE A
+                                         WHERE
+                                          <if test="kgubun == null or kgubun == ''">
+                                              EXTC_YN != 'Z'  AND  <!-- 추출제외 -->
+                                              DIV_TYPE != 'B'  AND   <!-- 해약방어제외 -->
+                                         </if>
+                                         DIV_TYPE != 'F'
+                                           AND DATA_DT = TO_CHAR(SYSDATE,'YYYYMM')
+                                       ) A
+                               ) A
+                         GROUP BY CNSR_ID, SUB_TRGT_LIST_ID
+                       ) A
+                  LEFT JOIN TB_USER B
+                    ON B.USER_ID = A.CNSR_ID
+                  LEFT JOIN TB_CONS_TEAM C
+                    ON C.TEAM_CD = B.TEAM_CD
+                  LEFT JOIN TB_CONS_TEAM D
+                    ON D.TEAM_CD = C.HGRN_TEAM_CD
+                  LEFT JOIN TB_SUB_TRGT_LIST_DTL F
+                    ON F.SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                 ORDER BY D.TEAM_SQNC ASC, C.TEAM_SQNC ASC, B.USER_NM ASC
+               ) A
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithProdGbnCdTotal" parameterType="map" resultType="resultMap">
+       <!-- 20180719 실적과 같은 카테고리 별 미납 실적 개발 (임동진) -->
+       	WITH UM_TBL AS
+		(
+			SELECT /* UnpyMngeMap.getUnpyMngeReportWithProdGbnCdTotal */
+			    UM.ACCNT_NO,
+			    UM.PROD_CD,
+			    PD.SECTION_THR,
+			    B2B.SALE_TYPE,
+			    1 AS ALCT_FG,
+			    NVL(ALTN_AMT,0) AS ALCT_PRICE,
+			    NVL((CASE WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0 THEN 1 ELSE 0 END),0) AS RCVR_FG,
+			    NVL((CASE WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0 THEN ACRS_TODAY ELSE 0 END),0) AS RCVR_PRICE
+			FROM PS_WILLVI.TB_UNPY_MNGE UM INNER JOIN
+			     LF_DMUSER.PRODUCT PD ON UM.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			     LF_DMUSER.B2BCOMCD B2B ON UM.B2B_COMP_CD = COM_CD
+			WHERE 1=1
+            <if test="kgubun == null or kgubun == ''">
+			      <!--추출제외-->
+                  AND EXTC_YN != 'Z'
+                  <!--해약방어제외-->
+                  AND DIV_TYPE != 'B'
+             </if>
+             	<!--당월미납제외 당월미납은 다 0이다. -->
+                  AND DIV_TYPE != 'F'
+
+
+      		<include refid="UnpyMngeMap.selectCondition_fragment_report" />
+		)
+
+		SELECT
+		    'LGU' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0008'
+
+		UNION ALL
+
+		SELECT
+		    '결합S(기타)' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0002' AND NVL(SALE_TYPE,'9999') NOT IN ('0046','0027','0012')
+
+		UNION ALL
+
+		SELECT
+		    '결합L(기타)' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0001'  AND NVL(SALE_TYPE,'9999') != '0046'
+
+		UNION ALL
+
+		SELECT
+		    'SDP' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0010'
+
+		UNION ALL
+
+		SELECT
+		    '한샘' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0022'
+
+		UNION ALL
+
+		SELECT
+		    '여행' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR IN ('0023','0024')
+
+		UNION ALL
+
+		SELECT
+		    '홈쇼핑' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE (SECTION_THR = '0020'
+		       OR (SECTION_THR = '0002' AND NVL(SALE_TYPE,'9999') IN ('0027','0012')))
+
+		UNION ALL
+
+		SELECT
+		    'POM' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE (SECTION_THR = '0021'
+		       OR (SECTION_THR IN ('0001', '0002') AND NVL(SALE_TYPE,'9999') = '0046'))
+
+		UNION ALL
+
+		SELECT
+		    '일반상품외' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR IN ('0005','0012')
+
+		UNION ALL
+
+		SELECT
+		    'LGB' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0007'
+
+		UNION ALL
+
+		SELECT
+		    '기타결합' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR IN ('0017','0018','0006')
+
+		UNION ALL
+
+		SELECT
+		    '후불제' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0013'
+
+		UNION ALL
+
+		SELECT
+		    '더원라이프' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0028'
+
+		UNION ALL
+
+		SELECT
+		    '스페셜라이프' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0029'
+
+		UNION ALL
+
+		SELECT
+		    '다이렉트' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0027'
+
+
+       <!-- AS-IS
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithProdGbnCdTotal */
+               A.*
+          FROM (SELECT A.CD_NM AS PROD_GBN_NM
+                     , A.CD AS PROD_GBN_CD
+                     , NVL(ALCT_CNT, 0) AS ALCT_CNT
+                     , NVL(ALCT_PRICE, 0) AS ALCT_PRICE
+                     , NVL(RCVR_CNT, 0) AS RCVR_CNT
+                     , NVL(RCVR_PRICE, 0) AS RCVR_PRICE
+                  FROM (SELECT A.*
+                          FROM TB_CD A
+                         WHERE CD_SET_CD = 'CAM160'
+                       ) A
+                  LEFT JOIN
+                       (SELECT PROD_GBN_CD
+                             , SUM(ALCT_FG) AS ALCT_CNT
+                             , SUM(ALCT_PRICE) AS ALCT_PRICE
+                             , SUM(RCVR_FG) AS RCVR_CNT
+                             , SUM(RCVR_PRICE) AS RCVR_PRICE
+                          FROM (SELECT (CASE
+                                        WHEN EXISTS (SELECT 'Y'
+                                                       FROM TB_CD
+                                                      WHERE CD_SET_CD = 'CAM160'
+                                                        AND CD = A.PROD_GBN_CD)
+                                        THEN PROD_GBN_CD
+                                        ELSE '1016'
+                                        END) AS PROD_GBN_CD
+                                     , 1 AS ALCT_FG
+                                     , ALTN_AMT AS ALCT_PRICE
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS RCVR_FG
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_TODAY
+                                        ELSE 0
+                                        END) AS RCVR_PRICE
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE
+
+
+                               ) A
+                         GROUP BY PROD_GBN_CD
+                       ) B
+                    ON B.PROD_GBN_CD = A.CD
+                 ORDER BY A.CD_SQNC ASC
+               ) A
+               -->
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithProdGbnCd" parameterType="map" resultType="resultMap">
+
+
+        <!-- 20180719 실적과 같은 카테고리 별 미납 실적 개발 (임동진) -->
+
+        WITH UM_TBL AS
+		(
+			SELECT /* UnpyMngeMap.getUnpyMngeReportWithProdGbnCd */
+			    UM.ACCNT_NO,
+			    UM.PROD_CD,
+			    PD.SECTION_THR,
+			    B2B.SALE_TYPE,
+			    (CASE WHEN ALCT_YN = 'Y' THEN 1 ELSE 0 END) AS ALCT_FG,
+			    (CASE WHEN ALCT_YN = 'Y' THEN ALTN_AMT ELSE 0 END) AS ALCT_PRICE,
+			    (CASE WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0 THEN 1 ELSE 0 END) AS RCVR_FG,
+			    (CASE WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0 THEN ACRS_TODAY ELSE 0 END) AS RCVR_PRICE
+			FROM PS_WILLVI.TB_UNPY_MNGE UM INNER JOIN
+			     LF_DMUSER.PRODUCT PD ON UM.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+			     LF_DMUSER.B2BCOMCD B2B ON UM.B2B_COMP_CD = COM_CD
+			WHERE 1=1
+				AND EXTC_YN != 'Z'
+				AND DIV_TYPE != 'B'
+				AND PAY_STATE > 0
+
+            <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+		)
+
+		SELECT
+		    'LGU' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0008'
+
+		UNION ALL
+
+		SELECT
+		    '결합S(기타)' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0002' AND NVL(SALE_TYPE,'9999') NOT IN ('0046','0027','0012')
+
+		UNION ALL
+
+		SELECT
+		    '결합L(기타)' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0001'  AND NVL(SALE_TYPE,'9999') != '0046'
+
+		UNION ALL
+
+		SELECT
+		    'SDP' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0010'
+
+		UNION ALL
+
+		SELECT
+		    '한샘' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0022'
+
+		UNION ALL
+
+		SELECT
+		    '여행' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR IN ('0023','0024')
+
+		UNION ALL
+
+		SELECT
+		    '홈쇼핑' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE (SECTION_THR = '0020'
+		       OR (SECTION_THR = '0002' AND NVL(SALE_TYPE,'9999') IN ('0027','0012')))
+
+		UNION ALL
+
+		SELECT
+		    'POM' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE (SECTION_THR = '0021'
+		       OR (SECTION_THR IN ('0001', '0002') AND NVL(SALE_TYPE,'9999') = '0046'))
+
+		UNION ALL
+
+		SELECT
+		    '일반상품외' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR IN ('0005','0012')
+
+		UNION ALL
+
+		SELECT
+		    'LGB' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0007'
+
+		UNION ALL
+
+		SELECT
+		    '기타결합' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR IN ('0017','0018','0006')
+
+		UNION ALL
+
+		SELECT
+		    '후불제' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0013'
+
+		UNION ALL
+
+		SELECT
+		    '더원라이프' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0028'
+
+		UNION ALL
+
+		SELECT
+		    '스페셜라이프' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0029'
+
+		UNION ALL
+
+		SELECT
+		    '다이렉트' AS PROD_GBN_NM,
+		    '' AS PROD_GBN_CD,
+		    SUM(ALCT_FG) AS ALCT_CNT,
+		    SUM(ALCT_PRICE) AS ALCT_PRICE,
+		    SUM(RCVR_FG) AS RCVR_CNT,
+		    SUM(RCVR_PRICE) AS RCVR_PRICE
+		FROM UM_TBL
+		WHERE SECTION_THR = '0027'
+
+        <!-- AS-IS
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithProdGbnCd */
+               A.*
+          FROM (SELECT A.CD_NM AS PROD_GBN_NM
+                     , A.CD AS PROD_GBN_CD
+                     , NVL(ALCT_CNT, 0) AS ALCT_CNT
+                     , NVL(ALCT_PRICE, 0) AS ALCT_PRICE
+                     , NVL(RCVR_CNT, 0) AS RCVR_CNT
+                     , NVL(RCVR_PRICE, 0) AS RCVR_PRICE
+                  FROM (SELECT A.*
+                          FROM TB_CD A
+                         WHERE CD_SET_CD = 'CAM160'
+                       ) A
+                  LEFT JOIN
+                       (SELECT PROD_GBN_CD
+                             , SUM(ALCT_FG) AS ALCT_CNT
+                             , SUM(ALCT_PRICE) AS ALCT_PRICE
+                             , SUM(RCVR_FG) AS RCVR_CNT
+                             , SUM(RCVR_PRICE) AS RCVR_PRICE
+                          FROM (SELECT (CASE
+                                        WHEN EXISTS (SELECT 'Y'
+                                                       FROM TB_CD
+                                                      WHERE CD_SET_CD = 'CAM160'
+                                                        AND CD = A.PROD_GBN_CD)
+                                        THEN PROD_GBN_CD
+                                        ELSE '1016'
+                                        END) AS PROD_GBN_CD
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS ALCT_FG
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN ALTN_AMT
+                                        ELSE 0
+                                        END) AS ALCT_PRICE
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS RCVR_FG
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_TODAY
+                                        ELSE 0
+                                        END) AS RCVR_PRICE
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE EXTC_YN != 'Z'
+                                   AND DIV_TYPE != 'B'
+                                   AND PAY_STATE > 0
+                              <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+                               ) A
+                         GROUP BY PROD_GBN_CD
+                       ) B
+                    ON B.PROD_GBN_CD = A.CD
+                 ORDER BY A.CD_SQNC ASC
+               ) A
+                -->
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithPayState" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithPayState */
+               A.*
+          FROM (SELECT A.CD_NM AS PAY_STATE_NM
+                     , A.CD AS PAY_STATE_CD
+                     , NVL(ALCT_CNT, 0) AS ALCT_CNT
+                     , NVL(ALCT_PRICE, 0) AS ALCT_PRICE
+                     , NVL(RCVR_CNT, 0) AS RCVR_CNT
+                     , NVL(RCVR_PRICE, 0) AS RCVR_PRICE
+                     , NVL(ACRS_DAY_5, 0) AS ACRS_DAY_5
+                     , NVL(ACRS_DAY_10, 0) AS ACRS_DAY_10
+                     , NVL(ACRS_DAY_15, 0) AS ACRS_DAY_15
+                     , NVL(ACRS_DAY_20, 0) AS ACRS_DAY_20
+                     , NVL(ACRS_DAY_25, 0) AS ACRS_DAY_25
+                     , NVL(ACRS_DAY_END, 0) AS ACRS_DAY_END
+                  FROM (SELECT A.*
+                          FROM TB_CD A
+                        WHERE CD_SET_CD = 'CAM170'
+                       ) A
+                  LEFT JOIN
+                       (SELECT PAY_STATE
+                             , SUM(ALCT_FG) AS ALCT_CNT
+                             , SUM(ALCT_PRICE) AS ALCT_PRICE
+                             , SUM(RCVR_FG) AS RCVR_CNT
+                             , SUM(RCVR_PRICE) AS RCVR_PRICE
+                             , SUM(ACRS_DAY_5) AS ACRS_DAY_5
+                             , SUM(ACRS_DAY_10) AS ACRS_DAY_10
+                             , SUM(ACRS_DAY_15) AS ACRS_DAY_15
+                             , SUM(ACRS_DAY_20) AS ACRS_DAY_20
+                             , SUM(ACRS_DAY_25) AS ACRS_DAY_25
+                             , SUM(ACRS_DAY_END) AS ACRS_DAY_END
+                          FROM (SELECT (SELECT CD
+                                          FROM TB_CD
+                                         WHERE CD_SET_CD = 'CAM170'
+                                           AND TO_NUMBER(A.PAY_STATE) BETWEEN CD AND ADTL_CD) AS PAY_STATE
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS ALCT_FG
+                                     , (CASE
+                                        WHEN ALCT_YN = 'Y'
+                                        THEN ALTN_AMT
+                                        ELSE 0
+                                        END) AS ALCT_PRICE
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN 1
+                                        ELSE 0
+                                        END) AS RCVR_FG
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_TODAY
+                                        ELSE 0
+                                        END) AS RCVR_PRICE
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_DAY_5
+                                        ELSE 0
+                                        END) AS ACRS_DAY_5
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_DAY_10
+                                        ELSE 0
+                                        END) AS ACRS_DAY_10
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_DAY_15
+                                        ELSE 0
+                                        END) AS ACRS_DAY_15
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_DAY_20
+                                        ELSE 0
+                                        END) AS ACRS_DAY_20
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_DAY_25
+                                        ELSE 0
+                                        END) AS ACRS_DAY_25
+                                     , (CASE
+                                        WHEN ACRS_TDAY_UNPY_RCVR_RNTM > 0
+                                        THEN ACRS_DAY_END
+                                        ELSE 0
+                                        END) AS ACRS_DAY_END
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE EXTC_YN != 'Z'
+                                   AND DIV_TYPE != 'B'
+                                   AND PAY_STATE > 0
+                              <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+                               ) A
+                         GROUP BY PAY_STATE
+                       ) B
+                    ON B.PAY_STATE = A.CD
+                 ORDER BY A.CD_SQNC ASC
+               ) A
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithPayState2" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithPayState2 */
+               A.*
+          FROM (SELECT A.CD_NM AS PAY_STATE_NM
+                     , A.CD AS PAY_STATE_CD
+                     , NVL(CNT, 0) AS CNT
+                     , NVL(TRUE_AMT, 0) AS TRUE_AMT
+                     , NVL(RELAT_AMT, 0) AS RELAT_AMT
+                     , NVL(ADD_AMT, 0) AS ADD_AMT
+                     , NVL(OVRD_TRUE_TOT_AMT, 0) AS OVRD_TRUE_TOT_AMT
+                     , NVL(OVRD_RELAT_TOT_AMT, 0) AS OVRD_RELAT_TOT_AMT
+                     , NVL(OVRD_ADD_TOT_ATM, 0) AS OVRD_ADD_TOT_ATM
+                     , NVL(ALTN_AMT, 0) AS ALTN_AMT
+                  FROM (SELECT A.*
+                          FROM TB_CD A
+                        WHERE CD_SET_CD = 'CAM170'
+                       ) A
+                  LEFT JOIN
+                       (SELECT PAY_STATE
+                             , SUM(CNT) AS CNT
+                             , SUM(TRUE_AMT) AS TRUE_AMT
+                             , SUM(RELAT_AMT) AS RELAT_AMT
+                             , SUM(ADD_AMT) AS ADD_AMT
+                             , SUM(OVRD_TRUE_TOT_AMT) AS OVRD_TRUE_TOT_AMT
+                             , SUM(OVRD_RELAT_TOT_AMT) AS OVRD_RELAT_TOT_AMT
+                             , SUM(OVRD_ADD_TOT_ATM) AS OVRD_ADD_TOT_ATM
+                             , SUM(ALTN_AMT) AS ALTN_AMT
+                          FROM (SELECT (SELECT CD
+                                          FROM TB_CD
+                                         WHERE CD_SET_CD = 'CAM170'
+                                           AND TO_NUMBER(A.PAY_STATE) BETWEEN CD AND ADTL_CD) AS PAY_STATE
+                                     , 1 AS CNT
+                                     , TRUE_AMT, RELAT_AMT, ADD_AMT
+                                     , OVRD_TRUE_TOT_AMT, OVRD_RELAT_TOT_AMT, OVRD_ADD_TOT_ATM, ALTN_AMT
+                                  FROM TB_UNPY_MNGE A
+                                 WHERE
+
+                                     <if test="kgubun == null or kgubun == ''">
+                                          EXTC_YN != 'Z'  AND  <!-- 추출제외 -->
+                                          DIV_TYPE != 'B'  AND   <!-- 해약방어제외 -->
+                                     </if>
+                                     DIV_TYPE != 'F'
+
+                              <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+                               ) A
+                         GROUP BY PAY_STATE
+                       ) B
+                    ON B.PAY_STATE = A.CD
+                 ORDER BY A.CD_SQNC ASC
+               ) A
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithSection2" parameterType="map" resultType="resultMap">
+        SELECT /* UnpyMngeMap.getUnpyMngeReportWithSection2 */
+               A.*
+          FROM (SELECT A.CD_NM AS SECTION_T_NM
+                     , A.CD AS SECTION_T_CD
+                     , NVL(CNT, 0) AS CNT
+                     , NVL(TRUE_AMT, 0) AS TRUE_AMT
+                     , NVL(RELAT_AMT, 0) AS RELAT_AMT
+                     , NVL(ADD_AMT, 0) AS ADD_AMT
+                     , NVL(OVRD_TRUE_TOT_AMT, 0) AS OVRD_TRUE_TOT_AMT
+                     , NVL(OVRD_RELAT_TOT_AMT, 0) AS OVRD_RELAT_TOT_AMT
+                     , NVL(OVRD_ADD_TOT_ATM, 0) AS OVRD_ADD_TOT_ATM
+                     , NVL(ALTN_AMT, 0) AS ALTN_AMT
+                  FROM (SELECT A.*
+                          FROM TB_CD A
+                        WHERE CD_SET_CD = 'CAM150'
+                       ) A
+                  LEFT JOIN
+                       (SELECT SECTION_T
+                             , SUM(CNT) AS CNT
+                             , SUM(TRUE_AMT) AS TRUE_AMT
+                             , SUM(RELAT_AMT) AS RELAT_AMT
+                             , SUM(ADD_AMT) AS ADD_AMT
+                             , SUM(OVRD_TRUE_TOT_AMT) AS OVRD_TRUE_TOT_AMT
+                             , SUM(OVRD_RELAT_TOT_AMT) AS OVRD_RELAT_TOT_AMT
+                             , SUM(OVRD_ADD_TOT_ATM) AS OVRD_ADD_TOT_ATM
+                             , SUM(ALTN_AMT) AS ALTN_AMT
+                          FROM (SELECT SECTION_T
+                                     , 1 AS CNT
+                                     , TRUE_AMT, RELAT_AMT, ADD_AMT
+                                     , OVRD_TRUE_TOT_AMT, OVRD_RELAT_TOT_AMT, OVRD_ADD_TOT_ATM, ALTN_AMT
+                                  FROM TB_UNPY_MNGE A
+                                  where
+                                   <if test="kgubun == null or kgubun == ''">
+                                          EXTC_YN != 'Z'  AND  <!-- 추출제외 -->
+                                          DIV_TYPE != 'B'  AND   <!-- 해약방어제외 -->
+                                     </if>
+                                     DIV_TYPE != 'F'
+                              <include refid="UnpyMngeMap.selectCondition_fragment_report" />
+                               ) A
+                         GROUP BY SECTION_T
+                       ) B
+                    ON B.SECTION_T = A.CD
+                 ORDER BY A.CD_SQNC ASC
+               ) A
+    </select>
+
+    <select id="UnpyMngeMap.getUnpyMngeReportWithCamptype" parameterType="map" resultType="resultMap">
+
+        SELECT /* UnpyMngeMap.getUnpyMngeList */
+                    A.CAMP_TYPE,
+                    FN_GETHRCHCDNM('CAM990', A.CAMP_TYPE, A.CNTR_CD) AS CAMP_TYPE_NM,
+                    COUNT(EXTC_YN) TOTCNT,
+                    SUM(CASE WHEN EXTC_YN = 'Z' THEN 1 ELSE 0 END) ZCNT,
+                    SUM(CASE WHEN EXTC_YN != 'Z' THEN 1 ELSE 0 END) MZCNT,
+                    SUM(NVL(A.ALTN_AMT,0)) ALTN_AMT,
+                    SUM(NVL(A.ZAMT,0)) ZAMT,
+                    SUM(NVL(A.MZAMT,0)) MZAMT
+                  FROM
+                       (SELECT
+                                    ROW_NUMBER() OVER (ORDER BY unpy_id DESC) AS PAGE_INDX,
+
+                              A.*  , B.DPMS_RESL_CNTN , MB.HOME_ZIP ZIP, (MB.HOME_ADDR ||  MB.HOME_ADDR2)  ADDR
+
+                         FROM
+                              (SELECT A.*,
+                                      CASE WHEN EXTC_YN = 'Z' THEN ALTN_AMT ELSE 0 END ZAMT,
+                                      CASE WHEN EXTC_YN != 'Z' THEN ALTN_AMT ELSE 0 END MZAMT
+                                 FROM TB_UNPY_MNGE A
+                                WHERE 1=1
+                                <if test="data_dt != null and data_dt != ''">
+                                    AND DATA_DT = SUBSTR(#{data_dt}, 1, 6)
+                                </if>
+                              ) A
+                              LEFT OUTER JOIN
+                              (SELECT replace(TA.DPMS_RESL_CNTN ,chr(0),'') DPMS_RESL_CNTN,
+                                     TD.PRMV_ID
+                                FROM TB_TRGT_CUST_ALCT TA
+                                 JOIN TB_TRGT_CUST_DTPT TD
+                                     ON TA.TRGT_CUST_DTPT_ID = TD.TRGT_CUST_DTPT_ID
+                              )B
+                              ON A.UNPY_ID = B.PRMV_ID
+                              INNER JOIN LF_DMUSER.MEM_PROD_ACCNT MPA ON A.ACCNT_NO=MPA.ACCNT_NO
+                              LEFT OUTER  JOIN LF_DMUSER.MEMBER MB ON  MPA.MEM_NO=MB.MEM_NO
+
+                       ) A
+        GROUP BY A.CAMP_TYPE, FN_GETHRCHCDNM('CAM990', A.CAMP_TYPE, A.CNTR_CD)
+        ORDER BY A.CAMP_TYPE
+
+       </select>
+</mapper>
+

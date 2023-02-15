@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CalbDtlMap">
+
+    <sql id="CalbDtlMap.selectCondition_fragment">
+        <where>
+            <if test="calb_id != null and calb_id != ''">
+                AND CALB_ID = #{calb_id}
+            </if>
+            <if test="calb_div_cd != null and calb_div_cd != ''">
+                AND CALB_DIV_CD = #{calb_div_cd}
+            </if>
+            <if test="ars_srvc_addr != null and ars_srvc_addr != ''">
+                AND ARS_SRVC_ADDR = #{ars_srvc_addr}
+            </if>
+            <if test="inco_tlno != null and inco_tlno != ''">
+                AND INCO_TLNO LIKE '%' || #{inco_tlno} || %
+            </if>
+            <if test="calb_resr_tlno != null and calb_resr_tlno != ''">
+                AND CALB_RESR_TLNO LIKE '%' || #{calb_resr_tlno} || %
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+                <![CDATA[
+                AND RGSN_DTTM >= RPAD(REPLACE(#{stt_dt}, '-', ''), 14, '0')
+                ]]>
+            </if>
+
+            <if test="end_dt != null and end_dt != ''">
+                <![CDATA[
+                AND RGSN_DTTM <= RPAD(REPLACE(#{end_dt}, '-', ''), 14, '9')
+                ]]>
+            </if>
+            <choose>
+                <when test="chpr_id != null and chpr_id != ''">
+                AND CHPR_ID = #{chpr_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+            <if test="calb_resl_cd_list != null and calb_resl_cd_list != ''">
+                AND CALB_RESL_CD IN (${calb_resl_cd_list})
+            </if>
+            <if test="calb_resl_cd != null and calb_resl_cd != ''">
+                AND CALB_RESL_CD = #{calb_resl_cd}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="CalbDtlMap.getCalbDtlCount" parameterType="map" resultType="int">
+        SELECT /* CalbDtlMap.getCalbDtlCount */
+               COUNT(*)
+          FROM TB_CALB_DTL A
+        <include refid="CalbDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="CalbDtlMap.getCalbDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* CalbDtlMap.getCalbDtlList */
+               C.*
+             , GETCODENM('CNS040', CALB_RESL_CD, CNTR_CD) AS CALB_RESL_NM
+             , GETCODENM('CNS050', CALB_DSPS_RSN_CD, CNTR_CD) AS CALB_DSPS_RSN_NM
+             , GETCODENM('CNS060', ARS_SRVC_ADDR, CNTR_CD) AS ARS_SRVC_NM
+             , GETCODENM('CNS200', CALB_DIV_CD, CNTR_CD) AS CALB_DIV_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS TEAM2_NM
+             , (CASE WHEN CALB_RESL_CD = '30' OR SYSDATE - TO_DATE(CALB_RESR_DTTM,'YYYYMMDDHH24MISS') <![CDATA[<]]> 0
+                     THEN NULL
+                     ELSE TRUNC(SYSDATE - TO_DATE(CALB_RESR_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(CALB_RESR_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || '시간 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(CALB_RESR_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                END) AS CALB_RESR_TERM
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS TEAM1_CD
+                  FROM (SELECT CALB_ID, CALB_DIV_CD, ARS_SRVC_ADDR, INCO_TLNO, CALB_RESR_TLNO
+                             , CALB_RESR_DTTM, CONSNO, SIDO_TMCNT, MAX_SIDO_TMCNT, CHPR_ID
+                             , CALB_RESL_CD, CALB_DSPS_RSN_CD
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.CHPR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS CHPR_NM
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.CHPR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS TEAM2_CD
+                          FROM TB_CALB_DTL A
+        <include refid="CalbDtlMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+    <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+    <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+    </if>
+    </select>
+
+    <update id="CalbDtlMap.updateCalbDtl" parameterType="map">
+        UPDATE /* CalbDtlMap.updateCalbDtl */
+               TB_CALB_DTL
+        <set>
+        <if test="oper_typ == 'update'"><!-- 담당자 수정 -->
+               CHPR_ID = #{chpr_id}
+             , CALB_RESL_CD = '20'
+        </if>
+        <if test="oper_typ == 'withdraw'"><!-- 회수 -->
+               CHPR_ID = NULL
+             , CALB_RESL_CD = '10'
+        </if>
+        <if test="oper_typ == 'close'"><!-- 임의종결 -->
+               CALB_RESL_CD = '30'
+             , CALB_DSPS_RSN_CD = '40'
+             , CHPR_ID = #{chpr_id}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        </if>
+        <if test="oper_typ == 'operation'"><!-- 상담사 처리 -->
+               CALB_RESL_CD = #{calb_resl_cd}
+             , CALB_DSPS_RSN_CD = #{calb_dsps_rsn_cd}
+             , SIDO_TMCNT = SIDO_TMCNT + 1
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        </if>
+        </set>
+         WHERE CALB_ID = #{calb_id}
+    </update>
+
+    <!--  미니전광판 사용 쿼리 -->
+    <select id="CalbDtlMap.getTodoCalbDtlCount" parameterType="map" resultType="resultMap">
+        SELECT /* CalbDtlMap.getTodoCalbDtlCount */
+               CNTR_CD, CHPR_ID AS USER_ID, COUNT(*) AS CNT
+          FROM TB_CALB_DTL
+         WHERE CALB_RESL_CD IN ('10', '20')
+         GROUP BY CNTR_CD, CHPR_ID
+    </select>
+
+</mapper>

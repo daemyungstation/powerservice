@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="PgmIndvFnctMap">
+
+    <sql id="PgmIndvFnctMap.selectCondition_fragment">
+           WHERE GDS_CD = #{gds_cd}
+            AND CNTR_CD = #{cntr_cd}
+        <if test="pgm_cd != null and pgm_cd != ''">
+            AND PGM_CD = #{pgm_cd}
+        </if>
+        <if test="pgm_indv_fnct_id != null and pgm_indv_fnct_id != ''">
+            AND PGM_INDV_FNCT_ID = #{pgm_indv_fnct_id}
+        </if>
+    </sql>
+
+
+
+    <select id="PgmIndvFnctMap.getPgmIndvFnctCount" parameterType="map" resultType="int">
+        SELECT /* PgmIndvFnctMap.getPgmIndvFnctCount */
+               COUNT(*)
+          FROM TB_PGM_INDV_FNCT A
+        <include refid="PgmIndvFnctMap.selectCondition_fragment" />
+    </select>
+
+    <select id="PgmIndvFnctMap.getPgmIndvFnctList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmIndvFnctMap.getPgmIndvFnctList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT CNTR_CD, PGM_INDV_FNCT_ID, PGM_CD, GDS_CD, PGM_INDV_FNCT_NM
+                     , PGM_INDV_FNCT_CNTN, CNPN_ID
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_PGM_INDV_FNCT A
+        <include refid="PgmIndvFnctMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+              ORDER BY ${orderBy} ${orderDirection}
+        </if>
+               ) B
+    </select>
+
+
+    <insert id="PgmIndvFnctMap.insertPgmIndvFnct" parameterType="map">
+        <selectKey keyProperty="pgm_indv_fnct_id" resultType="String" order="BEFORE">
+            SELECT 'PIF' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+            INSERT /* PgmIndvFnctMap.insertPgmIndvFnct */
+              INTO TB_PGM_INDV_FNCT
+                   (PGM_INDV_FNCT_ID, PGM_CD, GDS_CD
+                  , PGM_INDV_FNCT_NM, PGM_INDV_FNCT_CNTN, CNPN_ID
+                  , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+            VALUES (#{pgm_indv_fnct_id}, #{pgm_cd}, #{gds_cd}
+                     , #{pgm_indv_fnct_nm}, #{pgm_indv_fnct_cntn}, #{cnpn_id}
+                     , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="PgmIndvFnctMap.updatePgmIndvFnct" parameterType="map">
+        UPDATE /* PgmIndvFnctMap.updatePgmIndvFnct */
+               TB_PGM_INDV_FNCT
+           SET PGM_INDV_FNCT_NM = #{pgm_indv_fnct_nm}
+             , PGM_INDV_FNCT_CNTN = #{pgm_indv_fnct_cntn}
+             , CNPN_ID = #{cnpn_id}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE PGM_CD = #{pgm_cd}
+          AND GDS_CD = #{gds_cd}
+          AND CNTR_CD = #{cntr_cd}
+          AND PGM_INDV_FNCT_ID = #{pgm_indv_fnct_id}
+    </update>
+
+    <delete id="PgmIndvFnctMap.deletePgmIndvFnct" parameterType="map">
+        DELETE /* PgmIndvFnctMap.deletePgmIndvFnct */
+          FROM TB_PGM_INDV_FNCT
+        <include refid="PgmIndvFnctMap.selectCondition_fragment" />
+    </delete>
+
+</mapper>

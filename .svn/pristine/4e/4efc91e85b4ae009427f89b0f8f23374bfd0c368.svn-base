@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="OZ_Sample" classname="OZ_Sample" inheritanceid="" position="absolute 0 0 1024 768" titletext="New Form" onload="OZ_Sample_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_27" class="sta_popupBg1" enable="false" position="absolute 0 0 1021 766" tooltiptext="서브코드등록" titletext="연관화면등록"/>
+        <Button id="btn_Close01" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 980 8 1000 27"/>
+        <ActiveX id="ActiveX00" position="absolute 19 47 1000 754" progid="{0DEF32F8-170F-46F8-B1FF-4BF7443F5F25}" anchor="all" taborder="1" windowed="true" popupstyle="true"/>
+      </Layout>
+    </Layouts>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+function OZ_Sample_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_init();
+}
+
+
+function fn_init()
+{
+
+/*
+	pv_dcmnDivCd
+	pv_dcmnDivNm
+	pv_bzdpDivCd
+	pv_deptCd
+	pv_trscId
+	pv_rgsnEmplNo
+	pv_rgsnEmplNm
+	pv_rgsnDt
+	pv_bswrData
+	pv_serverDiv
+*/
+
+	var ozSep 		= "^";
+	var ozColDiv 	= "||";
+	var ozRowDiv 	= "///";
+	
+	//var csvData = "ID^NAME^ADDRESS///INTEGER^VARCHAR^VARCHAR///1^Park Chan Ho^Texas///2^Shin Ki Sung^Seoul///3^Kim Byung Hyun^Arizona";
+	//DataSet 을 CSV로 변환
+	//var csvData = fn_getCsvData_OzReport(objDs, ozColDiv, ozRowDiv);
+
+	var sUrl = "connection.servlet=" + gfn_getOZReportUrl() + ozSep; 
+	//var sUrl = "connection.servlet=http://10.1.22.121:6001/oz60/server" + ozSep; 
+	sUrl += "connection.reportname=" + pv_ozRpt + ozSep;
+	//sUrl += "connection.datafromserver=false" + ozSep;
+	sUrl += "information.debug=true" + ozSep;
+	sUrl += "viewer.isframe=false" + ozSep;
+	sUrl += "viewer.namespace=kyowon\\ozviewer" + ozSep;
+
+	//ozFormParam (OZR)
+	sUrl += "connection.pcount=11" + ozSep;
+	sUrl += "connection.args1="+"pv_dcmnDivCd="+ pv_dcmnDivCd + ozSep;
+	sUrl += "connection.args2="+"pv_dcmnDivNm="+ pv_dcmnDivNm + ozSep;	
+	sUrl += "connection.args3="+"pv_bzdpDivCd="+ pv_bzdpDivCd + ozSep;	
+	sUrl += "connection.args4="+"pv_deptCd="+ pv_deptCd + ozSep;	
+	sUrl += "connection.args5="+"pv_trscId="+ pv_trscId + ozSep;	
+	sUrl += "connection.args6="+"pv_rgsnEmplNo="+ pv_rgsnEmplNo + ozSep;	
+	sUrl += "connection.args7="+"pv_rgsnEmplNm="+ pv_rgsnEmplNm + ozSep;	
+	sUrl += "connection.args8="+"pv_rgsnDt="+ pv_rgsnDt + ozSep;	
+	sUrl += "connection.args9="+"pv_bswrData="+ pv_bswrData + ozSep;	
+	sUrl += "connection.args10="+"pv_serverDiv="+ pv_serverDiv + ozSep;	
+	sUrl += "connection.args11="+"QRcode="+ pv_dcmnDivCd +"|"+ pv_dcmnDivNm +"|"+ pv_bzdpDivCd +"|"+ pv_trscId +"|"+ pv_deptCd +"|"+ pv_rgsnEmplNo +"|"+ pv_rgsnEmplNm +"|"+ pv_rgsnDt +"|"+ pv_bswrData +"|"+ pv_serverDiv	+ ozSep;	
+
+	//userParam (ODI)
+	sUrl += "odi.odinames=kyowon" + ozSep;
+	sUrl += "odi.kyowon.pcount=1" + ozSep;
+	sUrl += "odi.kyowon.args1=odiparam=" + ozSep;
+	
+	trace("sUrl::"+sUrl);
+	
+	// csv 처리용도
+	/*
+	sUrl += "odi.kyowon.args2=csvdata=" + csvData + ozSep;
+	sUrl += "connection.args3=coldiv=" + ozColDiv + ozSep;
+	sUrl += "connection.args4=rowdiv=" + ozRowDiv + ozSep;
+	*/
+	trace("sUrl::"+sUrl);
+	
+	this.ActiveX00.CreateReportEx(sUrl, ozSep);
+	
+	
+}
+
+function fn_getCsvData_OzReport(objDs, colDiv, rowDiv)
+{
+	//var csvData = "ID^NAME^ADDRESS///INTEGER^VARCHAR^VARCHAR///1^Park Chan Ho^Texas///2^Shin Ki Sung^Seoul///3^Kim Byung Hyun^Arizona";
+	var csvData 	= "";
+	var colList 	= "";
+	var typeList 	= "";
+	var rowList 	= "";
+	
+	for(var i=0;i<objDs.getColCount();i++)
+	{
+		if(i==0) {
+			colList += objDs.getColID(i);
+		} else {
+			colList += colDiv+ objDs.getColID(i);
+		}
+		
+		var o_cinfo =  objDs.getColumnInfo(i);
+		if(i==0) {
+			typeList += o_cinfo.type;
+		} else {
+			typeList += colDiv+ o_cinfo.type;
+		}		
+	}
+
+	for(var i=0;i<objDs.rowcount;i++)
+	{
+		if(i!=0) {
+			rowList += rowDiv;
+		}
+	
+		for(var j=0;j<objDs.getColCount();j++)
+		{
+			if(j==0) {
+				rowList += objDs.getColumn(i,j);
+			} else {
+				rowList += colDiv+ objDs.getColumn(i,j);
+			}	
+		}
+	}
+	
+	csvData = colList + rowDiv + typeList + rowDiv + rowList;
+	
+	trace("csvData::"+csvData);
+	
+	return csvData;
+}
+
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

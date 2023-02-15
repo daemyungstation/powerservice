@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CdSetMap">
+
+    <sql id="CdSetMap.selectCondition_fragment">
+        <where>
+            <if test ="cd_set_nm != null and cd_set_nm != ''">
+                AND CD_SET_NM LIKE '%' || #{cd_set_nm} || '%'
+            </if>
+            <if test ="cd_set_cd != null and cd_set_cd != ''">
+                AND CD_SET_CD LIKE '%' || #{cd_set_cd} || '%'
+            </if>
+            <if test ="cd_set_cd_full != null and cd_set_cd_full != ''">
+                AND CD_SET_CD = #{cd_set_cd_full}
+            </if>
+            <if test ="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test ="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="CdSetMap.getComCdSetCount" parameterType="map" resultType="int">
+        SELECT /* CdSetMap.getComCdSetCount */
+               COUNT(*)
+          FROM LF_DMUSER.COM_CD_GRP A
+        WHERE GRP_CD = #{cd_set_cd}
+    </select>
+
+    <select id="CdSetMap.getCdSetCount" parameterType="map" resultType="int">
+        SELECT /* CdSetMap.getCdSetCount */
+               COUNT(*)
+          FROM TB_CD_SET A
+        <include refid="CdSetMap.selectCondition_fragment" />
+    </select>
+
+    <select id="CdSetMap.getCdSetList" parameterType="map" resultType="resultMap">
+        SELECT /* CdSetMap.getCdSetList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT CD_SET_CD, CNTR_CD, CD_SET_NM, CD_SET_EXPI, USE_YN
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_CD_SET A
+        <include refid="CdSetMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                 ORDER BY ${orderBy} ${orderDirection}
+        </if>
+               ) B
+    </select>
+
+    <select id="CdSetMap.getCdSetMemList" parameterType="map" resultType="resultMap">
+        SELECT /* CdSetMap.getCdSetMemList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT GRP_CD  AS CD_SET_CD,
+				    GRP_NM AS CD_SET_NM,
+				    CON AS CD_SET_EXPI,
+				    REG_MAN AS RGSR_ID, REG_DM AS RGSN_DTTM
+				FROM LF_DMUSER.COM_CD_GRP
+
+               ) B
+
+            <include refid="CdSetMap.selectCondition_fragment" />
+	        <if test="orderBy != null and orderBy != ''">
+	                 ORDER BY ${orderBy} ${orderDirection}
+	        </if>
+    </select>
+
+        <insert id="CdSetMap.insertComCdSet" parameterType="map">
+        INSERT /* CdSetMap.insertComCdSet */
+          INTO LF_DMUSER.COM_CD_GRP
+               (GRP_CD, GRP_NM, CON, REG_MAN, REG_DM, UPD_MAN, UPD_DM)
+        VALUES (#{cd_set_cd}, #{cd_set_nm}, #{cd_set_expi}
+              , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <insert id="CdSetMap.insertCdSet" parameterType="map">
+        INSERT /* CdSetMap.insertCdSet */
+          INTO TB_CD_SET
+               (CD_SET_CD, CNTR_CD, CD_SET_NM, CD_SET_EXPI, USE_YN
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{cd_set_cd}, #{cntr_cd}, #{cd_set_nm}, #{cd_set_expi}, #{use_yn}
+              , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="CdSetMap.updateComCdSet" parameterType="map">
+        UPDATE /* CdSetMap.updateComCdSet */
+               LF_DMUSER.COM_CD_GRP
+           SET GRP_NM = #{cd_set_nm}
+             , CON = #{cd_set_expi}
+             , UPD_MAN = #{amnd_id}
+             , UPD_DM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE GRP_CD = #{cd_set_cd}
+    </update>
+
+    <update id="CdSetMap.updateCdSet" parameterType="map">
+        UPDATE /* CdSetMap.updateCdSet */
+               TB_CD_SET
+           SET CD_SET_NM = #{cd_set_nm}
+             , CD_SET_EXPI = #{cd_set_expi}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE CD_SET_CD = #{cd_set_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+</mapper>

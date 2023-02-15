@@ -1,0 +1,455 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMallLFLinkedMap">
+
+    
+    <!-- ================================================================
+     * 날짜 : 20200128
+     * 이름 : 김주용
+     * 추가내용 : 쇼핑몰 선행 조건 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_DLWMALL
+     * ================================================================
+     * -->
+    <select id="DlwMallLFLinkedMap.getMemberBasicYn" parameterType="map" resultType="resultMap">
+        SELECT NVL2(A.ACCNT_NO, 'Y', 'N') AS MPA_YN
+        FROM LF_DMUSER.MEM_PROD_ACCNT A
+        INNER JOIN LF_DMUSER.MEMBER B
+                ON A.MEM_NO = B.MEM_NO
+        INNER JOIN LF_DMUSER.PRODUCT C
+                ON A.PROD_CD = C.PROD_CD
+        INNER JOIN LF_DMUSER.HP_CALL D
+                ON A.ACCNT_NO = D.ACCNT_NO
+               AND D.STAT IN ('01', '011')
+       WHERE 1=1
+         AND A.DEL_FG = 'N' /* 삭제되지 않은 고객별상품정보. */
+         AND B.DEL_FG = 'N' /* 삭제되지 않은 회원. */
+         AND B.CI_VAL IS NOT NULL
+         <if test="mem_no != null and mem_no != ''">
+             AND B.MEM_NO = #{mem_no}
+         </if>
+         <if test="accnt_no != null and accnt_no != ''">
+             AND A.ACCNT_NO = #{accnt_no}
+         </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 행사여부 확인
+     * ================================================================
+     * -->
+    <select id="DlwMallLFLinkedMap.getResnMemberStateEvent" parameterType="map" resultType="resultMap">
+        SELECT COUNT(*) AS COUNT FROM LF_DMUSER.EVENT WHERE 1=1 AND ACCNT_NO = #{P_ACCNT_NO} AND DEL_FG = 'N'
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 해약여부 확인
+     * ================================================================
+     * -->
+    <select id="DlwMallLFLinkedMap.getResnMemberStateRescission" parameterType="map" resultType="resultMap">
+        SELECT COUNT(*) AS COUNT FROM LF_DMUSER.RESCISSION WHERE 1=1 AND ACCNT_NO = #{P_ACCNT_NO} AND DEL_FG = 'N'
+    </select>
+    
+    
+    <!-- 해약 구분(해약/청약) -->
+    <select id="DlwMallLFLinkedMap.getResnGubn" parameterType="map" resultType="int">
+    <!-- DM sql-id : sql-task.resnGubn -->
+
+
+        SELECT /* DlwResnMap.getResnGubn */
+               COUNT(*)
+          FROM LF_DMUSER.MEM_PROD_ACCNT
+         WHERE ACCNT_NO = #{accnt_no}
+           AND DEL_FG = 'N'
+            AND TRUNC(SYSDATE - TO_DATE(JOIN_DT)) <![CDATA[<]]> 14
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20171221
+     * 이름 : 송준빈
+     * 추가내용 : 쇼핑몰적립금사용금상세조회 상태값 변경
+     * ================================================================
+     * -->
+    <parameterMap id="getListByProcParamMap2" type="map">
+        <parameter property="P_MEM_NO" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_ACCNT_NO" mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_STATE" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_CREATE_ID" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+    </parameterMap>
+
+    <update id="DlwMallLFLinkedMap.updateLFResnMemberState" statementType="CALLABLE" parameterMap="getListByProcParamMap2">
+        {call LF_DMUSER.SP_WEB_MEMBER_STATE(?, ?, ?, ?)}
+    </update>
+    
+    <!-- ================================================================ -->
+    <update id="DlwMallLFLinkedMap.updateOptSvc" parameterType="map" >
+        /* sql-life.xml [ 부가서비스 수정] ID : life.updateOptSvc 작성자 : 이금례  */
+        UPDATE opt_svc SET
+             svc_cl			= #{svc_cl}
+            ,svc_nm			= #{svc_nm2}
+            ,use_yn			= #{use_yn}
+            ,upd_man		= #{upd_man}
+            ,upd_dt 		= SYSDATE
+            ,no_crt_yn		= #{no_crt_yn}
+            ,crt_no			= #{crt_no}
+            ,crt_no_fixed	= #{crt_no_fixed}
+            ,prt_file_nm	= #{prt_file_nm}
+        WHERE seq = #{seq}
+    </update>
+    
+    <select id="DlwMallLFLinkedMap.selectCrtNoPerDaySearch" parameterType="map" resultType="string">
+        /* sql-life.xml [당일에 해당하는 쿠폰번호 있는지 확인] ID : life.selectCrtNoPerDaySearch 작성자:임병근*/
+        SELECT SVC_CD
+          FROM COUPON_NO_MNG_PER_DAY
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+    </select>
+    
+    <insert id="DlwMallLFLinkedMap.insertCouponNoPerDayYMS" parameterType="map" >
+
+        /* sql-life.xml [나무병원 쿠폰일련번호 삽입(SVC_CD = 0014)] ID : life.insertCouponNoPerDayYMS 작성자 : 임병근  */
+        INSERT INTO COUPON_NO_MNG_PER_DAY (
+           SVC_CD
+          ,ISU_DT
+          ,ISU_SEQ
+        ) VALUES (
+           #{optsvc_seq}
+          ,TO_CHAR(SYSDATE,'YYYYMMDD')
+          ,#{isu_no}
+        )
+    </insert>
+    
+    <update id="DlwMallLFLinkedMap.updateOtherCrtNoPerDay1" parameterType="map" >
+        /* sql-life.xml [나무병원(SVC_CD = 0014) 당일 발급정보가 있으면 업데이트] ID : life.updateOtherCrtNoPerDay1 작성자 : 임병근 */
+        UPDATE COUPON_NO_MNG_PER_DAY
+           SET ISU_SEQ = SUBSTR(#{isu_no},-3)
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+    </update>
+    
+    <select id="DlwMallLFLinkedMap.selectCrtNoSearch" parameterType="map" resultType="string">
+        /* sql-life.xml [당년,월에 해당하는 쿠폰번호 있는지 확인] ID : life.selectCrtNoSearch 작성자:임병근*/
+         select SVC_CD
+          from COUPON_NO_MNG
+         where SVC_CD = #{optsvc_seq}
+           and ISU_YEAR = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+           and ISU_MONTH = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+    </select>
+    
+    <insert id="DlwMallLFLinkedMap.insertCouponNoYMS" parameterType="map" >
+        /* sql-life.xml [쿠폰일련번호 삽입(SVC_CD가 0001인 것 제외)] ID : life.insertCouponNoYM 작성자 : 임병근  */
+        INSERT INTO COUPON_NO_MNG (
+             SVC_CD
+              ,ISU_YEAR
+              ,ISU_MONTH
+              ,ISU_SEQ
+        ) VALUES (
+            #{optsvc_seq}
+             ,SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+             ,SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+             ,#{isu_no}
+        )
+    </insert>
+    
+    <update id="DlwMallLFLinkedMap.updateOtherCrtNo1" parameterType="map" >
+        /* sql-life.xml [ 부가서비스 수정] ID : life.updateOptSvc 작성자 : 이금례  */
+        /* sql-life.xml [쿠폰일련번호 수정(SVC_CD가 0001인 것 제외)] ID : life.updateOtherCrtNo 작성자 : 임병근 */
+        UPDATE dbo.COUPON_NO_MNG
+        SET ISU_SEQ = SUBSTR(#{isu_no},-5)
+        where SVC_CD = #{optsvc_seq}
+          and ISU_YEAR = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+          and ISU_MONTH = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+    </update>
+    
+    <insert id="DlwMallLFLinkedMap.insertOptSvc" parameterType="map" >
+        /* sql-life.xml [부가서비스  등록] ID : life.insertOptSvc 작성자 : 이금례  */
+
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT LPAD(NVL(MAX(seq),0)+1,4,'0') as seq from opt_svc
+        </selectKey>
+        INSERT INTO opt_svc (
+                 seq
+                ,svc_cl
+                ,svc_nm
+                ,use_yn
+                ,reg_man
+                ,reg_dt
+                ,no_crt_yn
+                ,crt_no
+                ,crt_no_fixed
+                ,prt_file_nm
+                ,upd_man
+                ,upd_dt
+            ) VALUES (
+                 #{seq}
+                ,#{svc_cl}
+                ,#{svc_nm2}
+                ,#{use_yn}
+                ,#{reg_man}
+                ,SYSDATE
+                ,#{no_crt_yn}
+                ,#{crt_no}
+                ,#{crt_no_fixed}
+                ,#{prt_file_nm}
+                ,#{reg_man}
+                ,SYSDATE
+            )
+    </insert>
+    <!-- ================================================================ -->
+    
+    <delete  id="DlwMallLFLinkedMap.deleteMemberShoppng" parameterType="map" >
+        DELETE FROM LF_DMUSER.MEMBER_SHOPPING
+    </delete>
+    
+    <select id="DlwMallLFLinkedMap.selectMemberShoppng" parameterType="map" resultType="resultMap">
+        SELECT TBL.MEM_NO AS MEMBER_ID -- 고유번호
+                      ,TBL.ACCNT_NO AS GOODS_ID -- 회원번호
+                      ,TBL.CI_VAL AS CI
+                      ,TBL.PROD_NM AS GOODS_NAME -- 상품명
+                      ,TBL.RESORT_MEM_NO AS RESORT_NUM -- 리조트번호
+                      ,1 AS STATE -- 회원상태
+                      ,0 AS ACU_AMT
+                      ,0 AS USE_AMT
+                      ,'' AS CMPLT_DATE
+                      ,TBL.CREATE_DATE AS CREATE_DATE -- 데이터생성일
+                      ,#{P_CREATE_ID} AS CREATE_ID
+                  FROM (
+                            SELECT A.MEM_NO
+                                  ,A.ACCNT_NO
+                                  ,B.CI_VAL
+                                  ,C.PROD_NM
+                                  ,A.RESORT_MEM_NO
+                                  ,DECODE(LF_DMUSER.FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE
+                                  ,SYSDATE AS CREATE_DATE
+                              FROM LF_DMUSER.MEM_PROD_ACCNT A 
+                              INNER JOIN (SELECT MEM_NO, 
+                                                 CI_VAL
+                                            FROM LF_DMUSER.MEMBER                 
+                                            WHERE CI_VAL NOT IN  ( SELECT A.CI_VAL
+                                                                    FROM
+                                                                    (
+                                                                          SELECT A.MEM_NO, 
+                                                                                 A.CI_VAL
+                                                                            FROM LF_DMUSER.MEMBER A
+                                                                                 INNER JOIN 
+                                                                                 LF_DMUSER.MEM_PROD_ACCNT B
+                                                                             ON A.MEM_NO = B.MEM_NO
+                                                                           WHERE A.CI_VAL IS NOT NULL 
+                                                                             AND LENGTH(A.CI_VAL) = '88'
+                                                                             AND A.DEL_FG = 'N'
+                                                                          GROUP BY A.MEM_NO, A.CI_VAL
+                                                                    ) A      
+                                                                    GROUP BY A.CI_VAL
+                                                                    HAVING COUNT(A.MEM_NO) <![CDATA[>]]> 1)
+                                             AND DEL_FG = 'N' -- 삭제되지 않은 회원.
+                                             AND CI_VAL IS NOT NULL 
+                                             AND LENGTH(CI_VAL) = '88'
+                                         ) B                     
+                                      ON A.MEM_NO = B.MEM_NO
+                              INNER JOIN LF_DMUSER.PRODUCT C
+                                      ON A.PROD_CD = C.PROD_CD
+                              INNER JOIN LF_DMUSER.HP_CALL D
+                                      ON A.ACCNT_NO = D.ACCNT_NO AND D.STAT IN ('01', '011')
+                            WHERE 1=1
+                              AND A.DEL_FG = 'N' -- 삭제되지 않은 고객별상품정보.
+                        ) TBL
+                    WHERE 1=1
+                      AND TBL.STATE = '정상'
+                      AND TBL.MEM_NO = #{P_MEM_NO}
+                      AND TBL.ACCNT_NO = #{P_ACCNT_NO}
+    </select>
+        
+    <insert id="DlwMallLFLinkedMap.insertMemberShoppng" parameterType="map" >
+        INSERT INTO LF_DMUSER.MEMBER_SHOPPING(ID, MEMBER_ID, GOODS_ID, CI, GOODS_NAME, RESORT_NUM, STATE, ACU_AMT, USE_AMT, CMPLT_DATE, CREATE_DATE, CREATE_ID)
+        VALUES (#{ID}, #{MEMBER_ID}, #{GOODS_ID}, #{CI}, #{GOODS_NAME}, #{RESORT_NUM}, #{STATE}, #{ACU_AMT}, #{USE_AMT}, #{CMPLT_DATE}, #{CREATE_DATE}, #{CREATE_ID})
+    </insert>
+    
+    <update id="DlwMallLFLinkedMap.updateMemberShopping1" parameterType="map" >
+        UPDATE LF_DMUSER.MEMBER_SHOPPING 
+           SET SDP_YN = 'Y'
+         WHERE MEMBER_ID IN ( SELECT A.MEM_NO
+                                FROM LF_DMUSER.MEMBER A 
+                                INNER JOIN LF_DMUSER.MEM_PROD_ACCNT B 
+                                        ON A.MEM_NO = B.MEM_NO 
+                                INNER JOIN LF_DMUSER.PRODUCT C 
+                                        ON B.PROD_CD = C.PROD_CD 
+                                       AND C.SECTION_THR = '0010' 
+                            )
+    </update>
+    
+    <update id="DlwMallLFLinkedMap.updateMemberShopping2" parameterType="map" >
+        UPDATE LF_DMUSER.MEMBER_SHOPPING 
+           SET SDP_YN = 'N'  
+         WHERE MEMBER_ID IN ( SELECT MEMBER_ID FROM LF_DMUSER.MEMBER_SHOPPING WHERE SDP_YN IS NULL )
+    </update>
+    
+	<select id="DlwMallLFLinkedMap.selectAllMemberShoppng" parameterType="map" resultType="resultMap">
+        SELECT ID, MEMBER_ID, GOODS_ID, CI, GOODS_NAME, RESORT_NUM, STATE, ACU_AMT, USE_AMT, CMPLT_DATE, CREATE_DATE, SDP_YN, CREATE_ID FROM LF_DMUSER.MEMBER_SHOPPING
+    </select>    
+    
+	<delete  id="DlwMallLFLinkedMap.deleteMemberShoppngHistory" parameterType="map" >
+        DELETE FROM LF_DMUSER.MEMBER_SHOPPING_HISTORY
+    </delete>
+    
+	<insert id="DlwMallLFLinkedMap.insertMemberShoppngHistory" parameterType="map" >
+        INSERT INTO LF_DMUSER.MEMBER_SHOPPING_HISTORY (MEMBER_ID, GOODS_ID, STATE, CREATE_DATE, CREATE_ID)
+                SELECT TBL.MEM_NO AS MEMBER_ID, -- 고유번호
+                       TBL.ACCNT_NO AS GOODS_ID, -- 회원번호
+                       1 AS STATE, -- 상태 (KSTBIT???)
+                       SYSDATE AS CREATE_DATE, -- 데이터생성일
+                       #{P_CREATE_ID} AS CREATE_ID 
+                  FROM (    SELECT A.MEM_NO,
+                                   A.ACCNT_NO,
+                                   C.PROD_NM,
+                                   A.RESORT_MEM_NO,
+                                   DECODE(LF_DMUSER.FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE
+                              FROM LF_DMUSER.MEM_PROD_ACCNT A 
+                              INNER JOIN( SELECT MEM_NO, 
+                                                 CI_VAL
+                                            FROM LF_DMUSER.MEMBER                   
+                                            WHERE CI_VAL NOT IN  ( SELECT A.CI_VAL
+                                                                    FROM
+                                                                    (
+                                                                          SELECT A.MEM_NO, 
+                                                                                 A.CI_VAL
+                                                                            FROM LF_DMUSER.MEMBER A
+                                                                                 INNER JOIN 
+                                                                                 LF_DMUSER.MEM_PROD_ACCNT B
+                                                                             ON A.MEM_NO = B.MEM_NO
+                                                                           WHERE A.CI_VAL IS NOT NULL 
+                                                                             AND LENGTH(A.CI_VAL) = '88'
+                                                                             AND A.DEL_FG = 'N'
+                                                                          GROUP BY A.MEM_NO, A.CI_VAL
+                                                                    ) A      
+                                                                    GROUP BY A.CI_VAL
+                                                                    HAVING COUNT(A.MEM_NO) <![CDATA[>]]> 1)
+                                             AND DEL_FG = 'N' -- 삭제되지 않은 회원.
+                                             AND CI_VAL IS NOT NULL 
+                                             AND LENGTH(CI_VAL) = '88'
+                                        ) B       
+                                      ON A.MEM_NO = B.MEM_NO
+                              INNER JOIN LF_DMUSER.PRODUCT C
+                                      ON A.PROD_CD = C.PROD_CD
+                              INNER JOIN LF_DMUSER.HP_CALL D
+                                      ON A.ACCNT_NO = D.ACCNT_NO AND D.STAT IN ('01', '011')
+                             WHERE A.DEL_FG = 'N' -- 삭제되지 않은 고객별상품정보.
+                        ) TBL
+               WHERE 1=1
+                 AND TBL.STATE = '정상'
+                 AND TBL.MEM_NO = #{P_MEM_NO}
+                 AND TBL.ACCNT_NO = #{P_ACCNT_NO}
+    </insert>
+    
+	<select id="DlwMallLFLinkedMap.selectAllMemberShoppngHistory" parameterType="map" resultType="resultMap">
+        SELECT MEMBER_ID, GOODS_ID, STATE, '' AS MEMO, CREATE_DATE FROM LF_DMUSER.MEMBER_SHOPPING_HISTORY
+    </select>
+    
+	<delete  id="DlwMallLFLinkedMap.deleteCashShoppingHistory" parameterType="map" >
+        DELETE FROM LF_DMUSER.CASH_SHOPPING_HISTORY
+    </delete>
+    
+	<insert id="DlwMallLFLinkedMap.insertCashShoppngHistory" parameterType="map" >
+        INSERT INTO LF_DMUSER.CASH_SHOPPING_HISTORY(MEMBER_ID, GOODS_ID, TYPE, AMT, CREATE_DATE, CREATE_ID)
+                SELECT T_TBL.MEMBER_ID,                                           -- 고유번호
+                       T_TBL.GOODS_ID,                                            -- 회원번호
+                       'A' AS TYPE,
+                       ROUND(NVL(CASE WHEN T_TBL.RESN_AMT = 0 AND T_TBL.TRUE_COUNT <![CDATA[>]]> 12 
+                                 THEN ( SELECT NVL((MAX(T_TBL.RESN_AMT)), 0) AS RESN_AMT
+                                          FROM LF_DMUSER.RESNSTD_M M
+                                          INNER JOIN LF_DMUSER.RESNSTD_D D
+                                                  ON M.SEQ = D.MST_SEQ
+                                         WHERE M.PROD_CD = T_TBL.PROD_CD
+                                           AND M.MODEL_CL_CD = T_TBL.PROD_MODEL_KIND
+                                           AND D.NO <![CDATA[<]]>  T_TBL.TRUE_COUNT
+                                           AND M.APP_DAY = T_TBL.APP_DAY
+                                        GROUP BY D.MST_SEQ
+                                      )
+                                 ELSE NVL(T_TBL.RESN_AMT,0) END,0) / 2, 0) AMT,                                                  -- 해약금                       
+                       
+                       SYSDATE AS CREATE_DATE,                                      -- 데이터생성일     
+                       #{P_CREATE_ID} AS CREATE_ID
+                  FROM (SELECT A_TBL.MEM_NO AS MEMBER_ID, -- 고유번호
+                               A_TBL.ACCNT_NO AS GOODS_ID, -- 회원번호
+                               (SELECT NVL(MAX(D.RESN_AMT),0) AS RESN_AMT
+                                  FROM LF_DMUSER.PRODUCT P
+                                  INNER JOIN LF_DMUSER.RESNSTD_M M
+                                          ON P.PROD_CD = M.PROD_CD
+                                  INNER JOIN LF_DMUSER.RESNSTD_D D
+                                          ON M.SEQ = D.MST_SEQ
+                                 WHERE M.PROD_CD = A_TBL.PROD_CD
+                                   AND D.NO = A_TBL.TRUE_COUNT
+                                   AND M.APP_DAY= A_TBL.APP_DAY
+                                   AND M.MODEL_CL_CD = A_TBL.PROD_MODEL_KIND           
+                               ) RESN_AMT,
+                               A_TBL.TRUE_COUNT,
+                               A_TBL.APP_DAY,
+                               A_TBL.PROD_CD,
+                               A_TBL.PROD_MODEL_KIND
+                          FROM (SELECT A.MEM_NO,
+                                       A.ACCNT_NO,
+                                       A.PROD_MODEL_KIND,
+                                       C.PROD_CD,
+                                       NVL((SELECT MAX(NO) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT,
+                                       A.JOIN_DT,
+                                       DECODE(LF_DMUSER.FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE,
+                                       (SELECT MAX(APP_DAY) FROM LF_DMUSER.RESNSTD_M WHERE USE_YN = 'Y' AND APP_DAY  <![CDATA[<=]]> TO_CHAR(A.JOIN_DT) AND PROD_CD = C.PROD_CD) APP_DAY
+                                  FROM LF_DMUSER.MEM_PROD_ACCNT A 
+                                  INNER JOIN (SELECT MEM_NO, 
+                                                     CI_VAL
+                                                FROM LF_DMUSER.MEMBER                
+                                                  WHERE CI_VAL NOT IN  ( SELECT A.CI_VAL
+                                                                          FROM
+                                                                          (
+                                                                                SELECT A.MEM_NO, 
+                                                                                       A.CI_VAL
+                                                                                  FROM LF_DMUSER.MEMBER A
+                                                                                       INNER JOIN 
+                                                                                       LF_DMUSER.MEM_PROD_ACCNT B
+                                                                                   ON A.MEM_NO = B.MEM_NO
+                                                                                 WHERE A.CI_VAL IS NOT NULL 
+                                                                                   AND LENGTH(A.CI_VAL) = '88'
+                                                                                   AND A.DEL_FG = 'N'
+                                                                                GROUP BY A.MEM_NO, A.CI_VAL
+                                                                          ) A      
+                                                                          GROUP BY A.CI_VAL
+                                                                          HAVING COUNT(A.MEM_NO) <![CDATA[>]]> 1)
+                                                 AND DEL_FG = 'N' -- 삭제되지 않은 회원.
+                                                 AND CI_VAL IS NOT NULL 
+                                                 AND LENGTH(CI_VAL) = '88'
+                                             ) B       
+                                          ON A.MEM_NO = B.MEM_NO
+                                  INNER JOIN LF_DMUSER.PRODUCT C
+                                          ON A.PROD_CD = C.PROD_CD
+                                  INNER JOIN LF_DMUSER.HP_CALL D
+                                          ON A.ACCNT_NO = D.ACCNT_NO AND D.STAT IN ('01', '011')
+                                 WHERE A.DEL_FG = 'N' -- 삭제되지 않은 고객별상품정보.
+                               ) A_TBL
+                          WHERE A_TBL.STATE = '정상'
+                            AND A_TBL.TRUE_COUNT <![CDATA[>]]> 0
+                            AND A_TBL.MEM_NO = #{P_MEM_NO}
+                            AND A_TBL.ACCNT_NO = #{P_ACCNT_NO}
+                       ) T_TBL
+    </insert>
+    
+	<select id="DlwMallLFLinkedMap.selectAllCashShoppngHistory" parameterType="map" resultType="resultMap">
+        SELECT MEMBER_ID, GOODS_ID, TYPE, AMT, '' AS MEMO, CREATE_DATE, CREATE_ID FROM LF_DMUSER.CASH_SHOPPING_HISTORY
+    </select>
+    
+	<select id="DlwMallLFLinkedMap.selectMember" parameterType="map" resultType="resultMap">
+        SELECT #{P_MEM_NO} AS MEMBER_ID,
+               ( SELECT SUBSTR(BRTH_MON_DAY, -4) FROM LF_DMUSER.MEMBER WHERE MEM_NO = #{P_MEM_NO} ) AS BIRTH_DATE, 
+               SYSDATE AS CREATE_DATE,
+               'N' AS DELFLAG_YN
+        FROM DUAL
+    </select>
+    
+	<select id="DlwMallLFLinkedMap.getMemberCiChk" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+        FROM LF_DMUSER.MEMBER
+        WHERE MEM_NO = #{P_MEM_NO}
+        AND LENGTH(CI_VAL) = '88'
+    </select>
+</mapper>

@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MoRecpDtlMap">
+
+    <sql id="MoRecpDtlMap.selectCondition_fragment">
+        <where>
+            <if test="mo_recp_id != null and mo_recp_id != ''">
+                AND MO_RECP_ID = #{mo_recp_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+                <![CDATA[
+                AND RECP_DTTM >= TO_TIMESTAMP(REPLACE(#{stt_dt}, '-', '') || '000000', 'YYYYMMDDHH24MISS')
+                ]]>
+            </if>
+            <if test="end_dt != null and end_dt != ''">
+                <![CDATA[
+                AND RECP_DTTM <= TO_TIMESTAMP(REPLACE(#{end_dt}, '-', '') || '235959', 'YYYYMMDDHH24MISS')
+                ]]>
+            </if>
+            <if test="clph_no != null and clph_no != ''">
+                AND CLPH_NO LIKE '%' || REPLACE(#{clph_no}, '-', '') || '%'
+            </if>
+            <if test="chat_msg_titl != null and chat_msg_titl != ''">
+                AND CHAT_MSG_TITL LIKE '%' || #{chat_msg_titl} || '%'
+            </if>
+            <if test="chat_msg_cntn != null and chat_msg_cntn != ''">
+                AND CHAT_MSG_CNTN LIKE '%' || #{chat_msg_cntn} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="MoRecpDtlMap.getMoRecpDtlCount" parameterType="map" resultType="int">
+        SELECT /* MoRecpDtlMap.getMoRecpDtlCount */
+               COUNT(*)
+          FROM TB_MO_RECP_DTL A
+        <include refid="MoRecpDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="MoRecpDtlMap.getMoRecpDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* MoRecpDtlMap.getMoRecpDtlList */
+               C.*
+             , GETCODENM('CHL010', MOVE_CMNC_DIV_CD, CNTR_CD) AS MOVE_CMNC_DIV_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT MO_RECP_ID, CLPH_NO, CHAT_MSG_TITL, CHAT_MSG_CNTN, IMG_URL1_ADDR
+                             , MOVE_CMNC_DIV_CD, IMG_URL2_ADDR, IMG_URL3_ADDR, IMG_URL4_ADDR, TO_CHAR(RECP_DTTM, 'YYYYMMDDHH24MISS') AS RECP_DTTM
+                             , CNTR_RPRS_TLNO, CNFT_YN, DSSR_ID, CONSNO, CUST_ID
+                             , CUST_NM
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (CASE WHEN IMG_URL1_ADDR IS NOT NULL THEN 'Y'
+                                     WHEN IMG_URL2_ADDR IS NOT NULL THEN 'Y'
+                                     WHEN IMG_URL3_ADDR IS NOT NULL THEN 'Y'
+                                     WHEN IMG_URL4_ADDR IS NOT NULL THEN 'Y'
+                                ELSE 'N' END) AS FILE_FLAG
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.DSSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS DSSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_MO_RECP_DTL A
+        <include refid="MoRecpDtlMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <delete id="MoRecpDtlMap.deleteMoRecpDtl" parameterType="map">
+        DELETE /* MoRecpDtlMap.deleteMoRecpDtl */
+          FROM TB_MO_RECP_DTL
+         WHERE MO_RECP_ID
+         <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+    </delete>
+
+
+    <select id="MoRecpDtlMap.getMoConsCount" parameterType="map" resultType="int">
+        SELECT /* MoRecpDtlMap.getMoConsCount */
+               COUNT(*)
+          FROM TB_CONS A
+             , TB_CUST_BASI B
+         WHERE A.CUST_ID = B.CUST_ID(+)
+       <if test="consno != null and consno != ''">
+           AND A.CONSNO = #{consno}
+       </if>
+       <if test="stt_dt != null and stt_dt != ''">
+           <![CDATA[
+           AND A.RGSN_DTTM >= TO_TIMESTAMP(REPLACE(#{stt_dt}, '-', '') || '000000', 'YYYYMMDDHH24MISS')
+           ]]>
+       </if>
+       <if test="end_dt != null and end_dt != ''">
+           <![CDATA[
+           AND A.RGSN_DTTM <=  TO_TIMESTAMP(REPLACE(#{end_dt}, '-', '') || '235959', 'YYYYMMDDHH24MISS')
+           ]]>
+       </if>
+       <if test="clph_no != null and clph_no != ''">
+           AND (A.INCO_TLNO = REPLACE(#{clph_no}, '-', '')
+             OR B.CLPH_NO = REPLACE(#{clph_no}, '-', ''))
+       </if>
+    </select>
+
+    <select id="MoRecpDtlMap.getMoConsList" parameterType="map" resultType="resultMap">
+        SELECT /* MoRecpDtlMap.getMoConsList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.USER_NM
+                          FROM TB_USER C
+                         WHERE C.USER_ID = B.ACTP_ID
+                           AND C.CNTR_CD = B.CNTR_CD) AS ACTP_NM
+                     , (SELECT C.CONS_TYP_NM
+                          FROM TB_CONS_TYP_CD C
+                         WHERE C.CONS_TYP_CD = B.CONS_TYP3_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS CONS_TYP3_NM
+                     , GETCODENM('CNS010', ACPG_CHNL_CD, CNTR_CD) AS ACPG_CHNL_NM
+                     , GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD) AS CONS_STAT_NM
+                  FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO, A.ARS_SRVC_ADDR, A.INCO_TLNO
+                             , A.ACPG_CHNL_CD, A.CUST_ID, A.ACTP_ID, A.ACPG_DTTM, A.CONS_DSPS_DTTM
+                             , A.CONS_QUST_CNTN, A.CONS_ANSR_CNTN, A.CONS_STAT_CD, A.CONS_TYP3_CD
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , B.CUST_NM, B.TLNO, B.CLPH_NO
+                          FROM TB_CONS A
+                             , TB_CUST_BASI B
+                         WHERE A.CUST_ID = B.CUST_ID(+)
+                        <if test="consno != null and consno != ''">
+                            AND A.CONSNO = #{consno}
+                        </if>
+                        <if test="stt_dt != null and stt_dt != ''">
+                            <![CDATA[
+                            AND A.RGSN_DTTM >= TO_TIMESTAMP(REPLACE(#{stt_dt}, '-', '') || '000000', 'YYYYMMDDHH24MISS')
+                            ]]>
+                        </if>
+                        <if test="end_dt != null and end_dt != ''">
+                            <![CDATA[
+                            AND A.RGSN_DTTM <=  TO_TIMESTAMP(REPLACE(#{end_dt}, '-', '') || '235959', 'YYYYMMDDHH24MISS')
+                            ]]>
+                        </if>
+                        <if test="clph_no != null and clph_no != ''">
+                            AND (A.INCO_TLNO = REPLACE(#{clph_no}, '-', '')
+                             OR B.CLPH_NO = REPLACE(#{clph_no}, '-', ''))
+                        </if>
+        <if test="orderBy != null and orderBy != ''">
+                 ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+</mapper>

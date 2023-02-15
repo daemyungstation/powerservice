@@ -1,0 +1,811 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwEvntMngMap">
+    
+    <!-- 지부 관리 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntBranchList" parameterType="map" resultType="resultMap">
+         <!-- sql-life.xml selectMemberList -->
+            SELECT /* DlwEvntMngMap.getEvntBranchList */
+                    ROW_NUMBER() OVER(ORDER BY A.BRANCH_CD ASC) SEQ
+                   ,A.BRANCH_CD
+                   ,A.BRANCH_NM
+                   ,A.BRANCH_MNGR_NM
+                   ,A.BRANCH_MNGR_TEL
+                   ,A.BRANCH_OFFICE_TEL
+                   ,A.BRANCH_FAX_TEL
+                   ,A.BRANCH_EMAIL
+                   ,A.BRANCH_ZIPCODE
+                   ,A.BRANCH_ADDR1
+                   ,A.BRANCH_ADDR2
+                   ,A.BRANCH_ADDR1 || ' ' || A.BRANCH_ADDR2 AS BRANCH_ADDR
+                   ,A.DIR_OUT_GUBUN
+                   ,CASE WHEN A.DIR_OUT_GUBUN = '0001' THEN '직영'
+                         WHEN A.DIR_OUT_GUBUN = '0002' THEN '외주' ELSE '' END AS DIR_OUT_GUBUN_NM
+                   ,A.REG_DM
+                   ,A.REG_MAN
+                   ,A.UPD_DM
+                   ,A.UPD_MAN
+                   ,A.DEL_FG
+                   ,A.AREA_SEQ
+                   ,FN_COM_NM('0229', A.AREA_SEQ) AS AREA_SEQ_NM
+             FROM BRANCH_MNG A
+              WHERE A.DEL_FG = 'N'
+                AND A.BRANCH_CD IS NOT NULL
+        <!-- 업체상호 / 사업자 번호 / 대표자 명 -->
+        <if test="dir_out_gubun != null and dir_out_gubun != ''">
+
+              AND A.dir_out_gubun  = #{dir_out_gubun}
+        </if>
+
+        <if test="branch_nm != null and branch_nm != '' ">
+                AND A.branch_nm  like  '%' ||  LTRIM(RTRIM(#{branch_nm})) || '%'
+        </if>
+    </select>
+     
+    <!-- 지부장 코드따기 	     -->
+    <select id="DlwEvntMngMap.getBranchCode" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml selectMemberList -->
+                select   /*DlwEvntMngMap.getBranchCode*/
+                substr('0000000000'|| to_char(max(to_number(BRANCH_CD)) + 1),-4) as BRANCH_CD
+               from BRANCH_MNG
+    </select>
+	
+     <!-- 지부장 INSERT -->
+     <insert id="DlwEvntMngMap.insertEvntBranch" parameterType="map">
+      INSERT INTO BRANCH_MNG
+           (BRANCH_CD
+           ,BRANCH_NM
+           ,BRANCH_MNGR_NM
+           ,BRANCH_MNGR_TEL
+           ,BRANCH_OFFICE_TEL
+           ,BRANCH_FAX_TEL
+           ,BRANCH_EMAIL
+           ,BRANCH_ZIPCODE
+           ,BRANCH_ADDR1
+           ,BRANCH_ADDR2
+           ,DIR_OUT_GUBUN
+           ,REG_DM
+           ,REG_MAN
+           ,DEL_FG
+           ,USE_YN
+           ,AREA_SEQ)
+        VALUES
+       (#{branch_cd}
+       ,#{branch_nm}
+       ,nvl(#{branch_mngr_nm},'')
+       ,nvl(#{branch_mngr_tel},'')
+       ,nvl(#{branch_office_tel},'')
+       ,nvl(#{branch_fax_tel},'')
+       ,nvl(#{branch_email},'')
+       ,nvl(#{branch_zipcode},'')
+       ,nvl(#{branch_addr1},'')
+       ,nvl(#{branch_addr2},'')
+       ,nvl(#{dir_out_gubun},'')
+       ,sysdate
+       ,#{rgsr_id}
+       ,'N'
+       ,#{use_yn}
+       ,#{area_seq})
+     </insert>
+     
+    <!-- 업데이트 -->
+    <update id="DlwEvntMngMap.updateEvntBranch" parameterType="map">
+        /* DlwEvntMngMap.updateEvntBranch*/
+
+        UPDATE BRANCH_MNG
+
+           SET BRANCH_NM= NVL(#{branch_nm},' '),
+                 BRANCH_MNGR_NM= NVL(#{branch_mngr_nm},' '),
+                 BRANCH_MNGR_TEL= NVL(#{branch_mngr_tel},' '),
+                 BRANCH_OFFICE_TEL= NVL(#{branch_office_tel},' '),
+                 BRANCH_FAX_TEL= NVL(#{branch_fax_tel},' '),
+                 BRANCH_EMAIL= NVL(#{branch_email},' '),
+                 BRANCH_ZIPCODE= NVL(#{branch_zipcode},' '),
+                 BRANCH_ADDR1= NVL(#{branch_addr1},' '),
+                 BRANCH_ADDR2= NVL(#{branch_addr2},' '),
+                 DIR_OUT_GUBUN= NVL(#{dir_out_gubun},' '),
+                 UPD_DM =SYSDATE ,
+                 UPD_MAN = #{upd_man},
+                 USE_YN = #{use_yn},
+                 AREA_SEQ = #{area_seq}
+         WHERE BRANCH_CD = #{branch_cd}
+    </update>
+    
+    <!--지부삭제... -->
+
+    <delete id="DlwEvntMngMap.deleteEvntBranch" parameterType="map">
+	    DELETE /* DlwEvntMngMap.deleteEvntBranch */
+	    FROM BRANCH_MNG
+	    WHERE BRANCH_CD  = #{branch_cd}
+    </delete>
+    
+    <select id="DlwEvntMngMap.selectEnvtBranch" parameterType="map" resultType="resultMap">
+        <!-- sql-life.xml selectMemberList -->
+                select   /*DlwEvntMngMap.selectEnvtBranch*/
+                 NVL(BRANCH_CD,' ') BRANCH_CD
+                ,NVL(BRANCH_NM,' ')  BRANCH_NM
+                ,NVL(BRANCH_MNGR_NM,' ') BRANCH_MNGR_NM
+                ,NVL(BRANCH_MNGR_TEL,' ') BRANCH_MNGR_TEL
+                ,NVL(BRANCH_OFFICE_TEL,' ') BRANCH_OFFICE_TEL
+                ,NVL(BRANCH_FAX_TEL,' ') BRANCH_FAX_TEL
+                ,NVL(BRANCH_EMAIL,' ') BRANCH_EMAIL
+                ,NVL(BRANCH_ZIPCODE,' ') BRANCH_ZIPCODE
+                ,NVL(BRANCH_ADDR1,' ') BRANCH_ADDR1
+                ,NVL(BRANCH_ADDR2,' ') BRANCH_ADDR2
+                ,NVL(DIR_OUT_GUBUN,' ') DIR_OUT_GUBUN
+                ,USE_YN
+                ,AREA_SEQ
+                from BRANCH_MNG
+                where 1 =1
+    	<!-- 업체상호 / 사업자 번호 / 대표자 명 -->
+	    <if test="branch_cd != null and branch_cd != ''">
+	           AND BRANCH_CD  = #{branch_cd}
+	    </if>
+    </select>
+    
+    <!-- 행사자 관리 조회 	     -->
+    <select id="DlwEvntMngMap.getEventManList" parameterType="map" resultType="resultMap">
+
+        SELECT *
+        FROM (
+                 SELECT /* DlwEvntMngMap.getEventManList */
+                          ROW_NUMBER() OVER(ORDER BY EVT_MNGR_CD ASC) SEQ
+                        , EMM.EVT_MNGR_CD
+                        , EMM.REAL_EVT_MNGR_CD
+                        , FN_COM_NM('0138',EMM.JOB_DUTY) AS JOB_DUTY_NM
+                        , EMM.JOB_DUTY
+                        , EMM.EVT_MNGR_NM
+                        , EMM.IDN_NO
+                        , EMM.ZIP
+                        , EMM.ADDR1
+                        , EMM.ADDR2
+                        , EMM.CELL
+                        , FN_COM_NM('63', EMM.BANK_CD) AS BANK_NM
+                        , EMM.BANK_CD
+                        , EMM.BANK_ACCNT_NO
+                        , EMM.DEPR
+                        , WHM.WH_NM
+                        , EMM.WH_CD
+                        , CASE WHEN EMM.EMP_GUBUN = '0001' THEN '직영'
+                               WHEN EMM.EMP_GUBUN = '0002' THEN '외주' ELSE '' END AS EMP_GUBUN_NM
+                        , EMM.EMP_GUBUN
+                        , C.CUSTMR_NM
+                        , EMM.CUSTMR_CD
+                        , FN_EMPLE_NM(EMM.EMPLE_NO) AS EMPLE_NM
+                        , EMM.EMPLE_NO
+                        , EMM.NOTE
+                        , EMM.UPD_MAN as rgsr_id
+                        , EMM.ADMIN_AUTH
+                        , CASE WHEN EMM.ADMIN_AUTH = '0001' THEN '지도사(C.P)'
+                               WHEN EMM.ADMIN_AUTH = '0002' THEN '내근관리직'
+                               WHEN EMM.ADMIN_AUTH = '0003' THEN '부 지부장'
+                               WHEN EMM.ADMIN_AUTH = '0004' THEN '지부장'
+                               ELSE '' END ADMIN_AUTH_NM
+                        , EMM.GRP_EMPLE_NO
+                        , EMM.USE_YN
+                        ,CASE WHEN NVL((SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD), '') = ''
+                                                            THEN NVL(EMM.BRANCH, '')
+                                                            ELSE NVL((SELECT (SELECT Z.BRANCH_CD FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD)), '')
+                                                       END AS BRANCH
+                        ,CASE WHEN NVL((SELECT EVT_MNGR_NM FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD), '') = ''
+                                                            THEN NVL(EMM.BRANCH, '')
+                                                            ELSE NVL((SELECT (SELECT Z.BRANCH_NM FROM BRANCH_MNG Z WHERE Z.BRANCH_CD = BRANCH) FROM WAREHOUSE_MNG WHERE WH_CD = (SELECT WH_CD FROM EVENT_MANAGER_MNG WHERE EVT_MNGR_CD = EMM.EVT_MNGR_CD)), '')
+                                                       END AS BRANCH_NM
+                        , EMM.RESIN_YN
+                        , EMM.RESIN_DAY
+                  FROM EVENT_MANAGER_MNG EMM
+                      LEFT OUTER JOIN WAREHOUSE_MNG WHM ON EMM.WH_CD = WHM.WH_CD
+                      LEFT OUTER JOIN CUSTMR_MNG C ON C.CUSTMR_CD = EMM.CUSTMR_CD
+                  WHERE EMM.DEL_FG = 'N'
+                  <!-- 의전행사자 업무 효율화를 위한 사용여부 조건 추가 - 2017.12.26 정승철 (윤경민 사원 요청) -->
+                   <if test="use_yn != null and use_yn != ''">
+                     AND EMM.USE_YN = #{use_yn}
+                   </if>
+           ) TBL
+           WHERE 1=1
+          <if test="evt_mngr_cd != null and evt_mngr_cd != ''">
+             AND TBL.EVT_MNGR_CD = #{evt_mngr_cd}
+           </if>
+
+          <if test="evt_mngr_nm != null and evt_mngr_nm != ''">
+             AND TBL.EVT_MNGR_NM LIKE '%' || #{evt_mngr_nm} || '%'
+           </if>
+
+           <if test="job_duty != null and job_duty != ''">
+             AND TBL.JOB_DUTY = #{job_duty}
+           </if>
+
+           <if test="branch != null and branch != ''">
+             AND TBL.BRANCH = #{branch}
+             ORDER BY DECODE(TBL.ADMIN_AUTH, '0004', 1,
+                                             '0003', 2,
+                                             '0001', 3,
+                                             '0002', 4), EVT_MNGR_CD ASC
+           </if>
+	</select>
+	
+    <!-- 행사자 중복 확인  -->
+    <select id="DlwEvntMngMap.getDuplEvtManaMngCd" parameterType="map" resultType="int">
+             SELECT /* DlwEvntMngMap.getDuplEvtManaMngCd */
+                    COUNT(*)
+             FROM EVENT_MANAGER_MNG
+             WHERE EVT_MNGR_CD = #{evt_mngr_cd}
+    </select>
+
+
+    <!-- 행사자 등록 -->
+    <insert id="DlwEvntMngMap.insrtEventMan" parameterType="map">
+
+    <selectKey keyProperty="evt_mngr_cd" resultType="String" order="BEFORE">
+        SELECT NVL(MAX(TO_NUMBER(EVT_MNGR_CD)),0) + 1 AS EVT_MNGR_CD
+        FROM EVENT_MANAGER_MNG
+    </selectKey>
+
+
+          INSERT INTO /* DlwEvntMngMap.insrtEvtManaMng */
+                        EVENT_MANAGER_MNG (
+                                              EVT_MNGR_CD
+                                              ,EVT_MNGR_NM
+                                              ,IDN_NO
+                                              ,CELL
+                                              ,JOB_DUTY
+                                              <!-- ,BRANCH -->
+                                              ,ZIP
+                                              ,ADDR1
+                                              ,ADDR2
+                                              ,BANK_CD
+                                              ,DEPR
+                                              ,BANK_ACCNT_NO
+                                              ,WH_CD
+                                              ,EMP_GUBUN
+                                              ,CUSTMR_CD
+                                              ,NOTE
+                                              ,REG_DM
+                                              ,REG_MAN
+                                              ,DEL_FG
+                                              <if test = " emple_no != null and emple_no != '' ">
+                                              , EMPLE_NO
+                                              </if>
+                                              ,REAL_EVT_MNGR_CD
+                                              ,ADMIN_AUTH
+                                              ,GRP_EMPLE_NO
+                                              ,USE_YN
+                                              ,RESIN_YN
+                                              ,RESIN_DAY
+                                            )
+
+                                           (
+                                             select #{evt_mngr_cd}
+                                                   ,#{evt_mngr_nm}
+                                                   ,NVL(#{idn_no}, '')
+                                                   ,NVL(#{cell}, '')
+                                                   ,NVL(#{job_duty}, '')
+                                                   <!-- ,#branch# -->
+                                                   ,NVL(#{zip}, '')
+                                                   ,NVL(#{addr1}, '')
+                                                   ,NVL(#{addr2}, '')
+                                                   ,NVL(#{bank_cd}, '')
+                                                   ,NVL(#{depr}, '')
+                                                   ,NVL(#{bank_accnt_no}, '')
+                                                   ,NVL(#{wh_cd}, '')
+                                                   ,NVL(#{emp_gubun}, '')
+                                                   ,NVL(#{custnr_cd}, '')
+                                                   ,NVL(#{note}, '')
+                                                   ,SYSDATE
+                                                   ,#{rgsr_id}
+                                                   ,'N'
+                                                  <if test= "emple_no != null and emple_no != '' ">
+                                                   ,#{emple_no}
+                                                  </if>
+                                                    ,(SELECT TO_CHAR(SYSDATE, 'YYYY') || SUBSTR('000000' || TO_CHAR(SUBSTR(NVL(MAX(REAL_EVT_MNGR_CD),0), -6) + 1),-6)
+                                                      FROM EVENT_MANAGER_MNG WHERE TO_CHAR(SYSDATE, 'YYYY') = SUBSTR(REAL_EVT_MNGR_CD, 1, 4))
+                                                    ,#{admin_auth}
+                                                    ,#{grp_emple_no}
+                                                    ,#{use_yn}
+                                                    ,#{resin_yn}
+                                                    ,#{resin_day}
+                                                FROM DUAL
+                                               )
+
+    </insert>
+
+
+
+    <!-- 행사자 업데이트 -->
+    <update id="DlwEvntMngMap.updateEventMan" parameterType="map">
+        /* DlwEvntMngMap.updateEventMan*/
+
+        UPDATE EVENT_MANAGER_MNG
+           SET
+                EVT_MNGR_NM = #{evt_mngr_nm}
+                ,IDN_NO = #{idn_no}
+                ,CELL = #{cell}
+                ,JOB_DUTY = #{job_duty}
+                ,ZIP = #{zip}
+                ,ADDR1 = #{addr1}
+                ,ADDR2 = #{addr2}
+                ,BANK_CD = #{bank_cd}
+                ,DEPR = #{depr}
+                ,BANK_ACCNT_NO = #{bank_accnt_no}
+                ,WH_CD = #{wh_cd}
+                ,CUSTMR_CD = #{custmr_cd}
+                ,EMPLE_NO = #{emple_no}
+                ,EMP_GUBUN = #{emp_gubun}
+                ,NOTE = #{note}
+                ,REAL_EVT_MNGR_CD = #{real_evt_mngr_cd}
+                ,UPD_DM = SYSDATE
+                ,UPD_MAN = #{rgsr_id}
+                ,ADMIN_AUTH = #{admin_auth}
+                ,GRP_EMPLE_NO = #{grp_emple_no}
+                ,USE_YN = #{use_yn}
+                ,RESIN_YN = #{resin_yn}
+                ,RESIN_DAY = #{resin_day}
+         WHERE EVT_MNGR_CD = #{evt_mngr_cd}
+    </update>
+            
+	<!--행사자 삭제  -->
+    <delete id="DlwEvntMngMap.deleteEventMan" parameterType="map">
+	    UPDATE /* DlwEvntMngMap.deleteEventMan */
+	              EVENT_MANAGER_MNG
+	    SET DEL_FG = 'Y',
+	        USE_YN = 'N'
+	    WHERE EVT_MNGR_CD = #{evt_mngr_cd}
+    </delete>
+	
+	<!-- 지부장 등록 건수 건수 조회 -->
+    <select id="DlwEvntMngMap.chkEventManaCnt" parameterType="map" resultType="int">
+
+        SELECT /* DlwEvntMngMap.chkEventManaCnt */
+                COUNT(*)
+        FROM EVENT_MANAGER_MNG A
+            LEFT OUTER JOIN WAREHOUSE_MNG B ON A.WH_CD = B.WH_CD
+        WHERE NVL(A.JOB_DUTY,' ') = '0001'
+          AND NVL(A.EMP_GUBUN,' ') = '0002'
+          AND NVL(A.ADMIN_AUTH,' ') = '0004'
+          AND B.BRANCH = FN_BRANCH(#{evt_mngr_cd})
+          AND A.EVT_MNGR_CD NOT IN(#{evt_mngr_cd})
+
+    </select>
+    
+    <!-- 창고 관리 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntWHList" parameterType="map" resultType="resultMap">
+
+       SELECT /* DlwEvntMngMap.getEvntWHList */
+                 ROW_NUMBER() OVER(ORDER BY WH_CD ASC) SEQ
+              , WH_NM
+              , BRANCH
+              , WH_TEL
+              , WH_ZIP
+              , WH_ADDR
+              , WH_ADDR2
+              , WH_FAX
+              , STAFF_NM
+              , STAFF_TEL
+              , STAFF_EMAIL
+              , WH_NOTE
+              , WH_CD
+              , WH_USE_YN
+       FROM WAREHOUSE_MNG
+       WHERE 1=1
+       <if test="wh_cd != null and wh_cd != ''">
+           AND WH_CD LIKE '%' || #{wh_cd} || '%'
+       </if>
+
+       <if test="wh_nm != null and wh_nm != ''">
+           AND WH_NM LIKE '%' || #{wh_nm} || '%'
+       </if>
+    </select>
+    
+    <!-- 창고 등록 -->
+    <insert id="DlwEvntMngMap.insrtEvntWH" parameterType="map">
+
+      <selectKey keyProperty="wh_cd" resultType="String" order="BEFORE">
+          SELECT LPAD(MAX(TO_NUMBER(WH_CD)) + 1, 4, '0') AS WH_CD FROM WAREHOUSE_MNG
+      </selectKey>
+
+        INSERT INTO /* DlwEvntMngMap.insrtEvntWH */
+                  WAREHOUSE_MNG
+
+                  (    WH_CD
+                      ,WH_NM
+                      ,WH_TEL
+                      ,WH_FAX
+                      ,WH_ZIP
+                      ,WH_ADDR
+                      ,WH_ADDR2
+                      ,STAFF_NM
+                      ,STAFF_TEL
+                      ,STAFF_EMAIL
+                      ,BRANCH
+                      ,WH_NOTE
+                      ,WH_USE_YN
+                 )
+          VALUES (      #{wh_cd}
+                       ,#{wh_nm}
+                       ,#{wh_tel}
+                       ,#{wh_fax}
+                       , #{wh_zip}
+                       ,#{wh_addr}
+                       ,#{wh_addr2}
+                       ,#{staff_nm}
+                       ,#{staff_tel}
+                       ,#{staff_email}
+                       ,#{branch}
+                       ,#{wh_note}
+                       ,#{wh_use_yn}
+                   )
+
+    </insert>
+
+     <!-- 창고업데이트 -->
+     <update id="DlwEvntMngMap.updateEvntWH" parameterType="map">
+         /* DlwEvntMngMap.updateEvntWH*/
+
+         UPDATE WAREHOUSE_MNG
+
+            SET
+                 WH_NM = #{wh_nm}
+                 ,WH_TEL =#{wh_tel}
+                 ,WH_FAX = #{wh_fax}
+                 ,WH_ZIP = #{wh_zip}
+                 ,WH_ADDR = #{wh_addr}
+                 ,WH_ADDR2 = #{wh_addr2}
+                 ,STAFF_NM = #{staff_nm}
+                 ,STAFF_TEL =#{staff_tel}
+                 ,STAFF_EMAIL = #{staff_email}
+                 ,BRANCH = #{branch}
+                 ,WH_NOTE = #{wh_note}
+                 ,WH_USE_YN = #{wh_use_yn}
+
+          WHERE WH_CD = #{wh_cd}
+     </update>
+     
+    <!--창고 삭제  -->
+    <delete id="DlwEvntMngMap.deleteEvntWH" parameterType="map">
+        DELETE /* DlwEvntMngMap.deleteEvntWH */
+        FROM WAREHOUSE_MNG
+        WHERE WH_CD  = #{wh_cd}
+    </delete>
+    
+    <!-- 제공용품 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntSPList" parameterType="map" resultType="resultMap">
+
+       SELECT /* DlwEvntMngMap.getEvntSPList */
+            ROW_NUMBER() OVER(ORDER BY SQNC ASC) SEQ
+            ,ITEM_CD
+			,ITEM_NM
+			,UNIT
+			,TYPE
+			,SQNC
+			,MEMO
+       FROM TB_EVENT_SUPPLIES
+       WHERE 1=1
+	   AND NVL(DEL_FG, 'N') = 'N'
+       <if test="item_cd != null and item_cd != ''">
+           AND ITEM_CD LIKE '%' || #{item_cd} || '%'
+       </if>
+       <if test="item_nm != null and item_nm != ''">
+           AND ITEM_NM LIKE '%' || #{item_nm} || '%'
+       </if>
+       ORDER BY SQNC, ITEM_CD
+    </select>
+    
+    <!-- 제공용품 등록 -->
+    <insert id="DlwEvntMngMap.insrtEvntSP" parameterType="map">
+
+      <selectKey keyProperty="item_cd" resultType="String" order="BEFORE">
+          SELECT NVL(LPAD(MAX(TO_NUMBER(ITEM_CD)) + 1, 6, '0'), '00001') AS ITEM_CD FROM TB_EVENT_SUPPLIES
+      </selectKey>
+
+        INSERT INTO /* DlwEvntMngMap.insrtEvntSP */
+                  TB_EVENT_SUPPLIES
+
+                  (    ITEM_CD
+					  ,ITEM_NM
+					  ,UNIT
+					  ,TYPE
+					  ,SQNC
+					  ,MEMO
+					  ,DEL_FG
+					  ,REG_MAN
+					  ,REG_DM
+                 )
+          VALUES (      #{item_cd}
+                       ,#{item_nm}
+                       ,#{unitl}
+                       ,#{type}
+                       ,#{sqnc}
+                       ,#{memo}
+                       ,'N'
+                       ,#{reg_man}
+                       ,SYSDATE
+                   )
+
+    </insert>
+
+     <!-- 제공용품업데이트 -->
+     <update id="DlwEvntMngMap.updateEvntSP" parameterType="map">
+         /* DlwEvntMngMap.updateEvntSP*/
+
+         UPDATE TB_EVENT_SUPPLIES
+
+            SET
+                  ITEM_NM = #{item_nm}
+				 ,UNIT = #{unitl}
+				 ,TYPE = #{type}
+				 ,SQNC = #{sqnc}
+				 ,MEMO = #{memo}
+				 ,DEL_FG = #{del_Fg}
+				 ,UPD_MAN = #{upd_man}
+				 ,UPD_DM = SYSDATE
+
+          WHERE ITEM_CD  = #{item_cd}
+     </update>
+     
+    <!-- 제공용품삭제  -->
+    <delete id="DlwEvntMngMap.deleteEvntSP" parameterType="map">
+        /* DlwEvntMngMap.deleteEvntSP */
+        UPDATE TB_EVENT_SUPPLIES
+        SET DEL_FG = 'Y'
+           ,UPD_MAN = #{upd_man}
+           ,UPD_DM = SYSDATE
+           ,SQNC = ''
+        WHERE ITEM_CD  = #{item_cd}
+    </delete>
+    
+    <!-- 제공용품seq 	     -->
+    <select id="DlwEvntMngMap.getEvntSPmaxSqncList" parameterType="map" resultType="resultMap">
+
+       SELECT /* DlwEvntMngMap.getEvntSPmaxSqncList */
+            NVL(MAX(SQNC), 0) AS MAX_SQNC
+       FROM TB_EVENT_SUPPLIES
+    </select>
+    
+    <!-- 제공용품 순위업데이트 -->
+     <update id="DlwEvntMngMap.updateEvntSPSequence" parameterType="map">
+         /* DlwEvntMngMap.updateEvntSPSequence*/
+		<![CDATA[
+         UPDATE TB_EVENT_SUPPLIES
+
+            SET
+                 SQNC = (CASE ITEM_CD WHEN #{item_cd} THEN ${sqnc}
+                                      ELSE (CASE SIGN(${sqnc_old} - ${sqnc}) WHEN -1 THEN SQNC - 1
+                                                                             WHEN  1 THEN SQNC + 1
+                                      END)
+                         END)
+
+          WHERE SQNC  <= (CASE SIGN(${sqnc_old} - ${sqnc}) WHEN  1 THEN ${sqnc_old}
+                                                           WHEN -1 THEN ${sqnc} END)
+          AND   SQNC  >= (CASE SIGN(${sqnc_old} - ${sqnc}) WHEN  1 THEN ${sqnc}
+                                                           WHEN -1 THEN ${sqnc_old} END)
+          ]]>
+     </update>
+     
+     <!-- 제공용품 카테고리 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntSPCtgMstList" parameterType="map" resultType="resultMap">
+       SELECT /* DlwEvntMngMap.getEvntSPCtgMstList */
+	            MST_SEQ,
+		        CLSFC_NM,
+		        DEL_FG,
+		        REG_DM,
+		        REG_MAN,
+		        (SELECT USER_NM FROM PS_WILLVI.TB_USER WHERE USER_ID = A.REG_MAN) AS REG_MAN_NM,
+		        UPD_DM,
+		        UPD_MAN
+		 FROM TB_EVENT_SUPPLIES_CLSFC_MST A
+		 WHERE 1=1
+		 AND NVL(DEL_FG, 'N') = 'N'
+		 <if test="clsfc_nm != null and clsfc_nm != ''">
+             AND CLSFC_NM LIKE '%' || #{clsfc_nm} || '%'
+         </if>
+         ORDER BY REG_DM
+    </select>
+    
+    <!-- 제공용품 카테고리 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntSPCtgDtlList" parameterType="map" resultType="resultMap">
+       SELECT /* DlwEvntMngMap.getEvntSPCtgDtlList */
+	            ECD.SEQ,
+				ECD.MST_SEQ,
+				ECD.ITEM_CD,
+				ES.ITEM_NM AS ITEM_NM,
+				ECD.ITEM_VAL,
+                ES.UNIT,
+				ECD.SBST_YN,
+				ECD.STOCK,
+				ECD.DEL_FG,
+				ECD.REG_DM,
+				ECD.REG_MAN,
+				ECD.UPD_DM,
+				ECD.UPD_MAN
+		 FROM TB_EVENT_SUPPLIES_CLSFC_DTL ECD LEFT OUTER JOIN
+              TB_EVENT_SUPPLIES ES ON ES.ITEM_CD = ECD.ITEM_CD
+		 WHERE 1=1
+		 AND NVL(ECD.DEL_FG, 'N') = 'N'
+		 AND ECD.MST_SEQ = #{mst_seq}
+		 ORDER BY ECD.SEQ
+    </select>
+    
+    <!-- 제공용품 카테고리 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntSPCtgSubList" parameterType="map" resultType="resultMap">
+       SELECT /* DlwEvntMngMap.getEvntSPCtgSubList */
+	            ECS.MST_SEQ,
+				ECS.SEQ,
+				ECS.ITEM_CD,
+				(SELECT ITEM_NM FROM TB_EVENT_SUPPLIES WHERE ITEM_CD = ECS.ITEM_CD) AS ITEM_NM,
+				ECS.DEL_FG,
+				ECS.REG_DM,
+				ECS.REG_MAN,
+				ECS.UPD_DM,
+				ECS.UPD_MAN
+		 FROM TB_EVENT_SUPPLIES_CLSFC_SUB ECS
+		 WHERE 1=1
+		 AND ECS.SEQ = #{seq}
+		 AND NVL(DEL_FG, 'N') = 'N'
+		 AND ECS.MST_SEQ = #{mst_seq}
+		 ORDER BY ITEM_CD
+    </select>
+    
+    <!-- 제공용품 카테고리 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntSPCtgSeqList" parameterType="map" resultType="resultMap">
+       SELECT /* DlwEvntMngMap.getEvntSPCtgSeqList */
+                NVL(MAX(MST_SEQ)+1, 1) AS MST_SEQ
+		 FROM TB_EVENT_SUPPLIES_CLSFC_MST
+		 WHERE 1=1
+    </select>
+     
+     <update id="DlwEvntMngMap.updateEvntSPCtgMst" parameterType="map">
+        UPDATE /* DlwEvntMngMap.updateEvntSPCtgMst */
+            TB_EVENT_SUPPLIES_CLSFC_MST
+        SET CLSFC_NM = #{clsfc_nm},
+			UPD_DM = SYSDATE,
+			UPD_MAN = #{upd_man}
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND MST_SEQ = #{mst_seq}
+    </update>        
+    
+    <insert id="DlwEvntMngMap.insertEvntSPCtgMst" parameterType="map">
+        INSERT INTO /* DlwEvntMngMap.insertEvntSPCtgMst */
+            TB_EVENT_SUPPLIES_CLSFC_MST
+            (
+                MST_SEQ,
+				CLSFC_NM,
+				DEL_FG,
+				REG_DM,
+				REG_MAN
+            )
+        VALUES
+            (
+                #{mst_seq},
+				#{clsfc_nm},
+				'N',
+				SYSDATE,
+				#{reg_man}
+            )
+    </insert>
+    
+    <update id="DlwEvntMngMap.deleteEvntSPCtgMst" parameterType="map">
+        UPDATE /* DlwEvntMngMap.deleteEvntSPCtgMst*/
+            TB_EVENT_SUPPLIES_CLSFC_MST
+        SET DEL_FG = 'Y',
+            UPD_DM = SYSDATE,
+			UPD_MAN = #{upd_man}
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND MST_SEQ = #{mst_seq}
+    </update>
+    
+    <update id="DlwEvntMngMap.updateEvntSPCtgDtl" parameterType="map">
+        UPDATE /* DlwEvntMngMap.updateEvntSPCtgDtl */
+            TB_EVENT_SUPPLIES_CLSFC_DTL
+        SET ITEM_CD = #{item_cd},
+			ITEM_VAL = #{item_val},
+			SBST_YN = #{sbst_yn},
+			STOCK = #{stock},
+			UPD_DM = SYSDATE,
+			UPD_MAN = #{upd_man}
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND SEQ = #{seq}
+        AND MST_SEQ = #{mst_seq}
+    </update>        
+    
+    <insert id="DlwEvntMngMap.insertEvntSPCtgDtl" parameterType="map">
+        INSERT INTO /* DlwEvntMngMap.insertEvntSPCtgDtl */
+            TB_EVENT_SUPPLIES_CLSFC_DTL
+            (
+                SEQ,
+				MST_SEQ,
+				ITEM_CD,
+				ITEM_VAL,
+				SBST_YN,
+				STOCK,
+				DEL_FG,
+				REG_DM,
+				REG_MAN
+            )
+        VALUES
+            (
+                (SELECT NVL(MAX(SEQ), 0)+1 FROM TB_EVENT_SUPPLIES_CLSFC_DTL WHERE MST_SEQ = #{mst_seq}),
+				#{mst_seq},
+				#{item_cd},
+				#{item_val},
+				#{sbst_yn},
+				#{stock},
+				'N',
+				SYSDATE,
+				#{reg_man}
+            )
+    </insert>
+    
+    <update id="DlwEvntMngMap.deleteEvntSPCtgDtl" parameterType="map">
+        UPDATE /* DlwEvntMngMap.deleteEvntSPCtgDtl*/
+            TB_EVENT_SUPPLIES_CLSFC_DTL
+        SET DEL_FG = 'Y',
+            UPD_DM = SYSDATE,
+			UPD_MAN = #{upd_man}
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND SEQ = #{seq}
+        AND MST_SEQ = #{mst_seq}
+    </update>
+    
+    <insert id="DlwEvntMngMap.insertEvntSPCtgSub" parameterType="map">
+        INSERT INTO /* DlwEvntMngMap.insertEvntSPCtgSub */
+            TB_EVENT_SUPPLIES_CLSFC_SUB
+            (
+                MST_SEQ,
+				SEQ,
+				ITEM_CD,
+				DEL_FG,
+				REG_DM,
+				REG_MAN
+            )
+        VALUES
+            (
+                #{mst_seq},
+				#{seq},
+				#{item_cd},
+				'N',
+				SYSDATE,
+				#{reg_man}
+            )
+    </insert>
+    
+    <update id="DlwEvntMngMap.deleteEvntSPCtgSub" parameterType="map">
+        UPDATE /* DlwEvntMngMap.deleteEvntSPCtgSub*/
+            TB_EVENT_SUPPLIES_CLSFC_SUB
+        SET DEL_FG = 'Y',
+            UPD_DM = SYSDATE,
+			UPD_MAN = #{upd_man}
+        WHERE 1=1 
+        AND DEL_FG = 'N'
+        AND SEQ = #{seq}
+        AND MST_SEQ = #{mst_seq}
+        AND ITEM_CD = #{item_cd}
+    </update>
+    
+    <!-- 제공용품 팝업 조회 	     -->
+    <select id="DlwEvntMngMap.getEvntSPpopList" parameterType="map" resultType="resultMap">
+
+       SELECT /* DlwEvntMngMap.getEvntSPpopList */
+            ROW_NUMBER() OVER(ORDER BY SQNC ASC) SEQ
+            ,ITEM_CD
+			,ITEM_NM
+			,UNIT
+			,TYPE
+			,SQNC
+			,MEMO
+       FROM TB_EVENT_SUPPLIES
+       WHERE 1=1
+	   AND NVL(DEL_FG, 'N') = 'N'
+       <if test="item_nm != null and item_nm != ''">
+           AND ITEM_NM LIKE '%' || #{item_nm} || '%'
+       </if>
+       <if test="type != null and type != ''">
+           AND TYPE = #{type}
+       </if>
+       ORDER BY SQNC, ITEM_CD
+    </select>
+</mapper>

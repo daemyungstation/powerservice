@@ -1,0 +1,252 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS993000" classname="srch_dept_pop" inheritanceid="" position="absolute 0 0 287 356" titletext="콜센터 산출 중복건 목록" onload="PS993000_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 287 355"/>
+        <Button id="btn_Close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 257 8 277 27"/>
+        <Static id="stc_30" text="콜센터 산출 중복건 목록" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 212 28" onclick="stc_30_onclick"/>
+        <Grid id="grd_List" taborder="3" binddataset="ds_list" useinputpanel="false" position="absolute 10 70 277 346" scrollpixel="none" onheadclick="grd_list_onheadclick" cellsizingtype="col" autofittype="col" autosizingtype="none" selecttype="row">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="49"/>
+                <Column size="91"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="순번"/>
+                <Cell col="1" text="회원번호"/>
+              </Band>
+              <Band id="body">
+                <Cell expr="currow+1"/>
+                <Cell col="1" text="bind:accnt_no"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_35" text="회원 상태 연체" class="sta_workTitle2" position="absolute 13 49 134 69"/>
+        <Button id="btn_wdrwReq03" taborder="6" text="엑셀" onclick="btn_export_grid_onclick" class="btn_WF_Common" style="padding:0 0 0 0;" anchor="default" position="absolute 153 46 213 66" positiontype="position"/>
+        <Button id="btn_wdrwReq00" taborder="7" text="닫기" onclick="btn_close_onclick" class="btn_WF_Common" position="absolute 216 46 276 66" style="padding:0 0 0 0;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cd_nm" type="STRING" size="256"/>
+          <Column id="grp_cd" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="seq" type="STRING" size="256"/>
+          <Column id="accnt_no" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="cust_acnt_no" type="STRING" size="100"/>
+          <Column id="mem_no" type="STRING" size="256"/>
+          <Column id="mem_nm" type="STRING" size="256"/>
+          <Column id="prod_cd" type="STRING" size="256"/>
+          <Column id="prod_nm" type="STRING" size="256"/>
+          <Column id="emple_no" type="STRING" size="256"/>
+          <Column id="emple_nm" type="STRING" size="256"/>
+          <Column id="idn_no" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <ExportObject id="ExportObject00" exporttype="0" exporteventtype="itemrecord" onexport="ExportObject00_onexport"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var tc_bank = 0;
+
+/***************************************************************************
+ * 함  수  명		: PS992800_onloadv()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function PS993000_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_createPagingDataset(obj); // 페이징처리 위한 데이터셋 설정
+	
+	//fn_init("Y");
+	fn_init();
+	fn_commSearch(gfn_getCommTypeInit()); // 조회
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_srch_onclick()
+ * 기      능 		: 조회버튼 클릭
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_Search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_commSearch(gfn_getCommTypeInit()); // 조회
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_init()
+ * 기      능 		: 초기화
+ ***************************************************************************/
+function fn_init(typ)
+{	
+	ds_list.assign(opener.ds_chklist);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_preSearch()
+ * 기      능		: 조회 전 처리 조회조건 설정
+ * 수  정  일      : 2016.01.22 
+ ***************************************************************************/
+function fn_preSearch(sType)
+{
+	if (sType == gfn_getCommTypeInit())
+	{
+		// 조회조건 및 default 정렬
+		ds_inqCndt.clearData();
+	}
+	return true;
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch()
+ * 기      능 		: 조회
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function fn_commSearch(sType)
+{	
+    if (!fn_preSearch(sType)) return false;	
+	// 호출 레코드 수
+	//if(!gfn_pageSearch(sType, ds_bank, sta_TotalCnt, 50, tc_bank)) return; 
+	
+	var szSvcid       = "selectCallDupList";
+    var szController  = "/dlw/cms/callduplist";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_list=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_srchCallBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_srchCallBack()
+ * 기      능		: 조회 콜백 처리
+ ***************************************************************************/
+function fn_srchCallBack(svcid, errcd, errmsg) {
+  
+    if (errcd < 0) {
+		alert("조회를 실패하였습니다.\n" + errmsg);
+    } else {
+		fn_postSearch();	
+    }
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_postSearch()
+ * 기      능		: 처리결과
+ ***************************************************************************/
+function fn_postSearch()
+{
+	if(ds_list.rowcount < 1) {
+		alert("조회 결과가 없습니다.");
+	}
+	return;
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_init_onclick()
+ * 기      능		: 초기화 버튼클릭시
+ * 수  정  일      : 2016.01.22
+ ***************************************************************************/
+function btn_Init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_init("N");
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 onheadclick이벤트 발생시에 전체체크(체크박스), 칼럼정렬 기능 추가
+ ***************************************************************************/
+function grd_list_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+// 	//if (!fn_preSearch()) return false;
+// 	ds_inqCndt.setColumn(0, "sController", "/dlw-syst/cd/cd-list");
+// 	ds_inqCndt.setColumn(0, "dsName", "ds_output");
+// 	
+// 	if(!gfn_pageSearch(gfn_getCommTypeOrderBy(), ds_bank, sta_TotalCnt, 50, tc_bank)) return;
+// 	
+// 	gfn_grdHeadClick(obj, e, ds_inqCndt);
+// 	gfn_setTotalRowCount(ds_bank, sta_TotalCnt, tc_bank); // 페이지건수 표출
+	gfn_grdHeadClick(obj, e);
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 칼럼사이즈 변경시 Hidden 처리
+						단, 칼럼사이즈를 0으로 변경한 후에는 공통기능버튼
+							(칼럼 보이기/숨기기)으로 다시 보이기 처리
+ ***************************************************************************/
+function grd_list_oncolresized(obj:Grid, e:GridSizeChangedEventInfo)
+{
+	if(e.oldvalue == 0) {
+		obj.setRealColSize(e.formatindex, 0);
+	}
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 엔터 치면 조회실행
+ ***************************************************************************/
+function srch_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		fn_commSearch(gfn_getCommTypeInit());
+	}
+}
+
+//엑셀버튼 클릭 시
+function btn_export_grid_onclick(obj:Button,  e:ClickEventInfo)
+{	
+	if (ds_list.rowcount > 0) {
+		gfn_exportGridToExcel(grd_List, "wdrwReqList" + gfn_getTodayFull()+"");
+	} else {
+		alert("엑셀다운로드 할 항목이 없습니다.");
+	}
+}
+
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CustBasiMap">
+
+    <!-- 고객 검색 조건 -->
+    <sql id="CustBasiMap.selectCondition_fragment">
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="mem_nm != null and mem_nm != ''">
+            <choose>
+                <when test='admr_yn == "N"'>
+                    AND TRIM(A.MEM_NM) = #{mem_nm}
+                </when>
+                <otherwise>
+                    AND TRIM(A.MEM_NM) LIKE '%' || #{mem_nm} || '%'
+                </otherwise>
+            </choose>
+        </if>
+        <if test="cell != null and cell != ''">
+            AND A.CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+        </if>
+        <if test="home_tel != null and home_tel != ''">
+            AND A.HOME_TEL LIKE '%' || REPLACE(#{home_tel}, '-', '') || '%'
+        </if>
+        <if test="sex != null and sex != ''">
+            AND A.SEX = #{sex}
+        </if>
+        <if test="brth_mon_day != null and brth_mon_day != ''">
+            AND SUBSTR(A.BRTH_MON_DAY, '3') = #{brth_mon_day}
+        </if>
+        <if test="idn_no != null and idn_no != ''">
+            AND A.IDN_NO = REPLACE(#{idn_no}, '-', '')
+        </if>
+        <if test="srch_vl != null and srch_vl != ''">
+            <if test="srch_typ == 'home_tel'">
+                AND A.HOME_TEL LIKE '%' || REPLACE(#{srch_vl}, '-', '') || '%'
+            </if>
+            <if test="srch_typ == 'cell'">
+                AND A.CELL LIKE '%' || REPLACE(#{srch_vl}, '-', '') || '%'
+            </if>
+            <if test="srch_typ == 'emil'">
+                AND A.EMIL LIKE '%' || #{srch_vl} || '%'
+            </if>
+        </if>
+        <if test="mem_no != null and mem_no != ''">
+            AND A.MEM_NO = #{mem_no}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND B.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="emple_no != null and emple_no != ''">
+            AND B.EMPLE_NO = #{emple_no}
+        </if>
+        <if test="dept_cd != null and dept_cd != ''">
+            AND EMP.DEPT_CD = #{dept_cd}
+        </if>
+        <if test="view_flag != null and view_flag != ''">
+            AND ROWNUM = 1
+        </if>
+        <if test="dataAthrQury != null and dataAthrQury != ''">
+            ${dataAthrQury}
+        </if>
+        <if test="inco_tlno != null and inco_tlno != ''">
+            <choose>
+                <when test="like_srch_yn != null and like_srch_yn.equalsIgnoreCase('Y')">
+                    AND (A.CELL LIKE '%' || REPLACE(#{inco_tlno}, '-', '') || '%'
+                         OR A.HOME_TEL LIKE '%' || REPLACE(#{inco_tlno}, '-', '') || '%'
+                         OR A.WRPL_TEL LIKE '%' || REPLACE(#{inco_tlno}, '-', '') || '%')
+                </when>
+                <otherwise>
+                    AND (A.CELL = REPLACE(#{inco_tlno}, '-', '')
+                         OR A.HOME_TEL = REPLACE(#{inco_tlno}, '-', '')
+                         OR A.WRPL_TEL = REPLACE(#{inco_tlno}, '-', ''))
+                </otherwise>
+            </choose>
+        </if>
+    </sql>
+    <!-- //고객 검색 조건 -->
+
+    <!-- 고객 건수 조회 -->
+    <!-- <select id="CustBasiMap.getCustBasiCount" parameterType="map" resultType="int">
+        SELECT /* CustBasiMap.getCustBasiCount */
+               COUNT(*)
+          FROM MEMBER A
+             , MEM_PROD_ACCNT B
+             , EMPLOYEE EMP
+         WHERE A.MEM_NO = B.MEM_NO
+           AND B.DEL_FG = 'N'
+           AND B.EMPLE_NO = EMP.EMPLE_NO
+        <include refid="CustBasiMap.selectCondition_fragment" />
+    </select> -->
+    <select id="CustBasiMap.getCustBasiCount" parameterType="map" resultType="int">
+        SELECT /* CustBasiMap.getCustBasiCount */
+               COUNT(*)
+          FROM MEMBER A
+          LEFT OUTER JOIN MEM_PROD_ACCNT B
+                       ON A.MEM_NO = B.MEM_NO
+                      AND B.DEL_FG = 'N'
+          LEFT OUTER JOIN EMPLOYEE EMP
+                       ON B.EMPLE_NO = EMP.EMPLE_NO
+         WHERE A.DEL_FG = 'N'
+        <include refid="CustBasiMap.selectCondition_fragment" />
+    </select>
+    <!-- //고객 건수 조회 -->
+
+    <!-- 고객 목록 조회 -->
+    <!-- <select id="CustBasiMap.getCustBasiList" parameterType="map" resultType="resultMap">
+        sql-cond.xml selectMemberListForCallCenter
+        SELECT /* CustBasiMap.getCustBasiList */
+               D.*
+            , (SELECT U.USER_NM
+                 FROM TB_USER U
+                WHERE U.USER_ID = D.AMND_ID
+                  AND U.CNTR_CD = D.CNTR_CD) AS AMND_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, C.*
+                  FROM (SELECT A.MEM_NO, A.MEM_NM, A.BRTH_MON_DAY, A.CELL, A.HOME_TEL
+                             , A.EMAIL, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.CNTR_CD
+                             , B.ACCNT_NO, B.JOIN_DT, B.EMPLE_NO
+                             , EMP.DEPT_CD
+                          FROM MEMBER A
+                             , MEM_PROD_ACCNT B
+                             , EMPLOYEE EMP
+                         WHERE A.MEM_NO = B.MEM_NO
+                           AND B.DEL_FG = 'N'
+                           AND B.EMPLE_NO = EMP.EMPLE_NO
+                        <include refid="CustBasiMap.selectCondition_fragment" />
+                        <if test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                        ) C
+                ) D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select> -->
+    <select id="CustBasiMap.getCustBasiList" parameterType="map" resultType="resultMap">
+        <!-- sql-cond.xml selectMemberListForCallCenter -->
+        SELECT /* CustBasiMap.getCustBasiList */
+               D.*
+            , (SELECT U.USER_NM
+                 FROM TB_USER U
+                WHERE U.USER_ID = D.RGSR_ID
+                  AND U.CNTR_CD = D.CNTR_CD) AS RGSR_NM
+            , (SELECT U.USER_NM
+                 FROM TB_USER U
+                WHERE U.USER_ID = D.AMND_ID
+                  AND U.CNTR_CD = D.CNTR_CD) AS AMND_NM
+            , DECODE(LENGTH(D.IDN_NO), 10, 'Y', 'N') AS BUSINESS_YN
+          FROM (SELECT ROWNUM AS PAGE_INDX, C.*
+                  FROM (SELECT A.MEM_NO, A.MEM_NM, A.BRTH_MON_DAY, A.CELL, A.HOME_TEL
+                             , A.EMAIL, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.CNTR_CD, A.SEX, A.CI_VAL, A.IDN_NO, A.CREDIT_RATING
+                             , A.WRPL_TEL, A.CRDT_MNG_NO, A.DEL_FG, A.HOME_ZIP, A.HOME_ADDR
+                             , A.HOME_ADDR2, A.CI_VAL AS OLD_CI_VAL, A.HOME_ZIP AS OLD_HOME_ZIP, A.HOME_ADDR AS OLD_HOME_ADDR, A.HOME_ADDR2 AS OLD_HOME_ADDR2
+                             , B.ACCNT_NO, B.JOIN_DT, B.EMPLE_NO, B.RESORT_NO
+                             , EMP.DEPT_CD, EMP.EMPLE_NM
+                             , NVL(A.BLACK_CONSUMER,'N') BLACK_CONSUMER <!-- 관리회원 유무 -->
+                          FROM MEMBER A
+                          LEFT OUTER JOIN MEM_PROD_ACCNT B
+                                       ON A.MEM_NO = B.MEM_NO
+                                      AND B.DEL_FG = 'N'
+                          LEFT OUTER JOIN EMPLOYEE EMP
+                                       ON B.EMPLE_NO = EMP.EMPLE_NO
+                                      AND B.DEL_FG = 'N'
+                         WHERE A.DEL_FG = 'N'
+                        <include refid="CustBasiMap.selectCondition_fragment" />
+                        <if test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                        ) C
+                ) D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    <!-- //고객 목록 조회 -->
+
+    <!-- 고객 등록 -->
+    <insert id="CustBasiMap.insertCustBasi" parameterType="map">
+        INSERT /* CustBasiMap.insertCustBasi */
+          INTO MEMBER
+               (MEM_NO, MEM_NM, HUSHLD, WRPL_NM, DEPT_NM
+              , CELL, HOME_TEL, WRPL_TEL, HOME_ZIP, HOME_ADDR
+              , HOME_ADDR2, WRPL_ZIP, WRPL_ADDR, WRPL_ADDR2, EMAIL
+              , EMAIL_CHK, SMS_CHK, CONTC_TM, CONTC_TM_FROM, CONTC_TM_TO
+              , CERTF_RCV_CHK, BRTH_MON_DAY, SOL_LUN, ANNV, RE_JOIN
+              , NOTE, CL, OLD_MEM_NO, RGSN_DTTM, RGSR_ID
+              , AMNT_DTTM, AMND_ID, DEL_FG, ENG_NM, INSPL_ZIP
+              , INSPL_ADDR, INSPL_ADDR2, IDN_NO_CHK_NOT_USE, CI_VAL, IDN_NO
+              , SEX, CREDIT_RATING, ADDR_UPDATE, CRDT_MNG_NO, CARD_AUTH
+              , PRN_SI_NM, HOME_ZIP_OLD, WRPL_ZIP_OLD, BLACK_CONSUMER, CNTR_CD)
+        VALUES (#{mem_no}, #{mem_nm}, #{hushld}, #{wrpl_nm}, #{dept_nm}
+              , REPLACE(#{cell}, '-', ''), REPLACE(#{home_tel}, '-', ''), REPLACE(#{wrpl_tel}, '-', ''), REPLACE(#{home_zip}, '-', ''), #{home_addr}
+              , #{home_addr2}, #{wrpl_zip}, #{wrpl_addr}, #{wrpl_addr2}, #{email}
+              , #{email_chk}, #{sms_chk}, #{contc_tm}, #{contc_tm_from}, #{contc_tm_to}
+              , #{certf_rcv_chk}, #{brth_mon_day}, #{sol_lun}, #{annv}, #{re_join}
+              , #{note}, #{cl}, #{old_mem_no}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{rgsr_id}
+              , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, #{del_fg}, #{eng_nm}, #{inspl_zip}
+              , #{inspl_addr}, #{inspl_addr2}, #{idn_no_chk_not_use}, #{ci_val}, REPLACE(#{idn_no}, '-', '')
+              , #{sex}, #{credit_rating}, #{addr_update}, #{crdt_mng_no}, #{card_auth}
+              , #{prn_si_nm}, #{home_zip_old}, #{wrpl_zip_old}, #{black_consumer}, #{cntr_cd})
+    </insert>
+    <!-- //고객 등록 -->
+
+    <!-- 고객 수정 -->
+    <update id="CustBasiMap.updateCustBasi" parameterType="map">
+        UPDATE /* CustBasiMap.updateCustBasi */
+               MEMBER
+           SET MEM_NM 			= #{mem_nm}
+             <!-- , IDN_NO 			= (EncryptByKey(Key_GUID('KeyAES256'), CONVERT(VARCHAR, #{idn_no}))) -->
+
+             , IDN_NO 			= REPLACE(#{idn_no}, '-', '')
+             <!-- , HUSHLD 			= #{hushld}
+             , WRPL_NM 			= #{wrpl_nm}
+             , DEPT_NM 			= #{dept_nm} -->
+             , CELL 			= REPLACE(#{cell}, '-', '')
+             , HOME_TEL 		= REPLACE(#{home_tel}, '-', '')
+             , WRPL_TEL 		= REPLACE(#{wrpl_tel}, '-', '')
+            <if test="home_zip != null and home_zip != ''">
+                , HOME_ZIP 		= REPLACE(#{home_zip}, '-', '')
+                , HOME_ADDR 		= #{home_addr}
+                , HOME_ADDR2 		= #{home_addr2}
+            </if>
+             <!-- , WRPL_ZIP 		= #{wrpl_zip}
+             , WRPL_ADDR 		= #{wrpl_addr}
+             , WRPL_ADDR2 		= #{wrpl_addr2} -->
+             , EMAIL 			= #{email}
+             <!-- , EMAIL_CHK 		= #{email_chk}
+             , SMS_CHK 			= #{sms_chk}
+             , CONTC_TM 		= #{contc_tm}
+             , CONTC_TM_FROM	= #{contc_tm_from}
+             , CONTC_TM_TO 		= #{contc_tm_to}
+             , CERTF_RCV_CHK 	= #{certf_rcv_chk} -->
+             , BRTH_MON_DAY 	= #{brth_mon_day}
+             <!-- , SOL_LUN 			= #{sol_lun}
+             , ANNV 			= #{annv}
+             , RE_JOIN 			= #{re_join}
+             , NOTE 			= #{note}
+             , CL 				= #{cl}
+             , OLD_MEM_NO 		= #{old_mem_no} -->
+             , AMNT_DTTM 		= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , AMND_ID 			= #{amnd_id}
+             , DEL_FG 			= #{del_fg}
+             <!-- , ENG_NM 			= #{eng_nm} -->
+            <if test="ci_val != null and ci_val != ''">
+                , CI_VAL = #{ci_val}
+            </if>
+            <!-- <if test="idn_no_chk_not_use != null and idn_no_chk_not_use != ''">
+                , IDN_NO_CHK_NOT_USE = #{idn_no_chk_not_use}
+            </if> -->
+            <if test="sex != null and sex != ''">
+                , SEX = #{sex}
+            </if>
+            <if test="credit_rating != null and credit_rating != ''">
+                , CREDIT_RATING = #{credit_rating}
+            </if>
+            <if test="crdt_mng_no != null and crdt_mng_no != ''">
+                , CRDT_MNG_NO = #{crdt_mng_no}
+            </if>
+            <!-- <if test="black_consumer != null and black_consumer != ''">
+                , BLACK_CONSUMER = #{black_consumer}
+            </if> -->
+        WHERE MEM_NO = #{mem_no}
+    </update>
+    <!-- //고객 수정 -->
+
+    <!-- 고객 저장 -->
+    <insert id="CustBasiMap.mergeCustBasi" parameterType="map">
+        MERGE INTO /* CustBasiMap.mergeCustBasi */
+              MEMBER A
+        USING (SELECT #{mem_no} AS MEM_NO
+                 FROM DUAL) B
+           ON (A.MEM_NO = B.MEM_NO)
+         WHEN MATCHED THEN
+              UPDATE SET MEM_NM 		= #{mem_nm}
+                       , IDN_NO 		= REPLACE(#{idn_no}, '-', '')
+                       , CELL 			= REPLACE(#{cell}, '-', '')
+                       , HOME_TEL 		= REPLACE(#{home_tel}, '-', '')
+                       , WRPL_TEL 		= REPLACE(#{wrpl_tel}, '-', '')
+                       , HOME_ZIP 		= REPLACE(#{home_zip}, '-', '')
+                       , HOME_ADDR 		= #{home_addr}
+                       , HOME_ADDR2 	= #{home_addr2}
+                       , EMAIL 			= #{email}
+                       , BRTH_MON_DAY 	= #{brth_mon_day}
+                       , AMNT_DTTM 		= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                       , AMND_ID 		= #{amnd_id}
+                       , DEL_FG 		= #{del_fg}
+                       , CI_VAL         = #{ci_val}
+                    <if test="sex != null and sex != ''">
+                        , SEX = #{sex}
+                    </if>
+                    <if test="credit_rating != null and credit_rating != ''">
+                        , CREDIT_RATING = #{credit_rating}
+                    </if>
+                    <if test="crdt_mng_no != null and crdt_mng_no != ''">
+                        , CRDT_MNG_NO = #{crdt_mng_no}
+                    </if>
+         WHEN NOT MATCHED THEN
+              INSERT (MEM_NO, MEM_NM, HUSHLD, WRPL_NM, DEPT_NM
+                    , CELL, HOME_TEL, WRPL_TEL, HOME_ZIP, HOME_ADDR
+                    , HOME_ADDR2, WRPL_ZIP, WRPL_ADDR, WRPL_ADDR2, EMAIL
+                    , EMAIL_CHK, SMS_CHK, CONTC_TM, CONTC_TM_FROM, CONTC_TM_TO
+                    , CERTF_RCV_CHK, BRTH_MON_DAY, SOL_LUN, ANNV, RE_JOIN
+                    , NOTE, CL, OLD_MEM_NO, RGSN_DTTM, RGSR_ID
+                    , AMNT_DTTM, AMND_ID, DEL_FG, ENG_NM, INSPL_ZIP
+                    , INSPL_ADDR, INSPL_ADDR2, IDN_NO_CHK_NOT_USE, CI_VAL, IDN_NO
+                    , SEX, CREDIT_RATING, ADDR_UPDATE, CRDT_MNG_NO, CARD_AUTH
+                    , PRN_SI_NM, HOME_ZIP_OLD, WRPL_ZIP_OLD, BLACK_CONSUMER, CNTR_CD)
+              VALUES (#{mem_no}, #{mem_nm}, #{hushld}, #{wrpl_nm}, #{dept_nm}
+                    , REPLACE(#{cell}, '-', ''), REPLACE(#{home_tel}, '-', ''), REPLACE(#{wrpl_tel}, '-', ''), REPLACE(#{home_zip}, '-', ''), #{home_addr}
+                    , #{home_addr2}, #{wrpl_zip}, #{wrpl_addr}, #{wrpl_addr2}, #{email}
+                    , #{email_chk}, #{sms_chk}, #{contc_tm}, #{contc_tm_from}, #{contc_tm_to}
+                    , #{certf_rcv_chk}, #{brth_mon_day}, #{sol_lun}, #{annv}, #{re_join}
+                    , #{note}, #{cl}, #{old_mem_no}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{rgsr_id}
+                    , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, 'N', #{eng_nm}, #{inspl_zip}
+                    , #{inspl_addr}, #{inspl_addr2}, #{idn_no_chk_not_use}, #{ci_val}, REPLACE(#{idn_no}, '-', '')
+                    , #{sex}, #{credit_rating}, #{addr_update}, #{crdt_mng_no}, #{card_auth}
+                    , #{prn_si_nm}, #{home_zip_old}, #{wrpl_zip_old}, #{black_consumer}, #{cntr_cd})
+    </insert>
+    <!-- //고객 저장 -->
+
+    <!-- 고객 이력 등록 -->
+    <insert id="CustBasiMap.insertCustBasiHstr" parameterType="map">
+        INSERT /* CustBasiMap.insertCustBasiHstr */
+          INTO MEMBER_HSTR
+              (MEM_NO, MEM_NM, HUSHLD, WRPL_NM, DEPT_NM
+             , CELL, HOME_TEL, WRPL_TEL, HOME_ZIP, HOME_ADDR
+             , HOME_ADDR2, WRPL_ZIP, WRPL_ADDR, WRPL_ADDR2, EMAIL
+             , EMAIL_CHK, SMS_CHK, CONTC_TM, CONTC_TM_FROM, CONTC_TM_TO
+             , CERTF_RCV_CHK, BRTH_MON_DAY, SOL_LUN, ANNV, RE_JOIN
+             , NOTE, CL, OLD_MEM_NO, RGSN_DTTM, RGSR_ID
+             , AMNT_DTTM, AMND_ID, DEL_FG, ENG_NM, INSPL_ZIP
+             , INSPL_ADDR, INSPL_ADDR2, IDN_NO_CHK_NOT_USE, CI_VAL, IDN_NO
+             , SEX, CREDIT_RATING, ADDR_UPDATE, CRDT_MNG_NO, CARD_AUTH
+             , PRN_SI_NM, HOME_ZIP_OLD, WRPL_ZIP_OLD, BLACK_CONSUMER, OCB_YN
+             , ACEEPT_YN, MARKT_AGR_YN, CNTR_CD, CHNG_DTTM, SAFEKEY, SAFEKEY_SRCH_DT, ACUON_FITNESS_YN
+             , DM_YN, EMAIL_YN, SMS_YN, TEL_YN
+             )
+       VALUES (#{mem_no}, #{mem_nm}, #{hushld}, #{wrpl_nm}, #{dept_nm}
+             , REPLACE(#{cell}, '-', ''), REPLACE(#{home_tel}, '-', ''), REPLACE(#{wrpl_tel}, '-', ''), REPLACE(#{home_zip}, '-', ''), #{home_addr}
+             , #{home_addr2}, REPLACE(#{wrpl_zip}, '-', ''), #{wrpl_addr}, #{wrpl_addr2}, #{email}
+             , #{email_chk}, #{sms_chk}, #{contc_tm}, #{contc_tm_from}, #{contc_tm_to}
+             , #{certf_rcv_chk}, #{brth_mon_day}, #{sol_lun}, #{annv}, #{re_join}
+             , #{note}, #{cl}, #{old_mem_no}, #{rgsn_dttm}, #{rgsr_id}
+             , #{amnt_dttm}, #{amnd_id}, #{del_fg}, #{eng_nm}, REPLACE(#{inspl_zip}, '-', '')
+             , #{inspl_addr}, #{inspl_addr2}, #{idn_no_chk_not_use}, #{ci_val}, #{idn_no}
+             , #{sex}, #{credit_rating}, #{addr_update}, #{crdt_mng_no}, #{card_auth}
+             , #{prn_si_nm}, REPLACE(#{home_zip_old}, '-', ''), REPLACE(#{wrpl_zip_old}, '-', ''), #{black_consumer}, #{ocb_yn}
+             , #{aceept_yn}, #{markt_agr_yn}, #{cntr_cd}, SYSTIMESTAMP, #{safekey}, #{safekey_srch_dt}, #{acuon_fitness_yn}
+             , #{dm_yn}, #{email_yn}, #{sms_yn}, #{tel_yn}
+             )
+    </insert>
+    <!-- //고객 이력 등록 -->
+
+    <!-- 고객 조회 로그 등록 -->
+    <insert id="CustBasiMap.insertCustInqLog" parameterType="map">
+        <selectKey keyProperty="cust_inq_log_id" resultType="String" order="BEFORE">
+            SELECT 'CIL' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* CustBasiMap.insertCustInqLog */
+          INTO TB_CUST_INQ_LOG
+               (CUST_INQ_LOG_ID, MEM_NO, CUST_INQ_TRGT_CD, CUST_INQP_ID, CUST_INQ_DTTM
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{cust_inq_log_id}, #{mem_no}, #{cust_inq_trgt_cd}, #{rgsr_id}, SYSTIMESTAMP
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- //고객 조회 로그 등록 -->
+
+    <update id="CustBasiMap.updateConsCustBasi" parameterType="map">
+        UPDATE /* CustBasiMap.updateConsCustBasi */
+               MEMBER
+           SET MEM_NM 			= #{mem_nm}
+             , HUSHLD 			= #{hushld}
+             , WRPL_NM 			= #{wrpl_nm}
+             , DEPT_NM 			= #{dept_nm}
+             , CELL 			= REPLACE(#{cell}, '-', '')
+             , HOME_TEL 		= REPLACE(#{home_tel}, '-', '')
+             , WRPL_TEL 		= REPLACE(#{wrpl_tel}, '-', '')
+             , HOME_ZIP 		= REPLACE(#{home_zip}, '-', '')
+             , HOME_ADDR 		= #{home_addr}
+             , HOME_ADDR2 		= #{home_addr2}
+             , WRPL_ZIP 		= #{wrpl_zip}
+             , WRPL_ADDR 		= #{wrpl_addr}
+             , WRPL_ADDR2 		= #{wrpl_addr2}
+             , EMAIL 			= #{email}
+             , EMAIL_CHK 		= #{email_chk}
+             , SMS_CHK 			= #{sms_chk}
+             , CONTC_TM 		= #{contc_tm}
+             , CONTC_TM_FROM	= #{contc_tm_from}
+             , CONTC_TM_TO 		= #{contc_tm_to}
+             , CERTF_RCV_CHK 	= #{certf_rcv_chk}
+             , BRTH_MON_DAY 	= #{brth_mon_day}
+             , SOL_LUN 			= #{sol_lun}
+             , ANNV 			= #{annv}
+             , RE_JOIN 			= #{re_join}
+             , NOTE 			= #{note}
+             , CL 				= #{cl}
+             , OLD_MEM_NO 		= #{old_mem_no}
+             , AMNT_DTTM 		= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , AMND_ID 			= #{amnd_id}
+             , DEL_FG 			= #{del_fg}
+             , ENG_NM 			= #{eng_nm}
+             , INSPL_ADDR       = #{inspl_addr}
+             , INSPL_ADDR2      = #{inspl_addr2}
+             , IDN_NO_CHK_NOT_USE = #{idn_no_chk_not_use}
+             , CI_VAL           = #{ci_val}
+             , IDN_NO 			= REPLACE(#{idn_no}, '-', '')
+             , SEX              = #{sex}
+             , CREDIT_RATING    = #{credit_rating}
+             , ADDR_UPDATE      = #{addr_update}
+             , CRDT_MNG_NO      = #{crdt_mng_no}
+             , CARD_AUTH        = #{card_auth}
+             , PRN_SI_NM        = #{prn_si_nm}
+             , HOME_ZIP_OLD     = #{home_zip_old}
+             , WRPL_ZIP_OLD     = #{wrpl_zip_old}
+             , BLACK_CONSUMER = #{black_consumer}
+        WHERE MEM_NO = #{mem_no}
+    </update>
+
+</mapper>

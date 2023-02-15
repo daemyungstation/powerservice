@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DllzDtlMap">
+
+    <sql id="DllzDtlMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+                AND GOOF_DT BETWEEN #{startd} AND #{endd}
+            </if>
+            <if test="srch_yrmn != null and srch_yrmn != ''">
+                AND GOOF_DT LIKE #{srch_yrmn} || '%'
+            </if>
+            <if test="goof_dt != null and goof_dt != ''">
+                AND GOOF_DT = #{goof_dt}
+            </if>
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND USER_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.USER_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.USER_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+            <if test="today_yn != null and today_yn != ''">
+                AND GOOF_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+            </if>
+        </where>
+    </sql>
+
+    <select id="DllzDtlMap.getDllzDtlCount" parameterType="map" resultType="int">
+        SELECT /* DllzDtlMap.getDllzDtlCount */
+               COUNT (*)
+          FROM TB_DLLZ_DTL A
+        <include refid="DllzDtlMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="DllzDtlMap.getDllzDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* DllzDtlMap.getDllzDtlList */
+               C.*
+             , SUBSTR(GTWK_DTTM, 9, 14) AS GTWK_HR
+             , GETCODENM('SCH010', C.WRK_STAT_CD, #{cntr_cd}) AS WRK_STAT_NM
+             , DECODE(EXCS_WRK_HR, NULL, '00', LPAD(TRUNC(EXCS_WRK_HR / 60), 2, '0')) || DECODE(EXCS_WRK_HR, NULL, '00', LPAD(MOD(EXCS_WRK_HR, 60), 2, '0')) AS EXCS_WRK_TM
+             , LPAD(TRUNC(WRK_SC / 60), 2, '0') || LPAD(MOD(WRK_SC, 60), 2, '0') AS WRK_TM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS TEAM2_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT GOOF_DT, USER_ID, WRK_DT, GOOF_HR, GTWK_DTTM
+                             , LOE_YN, EXCS_WRK_HR, WRK_TYP_CD, WRK_STAT_CD, DLLZ_EXPI
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (TO_DATE(GTWK_DTTM, 'YYYYMMDDHH24MISS') - TO_DATE(GOOF_DT || GOOF_HR, 'YYYYMMDDHH24MISS')) * 24 * 60 AS WRK_SC
+                             , (SELECT B.WRK_TYP_NM
+                                  FROM TB_WRK_TYP_CD B
+                                 WHERE B.WRK_TYP_CD = A.WRK_TYP_CD) AS WRK_TYP_NM
+                             , (SELECT C.HGRN_TEAM_CD
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD) AS TEAM1_CD
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS TEAM2_CD
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS USER_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_DLLZ_DTL A
+        <include refid="DllzDtlMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="DllzDtlMap.insertDllzDtl" parameterType="map">
+        INSERT /* DllzDtlMap.insertDllzDtl */
+          INTO TB_DLLZ_DTL
+               (GOOF_DT, USER_ID, WRK_DT, GOOF_HR, GTWK_DTTM
+              , LOE_YN, EXCS_WRK_HR, WRK_TYP_CD, WRK_STAT_CD, DLLZ_EXPI
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{goof_dt}, #{user_id}, #{wrk_dt}, #{goof_hr}, #{goof_dt} || #{gtwk_hr}
+              , #{loe_yn}, #{excs_wrk_hr}, #{wrk_typ_cd}, #{wrk_stat_cd}, #{dllz_expi}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="DllzDtlMap.updateDllzDtl" parameterType="map">
+        UPDATE /* DllzDtlMap.updateDllzDtl */
+               TB_DLLZ_DTL
+           SET GOOF_HR = #{goof_hr}
+             , GTWK_DTTM = #{goof_dt} || #{gtwk_hr}
+             , LOE_YN = #{loe_yn}
+             , EXCS_WRK_HR = #{excs_wrk_hr}
+             , WRK_TYP_CD = #{wrk_typ_cd}
+             , WRK_STAT_CD = #{wrk_stat_cd}
+             , DLLZ_EXPI = #{dllz_expi}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE GOOF_DT = #{goof_dt}
+           AND USER_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="DllzDtlMap.deleteDllzDtl" parameterType="map">
+        DELETE /* DllzDtlMap.deleteDllzDtl */
+          FROM TB_DLLZ_DTL
+         WHERE GOOF_DT = #{goof_dt}
+           AND USER_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+    </delete>
+
+
+    <select id="DllzDtlMap.getScdlWrkTypForDllz" parameterType="map" resultType="resultMap">
+        SELECT /* DllzDtlMap.getScdlWrkTypForDllz */
+               WRK_TYP_CD, WRK_TYP_NM, BSWR_STT_HR, BSWR_END_HR
+          FROM TB_WRK_TYP_CD
+         WHERE CNTR_CD = #{cntr_cd}
+           AND USE_YN = 'Y'
+           AND WRK_TYP_CD = (SELECT WRK_TYP_CD
+                               FROM TB_WRK_SCDL_DTL
+                              WHERE USER_ID = #{user_id}
+                                AND CNTR_CD = #{cntr_cd}
+                                AND WRK_SCDL_YRMN = TO_CHAR(SYSDATE, 'YYYYMM')
+                                AND WRK_SCDL_DY = TO_CHAR(SYSDATE, 'DD')
+                            )
+    </select>
+
+    <select id="DllzDtlMap.getDllzWrkTyp" parameterType="map" resultType="resultMap">
+        SELECT /* DllzDtlMap.getDllzWrkTyp */
+               WRK_TYP_CD, WRK_TYP_NM, BSWR_STT_HR, BSWR_END_HR
+          FROM TB_WRK_TYP_CD
+         WHERE CNTR_CD = #{cntr_cd}
+           AND USE_YN = 'Y'
+           AND WRK_TYP_CD = (SELECT WRK_TYP_CD
+                               FROM TB_DLLZ_DTL
+                              WHERE USER_ID = #{user_id}
+                                AND CNTR_CD = #{cntr_cd}
+                                AND GOOF_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                            )
+    </select>
+
+    <insert id="DllzDtlMap.insertDllzDtlForLogin" parameterType="map">
+        INSERT /* DllzDtlMap.insertDllzDtlForLogin */
+          INTO TB_DLLZ_DTL
+               (GOOF_DT, USER_ID, WRK_TYP_CD, GOOF_HR
+              , WRK_STAT_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (TO_CHAR(SYSDATE, 'YYYYMMDD'), #{user_id}, #{wrk_typ_cd}, TO_CHAR(SYSDATE, 'HH24MISS')
+              , (CASE WHEN #{bswr_stt_hr} IS NULL
+                           THEN '10'
+                      WHEN TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD') || #{bswr_stt_hr}, 'YYYYMMDDHH24MI') - SYSDATE >= 0
+                           THEN '10'
+                      ELSE '20'
+                 END)
+              , #{cntr_cd}, #{user_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{user_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="DllzDtlMap.updateDllzDtlForLogout" parameterType="map">
+        UPDATE /* DllzDtlMap.updateDllzDtlForLogout */
+               TB_DLLZ_DTL
+           SET GTWK_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , LOE_YN = (CASE WHEN #{bswr_end_hr} IS NULL
+                                   THEN 'N'
+                              WHEN SYSDATE - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD') || #{bswr_end_hr}, 'YYYYMMDDHH24MI') >= 0
+                                   THEN 'N'
+                              ELSE 'Y'
+                         END)
+             , AMND_ID = #{user_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE GOOF_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND USER_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+</mapper>

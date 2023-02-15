@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="PgmAthrMap">
+
+    <sql id="PgmAthrMap.selectCondition_fragment">
+        <if test="athr_cd != null and athr_cd != ''">
+            AND A.ATHR_CD = #{athr_cd}
+        </if>
+        <if test="gds_cd != null and gds_cd != ''">
+            AND A.GDS_CD = #{gds_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="lvl_cnt != null and lvl_cnt != ''">
+            AND B.LVL_CNT = #{lvl_cnt}
+        </if>
+        <if test="pgm_cd != null and pgm_cd != ''">
+            AND B.PGM_CD = #{pgm_cd}
+        </if>
+
+
+        <if test="menu_flag == null or menu_flag == ''">
+            <choose>
+                <when test="hgrn_pgm_cd == null or hgrn_pgm_cd == ''">
+                AND B.HGRN_PGM_CD IS NULL
+                </when>
+                <otherwise>
+                AND B.HGRN_PGM_CD = #{hgrn_pgm_cd}
+                </otherwise>
+            </choose>
+        </if>
+        <!-- <if test="menu_flag != null">
+            AND B.PGM_CD LIKE 'MN%'
+        </if> -->
+    </sql>
+
+    <!-- <select id="PgmAthrMap.getPgmAthrList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmAthrMap.getPgmAthrList */
+               A.ATHR_CD, B.PGM_CD, B.GDS_CD, B.CNTR_CD, B.HGRN_PGM_CD
+             , B.PGM_NM, B.PGM_SQNC, B.FILE_NM, B.PRMR_CNTN, B.IMG_PATH
+             , B.LVL_CNT, B.CLOT_FUNC_NM, B.ADMR_YN, B.PPUP_YN, A.RGSN_YN
+             , A.INQ_YN, A.AMNT_YN, A.DLTN_YN, A.PRIT_YN, A.XLS_YN
+             , A.ATHR_PPUP_YN, A.XLS_RRNO_YN
+          FROM TB_PGM_ATHR A
+             , TB_PGM B
+         WHERE A.PGM_CD = B.PGM_CD
+           AND A.GDS_CD = B.GDS_CD
+           AND A.CNTR_CD = B.CNTR_CD
+        <include refid="PgmAthrMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+        <if test="orderBy == null or orderBy == ''">
+      ORDER BY B.PGM_SQNC ASC
+        </if>
+    </select> -->
+
+    <select id="PgmAthrMap.getPgmAthrList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmAthrMap.getPgmAthrList */
+               *
+          FROM (SELECT A.ATHR_CD, B.PGM_CD, B.GDS_CD, B.CNTR_CD, B.HGRN_PGM_CD
+                     , B.PGM_NM, B.PGM_SQNC, B.FILE_NM, B.PRMR_CNTN, B.IMG_PATH
+                     , B.LVL_CNT, B.CLOT_FUNC_NM, B.ADMR_YN, B.PPUP_YN, A.RGSN_YN
+                     , A.INQ_YN, A.AMNT_YN, A.DLTN_YN, A.PRIT_YN, A.XLS_YN
+                     , A.ATHR_PPUP_YN, A.XLS_RRNO_YN
+                     , (SELECT ATHR_NM FROM TB_ATHR WHERE ATHR_CD = A.ATHR_CD) AS ATHR_NM
+                     , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                     , (SELECT U.USER_NM
+                          FROM TB_USER U
+                         WHERE U.USER_ID = A.RGSR_ID
+                           AND U.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT U.USER_NM
+                          FROM TB_USER U
+                         WHERE U.USER_ID = A.AMND_ID
+                           AND U.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                     , DECODE((SELECT COUNT(*)FROM TB_PGM_INDV_FNCT WHERE PGM_CD = B.PGM_CD),0,'N','Y') INDV_FNCT_YN
+                     , DECODE((SELECT COUNT(*)FROM TB_PGM_INDV_FNCT_ATHR WHERE PGM_CD = B.PGM_CD AND ATHR_CD = A.ATHR_CD AND GDS_CD = B.GDS_CD ),0,'N','Y') INDV_FNCT_ATHR_YN
+                  FROM TB_PGM_ATHR A
+                     , TB_PGM B
+                 WHERE A.PGM_CD = B.PGM_CD
+                   AND A.GDS_CD = B.GDS_CD
+                   AND A.CNTR_CD = B.CNTR_CD
+                <include refid="PgmAthrMap.selectCondition_fragment"/>
+                <if test="menu_flag == null">
+                    <if test="orderBy != null and orderBy != ''">
+                          ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                    <if test="orderBy == null or orderBy == ''">
+                          ORDER BY B.PGM_SQNC ASC
+                    </if>
+                </if>
+               )
+        <if test="menu_flag != null">
+        START WITH HGRN_PGM_CD IS NULL
+      CONNECT BY PRIOR PGM_CD = HGRN_PGM_CD
+        ORDER SIBLINGS BY PGM_SQNC ASC
+        </if>
+    </select>
+
+
+    <select id="PgmAthrMap.getPgmAthrAddList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmAthrMap.getPgmAthrAddList */
+               A.PGM_CD, A.PGM_NM, A.FILE_NM
+             , DECODE((SELECT COUNT(*)FROM TB_PGM_INDV_FNCT WHERE PGM_CD = A.PGM_CD),0,'N','Y') INDV_FNCT_YN
+          FROM TB_PGM A
+         WHERE A.GDS_CD = #{gds_cd}
+           AND A.CNTR_CD = #{cntr_cd}
+           AND A.LVL_CNT = #{lvl_cnt}
+           AND NOT EXISTS (SELECT 'Y'
+                             FROM TB_PGM_ATHR B
+                            WHERE B.GDS_CD = A.GDS_CD
+                              AND B.PGM_CD = A.PGM_CD
+                              AND B.CNTR_CD = A.CNTR_CD
+                              AND B.ATHR_CD = #{athr_cd})
+        <choose>
+            <when test="hgrn_pgm_cd == null or hgrn_pgm_cd == ''">
+           AND HGRN_PGM_CD IS NULL
+            </when>
+            <otherwise>
+           AND HGRN_PGM_CD = #{hgrn_pgm_cd}
+            </otherwise>
+        </choose>
+        <if test="pgm_excds != null and pgm_excds != ''">
+            AND NOT EXISTS (SELECT 'Y'
+                              FROM TB_PGM B
+                             WHERE B.GDS_CD = A.GDS_CD
+                               AND B.PGM_CD = A.PGM_CD
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.PGM_CD IN (${pgm_excds}))
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+    <insert id="PgmAthrMap.insertPgmAthr" parameterType="map">
+        INSERT /* PgmAthrMap.insertPgmAthr */
+          INTO TB_PGM_ATHR
+               (ATHR_CD, PGM_CD, GDS_CD, CNTR_CD
+         <if test="rgsn_yn != null and rgsn_yn != ''">
+              , RGSN_YN
+         </if>
+         <if test="inq_yn != null and inq_yn != ''">
+              , INQ_YN
+         </if>
+         <if test="amnt_yn != null and amnt_yn != ''">
+              , AMNT_YN
+         </if>
+         <if test="dltn_yn != null and dltn_yn != ''">
+              , DLTN_YN
+         </if>
+         <if test="prit_yn != null and prit_yn != ''">
+              , PRIT_YN
+         </if>
+         <if test="xls_yn != null and xls_yn != ''">
+              , XLS_YN
+         </if>
+         <if test="athr_ppup_yn != null and athr_ppup_yn != ''">
+              , ATHR_PPUP_YN
+         </if>
+         <if test="xls_rrno_yn != null and xls_rrno_yn != ''">
+              , XLS_RRNO_YN
+         </if>
+         <if test="prif_yn != null and prif_yn != ''">
+              , prif_yn
+         </if>
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{athr_cd}, #{pgm_cd}, #{gds_cd}, #{cntr_cd}
+         <if test="rgsn_yn != null and rgsn_yn != ''">
+              , #{rgsn_yn}
+         </if>
+         <if test="inq_yn != null and inq_yn != ''">
+              , #{inq_yn}
+         </if>
+         <if test="amnt_yn != null and amnt_yn != ''">
+              , #{amnt_yn}
+         </if>
+         <if test="dltn_yn != null and dltn_yn != ''">
+              , #{dltn_yn}
+         </if>
+         <if test="prit_yn != null and prit_yn != ''">
+              , #{prit_yn}
+         </if>
+         <if test="xls_yn != null and xls_yn != ''">
+              , #{xls_yn}
+         </if>
+         <if test="athr_ppup_yn != null and athr_ppup_yn != ''">
+              , #{athr_ppup_yn}
+         </if>
+         <if test="xls_rrno_yn != null and xls_rrno_yn != ''">
+              , #{xls_rrno_yn}
+         </if>
+         <if test="prif_yn != null and prif_yn != ''">
+              , #{prif_yn}
+         </if>
+              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <delete id="PgmAthrMap.deletePgmAthr" parameterType="map">
+        DELETE /* PgmAthrMap.deletePgmAthr */
+          FROM TB_PGM_ATHR
+         WHERE CNTR_CD = #{cntr_cd}
+        <if test="gds_cd != null and gds_cd != ''">
+           AND GDS_CD = #{gds_cd}
+        </if>
+        <if test="athr_cd != null and athr_cd != ''">
+           AND ATHR_CD = #{athr_cd}
+        </if>
+        <if test="pgm_cd != null and pgm_cd != ''">
+           AND PGM_CD IN (SELECT PGM_CD
+                            FROM (SELECT *
+                                    FROM TB_PGM
+                                   WHERE GDS_CD = #{gds_cd}
+                                     AND CNTR_CD = #{cntr_cd}
+                                 )
+                           START WITH PGM_CD = #{pgm_cd}
+                         CONNECT BY PRIOR PGM_CD = HGRN_PGM_CD
+                         )
+        </if>
+    </delete>
+
+    <update id="PgmAthrMap.updatePgmAthr" parameterType="map">
+        UPDATE /* PgmAthrMap.updatePgmAthr */
+               TB_PGM_ATHR
+           SET RGSN_YN = #{rgsn_yn}
+             , INQ_YN = #{inq_yn}
+             , AMNT_YN = #{amnt_yn}
+             , DLTN_YN = #{dltn_yn}
+             , PRIT_YN = #{prit_yn}
+             , XLS_YN = #{xls_yn}
+             , ATHR_PPUP_YN = #{athr_ppup_yn}
+             , XLS_RRNO_YN = #{xls_rrno_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE CNTR_CD = #{cntr_cd}
+           AND PGM_CD = #{pgm_cd}
+           AND ATHR_CD = #{athr_cd}
+           AND GDS_CD = #{gds_cd}
+    </update>
+
+</mapper>

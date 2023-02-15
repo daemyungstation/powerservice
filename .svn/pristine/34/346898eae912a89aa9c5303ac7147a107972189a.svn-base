@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="MN010300" classname="MN010300" inheritanceid="" position="absolute 0 0 1024 768" titletext="New Form">
+    <Layouts>
+      <Layout>
+        <Static id="stc_01" class="sta_workSrcBg" position2="absolute l:0 r:0 t:18 h:42" positiontype="position2" visible="false"/>
+        <GroupBox id="GroupBox00" text="OCB 카드코드별 카드번호 수량" onlbuttondown="GroupBox00_onlbuttondown" position2="absolute l:8 r:17 t:32 b:47" positiontype="position2"/>
+        <Grid id="Grid00" taborder="11" useinputpanel="false" cellsizingtype="col" autofittype="col" position2="absolute l:22 r:224 t:56 b:54" positiontype="position2" binddataset="ds_list">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="40"/>
+                <Column size="82"/>
+                <Column size="80"/>
+                <Column size="85"/>
+                <Column size="92"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="순번"/>
+                <Cell col="1" text="카드코드"/>
+                <Cell col="2" text="사용건수"/>
+                <Cell col="3" text="미사용건수"/>
+                <Cell col="4" text="합계"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:cnt"/>
+                <Cell col="1" text="bind:card_code"/>
+                <Cell col="2" displaytype="number" text="bind:use_cnt"/>
+                <Cell col="3" displaytype="number" text="bind:unuse_cnt"/>
+                <Cell col="4" displaytype="number" text="bind:total"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_excel00" taborder="12" text="카드번호 업로드" onclick="btn_onclick" class="btn_WF" position2="absolute r:21 w:105 t:8 h:21" positiontype="position2" tooltiptext="엑셀" style="padding:0 0 0 0;"/>
+        <Button id="btn_excel" taborder="13" text="엑셀" onclick="btn_onclick" class="btn_WF" position2="absolute r:196 w:39 t:8 h:21" positiontype="position2" tooltiptext="엑셀" style="padding:0 0 0 0;" visible="false"/>
+        <Button id="btn_search" taborder="14" onclick="fn_commSearch" class="btn_WF_Search" position2="absolute r:130 w:63 t:8 h:20" positiontype="position2" tooltiptext="조회"/>
+        <Button id="btn_init" taborder="15" onclick="btn_init_onclick" class="btn_WF_Return" position2="absolute r:240 w:71 t:9 h:20" positiontype="position2" tooltiptext="초기화" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cnt" type="STRING" size="256"/>
+          <Column id="card_code" type="STRING" size="256"/>
+          <Column id="use_cnt" type="STRING" size="256"/>
+          <Column id="unuse_cnt" type="STRING" size="256"/>
+          <Column id="total" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="cnt" type="STRING" size="256"/>
+          <Column id="card_code" type="STRING" size="256"/>
+          <Column id="use_cnt" type="STRING" size="256"/>
+          <Column id="unuse_cnt" type="STRING" size="256"/>
+          <Column id="total" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg)
+{
+   		switch (svcid) {
+   			case "srchOcbCardCntList":
+   			alert("Enter callBack");
+   			ds_list.clear();
+   			gfn_appendSearchDs(ds_list, ds_list_tmp);
+   		    trace(ds_list.saveXML());
+   			fn_postSearch();
+   		
+   			break;
+   	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+// 조회 전
+   function fn_preSearch(sType)
+   {
+   	if (sType == gfn_getCommTypeInit())	{
+   		
+		var sStatCds = "";
+   	
+   		// 조회조건 및 default 정렬
+    	ds_inqCndt.clearData();
+        ds_inqCndt.addRow();
+   		
+   	}
+   	
+   	return true;
+   
+   }
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//조회
+function fn_commSearch(sType) {
+	
+	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+	if (!fn_preSearch(sType)) return false;
+	
+	szSvcid       = "srchOcbCardCntList";
+	szController  = "/dlw/memOcb/srchOcbCardCntList";
+	szInDs        = "ds_input=ds_inqCndt";
+	szOutDs       = "ds_list_tmp=ds_output";
+	szParam       = "";
+	szRetCallback = "fn_callBack";
+		
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+  
+// /********************************************************************************************/
+// /**   6. 사용자 함수                                                                   	*/
+// /********************************************************************************************/
+   // 초기화
+  function fn_init()
+   {
+   fn_commSearch(gfn_getCommTypeInit(), "srchOcbCardCntList"); // 조회 
+   } 
+   
+   //조회 결과 
+   function fn_postSearch()
+   {
+   	if(ds_list.rowcount < 1) {
+   		alert("조회된 자료가 없습니다.");
+   		ds_list.clearData();
+   	}
+   }
+   
+   
+   
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+   function btn_search_onclick(obj:Button,  e:ClickEventInfo) //조회
+   {
+   	fn_commSearch('INIT');
+   	alert("조회 버튼");
+   }
+
+
+
+function btn_init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	ds_list.clear();
+}
+]]></Script>
+  </Form>
+</FDL>

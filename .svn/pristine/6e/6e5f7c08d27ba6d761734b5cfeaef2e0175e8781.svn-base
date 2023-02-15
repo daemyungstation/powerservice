@@ -1,0 +1,248 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL441100P01" classname="DL460603_01" inheritanceid="" position="absolute 0 0 640 560" titletext="만기고객상세정보" onload="DL441100P01_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_18" class="sta_popupBg1" enable="false" position="absolute 0 0 640 560" visible="true"/>
+        <Button id="btn_Close" taborder="0" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 606 9 626 28" visible="true"/>
+        <Static id="stc_01" text="만기도래고객상세정보" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 561 28" visible="true"/>
+        <Grid id="grd_list" taborder="1" binddataset="ds_mangiAccntInfoDtl" useinputpanel="false" cellsizingtype="col" onvscrolllastover="grd_list_onvscrolllastover" oncellclick="grd_list_oncellclick" onheadclick="grd_onheadclick" position2="absolute l:6 r:4 t:63 b:6" positiontype="position2">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="40"/>
+                <Column size="100"/>
+                <Column size="120"/>
+                <Column size="100"/>
+                <Column size="250"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="No"/>
+                <Cell col="1" displaytype="normal" text="회원번호"/>
+                <Cell col="2" displaytype="normal" text="회원명"/>
+                <Cell col="3" displaytype="normal" text="가입일자"/>
+                <Cell col="4" displaytype="normal" text="가입상품"/>
+              </Band>
+              <Band id="body">
+                <Cell text="expr:currow + 1"/>
+                <Cell col="1" displaytype="text" text="bind:accnt_no"/>
+                <Cell col="2" displaytype="normal" text="bind:mem_nm"/>
+                <Cell col="3" displaytype="date" text="bind:join_dt" calendardisplaynulltype="none"/>
+                <Cell col="4" displaytype="normal" style="align:left middle;" text="bind:prod_nm"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="sta_TotalCntDtl" text="검색결과 &lt;fs v='9'&gt;&lt;fc v='#f0850c'&gt;&lt;b v='true'&gt;0&lt;/b&gt;&lt;/fc&gt;&lt;/fs&gt; &lt;fc v='#a1a1a1'&gt;건&lt;/fc&gt;" usedecorate="true" class="sta_workTitle5" position2="absolute l:6 w:208 t:40 h:20" positiontype="position2"/>
+        <Button id="btn_excelDtl" taborder="2" text="엑셀" onclick="btn_excelDtl_onclick" class="btn_WF_Common" position2="absolute r:4 w:100 t:40 h:20" positiontype="position2" style="padding:0 0 0 0;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="stt_dt" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_mangiAccntInfoDtl" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="accnt_no" type="STRING" size="256"/>
+          <Column id="kstbit" type="STRING" size="256"/>
+          <Column id="man_day" type="STRING" size="256"/>
+          <Column id="event_proc_day" type="STRING" size="256"/>
+          <Column id="resn_proc_day" type="STRING" size="256"/>
+          <Column id="reson" type="STRING" size="256"/>
+          <Column id="mem_nm" type="STRING" size="256"/>
+          <Column id="join_dt" type="STRING" size="256"/>
+          <Column id="prod_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item4" compid="grd_list" propid="" datasetid="ds_list" columnid=""/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                   */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+include "LIB::lib_ConsTyp.xjs";
+
+var nTotalListCnt;
+var xSttDt;
+var xGridColumnId;
+var xPopMangiAccntInfoTitleName;
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	    */
+/********************************************************************************************/
+function DL441100P01_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_initForm(obj);
+	gfn_createPagingDataset(obj);
+	fn_init();
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		    */
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) 
+	{
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+		    case "getMangiAccntInfoDtl" :
+			    gfn_setTotalRowCountOfNotPaging(sta_TotalCntDtl, nTotalListCnt);
+			    fn_postSearch(gfn_getCommTypeInit(), "getMangiAccntInfoDtl");
+	        break;
+		}
+	}
+}
+
+function fn_postSearch(sType, svcId)
+{
+	switch (svcId) 
+	{
+		case "getMangiAccntInfoDtl" :
+			if (sType == gfn_getCommTypeInit())
+			{
+				if(ds_mangiAccntInfoDtl.getRowCount() <= 0)
+				{
+					alert("조회된 데이터가 없습니다.");
+				}
+				else
+				{
+					
+				}
+			}
+		break;
+	}
+}
+
+/********************************************************************************************/
+/* 4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+function fn_preSearch(sType, searchInfo)
+{
+	switch (searchInfo) 
+	{
+		case "getMangiAccntInfoDtl" :
+		    if (sType == gfn_getCommTypeInit())
+			{
+		        var sSttDt = xSttDt;
+		    
+	            if (gfn_isNull(sSttDt) == true) 
+			    {
+				    alert("검색월을 정확히 입력하여 주십시오.");
+				    return false;
+			    }		
+		
+			    ds_inqCndt.clearData();
+				
+			    var nRow = ds_inqCndt.addRow();				
+			    ds_inqCndt.setColumn(nRow, "stt_dt", sSttDt);
+			}
+	    break;
+	}
+	
+	return true;
+}
+
+/********************************************************************************************/
+/* 5. 서비스 호출(gfn_Transaction)                                                   	    */
+/********************************************************************************************/
+function fn_commSearch(sType, searchInfo) 
+{
+   	var szSvcid       = "";
+    var szController  = "";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    
+    switch(searchInfo) 
+    {
+		case "getMangiAccntInfoDtl" :
+	        if(!fn_preSearch(sType, searchInfo)) 
+	        {
+		        return false;
+	        }
+	
+	        var szsvcId       = "getMangiAccntInfoDtl";
+	        var szController  = "/dlw/termMangiInfo/main/getMangiAccntInfoDtl";
+	        var szInDs        = "ds_input=ds_inqCndt";
+	        var szOutDs       = "ds_mangiAccntInfoDtl=ds_output";
+	        var szParam       = "grid_column_id=" + xGridColumnId;
+	        var szRetCallback = "fn_callBack";
+	
+	        gfn_transaction(this, szsvcId, szController, szInDs, szOutDs, szParam, szRetCallback);
+	    break;
+	}
+}
+
+/********************************************************************************************/
+/* 6. 사용자 함수                                                                   	    */
+/********************************************************************************************/
+function fn_init()
+{
+    xSttDt = pSttDt;
+    xGridColumnId = pGridColumnId;
+    xPopMangiAccntInfoTitleName = pPopMangiAccntInfoTitleName;
+    
+    stc_01.text = xPopMangiAccntInfoTitleName;
+	fn_commSearch(gfn_getCommTypeInit(), "getMangiAccntInfoDtl");
+}
+/********************************************************************************************/
+/* 7. 이벤트(Event) Function                                                          	    */
+/********************************************************************************************/
+
+function btn_init_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_init();
+}
+
+function btn_excelDtl_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var nRow = ds_mangiAccntInfoDtl.getRowCount();
+    
+    if(nRow > 0)
+	{
+		gfn_exportGridToExcel(grd_list, "만기해약고객리스트_" + gfn_getTodayFull() + "");
+	}
+	else
+	{
+		alert("출력할 데이터가 없습니다.");
+	}
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function grd_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_grdHeadClick(obj, e);
+}]]></Script>
+  </Form>
+</FDL>

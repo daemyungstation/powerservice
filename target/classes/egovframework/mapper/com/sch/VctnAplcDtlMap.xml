@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="VctnAplcDtlMap">
+
+    <sql id="VctnAplcDtlMap.selectCondition_fragment">
+        <where>
+            <if test="vctn_aplc_id != null and vctn_aplc_id != ''">
+                AND VCTN_APLC_ID = #{vctn_aplc_id}
+            </if>
+            <if test="expt_vctn_aplc_id != null and expt_vctn_aplc_id != ''">
+                AND VCTN_APLC_ID != #{expt_vctn_aplc_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="appr_id != null and appr_id != ''">
+                AND APPR_ID = #{appr_id}
+            </if>
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND USER_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.USER_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.USER_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+            <if test="srch_yrmn != null and srch_yrmn != ''">
+                AND VCTN_APLC_ID IN (SELECT T1.VCTN_APLC_ID
+                                       FROM TB_VCTN_DT_DTL T1
+                                      WHERE T1.VCTN_DT LIKE #{srch_yrmn} || '%' )
+            </if>
+            <if test="vctn_dt != null and vctn_dt != ''">
+                AND VCTN_DT = #{vctn_dt}
+            </if>
+            <if test="vctn_kind_cd != null and vctn_kind_cd != ''">
+                AND VCTN_KIND_CD = #{vctn_kind_cd}
+            </if>
+            <if test="vctn_dsps_stat_cd != null and vctn_dsps_stat_cd != ''">
+                AND VCTN_DSPS_STAT_CD = #{vctn_dsps_stat_cd}
+            </if>
+            <if test="vctn_dsps_stat_cd_list != null and vctn_dsps_stat_cd_list != ''">
+                AND VCTN_DSPS_STAT_CD IN (${vctn_dsps_stat_cd_list})
+            </if>
+        </where>
+    </sql>
+
+    <select id="VctnAplcDtlMap.getVctnAplcDtlCount" parameterType="map" resultType="int">
+        SELECT /* VctnAplcDtlMap.getVctnAplcDtlCount */
+               COUNT(*)
+          FROM TB_VCTN_APLC_DTL A
+        <include refid="VctnAplcDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="VctnAplcDtlMap.getVctnAplcDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* VctnAplcDtlMap.getVctnAplcDtlList */
+               C.*
+             , GETCODENM('SCH020', VCTN_KIND_CD, C.CNTR_CD) AS VCTN_KIND_NM
+             , GETCODENM('SCH040', VCTN_DSPS_STAT_CD, C.CNTR_CD) AS VCTN_DSPS_STAT_NM
+             , TO_CHAR(TO_DATE('20140909', 'YYYYMMDD'),'YYYY-MM-DD') AS VCTN_DT_EXCEL
+             , TO_CHAR(TO_DATE(RGSN_DTTM, 'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI:SS') AS RGSN_DTTM_EXCEL
+             , START_VCTN_DT || ' ~ ' || END_VCTN_DT AS VCTN_DT
+             , (SELECT B.CLPH_NO
+                  FROM TB_USER B
+                 WHERE B.USER_ID = C.USER_ID
+                   AND B.CNTR_CD = C.CNTR_CD) AS CLPH_NO
+             , (SELECT B.USER_NM
+                  FROM TB_USER B
+                 WHERE B.USER_ID = C.RGSR_ID
+                   AND B.CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , (SELECT B.USER_NM
+                  FROM TB_USER B
+                 WHERE B.USER_ID = C.AMND_ID
+                   AND B.CNTR_CD = C.CNTR_CD) AS AMND_NM
+             , (SELECT COUNT(VCTN_DT)
+                  FROM TB_VCTN_DT_DTL B
+                 WHERE B.VCTN_APLC_ID = C.VCTN_APLC_ID
+                   AND B.CNTR_CD = C.CNTR_CD
+              GROUP BY B.VCTN_APLC_ID) AS VCTN_DT_COUNT
+             , (SELECT SUM(ADTL_CD)
+                  FROM (SELECT T2.VCTN_DT_DTL_ID, T2.VCTN_APLC_ID, T1.ADTL_CD
+                          FROM TB_CD T1, TB_VCTN_DT_DTL T2
+                         WHERE T1.CD_SET_CD = 'SCH030'
+                           AND T1.CD = T2.VCTN_DYCNT_CD
+                       ) B
+                 WHERE B.VCTN_APLC_ID = C.VCTN_APLC_ID
+              GROUP BY B.VCTN_APLC_ID) AS VCTN_DYCNT_CD_SUM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM (SELECT VCTN_APLC_ID, USER_ID, VCTN_KIND_CD
+                            , VCTN_DSPS_STAT_CD, VCTN_RSN, VCTN_RJCT_RSN, APPR_ID, ACKD_DTTM
+                            , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                            , (SELECT B.USER_NM
+                                 FROM TB_USER B
+                                WHERE B.USER_ID = A.USER_ID
+                                  AND B.CNTR_CD = A.CNTR_CD) AS USER_NM
+                            , (SELECT B.USER_NM
+                                 FROM TB_USER B
+                                WHERE B.USER_ID = A.APPR_ID
+                                  AND B.CNTR_CD = A.CNTR_CD) AS APPR_NM
+                            , (SELECT MIN(VCTN_DT)
+                                 FROM TB_VCTN_DT_DTL B
+                                WHERE B.VCTN_APLC_ID = A.VCTN_APLC_ID
+                                  AND B.CNTR_CD = A.CNTR_CD
+                             GROUP BY B.VCTN_APLC_ID) AS START_VCTN_DT
+                            , (SELECT MAX(VCTN_DT)
+                                 FROM TB_VCTN_DT_DTL B
+                                WHERE B.VCTN_APLC_ID = A.VCTN_APLC_ID
+                                  AND B.CNTR_CD = A.CNTR_CD
+                             GROUP BY B.VCTN_APLC_ID) AS END_VCTN_DT
+                         FROM TB_VCTN_APLC_DTL A
+        <include refid="VctnAplcDtlMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+    <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+    <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+    </if>
+    </select>
+
+    <insert id="VctnAplcDtlMap.insertVctnAplcDtl" parameterType="map">
+        <selectKey keyProperty="vctn_aplc_id" resultType="String" order="BEFORE">
+            SELECT 'VCA' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* VctnAplcDtlMap.insertVctnAplcDtl */
+          INTO TB_VCTN_APLC_DTL
+               (VCTN_APLC_ID, USER_ID, VCTN_KIND_CD
+              , VCTN_DSPS_STAT_CD, VCTN_RSN, VCTN_RJCT_RSN, APPR_ID
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{vctn_aplc_id}, #{user_id}, #{vctn_kind_cd}
+              , #{vctn_dsps_stat_cd}, #{vctn_rsn}, #{vctn_rjct_rsn}, #{appr_id}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="VctnAplcDtlMap.updateVctnAplcDtl" parameterType="map">
+        UPDATE /* VctnAplcDtlMap.updateVctnAplcDtl */
+               TB_VCTN_APLC_DTL
+           SET VCTN_KIND_CD = #{vctn_kind_cd}
+             , VCTN_DSPS_STAT_CD = #{vctn_dsps_stat_cd}
+             , VCTN_RSN = #{vctn_rsn}
+             , APPR_ID = #{appr_id}
+        <if test="vctn_dsps_stat_cd != '10'" >
+             , ACKD_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        </if>
+        <choose>
+            <when test="vctn_dsps_stat_cd == '30'">
+             , VCTN_RJCT_RSN = #{vctn_rjct_rsn}
+            </when>
+            <otherwise>
+             , VCTN_RJCT_RSN = NULL
+            </otherwise>
+        </choose>
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE VCTN_APLC_ID = #{vctn_aplc_id}
+    </update>
+
+    <delete id="VctnAplcDtlMap.deleteVctnAplcDtl" parameterType="map">
+        DELETE /* VctnAplcDtlMap.deleteVctnAplcDtl */
+          FROM TB_VCTN_APLC_DTL
+         WHERE VCTN_APLC_ID = #{vctn_aplc_id}
+    </delete>
+
+
+
+    <select id="VctnAplcDtlMap.getVctnDtDtlCount" parameterType="map" resultType="int">
+        SELECT /* VctnAplcDtlMap.getVctnDtDtlCount */
+               COUNT(*)
+          FROM TB_VCTN_DT_DTL A
+        <include refid="VctnAplcDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="VctnAplcDtlMap.getVctnDtDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* VctnAplcDtlMap.getVctnDtDtlList */
+               ROWNUM AS PAGE_INDX, B.*
+             , GETCODENM('SCH030', VCTN_DYCNT_CD, CNTR_CD) AS VCTN_DYCNT_NM
+             , (SELECT ADTL_CD
+                  FROM TB_CD
+                 WHERE CD = VCTN_DYCNT_CD
+                   AND CD_SET_CD = 'SCH030'
+                   AND CNTR_CD  = CNTR_CD ) AS VCTN_DYCNT_ADTL_CD
+          FROM (SELECT VCTN_DT_DTL_ID, VCTN_APLC_ID, VCTN_DYCNT_CD, VCTN_DT
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                  FROM TB_VCTN_DT_DTL A
+                <include refid="VctnAplcDtlMap.selectCondition_fragment" />
+                <if test="orderBy != null and orderBy != ''">
+                 ORDER BY ${orderBy} ${orderDirection}
+                </if>
+               ) B
+    </select>
+
+    <insert id="VctnAplcDtlMap.insertVctnDtDtl" parameterType="map">
+        <selectKey keyProperty="vctn_dt_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'VDD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* VctnAplcDtlMap.insertVctnDtDtl */
+          INTO TB_VCTN_DT_DTL
+               (VCTN_DT_DTL_ID, VCTN_APLC_ID, VCTN_DYCNT_CD, VCTN_DT
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{vctn_dt_dtl_id}, #{vctn_aplc_id}, #{vctn_dycnt_cd}, #{vctn_dt}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="VctnAplcDtlMap.updateVctnDtDtl" parameterType="map">
+        UPDATE /* VctnAplcDtlMap.updateVctnDtDtl */
+               TB_VCTN_DT_DTL
+           SET VCTN_DYCNT_CD = #{vctn_dycnt_cd}
+             , VCTN_DT = #{vctn_dt}
+             , RGSR_ID = #{rgsr_id}
+             , RGSN_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE VCTN_DT_DTL_ID = #{vctn_dt_dtl_id}
+           AND VCTN_APLC_ID = #{vctn_aplc_id}
+    </update>
+
+    <delete id="VctnAplcDtlMap.deleteVctnDtDtl" parameterType="map">
+        DELETE /* VctnAplcDtlMap.deleteVctnDtDtl */
+          FROM TB_VCTN_DT_DTL
+         WHERE VCTN_APLC_ID = #{vctn_aplc_id}
+        <if test="selectcheck != null and selectcheck != ''">
+            AND VCTN_DT_DTL_ID
+            <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                #{item}
+            </foreach>
+        </if>
+    </delete>
+
+    <select id="VctnAplcDtlMap.getApproveCount" parameterType="map" resultType="int">
+        SELECT /* VctnAplcDtlMap.getApproveCount */
+               COUNT(*)
+          FROM TB_VCTN_APLC_DTL A
+          LEFT OUTER JOIN
+               (SELECT VCTN_APLC_ID AS sVCTN_APLC_ID, VCTN_DT
+                  FROM TB_VCTN_DT_DTL
+                 WHERE VCTN_DT = #{vctn_dt}) B
+            ON A.VCTN_APLC_ID = B.sVCTN_APLC_ID
+        <include refid="VctnAplcDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="VctnAplcDtlMap.getVctnInfoView" parameterType="map" resultType="resultMap">
+        SELECT /* VctnAplcDtlMap.getVctnInfoView */
+               C.VCTN_KIND_CD, SUM(C.VCTN_DYCNT_ADTL_CD) AS VCTN_DYCNT_SUM
+          FROM (SELECT A.VCTN_DT, B.VCTN_KIND_CD
+                     , (SELECT ADTL_CD
+                          FROM TB_CD T1
+                         WHERE T1.CD = A.VCTN_DYCNT_CD
+                           AND T1.CD_SET_CD = 'SCH030'
+                           AND T1.CNTR_CD = A.CNTR_CD
+                       ) AS VCTN_DYCNT_ADTL_CD
+                  FROM TB_VCTN_DT_DTL A
+                     , (SELECT VCTN_APLC_ID, VCTN_KIND_CD, CNTR_CD
+                          FROM TB_VCTN_APLC_DTL
+                         WHERE USER_ID = #{user_id}
+                           AND VCTN_DSPS_STAT_CD = '20'
+                       ) B
+                 WHERE A.VCTN_APLC_ID = B.VCTN_APLC_ID
+                   AND #{annual_vctn_stt_dt} <![CDATA[<=]]> A.VCTN_DT
+                   AND A.VCTN_DT <![CDATA[<]]> #{annual_vctn_end_dt}
+               ) C
+      GROUP BY C.VCTN_KIND_CD
+    </select>
+</mapper>

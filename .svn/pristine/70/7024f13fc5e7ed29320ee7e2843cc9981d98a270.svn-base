@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="AncmMtrDtlMap">
+
+    <sql id="AncmMtrDtlMap.selectCondition_fragment">
+        <where>
+            <if test="main_flag != null and main_flag != ''">
+                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN ANCM_STT_DT AND ANCM_END_DT
+            </if>
+            <if test="team_cd != null and team_cd != ''">
+                AND ANCM_MTR_ID IN (SELECT B.ANCM_MTR_ID
+                                      FROM TB_ANCM_TRGT_TEAM B
+                                         , TB_CONS_TEAM C
+                                     WHERE B.TEAM_CD = C.HGRN_TEAM_CD
+                                       AND B.CNTR_CD = C.CNTR_CD
+                                       AND C.TEAM_CD = #{team_cd}
+                                       AND B.CNTR_CD = A.CNTR_CD)
+            </if>
+            <if test="athr_cd != null and athr_cd != ''">
+                AND ANCM_MTR_ID IN (SELECT ANCM_MTR_ID
+                                      FROM TB_ANCM_TRGT_ATHR
+                                     WHERE ATHR_CD = #{athr_cd}
+                                       AND CNTR_CD = A.CNTR_CD)
+            </if>
+            <if test="ancm_typ_cd != null and ancm_typ_cd != ''">
+                AND ANCM_TYP_CD = #{ancm_typ_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'ancm_mtr_titl'">
+                AND ANCM_MTR_TITL LIKE '%' || #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'ancm_mtr_cntn'">
+                AND ANCM_MTR_CNTN LIKE '%' || #{searchValue} || '%'
+                </if>
+                <if test="searchType == 'ancm_chpr_nm'">
+                AND ANCM_CHPR_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM LIKE '%' || #{searchValue} || '%')
+                </if>
+                <if test="searchType == 'both'">
+                AND (ANCM_MTR_TITL LIKE '%' || #{searchValue} || '%'
+                 OR ANCM_MTR_CNTN LIKE '%' || #{searchValue} || '%')
+                </if>
+                <if test="searchType == 'all'">
+                AND (ANCM_MTR_TITL LIKE '%' || #{searchValue} || '%'
+                 OR ANCM_MTR_CNTN LIKE '%' || #{searchValue} || '%'
+                 OR ANCM_CHPR_ID IN (SELECT USER_ID FROM TB_USER WHERE USER_NM LIKE '%' || #{searchValue} || '%'))
+                </if>
+            </if>
+            <if test="ancm_mtr_id != null and ancm_mtr_id != ''">
+                AND ANCM_MTR_ID = #{ancm_mtr_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="rgsr_id != null and rgsr_id != ''">
+                AND RGSR_ID = #{rgsr_id}
+            </if>
+
+            <!-- 통합검색 -->
+            <if test="srch_word != null and srch_word != ''">
+                AND (ANCM_MTR_TITL LIKE '%' || #{srch_word} || '%'
+                  OR ANCM_MTR_CNTN LIKE '%' || #{srch_word} || '%')
+            </if>
+            <!-- //통합검색 -->
+        </where>
+    </sql>
+
+    <resultMap id="ancmMtrlDtlResultMap" type="resultMap">
+        <result property="page_indx" column="page_indx" />
+        <result property="ancm_mtr_id" column="ancm_mtr_id" />
+        <result property="ancm_mtr_titl" column="ancm_mtr_titl" />
+        <result property="ancm_mtr_cntn" column="ancm_mtr_cntn" javaType="String" jdbcType="CLOB" />
+        <result property="ancm_mtr_html_cntn" column="ancm_mtr_html_cntn" javaType="String" jdbcType="CLOB" />
+        <result property="ancm_typ_cd" column="ancm_typ_cd" />
+        <result property="ancm_typ_nm" column="ancm_typ_nm" />
+        <result property="ancm_stt_dt" column="ancm_stt_dt" />
+        <result property="ancm_end_dt" column="ancm_end_dt" />
+        <result property="ancm_chpr_nm" column="ancm_chpr_nm" />
+        <result property="ancm_chpr_id" column="ancm_chpr_id" />
+        <result property="use_yn" column="use_yn" />
+        <result property="inq_cnt" column="inq_cnt" />
+        <result property="cntr_cd" column="cntr_cd" />
+        <result property="rgsr_id" column="rgsr_id" />
+        <result property="rgsn_dttm" column="rgsn_dttm" />
+        <result property="amnd_id" column="amnd_id" />
+        <result property="amnt_dttm" column="amnt_dttm" />
+        <result property="rgsr_nm" column="rgsr_nm" />
+        <result property="amnd_nm" column="amnd_nm" />
+        <result property="file_flag" column="file_flag" />
+    </resultMap>
+
+    <select id="AncmMtrDtlMap.getAncmMtrDtlCount" parameterType="map" resultType="int">
+        SELECT /* AncmMtrDtlMap.getAncmMtrDtlCount */
+               COUNT(*)
+          FROM TB_ANCM_MTR_DTL A
+        <include refid="AncmMtrDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="AncmMtrDtlMap.getAncmMtrDtlList" parameterType="map" resultMap="ancmMtrlDtlResultMap">
+        SELECT /* AncmMtrDtlMap.getAncmMtrDtlList */
+               *
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                       , B.*
+                  FROM (SELECT ANCM_MTR_ID, ANCM_MTR_TITL, ANCM_MTR_CNTN, ANCM_MTR_HTML_CNTN, ANCM_TYP_CD
+                             , ANCM_STT_DT, ANCM_END_DT, ANCM_CHPR_ID, USE_YN, INQ_CNT
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('KMS040', ANCM_TYP_CD, #{cntr_cd}) AS ANCM_TYP_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.ANCM_CHPR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS ANCM_CHPR_NM
+                             , (CASE WHEN EXISTS (SELECT *
+                                                    FROM TB_FILE B
+                                                   WHERE B.RLTN_ITEM_ID = A.ANCM_MTR_ID
+                                                     AND B.RLTN_TBL_NM = 'TB_ANCM_MTR_DTL'
+                                                     AND B.ATCH_TYP_CD != '30' ) THEN 'Y'
+                                    ELSE 'N'
+                                 END) AS FILE_FLAG
+                          FROM TB_ANCM_MTR_DTL A
+        <include refid="AncmMtrDtlMap.selectCondition_fragment" />
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="AncmMtrDtlMap.insertAncmMtrDtl" parameterType="map">
+        <selectKey keyProperty="ancm_mtr_id" resultType="String" order="BEFORE">
+            SELECT 'ANC' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* AncmMtrDtlMap.insertAncmMtrDtl */
+                    TB_ANCM_MTR_DTL
+                    (ANCM_MTR_ID, ANCM_MTR_TITL, USE_YN, ANCM_CHPR_ID
+                  , ANCM_STT_DT, ANCM_END_DT, ANCM_TYP_CD, CNTR_CD, RGSR_ID
+                  , RGSN_DTTM, AMND_ID, AMNT_DTTM, ANCM_MTR_CNTN, ANCM_MTR_HTML_CNTN, INQ_CNT)
+             VALUES (#{ancm_mtr_id}, #{ancm_mtr_titl}, #{use_yn}, #{ancm_chpr_id}
+                  , #{ancm_stt_dt}, NVL(#{ancm_end_dt}, '99991231'), #{ancm_typ_cd}, #{cntr_cd}, #{rgsr_id}
+                  , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{ancm_mtr_cntn:CLOB}, #{ancm_mtr_html_cntn:CLOB}, '0')
+    </insert>
+
+    <update id="AncmMtrDtlMap.updateAncmMtrDtl" parameterType="map">
+        UPDATE /* AncmMtrDtlMap.updateAncmMtrDtl */
+               TB_ANCM_MTR_DTL
+           SET ANCM_MTR_TITL = #{ancm_mtr_titl}
+             , USE_YN = #{use_yn}
+             , ANCM_CHPR_ID = #{ancm_chpr_id}
+             , ANCM_STT_DT = #{ancm_stt_dt}
+             , ANCM_END_DT = NVL(#{ancm_end_dt}, '99991231')
+             , ANCM_TYP_CD = #{ancm_typ_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , ANCM_MTR_CNTN = #{ancm_mtr_cntn:CLOB}
+             , ANCM_MTR_HTML_CNTN = #{ancm_mtr_html_cntn:CLOB}
+         WHERE ANCM_MTR_ID = #{ancm_mtr_id}
+    </update>
+
+    <update id="AncmMtrDtlMap.updateAncmMtrDtlViewCnt" parameterType="String">
+        UPDATE /* AncmMtrDtlMap.updateAncmMtrDtlViewCnt */
+               TB_ANCM_MTR_DTL
+           SET INQ_CNT = INQ_CNT + 1
+         WHERE ANCM_MTR_ID = #{ancm_mtr_id}
+    </update>
+
+    <delete id="AncmMtrDtlMap.deleteAncmMtrDtl" parameterType="map">
+        DELETE /* AncmMtrDtlMap.deleteAncmMtrDtl */
+          FROM TB_ANCM_MTR_DTL
+         WHERE
+        <choose>
+            <when test="ancm_mtr_id == null or ancm_mtr_id == ''">
+               ANCM_MTR_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               ANCM_MTR_ID = #{ancm_mtr_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+</mapper>

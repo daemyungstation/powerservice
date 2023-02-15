@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WrkTypCdMap">
+
+    <sql id="WrkTypCdMap.selectCondition_fragment">
+        <where>
+            <if test = "cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test ="wrk_typ_cd != null and wrk_typ_cd != ''">
+                AND WRK_TYP_CD = #{wrk_typ_cd}
+            </if>
+            <if test ="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="srch_vl != null and srch_vl != ''">
+                <if test="srch_typ == 'wrk_typ_cd'">
+                    AND WRK_TYP_CD = #{srch_vl}
+                </if>
+                <if test="srch_typ == 'wrk_typ_nm'">
+                    AND WRK_TYP_NM LIKE '%' || #{srch_vl} || '%'
+                </if>
+            </if>
+        </where>
+    </sql>
+
+    <select id="WrkTypCdMap.getWrkTypCdCount" parameterType="map" resultType="int">
+        SELECT /* WrkTypCdMap.getWrkTypCdCount */
+               COUNT(*)
+          FROM TB_WRK_TYP_CD A
+        <include refid="WrkTypCdMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="WrkTypCdMap.getWrkTypCdList" parameterType="map" resultType="resultMap">
+        SELECT /* WrkTypCdMap.getWrkTypCdList */
+               C.*
+             , LPAD(TRUNC((BSWR_SC - MEAL_SC - BRKT1_SC - BRKT2_SC) / 60), 2, '0')
+               || LPAD(MOD((BSWR_SC - MEAL_SC - BRKT1_SC - BRKT2_SC), 60), 2, '0') AS BSWR_TM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT WRK_TYP_CD, WRK_TYP_NM, BSWR_STT_HR, BSWR_END_HR, MEAL_STT_HR
+                             , MEAL_END_HR, BRKT1_STT_HR, BRKT1_END_HR, BRKT2_STT_HR, BRKT2_END_HR
+                             , WRK_TYP_EXPI, USE_YN
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (TO_DATE(BSWR_END_HR, 'HH24MI') - TO_DATE(BSWR_STT_HR, 'HH24MI')) * 24 * 60 AS BSWR_SC
+                             , (TO_DATE(MEAL_END_HR, 'HH24MI') - TO_DATE(MEAL_STT_HR, 'HH24MI')) * 24 * 60 AS MEAL_SC
+                             , (TO_DATE(BRKT1_END_HR, 'HH24MI') - TO_DATE(BRKT1_STT_HR, 'HH24MI')) * 24 * 60 AS BRKT1_SC
+                             , (TO_DATE(BRKT2_END_HR, 'HH24MI') - TO_DATE(BRKT2_STT_HR, 'HH24MI')) * 24 * 60 AS BRKT2_SC
+                          FROM TB_WRK_TYP_CD A
+        <include refid="WrkTypCdMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                      ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="WrkTypCdMap.insertWrkTypCd" parameterType="map">
+        INSERT /* WrkTypCdMap.insertWrkTypCd */
+          INTO TB_WRK_TYP_CD
+               (WRK_TYP_CD, WRK_TYP_NM, BSWR_STT_HR, BSWR_END_HR, MEAL_STT_HR
+              , MEAL_END_HR, BRKT1_STT_HR, BRKT1_END_HR, BRKT2_STT_HR, BRKT2_END_HR
+              , WRK_TYP_EXPI, USE_YN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{wrk_typ_cd}, #{wrk_typ_nm}, NVL(#{bswr_stt_hr}, '0000'), NVL(#{bswr_end_hr}, '0000'), NVL(#{meal_stt_hr}, '0000')
+              , NVL(#{meal_end_hr}, '0000'), NVL(#{brkt1_stt_hr}, '0000'), NVL(#{brkt1_end_hr}, '0000'), NVL(#{brkt2_stt_hr}, '0000'), NVL(#{brkt2_end_hr}, '0000')
+              , #{wrk_typ_expi}, #{use_yn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="WrkTypCdMap.updateWrkTypCd" parameterType="map">
+        UPDATE /* WrkTypCdMap.updateWrkTypCd */
+               TB_WRK_TYP_CD
+           SET WRK_TYP_NM   = #{wrk_typ_nm}
+             , BSWR_STT_HR  = NVL(#{bswr_stt_hr}, '0000')
+             , BSWR_END_HR  = NVL(#{bswr_end_hr}, '0000')
+             , MEAL_STT_HR  = NVL(#{meal_stt_hr}, '0000')
+             , MEAL_END_HR  = NVL(#{meal_end_hr}, '0000')
+             , BRKT1_STT_HR = NVL(#{brkt1_stt_hr}, '0000')
+             , BRKT1_END_HR = NVL(#{brkt1_end_hr}, '0000')
+             , BRKT2_STT_HR = NVL(#{brkt2_stt_hr}, '0000')
+             , BRKT2_END_HR = NVL(#{brkt2_end_hr}, '0000')
+             , WRK_TYP_EXPI = #{wrk_typ_expi}
+             , USE_YN       = #{use_yn}
+             , AMND_ID      = #{amnd_id}
+             , AMNT_DTTM    = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE WRK_TYP_CD = #{wrk_typ_cd}
+    </update>
+
+    <delete id="WrkTypCdMap.deleteWrkTypCd" parameterType="map">
+        DELETE /* WrkTypCdMap.deleteWrkTypCd */
+          FROM TB_WRK_TYP_CD
+         WHERE WRK_TYP_CD = #{wrk_typ_cd}
+    </delete>
+
+</mapper>

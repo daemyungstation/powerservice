@@ -1,0 +1,739 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[
+
+// ========================================================================================
+// Form 관련 공통함수
+// function 명은 gfn_ 을 Prefix로 사용함.
+// ========================================================================================
+
+
+
+/*****************************************************************************************
+ * 함  수  명	: gfn_initForm
+ * 입      력	: 1. strGridList : sort 적용할 그리드 리스트
+ * 반      환	:   
+ * 기      능	: Grid sort
+ *****************************************************************************************/ 
+function gfn_initForm(objForm) 
+{
+	
+    //Component 초기화   (1)
+    _gfn_initComponent(objForm);
+	
+	//	                  (2)
+	//gfn_setGridSort(objForm);
+}
+
+function _gfn_initComponent(pComp)
+{
+    for (var i = 0; i < pComp.components.length; i++) {
+        var voComponent = pComp.components[i];
+
+        // Grid Component
+        if (voComponent instanceof Grid) {
+            _gfnGridInit(voComponent);
+
+        }
+        
+        // Div, PopupDiv, Tab, Tabpage 의 Child Component를 설정하기 위해 재귀함수 사용
+        if (voComponent instanceof Div || voComponent instanceof PopupDiv || 
+            voComponent instanceof Tab || voComponent instanceof Tabpage) {
+
+			_gfn_initComponent(voComponent);
+		}
+	}
+}
+
+/*******************************************************************************
+// 팝업창에서 호출시 넘긴 파라미터 변수를 사용한다.
+*******************************************************************************/
+function gfn_getPopupParam(strName, defaultValue) {
+	try {
+		return gfn_Nvl(this.parent[strName], gfn_Nvl(defaultValue, null));
+	} catch(e) {
+		return gfn_Nvl(defaultValue, null);
+	}
+}
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setDivPosition
+ * 입      력 : objDs : 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : Division PositionInfo Setting (초기화)
+ *****************************************************************************************/
+function gfn_setDivPosition(objDs)
+{
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        var objDiv = this[objDs.getColumn(i, "id")];
+
+        objDs.setColumn(i, "closeH", 17);
+        objDs.setColumn(i, "openH", objDiv.position.height);
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setDivShowHideInfo
+ * 입      력 : objBtn : 버튼 오브젝트
+                sGbn   : Search영역/업무영역 구분("SEARCH", "")
+ * 반      환 :
+ * 기      능 : Divison Show/Hide Setting
+ *****************************************************************************************/
+function gfn_setDivShowHideInfo(objBtn, sGbn)
+{
+    var nRow = ds_divPosition.findRow("id", objBtn.parent.name);
+    var obj_parent = objBtn.parent;
+    var arrPath = new Array();
+
+    //Div Depth가 있을경우 처리(에러: 부모 Div ID 와 자식 Div ID 가 같은경우)
+    for(var i=0;i<7;i++)
+    {
+        if(this[obj_parent.name])
+        {
+            continue;
+        }
+        else
+        {
+            obj_parent = obj_parent.parent;
+        }
+
+        arrPath[i] = obj_parent;
+    }
+
+    var sParent = "";
+    for(var k=arrPath.length-1 ; k >=0 ; k--)
+    {
+        if(k == arrPath.length-1)
+        {
+            sParent = arrPath[k].name;
+        }
+        else
+        {
+            sParent = sParent +"." + arrPath[k].name;
+        }
+    }
+
+    if(nRow != -1) {
+        var nOpenYn = ds_divPosition.getColumn(nRow, "openYN");
+        if(nOpenYn == 0) {
+            ds_divPosition.setColumn(nRow, "openYN", 1);
+
+            if(sGbn == "SEARCH") {
+                objBtn.class = "btn_WFSA_Close";
+                objBtn.text = "닫기";
+            } else {
+                objBtn.text = "접기 ▲";
+            }
+        } else {
+            ds_divPosition.setColumn(nRow, "openYN", 0);
+
+            if(sGbn == "SEARCH") {
+                objBtn.class = "btn_WFSA_Open";
+                objBtn.text = "열기";
+            } else {
+                objBtn.text = "펼치기 ▼";
+            }
+        }
+    }
+
+    gfn_moveDivPosition(ds_divPosition,sParent);
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_moveDivPosition
+ * 입      력 : objDs : Division 위치이동정보를 담고있는 데이타셋(SAMPLE::Sample_22.xfdl참조)
+ * 반      환 :
+ * 기      능 : Division Move
+ *****************************************************************************************/
+function gfn_moveDivPosition(objDs,sParent)
+{
+    var nStart     = 0;
+    var nTop    = 0;
+    var nHeight    = 0;
+
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        var objDiv;
+
+        if(!gfn_isNull(sParent))
+        {
+            objDiv = eval(sParent +"." +objDs.getColumn(i, "id"));
+        }
+        else
+        {
+            objDiv = this.all[objDs.getColumn(i, "id")];
+        }
+
+        if(i == 0) {
+            nTop = objDiv.position.top;
+        }
+
+        objDiv.move(objDiv.position.left, nTop);
+
+        if(objDs.getColumn(i, "openYN") == 0) {
+            nHeight = objDs.getColumn(i, "closeH");
+        } else {
+            nHeight = objDs.getColumn(i, "openH");
+        }
+
+        objDiv.position.height = nHeight;
+
+        nTop += nHeight;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setSearchDiv
+ * 입      력 : objSearchDiv : Search영역 Division Object
+ * 반      환 :
+ * 기      능 : 조회영역 Divsion Size변경시 기본컴포넌트(구분선, 버튼 등) 위치 처리하는 함수
+ *****************************************************************************************/
+function gfn_setSearchDiv(objSearchDiv)
+{
+    var nLeft = (objSearchDiv.position.width/2) - (objSearchDiv.btn_Open.position.width/2);
+    var nTop = objSearchDiv.position.bottom - 36;
+
+    objSearchDiv.sta_Line.move(1, nTop);
+    objSearchDiv.btn_Open.move(nLeft, nTop+4);
+    objSearchDiv.sta_Bg.position.height = objSearchDiv.position.height - 13;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_captureForm
+ * 입      력 : obj         : 폼 오브젝트
+                strFileNm   : 파일명
+                strFileType : 파일 확장자
+                strFilePath : 파일경로
+                bDialog     : 파일선택 Dialog 팝업여부
+ * 반      환 : File Path
+ * 기      능 : 업무영역 화면캡쳐하는 함수
+ *****************************************************************************************/
+function gfn_captureForm(obj, strFileNm, strFileType, strFilePath, bDialog)
+{
+    if(gfn_getLength(strFileNm) <= 0) strFileNm = this.name;
+    if(gfn_getLength(strFileType) <= 0) strFileType = "jpg";
+    if(gfn_getLength(strFilePath) <= 0) strFilePath = system.convertRealPath("%DOCUMENT%");
+    if(gfn_getLength(bDialog) <= 0) bDialog = false;
+
+    // 파일명에 현재시간정보 추가
+    var to_day = new Date();
+    strFileNm = strFileNm + "_" + _gfn_getCurSysDate("YYYYMMDDHHMMSS");
+
+    //내문서하단에 경로확인후 없으면 생성
+    var strFileName = strFileNm + "." + strFileType;
+
+    if(!bDialog) {
+        var sTxtFullPath = strFilePath + strFileName;
+    } else {
+        var sTxtFullPath = gfn_fileSavePath("", strFileName);
+        if(sTxtFullPath.length <= 0) return "";
+    }
+
+    var objImage = obj.saveToImageObject();
+    var objImageViewer = new ImageViewer("imv_common", 0, 0, obj.position.width,obj.position.height);
+
+    obj.addChild("imv_common", objImageViewer);
+    objImageViewer.show();
+
+    objImageViewer.image = objImage;
+
+    var bSucc = objImageViewer.saveToImage(sTxtFullPath, strFileType);
+
+    var objname = obj.removeChild("imv_common");
+
+    objname.destroy();
+    objname = null;
+
+    if(bSucc == false) {
+        alert("이미지생성 실패!!");
+        return "";
+    }
+
+    return sTxtFullPath;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setInitBackColor
+ * 입      력 : obj : Container 오브젝트
+ * 반      환 :
+ * 기      능 : Container(Division, Tab) Object 배경색 초기화 함수
+ *****************************************************************************************/
+function gfn_setInitBackColor(obj)
+{
+    var objlist = obj.components;
+
+    for(var i=0;i<objlist.length;i++)
+    {
+        if(objlist[i] instanceof Div) {
+            objlist[i].style.background = "transparent";
+            _gfn_setInitDivBackColor(objlist[i]);
+        } else if(objlist[i] instanceof Tab) {
+            _gfn_setInitDivBackColor(objlist[i]);
+        }
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_setInitDivBackColor
+ * 입      력 : obj : Container 오브젝트
+ * 반      환 :
+ * 기      능 : Container(Division, Tab) Object 배경색 초기화 내부함수(Recursive)
+ *****************************************************************************************/
+function _gfn_setInitDivBackColor(obj)
+{
+    var objlist = obj.components;
+
+    for(var i=0;i<objlist.length;i++)
+    {
+        if(objlist[i] instanceof Div) {
+            objlist[i].style.background = "transparent";
+            _gfn_setInitDivBackColor(objlist[i]);
+        } else if(objlist[i] instanceof Tab) {
+            _gfn_setInitDivBackColor(objlist[i]);
+        }
+    }
+}
+
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setNotUsedComCode
+ * 입      력 : objCombo           : Combo 오브젝트
+                sNotUseComCodeList : 사용못함 처리할 코드리스트(구분자:",")    예) "001,003,005"
+ * 반      환 :
+ * 기      능 : Combo 컴포넌트 Item 사용여부에 따른 예외처리(Item 선택못함, Item 색상변경)하는 함수
+ *****************************************************************************************/
+function gfn_setNotUsedComCode(objCombo, sNotUseComCodeList)
+{
+    var dsObj = objCombo.innerdataset;
+
+    dsObj.enableevent = false;
+
+    // 칼럼추가
+    gfn_addColumn(dsObj, gfn_getComCodeNotUseColNm_UseChk(), "int", 1);
+    gfn_addColumn(dsObj, gfn_getComCodeNotUseColNm_Color(), "string", 255);
+
+    // 기본값 설정
+    for(var i=0;i<dsObj.rowcount;i++)
+    {
+        dsObj.setColumn(i, gfn_getComCodeNotUseColNm_UseChk(), 1);
+        dsObj.setColumn(i, gfn_getComCodeNotUseColNm_Color(), gfn_getComCodeNotUseColor_Use());
+    }
+
+    // 사용못하는 공통코드 설정
+    var arrNotUse = sNotUseComCodeList.split(",");
+    for(var i=0;i<arrNotUse.length;i++)
+    {
+        var nRow = dsObj.findRow("CD_VL", arrNotUse[i]);
+        if(nRow != -1) {
+            dsObj.setColumn(nRow, gfn_getComCodeNotUseColNm_UseChk(), 0);
+            dsObj.setColumn(nRow, gfn_getComCodeNotUseColNm_Color(), gfn_getComCodeNotUseColor_NotUse());
+        }
+    }
+
+    objCombo.itemcolor = "BIND("+gfn_getComCodeNotUseColNm_Color()+")";
+
+    objCombo.canitemchange.addHandler(_gfn_Combo_canitemchange);
+
+    dsObj.enableevent = true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_Combo_canitemchange
+ * 입      력 : obj : Combo 오브젝트
+                e   : ItemChangeEventInfo
+ * 반      환 :
+ * 기      능 : Combo canitemchange 이벤트
+ *****************************************************************************************/
+function _gfn_Combo_canitemchange(obj:Combo, e:ItemChangeEventInfo)
+{
+    var sVal = obj.innerdataset.getColumn(e.postindex, gfn_getComCodeNotUseColNm_UseChk());
+    if(sVal == 0) {
+        alert("사용하지 않는 코드 입니다.");
+        return false;
+    } else {
+        return true;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_fileUpload
+ * 입      력 : sfileLocalPath : 첨부파일 Local Path
+                sUploadUrl     : Upload Url
+ * 반      환 :
+ * 기      능 : 단일파일 업로드 용도
+                시스템 에러발생시 화면캡쳐 파일업로드 사용
+ *****************************************************************************************/
+function gfn_fileUpload(sfileLocalPath, sUploadUrl)
+{
+    if(sUploadUrl == null) sUploadUrl = gfn_getFileUploadUrl();
+
+    var objHttp;
+     objHttp = objects["httpObject"];
+
+     if (objHttp == null) {
+        objHttp = new HttpObject();
+        objHttp.onload.setHandler(gfn_httpObject_onload);
+    }
+
+    var arrFiles = new Array();
+    var objVirtualFiles = new VirtualFile;
+    var nRtn = objVirtualFiles.open(sfileLocalPath, VirtualFile.openRead | VirtualFile.openBinary);
+
+    if (!nRtn) {
+        objVirtualFiles.close();
+        return false;
+    }
+
+    arrFiles[0] = objVirtualFiles;
+
+    var nRtn = objHttp.upload(sUploadUrl ,FileDialog.LOAD, arrFiles, false);
+
+    objVirtualFiles.close();
+
+    if(!nRtn) {
+        alert("파일 업로드 중 오류발생!!");
+        return false;
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_httpObject_onload
+ * 입      력 : obj : HttpObject
+                e   : HttpObjLoadEventInfo
+ * 반      환 :
+ * 기      능 : 단일파일 업로드 콜백
+ *****************************************************************************************/
+function gfn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo)
+{
+    trace("- gfn_httpObject_onload(System Error) : errorcode = " + e.errorcode + "\t" + "errormsg = " + e.errormsg);
+    
+	if( e.errorcode == 200 ) //업로드 완료
+	{
+		alert("upload success ");
+	}
+	
+	if( e.errormsg == "Success" ) //다운로드 완료
+	{
+		alert("download success ");
+	}
+}
+
+
+
+
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getFormId
+ * 입      력 : objForm : Form ID 반환대상 Form Object
+ * 반      환 : Form ID
+ * 기      능 : Form ID반환
+ *****************************************************************************************/
+function gfn_getFormId(objForm)
+{
+    var sFormID;
+
+    if(gfn_getLength(objForm.url) > 0) {
+        sFormID = gfn_getFormIdByUrl(objForm.url);
+    } else {
+        return objForm.name;
+    }
+
+    return sFormID;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getFormIdByUrl
+ * 입      력 : strFormUrl : Form ID 반환대상 Form Url(예:SAMPLE::Sample_25.xfdl)
+ * 반      환 : Form ID
+ * 기      능 : Form ID반환
+ *****************************************************************************************/
+function gfn_getFormIdByUrl(strFormUrl)
+{
+    var sFormID;
+
+    var arrDiv = strFormUrl.split("::");
+    var arrForm = arrDiv[1].split(".");
+
+    sFormID = arrForm[0];
+
+    return sFormID;
+}
+
+function gfn_getServiceUrl(strUrl)
+{
+	var sUrl = application.services[strUrl].url;
+
+	return sUrl;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setAttachFileList
+ * 입      력 : objDiv : 첨부파일 Link 대상 Division Object
+ * 반      환 :
+ * 기      능 : 조회 후 첨부파일리스트 설정
+ *****************************************************************************************/
+function gfn_setAttachFileList(objDiv)
+{
+    objDiv.fn_setAttachFileList();
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setAttachFileUpload
+ * 입      력 : objDiv : 첨부파일 Link 대상 Division Object
+ * 반      환 :
+ * 기      능 : 첨부파일 업로드 처리
+ *****************************************************************************************/
+function gfn_setAttachFileUpload(objDiv)
+{
+    return objDiv.fn_setAttachFileUpload();
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_clearIDSCommParam
+ * 입      력 : objDiv : 첨부파일 Link 대상 Division Object
+ * 반      환 :
+ * 기      능 : 파라메터 초기화
+ *****************************************************************************************/
+function gfn_clearIDSCommParam(objDiv)
+{
+    return objDiv.fn_clearIDSCommParam();
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_clearIDSBizParam
+ * 입      력 : objDiv : 첨부파일 Link 대상 Division Object
+ * 반      환 :
+ * 기      능 : 파라메터 초기화
+ *****************************************************************************************/
+function gfn_clearIDSBizParam(objDiv)
+{
+    return objDiv.fn_clearIDSBizParam();
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setAttachFileUpload
+ * 입      력 : objDiv   : 첨부파일 Link 대상 Division Object
+ * 입      력 : strCode  : 첨부 공통 키
+ * 입      력 : strValue : 첨부 값
+ * 반      환 :
+ * 기      능 : IDS첨부 공통 파라메터 셋팅
+ *****************************************************************************************/
+//IDS첨부 공통 파라메터
+function gfn_setIDSCommParam(objDiv, strCode, strValue)
+{
+    return objDiv.fn_setIDSCommParam(strCode, strValue);
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setAttachFileUpload
+ * 입      력 : objDiv   : 첨부파일 Link 대상 Division Object
+ * 입      력 : strCode  : 첨부 업무 키
+ * 입      력 : strValue : 첨부 값
+ * 반      환 :
+ * 기      능 : IDS첨부 비즈니스  파라메터 셋팅
+ *****************************************************************************************/
+//IDS첨부 비즈니스  파라메터
+function gfn_setIDSBizParam(objDiv, strCode, strValue)
+{
+    return objDiv.fn_setIDSBizParam(strCode, strValue);
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setAttachFileInit
+ * 입      력 : objDiv : 첨부파일 Link 대상 Division Object
+ * 반      환 :
+ * 기      능 : 첨부파일 초기화 처리
+ *****************************************************************************************/
+function gfn_setAttachFileInit(objDiv)
+{
+    return objDiv.fn_setAttachFileInit();
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_initAttachFileInfo
+ * 입      력 : sDspsDiv         : 처리구분(업로드:UPLOAD, 다운로드:DOWNLOAD)
+                objDiv           : 첨부파일 Division
+                objDs            : 첨부파일 리스트 데이타셋
+                sFileMultiSelDiv : 멀티파일 선택 가능여부(Multi:M,Single:S)
+                sFilePath        : Default 파일경로
+                sFilterFlag      : File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+ * 반      환 :
+ * 기      능 : 첨부파일 리스트를 설정한다.
+ *****************************************************************************************/
+function gfn_initAttachFileInfo(sDspsDiv, objDiv, objDs, sFileMultiSelDiv, sFilePath, sFilterFlag)
+{
+    if(sFileMultiSelDiv == null) sFileMultiSelDiv = "M";
+            
+    objDiv.fn_initAttachFileInfo(sDspsDiv, objDs, sFileMultiSelDiv, sFilePath, sFilterFlag);
+}
+
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_fileSelect
+ * 입      력 : sOpenDiv    : Single/Multi 구분 ("S" or "M", Default - "S")
+                sFilePath   : Default 파일경로
+                sFilterFlag : File Type Filter("EXCEL", "IMAGE", "CLASS", "XML", "" 중 택일)
+ * 반      환 : FileList Object
+ * 기      능 : File Dialog를 Open해서 FileList Object를 반환하는 함수
+ *****************************************************************************************/
+function gfn_fileSelect(sOpenDiv, sFilePath, sFilterFlag)
+{
+    var fd = new FileDialog;
+    var sLoad = "S";
+
+    if(gfn_getLength(sFilePath) <= 0) sFilePath = "%MYDOCUMENT%";
+    if(gfn_getLength(sFilterFlag) <= 0) sFilterFlag = "";
+
+    if (sOpenDiv != undefined) {
+        sLoad = sOpenDiv;
+    }
+
+    // File Type Filter
+    var v_Filter = "";
+    if (sFilterFlag == "EXCEL") {
+        v_Filter = "Excel 97 - 2003 통합문서 (*.xls)|*.xls|Excel 통합문서 (*.xlsx)|*.xlsx|CSV 문서(*.csv)|*.csv";
+    } else if (sFilterFlag == "IMAGE") {
+        v_Filter = "image files (*.bmp;*.jpg;*.jpeg;*.gif;*.png)|*.bmp;*.jpg;*.jpeg;*.gif;*.png";
+    } else if (sFilterFlag == "CLASS") {
+        v_Filter = "class files (*.class)|*.class";
+    } else if (sFilterFlag == "XML") {
+        v_Filter = "xml files (*.xml)|*.xml";
+    } else {
+        v_Filter = "All (*.*)|*.*";
+    }
+    fd.filter = v_Filter;
+
+    // File Open
+    if (sLoad == "M") {
+        var vFile_up = fd.open("File Select", FileDialog.MULTILOAD, sFilePath);
+    } else {
+        var vFile_up = fd.open("File Select", FileDialog.LOAD, sFilePath);
+    }
+
+    if (!vFile_up) {
+        return false;
+    }
+
+    return vFile_up;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_fileSavePath
+ * 입      력 : sFilePath   : Default 파일경로
+                sFileName   : 파일명
+                sFilterFlag : File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+ * 반      환 : FileSave FullPath 반환
+ * 기      능 : File Dialog를 Open해서 FileSave FullPath 반환하는 함수
+ *****************************************************************************************/
+function gfn_fileSavePath(sFilePath, sFileName, sFilterFlag)
+{
+    var fd = new FileDialog;
+
+    if(gfn_getLength(sFilePath) <= 0) sFilePath = "%MYDOCUMENT%";
+    if(gfn_getLength(sFilterFlag) <= 0) sFilterFlag = "";
+
+    // File Type Filter
+    var v_Filter = "";
+    if (sFilterFlag == "EXCEL") {
+        v_Filter = "Excel 97 - 2003 통합문서 (*.xls)|*.xls|Excel 통합문서 (*.xlsx)|*.xlsx";
+    } else if (sFilterFlag == "IMAGE") {
+        v_Filter = "image files (*.bmp;*.jpg;*.jpeg;*.gif;*.png)|*.bmp;*.jpg;*.jpeg;*.gif;*.png";
+    } else if (sFilterFlag == "CSV") {
+        v_Filter = "CSV files (*.csv)|*.csv";
+    } else {
+        v_Filter = "All (*.*)|*.*";
+    }
+    fd.filter = v_Filter;
+
+    var vFile_up = fd.open("FileSave", FileDialog.SAVE, sFilePath, sFileName);
+    var filePath = "";
+
+    if (vFile_up == undefined || vFile_up == null) {
+        filePath = "";
+    } else {
+        filePath = vFile_up.fullpath;
+        vFile_up.close();
+    }
+
+    fd = null;
+
+    return filePath;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_fileSavePath_xlsx(xlsx 우선순위)
+ * 입      력 : sFilePath   : Default 파일경로
+                sFileName   : 파일명
+                sFilterFlag : File Type Filter("EXCEL", "IMAGE", "" 중 택일)
+ * 반      환 : FileSave FullPath 반환
+ * 기      능 : File Dialog를 Open해서 FileSave FullPath 반환하는 함수
+ *****************************************************************************************/
+function gfn_fileSavePath_xlsx(sFilePath, sFileName, sFilterFlag)
+{
+    var fd = new FileDialog;
+
+    if(gfn_getLength(sFilePath) <= 0) sFilePath = "%MYDOCUMENT%";
+    if(gfn_getLength(sFilterFlag) <= 0) sFilterFlag = "";
+
+    // File Type Filter
+    var v_Filter = "";
+    if (sFilterFlag == "EXCEL") {
+        v_Filter = "Excel 통합문서 (*.xlsx)|*.xlsx";
+    } else if (sFilterFlag == "IMAGE") {
+        v_Filter = "image files (*.bmp;*.jpg;*.jpeg;*.gif;*.png)|*.bmp;*.jpg;*.jpeg;*.gif;*.png";
+    } else if (sFilterFlag == "CSV") {
+        v_Filter = "CSV files (*.csv)|*.csv";
+    } else {
+        v_Filter = "All (*.*)|*.*";
+    }
+    fd.filter = v_Filter;
+
+    var vFile_up = fd.open("FileSave", FileDialog.SAVE, sFilePath, sFileName);
+    var filePath = "";
+    if (vFile_up == undefined || vFile_up == null) {
+        filePath = "";
+    } else {
+        filePath = vFile_up.fullpath;
+        vFile_up.close();
+    }
+
+    fd = null;
+    return filePath;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setWaitCursor
+ * 입      력 : bWaitCursor : Wait Cursor 보이기/숨기기 여부(true/false)
+ * 반      환 :
+ * 기      능 : Wait Cursor 보이기/숨기기
+ *****************************************************************************************/
+function gfn_setWaitCursor(bWaitCursor)
+{
+    if(bWaitCursor) {
+        this.setWaitCursor(true,true);
+    } else {
+        this.setWaitCursor(false,true);
+    }
+}
+
+]]></Script>

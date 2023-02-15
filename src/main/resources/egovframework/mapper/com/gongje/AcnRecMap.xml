@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="AcnRecMap">
+
+    <!-- 녹취파일이력 등록 -->
+    <insert id="AcnRecMap.insertAcuonRecHist" parameterType="map">
+        INSERT /* AcnRecMap.insertAcuonRecHist */
+          INTO ACUON_REC_HIST (
+               SDATE
+             , ACCNT_NO
+             , FILENAME
+             , REG_DM
+             , REG_MAN
+             , AGUBUN
+         ) VALUES (
+               #{sdate}
+             , #{accnt_no}
+             , #{filename}
+             , SYSDATE
+             , #{rgsr_id}
+             , #{agubun}
+         )
+    </insert>
+
+    <!-- 녹취파일이력 전송구분 업데이트 -->
+    <update id="AcnRecMap.updateAcuonRecHist" parameterType="map">
+        UPDATE /* AcnRecMap.updateAcuonRecHist */
+               ACUON_REC_HIST
+           SET AGUBUN = #{agubun}
+         WHERE SDATE = #{sdate}
+           and accnt_no = #{accnt_no}
+           AND FILENAME = #{filename}
+    </update>
+
+    <!-- 녹취파일이력 삭제 -->
+    <delete id="AcnRecMap.deleteAcuonRecHist" parameterType="map">
+        DELETE /* AcnRecMap.deleteAcuonRecHist */
+          FROM ACUON_REC_HIST
+         WHERE SDATE = #{sdate}
+           AND accnt_no = #{accnt_no}
+           AND FILENAME = #{filename}
+    </delete>
+
+    <!-- 녹취파일이력 삭제 -->
+    <delete id="AcnRecMap.deleteAcuonRecHistBySdate" parameterType="map">
+        DELETE /* AcnRecMap.deleteAcuonRecHistBySdate */
+          FROM ACUON_REC_HIST
+         WHERE SDATE = #{sdate}
+    </delete>
+
+    <!-- 녹취파일이력 조회 -->
+    <select id="AcnRecMap.getAcuonRecHist" parameterType="map" resultType="resultMap">
+        SELECT /* AcnRecMap.getAcuonRecHist */
+               A.SDATE
+             , A.ACCNT_NO
+             , A.FILENAME
+             , TO_CHAR(A.REG_DM,'YYYYMMDD') AS YMD
+             , A.REG_MAN
+             , A.AGUBUN
+             , case when A.AGUBUN='1' then '1' else ' ' end  AS CHK
+          FROM ACUON_REC_HIST A
+         WHERE 1=1
+        AND A.SDATE = #{sdate}
+        <if test="accnt_no != null and accnt_no != ''">
+           AND A.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="filename != null and filename != ''">
+           AND A.FILENAME = #{filename}
+        </if>
+         ORDER BY ACCNT_NO
+    </select>
+
+    <!-- MG 월별 파일 전송 리스트 -->
+    <select id="AcnRecMap.getMgFileTransList" parameterType="map" resultType="resultMap">
+        SELECT /* AcnRecMap.getMgFileTransList */
+               A.SDATE
+             , A.ACCNT_NO
+             , A.FILENAME
+             , TO_CHAR(A.REG_DM,'YYYYMMDD') AS YMD
+             , A.REG_MAN
+             , DECODE(A.AGUBUN,'G','전송완료','전송전') AS AGUBUN
+             , ' '  AS CHK
+          FROM ACUON_REC_HIST A
+         WHERE 1=1
+        AND SUBSTR(A.SDATE,0,6) = #{sdate}
+        AND AGUBUN IN ('M','G')
+    </select>
+
+    <!-- MG 월별 파일 전송 인서트 -->
+    <insert id="AcnRecMap.insertMgFileTransList" parameterType="map">
+        INSERT /* AcnRecMap.insertMgFileTransList */
+          INTO ACUON_REC_HIST (
+               SDATE
+             , ACCNT_NO
+             , FILENAME
+             , REG_DM
+             , REG_MAN
+             , AGUBUN
+         ) VALUES (
+               #{sdate}
+             , #{accnt_no}
+             , #{filename}
+             , SYSDATE
+             , #{rgsr_id}
+             , #{agubun}
+         )
+    </insert>
+
+</mapper>

@@ -1,0 +1,1267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwSignListMainMap">
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리리스트 조회수
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignListMainCount" parameterType="map" resultType="int">
+        SELECT /* DlwSignListMainMap.getSignListMainCount */
+            COUNT(*) AS ICNT
+        FROM 
+        (	SELECT <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY SLM.SIGN_NO ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+        			SLM.*
+            FROM (
+        			
+	            SELECT 
+	                TO_CHAR(SLM.REG_DM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM,
+	                SLM.SIGN_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO)
+	                    ELSE (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS MEM_NO,
+	                SLM.ACCNT_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO))
+	                END AS MEM_NM,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT CELL FROM MEMBER WHERE MEM_NO = (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT CELL FROM MEMBER WHERE MEM_NO = (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO))
+	                END AS CELL,
+	                SLM.SIGN_GBN1,
+	                SLM.SIGN_GBN2,
+	                SLM.SEND_STAT,
+	                (
+	                    SELECT
+	                        SVDS.STATUS_NM
+	                    FROM 
+	                    (
+	                        SELECT 
+	                            SVDC.SIGN_NO,
+	                            SVDC.STATUS,
+	                            (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDC.STATUS = CC.COM_CD) AS STATUS_NM,
+	                            TO_CHAR(SVDC.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+	                        FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC
+	                        WHERE 1=1
+	                        ORDER BY SVDC.SIGN_NO ASC, SVDC.REG_DATE DESC
+	                    ) SVDS
+	                    WHERE 1=1 
+	                    AND SVDS.SIGN_NO = SLM.SIGN_NO
+	                    AND ROWNUM = 1
+	                ) AS STATUS_NM,
+	                (SELECT COUNT(*) FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC WHERE 1=1 AND SVDC.SIGN_NO = SLM.SIGN_NO) AS SEND_COUNT,
+	                SLM.SEND_MAN,
+	                SLM.DEL_FG,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT FN_EMPLE_NM(BEF_EMPLE_CD) FROM MEM_PROD_ACCNT WHERE ACCNT_NO = (SELECT MAX(ACCNT_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT FN_EMPLE_NM(BEF_EMPLE_CD) FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS BEF_EMPLE_NM,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT BEF_EMPLE_CD FROM MEM_PROD_ACCNT WHERE ACCNT_NO = (SELECT MAX(ACCNT_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT BEF_EMPLE_CD FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS BEF_EMPLE_CD,
+	                NVL(RS.RESN_PROC_YN,'N') AS RESN_PROC_YN
+	            FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM LEFT OUTER JOIN
+                    RESCISSION RS ON SLM.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+	            WHERE 1=1
+	            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND SUBSTR(SLM.SIGN_NO, 0, 8) BETWEEN #{stt_dt} AND #{end_dt}
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND SLM.ACCNT_NO = #{accnt_no}
+	            </if>
+	            <if test="sign_gbn1 != null and sign_gbn1 != ''">
+	                AND SLM.SIGN_GBN1 = #{sign_gbn1}
+	            </if>
+	            <if test="sign_gbn2 != null and sign_gbn2 != ''">
+	                AND SLM.SIGN_GBN2 = #{sign_gbn2}
+	            </if>
+	            <if test="send_stat != null and send_stat != ''">
+	                AND SLM.SEND_STAT = #{send_stat}
+	            </if>
+	            <if test="del_fg != null and del_fg != ''">
+	                AND SLM.DEL_FG = #{del_fg}
+	            </if>
+	            <if test="send_man != null and send_man != ''">
+	                AND SLM.SEND_MAN = #{send_man}
+	            </if>
+	            <if test="resn_yn != null and resn_yn != ''">
+	                AND NVL(RS.RESN_PROC_YN,'N') = #{resn_yn} 
+	            </if>  	            
+            ) SLM
+            WHERE 1=1
+            <if test="bef_emple_cd != null and bef_emple_cd != ''">
+                AND SLM.BEF_EMPLE_CD = #{bef_emple_cd}
+            </if>
+            <if test="cell != null and cell != ''">
+                AND REPLACE(SLM.CELL, '-', '') = REPLACE(#{cell}, '-', '')
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND SLM.MEM_NM = #{mem_nm}
+            </if>
+            <if test="comp_stat != null and comp_stat != ''">
+                AND SLM.STATUS_NM = #{comp_stat} 
+            </if>               
+        ) MAIN_TBL
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리리스트 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignListMainList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignListMainList */
+            MAIN_TBL.*
+        FROM
+        (	SELECT <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY SLM.SIGN_NO ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+        			SLM.*
+            FROM (
+        			
+	            SELECT 
+	                TO_CHAR(SLM.REG_DM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM,
+	                SLM.SIGN_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO)
+	                    ELSE (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS MEM_NO,
+	                SLM.ACCNT_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO))
+	                END AS MEM_NM,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT CELL FROM MEMBER WHERE MEM_NO = (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT CELL FROM MEMBER WHERE MEM_NO = (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO))
+	                END AS CELL,
+	                SLM.SIGN_GBN1,
+	                (SELECT SIGN_GBN1_NM FROM TB_SIGN_CODE_MST WHERE SIGN_GBN1_CD = SLM.SIGN_GBN1) AS SIGN_GBN1_NM,
+	                SLM.SIGN_GBN2,
+	                (SELECT SIGN_GBN2_NM FROM TB_SIGN_CODE_DTL WHERE SIGN_GBN1_CD = SLM.SIGN_GBN1 AND SIGN_GBN2_CD = SLM.SIGN_GBN2) AS SIGN_GBN2_NM,
+	                SLM.SEND_STAT,
+	                FN_COM_NM('0225', SLM.SEND_STAT) AS SEND_STAT_NM, 
+	                (
+	                    SELECT
+	                        SVDS.STATUS_NM
+	                    FROM 
+	                    (
+	                        SELECT 
+	                            SVDC.SIGN_NO,
+	                            SVDC.STATUS,
+	                            (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDC.STATUS = CC.COM_CD) AS STATUS_NM,
+	                            TO_CHAR(SVDC.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+	                        FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC
+	                        WHERE 1=1
+	                        ORDER BY SVDC.SIGN_NO ASC, SVDC.REG_DATE DESC
+	                    ) SVDS
+	                    WHERE 1=1 
+	                    AND SVDS.SIGN_NO = SLM.SIGN_NO
+	                    AND ROWNUM = 1
+	                ) AS STATUS_NM,
+	                (SELECT COUNT(*) FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC WHERE 1=1 AND SVDC.SIGN_NO = SLM.SIGN_NO) AS SEND_COUNT,
+	                SLM.SEND_MAN,
+	                SLM.DEL_FG,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT FN_EMPLE_NM(BEF_EMPLE_CD) FROM MEM_PROD_ACCNT WHERE ACCNT_NO = (SELECT MAX(ACCNT_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT FN_EMPLE_NM(BEF_EMPLE_CD) FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS BEF_EMPLE_NM,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT BEF_EMPLE_CD FROM MEM_PROD_ACCNT WHERE ACCNT_NO = (SELECT MAX(ACCNT_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT BEF_EMPLE_CD FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS BEF_EMPLE_CD,
+	                NVL(RS.RESN_PROC_YN,'N') AS RESN_PROC_YN  
+	            FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM LEFT OUTER JOIN
+                    RESCISSION RS ON SLM.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+	            WHERE 1=1
+	            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND SUBSTR(SLM.SIGN_NO, 0, 8) BETWEEN #{stt_dt} AND #{end_dt}
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND SLM.ACCNT_NO = #{accnt_no}
+	            </if>
+	            <if test="sign_gbn1 != null and sign_gbn1 != ''">
+	                AND SLM.SIGN_GBN1 = #{sign_gbn1}
+	            </if>
+	            <if test="sign_gbn2 != null and sign_gbn2 != ''">
+	                AND SLM.SIGN_GBN2 = #{sign_gbn2}
+	            </if>
+	            <if test="send_stat != null and send_stat != ''">
+	                AND SLM.SEND_STAT = #{send_stat}
+	            </if>
+	            <if test="del_fg != null and del_fg != ''">
+	                AND SLM.DEL_FG = #{del_fg}
+	            </if>
+	            <if test="send_man != null and send_man != ''">
+	                AND SLM.SEND_MAN = #{send_man}
+	            </if>
+	            <if test="resn_yn != null and resn_yn != ''">
+	                AND NVL(RS.RESN_PROC_YN,'N') = #{resn_yn} 
+	            </if>  		            
+            ) SLM
+            WHERE 1=1
+            <if test="bef_emple_cd != null and bef_emple_cd != ''">
+                AND SLM.BEF_EMPLE_CD = #{bef_emple_cd} 
+            </if>
+            <if test="cell != null and cell != ''">
+                AND REPLACE(SLM.CELL, '-', '') = REPLACE(#{cell}, '-', '')
+            </if>
+            <if test="mem_nm != null and mem_nm != ''"> 
+                AND SLM.MEM_NM = #{mem_nm}
+            </if>
+            <if test="comp_stat != null and comp_stat != ''">
+                AND SLM.STATUS_NM = #{comp_stat}
+            </if>            
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명이력리스트 조회수
+     * 대상 테이블 : SIGN.V_DOC_STATUS@DLCCSUB
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignHistMainCount" parameterType="map" resultType="int">
+        SELECT /* DlwSignListMainMap.getSignHistMainCount */
+            COUNT(*) AS ICNT 
+        FROM 
+		(
+        	SELECT ROW_NUMBER() OVER(ORDER BY A.SIGN_NO ASC) AS PAGE_INDX,
+        	       A.*
+        	FROM (
+	            SELECT
+	        	    SVDS.SIGN_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO)
+	                    ELSE (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS MEM_NO,
+	                SLM.ACCNT_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO))
+	                END AS MEM_NM,
+	                SLM.SIGN_GBN1,
+	                SLM.SIGN_GBN2,
+	                SVDS.STATUS,
+	                (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDS.STATUS = CC.COM_CD) AS STATUS_NM,
+	                TO_CHAR(SVDS.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+	            FROM SIGN.V_DOC_STATUS@DLCCSUB SVDS LEFT OUTER JOIN 
+	                LF_DMUSER.TB_SIGN_LIST_MAIN SLM ON SVDS.SIGN_NO = SLM.SIGN_NO
+	            WHERE 1=1
+	            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND SVDS.REG_DATE BETWEEN TO_DATE(#{stt_dt} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_dt} || '235959', 'YYYYMMDDHH24MISS')
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND SVDS.SIGN_NO IN (SELECT SLM.SIGN_NO FROM TB_SIGN_LIST_MAIN SLM WHERE 1=1 AND SLM.DEL_FG = 'N' AND SLM.ACCNT_NO = #{accnt_no})
+	            </if>
+	            <if test="sign_gbn1 != null and sign_gbn1 != ''">
+	                AND SLM.SIGN_GBN1 = #{sign_gbn1}
+	            </if>
+	            <if test="sign_gbn2 != null and sign_gbn2 != ''">
+	                AND SLM.SIGN_GBN2 = #{sign_gbn2}
+	            </if>
+	            <if test="del_fg != null and del_fg != ''">
+	                AND SLM.DEL_FG = #{del_fg}
+	            </if>
+	            <if test="send_man != null and send_man != ''">
+	                AND SLM.SEND_MAN = #{send_man}
+	            </if>
+	            ORDER BY SVDS.SIGN_NO ASC, SVDS.REG_DATE DESC
+            )A
+            WHERE 1=1
+            <if test="mem_nm != null and mem_nm != ''">
+                AND A.MEM_NM = #{mem_nm}
+            </if>
+        )
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명이력리스트 조회리스트
+     * 대상 테이블 : SIGN.V_DOC_STATUS@DLCCSUB
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignHistMainList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignHistMainList */
+            MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY A.SIGN_NO ASC) AS PAGE_INDX,
+        		   A.*
+        	FROM (
+	            SELECT
+	        	    SVDS.SIGN_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO)
+	                    ELSE (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO)
+	                END AS MEM_NO,
+	                SLM.ACCNT_NO,
+	                CASE WHEN SUBSTR(SLM.ACCNT_NO, 0, 1) = 'M' THEN (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MAX(MEM_NO) FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = SLM.ACCNT_NO))
+	                    ELSE (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = (SELECT MEM_NO FROM MEM_PROD_ACCNT MPA WHERE 1=1 AND MPA.ACCNT_NO = SLM.ACCNT_NO))
+	                END AS MEM_NM,
+	                SLM.SIGN_GBN1,
+	                (SELECT SIGN_GBN1_NM FROM TB_SIGN_CODE_MST WHERE SIGN_GBN1_CD = SLM.SIGN_GBN1) AS SIGN_GBN1_NM,
+	                SLM.SIGN_GBN2,
+	                (SELECT SIGN_GBN2_NM FROM TB_SIGN_CODE_DTL WHERE SIGN_GBN1_CD = SLM.SIGN_GBN1 AND SIGN_GBN2_CD = SLM.SIGN_GBN2) AS SIGN_GBN2_NM,
+	                SVDS.STATUS,
+	                (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDS.STATUS = CC.COM_CD) AS STATUS_NM,
+	                TO_CHAR(SVDS.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+	            FROM SIGN.V_DOC_STATUS@DLCCSUB SVDS LEFT OUTER JOIN 
+	                LF_DMUSER.TB_SIGN_LIST_MAIN SLM ON SVDS.SIGN_NO = SLM.SIGN_NO
+	            WHERE 1=1
+	            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND SVDS.REG_DATE BETWEEN TO_DATE(#{stt_dt} || '000000', 'YYYYMMDDHH24MISS') AND TO_DATE(#{end_dt} || '235959', 'YYYYMMDDHH24MISS')
+	            </if>
+	            <if test="accnt_no != null and accnt_no != ''">
+	                AND SVDS.SIGN_NO IN (SELECT SLM.SIGN_NO FROM TB_SIGN_LIST_MAIN SLM WHERE 1=1 AND SLM.DEL_FG = 'N' AND SLM.ACCNT_NO = #{accnt_no})
+	            </if>
+	            <if test="sign_gbn1 != null and sign_gbn1 != ''">
+	                AND SLM.SIGN_GBN1 = #{sign_gbn1}
+	            </if>
+	            <if test="sign_gbn2 != null and sign_gbn2 != ''">
+	                AND SLM.SIGN_GBN2 = #{sign_gbn2}
+	            </if>
+	            <if test="del_fg != null and del_fg != ''">
+	                AND SLM.DEL_FG = #{del_fg}
+	            </if>
+	            <if test="send_man != null and send_man != ''">
+	                AND SLM.SEND_MAN = #{send_man}
+	            </if>
+	            ORDER BY SVDS.SIGN_NO ASC, SVDS.REG_DATE DESC
+            )A
+            WHERE 1=1
+            <if test="mem_nm != null and mem_nm != ''">
+                AND A.MEM_NM = #{mem_nm}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리 삭제 가능 여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getDeleteSignYnConfirm" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getDeleteSignYnConfirm */
+            SLM.SIGN_NO,
+            SLM.ACCNT_NO,
+            SLM.SIGN_GBN1,
+            SLM.SIGN_GBN2,
+            SLM.SEND_STAT,
+            SLM.SEND_MAN,
+            SLM.DEL_FG
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+        WHERE 1=1
+        AND SLM.DEL_FG = 'N'
+        AND SLM.SIGN_GBN1 IN ('03', '04')
+        AND SLM.ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리리스트 대상 삭제
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <update id="DlwSignListMainMap.deleteSignListMainList" parameterType="map">
+        /* DlwSignListMainMap.deleteSignListMainList */
+        UPDATE LF_DMUSER.TB_SIGN_LIST_MAIN
+        SET DEL_FG = 'Y'
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND SIGN_NO = #{sign_no}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20200422
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명거절
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <update id="DlwSignListMainMap.updateSignMemberReject" parameterType="map">
+        /* DlwSignListMainMap.updateSignMemberReject */
+        BEGIN
+            UPDATE SIGN.DOC_DETAIL@DLCCSUB 
+            SET STATUS = '06', 
+            MOD_ID = 'DLCC', 
+            MOD_DATE = SYSDATE 
+            WHERE LINK_KEY = #{sign_no};
+            
+            INSERT INTO SIGN.DOC_DETAIL_HISTORY@DLCCSUB (BIZ_NO, DOC_NO, DOC_SEQ_NO, HISTORY_SEQ, HISTORY_TYPE, STATUS, REG_IP, REG_ID) 
+            SELECT 
+                BIZ_NO, 
+                DOC_NO, 
+                DOC_SEQ_NO,
+                SIGN.HISTORY_SEQ.NEXTVAL@DLCCSUB,
+                'N', 
+                '06', 
+                'DLCC', 
+                'DLCC' 
+            FROM SIGN.DOC_DETAIL@DLCCSUB
+            WHERE LINK_KEY = #{sign_no};
+        END;
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 대상 고객 조회 팝업
+     * 대상 테이블 : LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER, LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getAccntList" parameterType="map" resultType="resultMap">
+        <!--
+            * 조회기준 *
+            1. 고유번호
+            2. 섹션3
+            3. 더블구좌가 아닌 상품
+            4. 고객 조회의 기준이 되는 데이터 제외
+            5. 더블구좌로 묶이는 데이터 제외
+            6. 전자서명 전송중이거나 전송완료된 데이터 제외(단일건, 다구좌)
+            7. 전자서명 전송중이거나 전송완료된 데이터 제외(더블구좌)
+        -->
+        
+        SELECT /* DlwSignListMainMap.getAccntList */
+            MPA.ACCNT_NO,
+            MB.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            PD.SECTION_THR
+        FROM LF_DMUSER.MEM_PROD_ACCNT MPA INNER JOIN 
+            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N'
+        WHERE 1=1 
+        AND MB.MEM_NO = #{mem_no}
+        AND PD.SECTION_THR = #{section_thr}
+        AND NVL(PD.PROD_CD_DBL, 'NULL') = 'NULL'
+        AND MPA.ACCNT_NO != #{accnt_no}
+        AND MPA.ACCNT_NO NOT IN (
+                                    SELECT 
+                                        AD.ACCNT_NO 
+                                    FROM LF_DMUSER.TB_ACCNT_DOUBLE AD 
+                                    WHERE 1=1 
+                                    AND AD.ACCNT_NO_DBL IN (
+                                                               SELECT 
+                                                                   TAD.ACCNT_NO_DBL 
+                                                               FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD 
+                                                               WHERE 1=1 
+                                                               AND TAD.ACCNT_NO IN (SELECT SMPA.ACCNT_NO FROM MEM_PROD_ACCNT SMPA WHERE 1=1 AND SMPA.DEL_FG = 'N' AND SMPA.MEM_NO = #{mem_no})
+                                                           )
+                                )
+        AND MPA.ACCNT_NO NOT IN (
+                                    SELECT 
+                                        SLM.ACCNT_NO 
+                                    FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM 
+                                    WHERE 1=1 
+                                    AND SLM.DEL_FG = 'N'
+                                    AND SLM.SEND_STAT IN ('S', 'E') 
+                                    AND SLM.ACCNT_NO IN (SELECT SMPA.ACCNT_NO FROM MEM_PROD_ACCNT SMPA WHERE 1=1 AND SMPA.DEL_FG = 'N' AND SMPA.MEM_NO = #{mem_no})
+                                )
+        AND MPA.ACCNT_NO NOT IN (
+                                    SELECT 
+                                        SLM.ACCNT_NO 
+                                    FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM 
+                                    WHERE 1=1 
+                                    AND SLM.DEL_FG = 'N'
+                                    AND SLM.SEND_STAT IN ('S', 'E') 
+                                    AND SLM.ACCNT_NO IN (
+                                                            SELECT 
+                                                                AD.ACCNT_NO 
+                                                            FROM LF_DMUSER.TB_ACCNT_DOUBLE AD 
+                                                            WHERE 1=1 
+                                                            AND AD.ACCNT_NO_DBL IN (
+                                                                                       SELECT 
+                                                                                           TAD.ACCNT_NO_DBL 
+                                                                                       FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD 
+                                                                                       WHERE 1=1 
+                                                                                       AND TAD.ACCNT_NO IN (SELECT SMPA.ACCNT_NO FROM MEM_PROD_ACCNT SMPA WHERE 1=1 AND SMPA.DEL_FG = 'N' AND SMPA.MEM_NO = #{mem_no})
+                                                                                   )
+                                                        )
+                                )
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 대상 더블구좌 고객 조회 팝업 조회수
+     * 대상 테이블 : LF_DMUSER.TB_ACCNT_DOUBLE, LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER, LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getDoubleAccntCount" parameterType="map" resultType="int">
+        SELECT 
+            COUNT(*) AS ICNT
+        FROM TB_ACCNT_DOUBLE AD INNER JOIN
+            MEM_PROD_ACCNT MPA ON AD.ACCNT_NO = MPA.ACCNT_NO INNER JOIN 
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N' INNER JOIN
+            EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO
+        WHERE 1=1
+        <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('accnt_no_dbl')">
+            AND AD.ACCNT_NO_DBL = #{srch_vl}
+        </if>
+        <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('accnt_no')">
+            AND AD.ACCNT_NO = #{srch_vl}
+        </if>
+        <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('mem_no')">
+            AND MB.MEM_NO = #{srch_vl}
+        </if>
+        <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('mem_nm')">
+            AND MB.MEM_NM LIKE '%' || #{srch_vl} || '%'
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 대상 더블구좌 고객 조회 팝업 리스트
+     * 대상 테이블 : LF_DMUSER.TB_ACCNT_DOUBLE, LF_DMUSER.MEM_PROD_ACCNT, LF_DMUSER.MEMBER, LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getDoubleAccntList" parameterType="map" resultType="resultMap">
+        SELECT 
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY AD.ACCNT_NO_DBL ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                AD.ACCNT_NO_DBL,
+                AD.ACCNT_NO,
+                MB.MEM_NO,
+                MB.MEM_NM,
+                PD.PROD_CD,
+                PD.PROD_NM,
+                EMP.EMPLE_NO,
+                EMP.EMPLE_NM,
+                MB.BRTH_MON_DAY
+            FROM TB_ACCNT_DOUBLE AD INNER JOIN
+                MEM_PROD_ACCNT MPA ON AD.ACCNT_NO = MPA.ACCNT_NO INNER JOIN 
+                MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+                PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N' INNER JOIN
+                EMPLOYEE EMP ON MPA.EMPLE_NO = EMP.EMPLE_NO
+            WHERE 1=1
+            <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('accnt_no_dbl')">
+                AND AD.ACCNT_NO_DBL = #{srch_vl}
+            </if>
+            <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('accnt_no')">
+                AND AD.ACCNT_NO = #{srch_vl}
+            </if>
+            <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('mem_no')">
+                AND MB.MEM_NO = #{srch_vl}
+            </if>
+            <if test="srch_typ != null and srch_typ != '' and srch_typ.equalsIgnoreCase('mem_nm')">
+                AND MB.MEM_NM LIKE '%' || #{srch_vl} || '%'
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210111
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리리스트 구분 코드 로드(전자서명구분1)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getCodeSignGbn1Full" parameterType="map" resultType="resultMap">
+        SELECT 
+            SCM.SIGN_GBN1_CD AS CD,
+            SCM.SIGN_GBN1_NM AS CD_NM
+        FROM LF_DMUSER.TB_SIGN_CODE_MST SCM
+        WHERE 1=1
+        AND SCM.DEL_FG = 'N'
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210111
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리리스트 구분 코드 로드(전자서명구분2)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_DTL
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getCodeSignGbn2Full" parameterType="map" resultType="resultMap">
+        SELECT 
+            SCD.SIGN_GBN2_CD AS CD,
+            SCD.SIGN_GBN2_NM AS CD_NM
+        FROM LF_DMUSER.TB_SIGN_CODE_DTL SCD
+        WHERE 1=1
+        AND SCD.DEL_FG = 'N'
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 단일 회원번호, 다구좌로 등록된 전자서명인지 여부, 더블구좌번호로 등록된 전자서명인지 여부 
+     *            (최초로 비대면계약서와 대면계약서를 작성했는지의 여부도 포함)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getAMccntNoRegSignConfirm" parameterType="map" resultType="resultMap">
+        /* DlwSignListMainMap.getAMccntNoRegSignConfirm */
+        SELECT /* 단일 회원번호, 다구좌로 등록된 전자서명인지 여부 */
+            SLM.SIGN_NO,
+            SLM.ACCNT_NO,
+            SLM.SIGN_GBN1,
+            SLM.SIGN_GBN2,
+            SLM.SEND_STAT,
+            SLM.SEND_MAN
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+        WHERE 1=1
+        AND SLM.DEL_FG = 'N'
+        AND SLM.SIGN_GBN1 IN ('01', '02', '03', '04')
+        AND SLM.SEND_STAT IN ('S', 'E')
+        AND SLM.ACCNT_NO = #{accnt_no}
+        
+        UNION ALL
+        
+        SELECT /* 더블구좌번호로 등록된 전자서명인지 여부 */
+            SLM.SIGN_NO,
+            SLM.ACCNT_NO,
+            SLM.SIGN_GBN1,
+            SLM.SIGN_GBN2,
+            SLM.SEND_STAT,
+            SLM.SEND_MAN
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+        WHERE 1=1
+        AND SLM.DEL_FG = 'N'
+        AND SLM.SIGN_GBN1 IN ('01', '02', '03', '04')
+        AND SLM.SEND_STAT IN ('S', 'E')
+        AND SLM.ACCNT_NO IN (SELECT TAD.ACCNT_NO_DBL FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO = #{accnt_no})
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 등록회원 조회 (단구좌, 다구좌고객)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignAccnt2Info" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignAccnt2Info */
+            SLM.ACCNT_NO,
+            MB.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            PD.SECTION_THR,
+            (SELECT TAD.ACCNT_NO_DBL FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO = SLM.ACCNT_NO) AS ACCNT_NO_DBL
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM INNER JOIN 
+            LF_DMUSER.MEM_PROD_ACCNT MPA ON SLM.ACCNT_NO = MPA.ACCNT_NO INNER JOIN 
+            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N'
+        WHERE 1=1
+        AND SLM.DEL_FG = 'N'
+        AND SLM.SIGN_NO = #{sign_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 등록회원 서명타입 조회 (단구좌, 다구좌고객)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignAccntSignTypeInfo" parameterType="map" resultType="resultMap">
+            SELECT /* DlwSignListMainMap.getSignAccntSignTypeInfo */
+	            SLM.SIGN_NO,
+	            SLM.ACCNT_NO,
+	            SLM.SIGN_GBN1,
+	            SLM.SIGN_GBN2,
+	            SLM.SEND_STAT,
+	            (
+	                SELECT
+	                    STATUS_NM
+	                FROM 
+	                (
+	                    SELECT 
+	                        SVDC.SIGN_NO,
+	                        SVDC.STATUS,
+	                        (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDC.STATUS = CC.COM_CD) AS STATUS_NM,
+	                        TO_CHAR(SVDC.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+	                    FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC
+	                    WHERE 1=1
+	                    ORDER BY SVDC.SIGN_NO ASC, SVDC.REG_DATE DESC
+	                ) SVDS
+	                WHERE 1=1 
+	                AND SVDS.SIGN_NO = SLM.SIGN_NO
+	                AND ROWNUM = 1
+	            ) AS STATUS_NM
+	        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+	        WHERE 1=1
+	        AND SLM.DEL_FG = 'N'
+	        AND SLM.ACCNT_NO = #{accnt_no}	         
+	        ORDER BY SLM.SIGN_NO, SLM.ACCNT_NO
+    <!-- 
+        SELECT /* DlwSignListMainMap.getSignAccntSignTypeInfo */
+            SLM.SIGN_NO,
+            SLM.ACCNT_NO,
+            SLM.SIGN_GBN1,
+            SLM.SIGN_GBN2,
+            SLM.SEND_STAT,
+            (
+                SELECT
+                    STATUS_NM
+                FROM 
+                (
+                    SELECT 
+                        SVDC.SIGN_NO,
+                        SVDC.STATUS,
+                        (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDC.STATUS = CC.COM_CD) AS STATUS_NM,
+                        TO_CHAR(SVDC.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+                    FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC
+                    WHERE 1=1
+                    ORDER BY SVDC.SIGN_NO ASC, SVDC.REG_DATE DESC
+                ) SVDS
+                WHERE 1=1 
+                AND SVDS.SIGN_NO = SLM.SIGN_NO
+                AND ROWNUM = 1
+            ) AS STATUS_NM
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+        WHERE 1=1
+        AND SLM.DEL_FG = 'N'
+        AND (SLM.ACCNT_NO = #{accnt_no}
+        OR  SLM.ACCNT_NO IN (SELECT TAD.ACCNT_NO_DBL FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO = #{accnt_no})
+        OR  SLM.SIGN_NO IN (SELECT TSLM.SIGN_NO FROM LF_DMUSER.TB_SIGN_LIST_MAIN TSLM WHERE 1=1 AND TSLM.DEL_FG = 'N' AND TSLM.SEND_STAT IN ('S', 'E') AND TSLM.ACCNT_NO = #{accnt_no}))
+        ORDER BY SLM.SIGN_NO, SLM.ACCNT_NO
+         -->
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 등록회원 조회 (더블구좌고객)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignDouble2Info" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignDouble2Info */
+            AD.ACCNT_NO_DBL,
+            AD.ACCNT_NO,
+            MB.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            PD.SECTION_THR
+        FROM LF_DMUSER.TB_ACCNT_DOUBLE AD INNER JOIN 
+            LF_DMUSER.TB_SIGN_LIST_MAIN SLM ON AD.ACCNT_NO_DBL = SLM.ACCNT_NO INNER JOIN
+            MEM_PROD_ACCNT MPA ON AD.ACCNT_NO = MPA.ACCNT_NO INNER JOIN 
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N'
+        WHERE 1=1 
+        AND SLM.DEL_FG = 'N'
+        AND SLM.SIGN_NO = #{sign_no}
+        AND AD.ACCNT_NO_DBL = #{accnt_no}
+        AND MPA.ACCNT_NO != #{pre_accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 등록회원 서명타입 조회 (더블구좌고객)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignDoubleSignTypeInfo" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignDoubleSignTypeInfo */
+        	SLM.SIGN_NO,
+            SLM.ACCNT_NO,
+            SLM.SIGN_GBN1,
+            SLM.SIGN_GBN2,
+            SLM.SEND_STAT,
+            (
+                SELECT
+                    STATUS_NM
+                FROM 
+                (
+                    SELECT 
+                        SVDC.SIGN_NO,
+                        SVDC.STATUS,
+                        (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDC.STATUS = CC.COM_CD) AS STATUS_NM,
+                        TO_CHAR(SVDC.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+                    FROM SIGN.V_DOC_STATUS@DLCCSUB SVDC
+                    WHERE 1=1
+                    ORDER BY SVDC.SIGN_NO ASC, SVDC.REG_DATE DESC
+                ) SVDS
+                WHERE 1=1 
+                AND SVDS.SIGN_NO = SLM.SIGN_NO
+                AND ROWNUM = 1
+            ) AS STATUS_NM
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+        WHERE 1=1
+        AND SLM.DEL_FG = 'N'
+        AND SLM.ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 더블구좌 회원 정보추출
+     * 대상 테이블 : LF_DMUSER.TB_ACCNT_DOUBLE
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getDoubleInfo" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getDoubleInfo */
+            AD.ACCNT_NO,
+            AD.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            PD.SECTION_THR,
+        	AD.ACCNT_NO_DBL
+        FROM LF_DMUSER.TB_ACCNT_DOUBLE AD INNER JOIN 
+            LF_DMUSER.MEM_PROD_ACCNT MPA ON AD.ACCNT_NO = MPA.ACCNT_NO INNER JOIN 
+            LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' AND MB.DEL_FG = 'N' INNER JOIN
+            LF_DMUSER.PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD AND PD.DEL_FG = 'N'
+        WHERE 1=1
+        AND AD.MEM_NO = #{mem_no}
+        AND AD.ACCNT_NO_DBL IN (SELECT TAD.ACCNT_NO_DBL FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND (TAD.ACCNT_NO = #{accnt_no} OR TAD.ACCNT_NO_DBL = #{accnt_no}))
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 더블구좌 회원 전자서명구분 기본코드 조회
+     * 대상 테이블 : LF_DMUSER.TB_ACCNT_DOUBLE
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getDoubleBasicSignGbn" parameterType="map" resultType="resultMap">
+        /* DlwSignListMainMap.getDoubleBasicSignGbn */
+        SELECT /* 비대면에 대한 기준 */
+            #{accnt_no_dbl} AS ACCNT_NO_DBL,
+            '' AS SIGN_NO,
+            CASE WHEN #{section_thr} = '0020' THEN ''
+                WHEN #{section_thr} = '0021' THEN ''
+                WHEN #{section_thr} = '0027' THEN ''
+                WHEN #{section_thr} = '0028' THEN '01'
+                WHEN #{section_thr} = '0029' THEN '01'
+                WHEN #{section_thr} = '0008' THEN '01'
+                WHEN #{section_thr} = '0010' THEN '01'
+                ELSE ''
+            END AS SIGN_GBN1,
+            CASE WHEN #{section_thr} = '0020' THEN ''
+                WHEN #{section_thr} = '0021' THEN ''
+                WHEN #{section_thr} = '0027' THEN ''
+                WHEN #{section_thr} = '0028' THEN '00003'
+                WHEN #{section_thr} = '0029' THEN '00004'
+                WHEN #{section_thr} = '0008' THEN '00001'
+                WHEN #{section_thr} = '0010' THEN '00002'
+                ELSE ''
+            END AS SIGN_GBN2
+        FROM DUAL
+        
+        UNION ALL
+        
+        SELECT /* 대면에 대한 기준 */
+            #{accnt_no_dbl} AS ACCNT_NO_DBL,
+            '' AS SIGN_NO,
+            CASE WHEN #{section_thr} = '0020' THEN ''
+                WHEN #{section_thr} = '0021' THEN ''
+                WHEN #{section_thr} = '0027' THEN ''
+                WHEN #{section_thr} = '0028' THEN '02'
+                WHEN #{section_thr} = '0029' THEN '02'
+                WHEN #{section_thr} = '0008' THEN '02'
+                WHEN #{section_thr} = '0010' THEN '02'
+                ELSE ''
+            END AS SIGN_GBN1,
+            CASE WHEN #{section_thr} = '0020' THEN ''
+                WHEN #{section_thr} = '0021' THEN ''
+                WHEN #{section_thr} = '0027' THEN ''
+                WHEN #{section_thr} = '0028' THEN '00012'
+                WHEN #{section_thr} = '0029' THEN '00013'
+                WHEN #{section_thr} = '0008' THEN '00010'
+                WHEN #{section_thr} = '0010' THEN '00011'
+                ELSE ''
+            END AS SIGN_GBN2
+        FROM DUAL
+    </select>
+    
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 더블구좌 회원 전자서명구분 기본코드 조회(비대면/대면계약서 이후)
+     * 대상 테이블 : LF_DMUSER.TB_ACCNT_DOUBLE
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getRegistDoubleBasicSignGbn" parameterType="map" resultType="resultMap">
+        /* DlwSignListMainMap.getRegistDoubleBasicSignGbn */
+        SELECT /* 비대면에 대한 기준 */
+            #{accnt_no_dbl} AS ACCNT_NO_DBL,
+            '' AS SIGN_NO,
+            CASE WHEN #{section_thr} = '0020' THEN '03'
+                WHEN #{section_thr} = '0021' THEN '03'
+                WHEN #{section_thr} = '0027' THEN '03'
+                WHEN #{section_thr} = '0028' THEN '03'
+                WHEN #{section_thr} = '0029' THEN '03'
+                WHEN #{section_thr} = '0008' THEN '03'
+                WHEN #{section_thr} = '0010' THEN '03'
+                ELSE '03'
+            END AS SIGN_GBN1,
+            CASE WHEN #{section_thr} = '0020' THEN ''
+                WHEN #{section_thr} = '0021' THEN ''
+                WHEN #{section_thr} = '0027' THEN ''
+                WHEN #{section_thr} = '0028' THEN ''
+                WHEN #{section_thr} = '0029' THEN ''
+                WHEN #{section_thr} = '0008' THEN ''
+                WHEN #{section_thr} = '0010' THEN ''
+                ELSE ''
+            END AS SIGN_GBN2
+        FROM DUAL
+        
+        UNION ALL
+        
+        SELECT /* 대면에 대한 기준 */
+            #{accnt_no_dbl} AS ACCNT_NO_DBL,
+            '' AS SIGN_NO,
+            CASE WHEN #{section_thr} = '0020' THEN '04'
+                WHEN #{section_thr} = '0021' THEN '04'
+                WHEN #{section_thr} = '0027' THEN '04'
+                WHEN #{section_thr} = '0028' THEN '04'
+                WHEN #{section_thr} = '0029' THEN '04'
+                WHEN #{section_thr} = '0008' THEN '04'
+                WHEN #{section_thr} = '0010' THEN '04'
+                ELSE '04'
+            END AS SIGN_GBN1,
+            CASE WHEN #{section_thr} = '0020' THEN ''
+                WHEN #{section_thr} = '0021' THEN ''
+                WHEN #{section_thr} = '0027' THEN ''
+                WHEN #{section_thr} = '0028' THEN ''
+                WHEN #{section_thr} = '0029' THEN ''
+                WHEN #{section_thr} = '0008' THEN ''
+                WHEN #{section_thr} = '0010' THEN ''
+                ELSE ''
+            END AS SIGN_GBN2
+        FROM DUAL
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 이력 조회
+     * 대상 테이블 : SIGN.V_DOC_STATUS@DLCCSUB
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignAccntInfoHist" parameterType="map" resultType="resultMap">
+        SELECT 
+            SVDS.SIGN_NO,
+            SVDS.STATUS,
+            (SELECT CC.CD_NM FROM LF_DMUSER.COM_CD CC WHERE 1=1 AND CC.GRP_CD = '0226' AND SVDS.STATUS = CC.COM_CD) AS STATUS_NM,
+            TO_CHAR(SVDS.REG_DATE, 'YYYYMMDDHH24MISS') AS REG_DATE
+        FROM SIGN.V_DOC_STATUS@DLCCSUB SVDS
+        WHERE 1=1
+        AND SVDS.SIGN_NO = #{sign_no}
+        ORDER BY SVDS.SIGN_NO ASC, SVDS.REG_DATE DESC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210111
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명관리리스트 구분 코드 초기화 
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getCodeSignGbn1Init" parameterType="map" resultType="resultMap">
+        SELECT 
+            SCM.SIGN_GBN1_CD AS CD,
+            SCM.SIGN_GBN1_NM AS CD_NM
+        FROM LF_DMUSER.TB_SIGN_CODE_MST SCM
+        WHERE 1=1
+        AND SCM.DEL_FG = 'N'
+        <if test="sign_gbn_init != null and sign_gbn_init != '' and sign_gbn_init.equalsIgnoreCase('SI')">
+            AND SCM.SIGN_GBN1_CD IN ('03', '04', '01', '02')
+        </if>
+        <if test="sign_gbn_init != null and sign_gbn_init != '' and sign_gbn_init.equalsIgnoreCase('II')">
+            AND SCM.SIGN_GBN1_CD IN ('01', '02', '03', '04')
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210111
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분 코드2 조회 
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_DTL
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getCodeSignGbn2" parameterType="map" resultType="resultMap">
+        SELECT 
+            SCD.SIGN_GBN2_CD AS CD,
+            SCD.SIGN_GBN2_NM AS CD_NM
+        FROM LF_DMUSER.TB_SIGN_CODE_DTL SCD
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        <if test="sign_gbn1 != null and sign_gbn1 != ''">
+            AND SCD.SIGN_GBN1_CD = #{sign_gbn1}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 SIGN_NO 채번
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getCreateSignNo" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getCreateSignNo */
+            NVL(MAX(SLM.SIGN_NO) + 1, TO_CHAR(SYSDATE, 'YYYYMMDD') || '0001') AS SIGN_NO
+        FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+        WHERE 1=1
+        AND SLM.SIGN_NO LIKE TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 정보등록
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <insert id="DlwSignListMainMap.insertSignMainList"  parameterType="map">
+        /* DlwSignListMainMap.insertSignMainList */
+        INSERT INTO LF_DMUSER.TB_SIGN_LIST_MAIN(SIGN_NO, ACCNT_NO, SIGN_GBN1, SIGN_GBN2, SEND_STAT, SEND_MAN, DEL_FG, REG_MAN, REG_DM)
+        VALUES(#{sign_no}, #{accnt_no}, #{sign_gbn1}, #{sign_gbn2}, 'S', #{send_man}, 'N', #{rgsr_id}, SYSDATE)
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분1 공통 코드 조회 
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignCodeMst" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignCodeMst */
+            SCM.SIGN_GBN1_CD,
+            SCM.SIGN_GBN1_NM,
+            SCM.DEL_FG,
+            SCM.REG_DM,
+            SCM.REG_MAN,
+            SCM.UPD_DM,
+            SCM.UPD_MAN
+        FROM LF_DMUSER.TB_SIGN_CODE_MST SCM
+        WHERE 1=1
+        <if test="sign_gbn1_nm != null and sign_gbn1_nm != ''">
+            AND SCM.SIGN_GBN1_NM LIKE '%' || #{sign_gbn1_nm} || '%'
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분2 공통 코드 조회 
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_DTL
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getSignCodeDtl" parameterType="map" resultType="resultMap">
+        SELECT /* DlwSignListMainMap.getSignCodeDtl */
+            SCD.SIGN_GBN1_CD,
+            SCD.SIGN_GBN1_NM,
+            SCD.SIGN_GBN2_CD,
+            SCD.SIGN_GBN2_NM,
+            SCD.DEL_FG,
+            SCD.REG_DM,
+            SCD.REG_MAN,
+            SCD.UPD_DM,
+            SCD.UPD_MAN
+        FROM LF_DMUSER.TB_SIGN_CODE_DTL SCD
+        WHERE 1=1
+        <if test="sign_gbn1 != null and sign_gbn1 != ''">
+            AND SCD.SIGN_GBN1_CD = #{sign_gbn1}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분1 공통 코드 등록여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.insertSignCodeMstConfirm" parameterType="map" resultType="int">
+        SELECT /* DlwSignListMainMap.insertSignCodeMstConfirm */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_SIGN_CODE_MST SCM
+        WHERE 1=1
+        AND SCM.SIGN_GBN1_CD = #{sign_gbn1_cd}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분1 공통 코드 입력 
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <insert id="DlwSignListMainMap.insertSignCodeMst"  parameterType="map">
+        /* DlwSignListMainMap.insertSignCodeMst */
+        INSERT INTO LF_DMUSER.TB_SIGN_CODE_MST(SIGN_GBN1_CD, SIGN_GBN1_NM, DEL_FG, REG_DM, REG_MAN)
+        VALUES(#{sign_gbn1_cd}, #{sign_gbn1_nm}, 'N', SYSDATE, #{rgsr_id})
+    </insert>
+    
+     <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분1 공통 코드 등록여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.insertSignCodeDtlConfirm" parameterType="map" resultType="int">
+        SELECT /* DlwSignListMainMap.insertSignCodeDtlConfirm */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_SIGN_CODE_DTL SCD
+        WHERE 1=1
+        AND SCD.SIGN_GBN2_CD = #{sign_gbn2_cd}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분2 공통 코드 입력
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_DTL
+     * ================================================================
+     * -->
+    <insert id="DlwSignListMainMap.insertSignCodeDtl"  parameterType="map">
+        /* DlwSignListMainMap.insertSignCodeDtl */
+        INSERT INTO LF_DMUSER.TB_SIGN_CODE_DTL(SIGN_GBN1_CD, SIGN_GBN1_NM, SIGN_GBN2_CD, SIGN_GBN2_NM, DEL_FG, REG_DM, REG_MAN)
+        VALUES(#{sign_gbn1_cd}, #{sign_gbn1_nm}, #{sign_gbn2_cd}, #{sign_gbn2_nm}, 'N', SYSDATE, #{rgsr_id})
+    </insert>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분1 공통 코드 수정
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_MST
+     * ================================================================
+     * -->
+    <update id="DlwSignListMainMap.updateSignCodeMst" parameterType="map">
+        /* DlwSignListMainMap.updateSignCodeMst */
+        UPDATE LF_DMUSER.TB_SIGN_CODE_MST
+        SET SIGN_GBN1_NM = #{sign_gbn1_nm},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{rgsr_id}
+        WHERE 1=1
+        AND SIGN_GBN1_CD = #{sign_gbn1_cd}
+    </update>
+    
+    <!-- ================================================================
+     * 날짜 : 20201026
+     * 이름 : 송준빈
+     * 추가내용 : 전자서명 구분2 공통 코드 수정
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_CODE_DTL
+     * ================================================================
+     * -->
+    <update id="DlwSignListMainMap.updateSignCodeDtl" parameterType="map">
+        /* DlwSignListMainMap.updateSignCodeDtl */
+        UPDATE LF_DMUSER.TB_SIGN_CODE_DTL
+        SET SIGN_GBN2_NM = #{sign_gbn2_nm},
+            UPD_DM = SYSDATE,
+            UPD_MAN = #{rgsr_id}
+        WHERE 1=1 
+        AND SIGN_GBN2_CD = #{sign_gbn2_cd}
+    </update>
+    
+        <!-- ================================================================
+     * 날짜 : 20211230
+     * 이름 : 임동진
+     * 추가내용 : 전자서명 기초 회원 조회 (전자서명 상단 조회)
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwSignListMainMap.getAccntInfoList" parameterType="map" resultType="resultMap">
+    SELECT 
+    	/* DlwSignListMainMap.getAccntInfoList */
+        MPA.ACCNT_NO,
+        MPA.MEM_NO,
+        MPA.KSTBIT,
+        MB.MEM_NM,
+        PD.PROD_CD,
+        PD.PROD_NM,
+        PD.SECTION_THR, 
+        (SELECT ACCNT_NO_DBL FROM TB_ACCNT_DOUBLE WHERE ACCNT_NO = MPA.ACCNT_NO) AS ACCNT_NO_DBL,
+        FN_GET_MANSTAT(MPA.ACCNT_NO, MPA.JOIN_DT, PD.EXPR_NO, MPA.NEW_CHAN_GUNSU) AS MAN_STAT 
+    FROM MEM_PROD_ACCNT MPA INNER JOIN
+        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD   
+    WHERE 1=1
+    
+      <if test="accnt_no_dbl != null and accnt_no_dbl != ''">
+         AND MPA.ACCNT_NO IN (SELECT TAD.ACCNT_NO FROM LF_DMUSER.TB_ACCNT_DOUBLE TAD WHERE 1=1 AND TAD.ACCNT_NO_DBL = #{accnt_no_dbl} )
+     </if>
+     
+     <if test="accnt_no_dbl == null or  accnt_no_dbl == ''">
+         AND MPA.ACCNT_NO = #{accnt_no} 
+     </if>
+
+    </select>
+    
+        <!-- ================================================================
+     * 날짜 : 20211230
+     * 이름 : 임동진
+     * 추가내용 : 전자서명 신규 등록 
+     * 대상 테이블 : LF_DMUSER.TB_SIGN_LIST_MAIN
+     * ================================================================
+     * -->
+    <insert id="DlwSignListMainMap.insertSignNew"  parameterType="map">
+    	
+       INSERT INTO LF_DMUSER.TB_SIGN_LIST_MAIN(SIGN_NO, ACCNT_NO, SIGN_GBN1, SIGN_GBN2, SEND_STAT, SEND_MAN, DEL_FG, REG_MAN, REG_DM)      
+	   SELECT 
+	   		/* DlwSignListMainMap.insertSignNew */
+	        SIGN_NO,
+	        CASE WHEN GBN01 = '03' THEN #{accnt_no} ELSE NVL(#{accnt_no_dbl},#{accnt_no})
+	        END AS ACCNT_NO, 
+	        GBN01,
+	        #{sign_gbn2} AS GBN02,        
+	        'S' AS SEND_STAT,
+	        #{rgsr_id} AS REG_MAN,
+	        'N' AS DEL_FG,
+	        #{rgsr_id} AS REG_MAN,
+	        SYSDATE AS REG_DM
+	   FROM
+	   (
+	       SELECT 
+	             (
+	              SELECT NVL(MAX(SLM.SIGN_NO) + 1, TO_CHAR(SYSDATE, 'YYYYMMDD') || '0001') 
+	              FROM LF_DMUSER.TB_SIGN_LIST_MAIN SLM
+	              WHERE SLM.SIGN_NO LIKE TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'
+	              ) AS SIGN_NO, 
+	            (SELECT SIGN_GBN1_CD FROM TB_SIGN_CODE_DTL WHERE SIGN_GBN2_CD = #{sign_gbn2}) AS GBN01                       
+	       FROM DUAL
+	   ) MAIN
+	   
+    </insert>
+</mapper>

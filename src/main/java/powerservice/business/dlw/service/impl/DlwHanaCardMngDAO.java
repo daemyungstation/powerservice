@@ -1,0 +1,130 @@
+package powerservice.business.dlw.service.impl;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.springframework.stereotype.Repository;
+
+import egovframework.rte.psl.dataaccess.EgovAbstractMapper;
+
+@Repository
+public class DlwHanaCardMngDAO extends EgovAbstractMapper {
+	
+	@Resource(name="dlwSqlSession")
+    public void setSqlSessionFactory(SqlSessionFactory sqlSession) {
+        super.setSqlSessionFactory(sqlSession);
+    }		   
+
+    /** ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 전송 관리
+     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+     * ================================================================
+     * */
+	    public List<Map<String, Object>> getHanaSendList(Map<String, Object> pmParam) {
+	        return selectList("DlwHanaCardMngMap.getHanaSendList", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 전송 이력 저장
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+	     * ================================================================
+	     * */
+	    public int insertHanaRecieveHistory(Map<String, ?> pmParam) throws Exception {
+	        return insert("DlwHanaCardMngMap.insertHanaRecieveHistory", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 발급 회원정보 수
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+	     * ================================================================
+	     * */
+	    public int getHanaMemCount(Map<String, Object> pmParam) {
+	        return selectOne("DlwHanaCardMngMap.getHanaMemCount", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 전송 관리
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+	     * ================================================================
+	     * */
+	    public List<Map<String, Object>> getHanaMemList(Map<String, Object> pmParam) {
+	        return selectList("DlwHanaCardMngMap.getHanaMemList", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 발급정보 등록
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_MEMBER
+	     * ================================================================
+	     * */
+	    public int insertHanaMember(Map<String, ?> pmParam) throws Exception {
+	        return insert("DlwHanaCardMngMap.insertHanaMember", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230210
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 전월실적 대상자 등록
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_MEMBER
+	     * ================================================================
+	     * */
+	    public int insertHanaPayments(Map<String, ?> pmParam) throws Exception {
+	        return insert("DlwHanaCardMngMap.insertHanaPayments", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드혜택정보관리
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_PAYMENTS
+	     * ================================================================
+	     * */
+	    public int getHanaPayCount(Map<String, Object> pmParam) {
+	        return selectOne("DlwHanaCardMngMap.getHanaPayCount", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드혜택정보관리
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_PAYMENTS
+	     * ================================================================
+	     * */
+	    public List<Map<String, Object>> getHanaPayList(Map<String, Object> pmParam) {
+	        return selectList("DlwHanaCardMngMap.getHanaPayList", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230210
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드혜택현재상태
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+	     * ================================================================
+	     * */
+	    public String getHanaPayProcessStat(Map<String, Object> pmParam) {
+	        return selectOne("DlwHanaCardMngMap.getHanaPayProcessStat", pmParam);
+	    }
+	    
+	    /** ================================================================
+	     * 날짜 : 20230111
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 혜택 전송정보 업데이트 
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+	     * ================================================================
+	     * */
+	    public int updateHanaPaySendInfo(Map<String, ?> pmParam) throws Exception {
+	        return update("DlwHanaCardMngMap.updateHanaPaySendInfo", pmParam);
+	    }
+    }

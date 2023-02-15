@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CntrMap">
+
+    <sql id="CntrMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+               AND A.CNTR_CD LIKE '%' || #{cntr_cd} || '%'
+            </if>
+            <if test="cntr_nm != null and cntr_nm != ''">
+               AND A.CNTR_NM LIKE '%' || #{cntr_nm} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+               AND A.USE_YN = #{use_yn}
+            </if>
+            <if test="cntr_expi != null and cntr_expi != ''">
+               AND A.CNTR_EXPI = #{cntr_expi}
+            </if>
+        </where>
+    </sql>
+
+    <select id="CntrMap.getCntrCount" parameterType="map" resultType="int">
+        SELECT /* CntrMap.getCntrCount */
+               COUNT(*)
+          FROM TB_CNTR A
+        <include refid="CntrMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="CntrMap.getCount" parameterType="map" resultType="int">
+        SELECT /* CntrMap.getCount */
+               COUNT(*)
+          FROM TB_CNTR A
+          WHERE A.CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="CntrMap.getCntrList" parameterType="map" resultType="resultMap">
+        SELECT /* CntrMap.getCntrList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, CNTR_CD, CNTR_NM, USE_YN, CNTR_TLNO
+                       , CNTR_FXNO, CNTR_SQNC, CNTR_EXPI, RMAP_URL_ADDR, CNTR_CTI_IP_ADDR
+                       , CNTR_CTI_PORT_NO, CNTR_REC_IP_ADDR, CNTR_REC_PORT_NO, RGSR_ID, RGSN_DTTM
+                       , AMND_ID, AMNT_DTTM, RGSR_NM, AMND_NM
+                  FROM (SELECT A.CNTR_CD, A.CNTR_NM, A.USE_YN, A.CNTR_TLNO, A.CNTR_FXNO
+                               , A.CNTR_SQNC, A.CNTR_EXPI, A.RMAP_URL_ADDR, A.CNTR_CTI_IP_ADDR, A.CNTR_CTI_PORT_NO
+                               , A.CNTR_REC_IP_ADDR, A.CNTR_REC_PORT_NO, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID
+                               , A.AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                          FROM TB_CNTR A
+                        <include refid="CntrMap.selectCondition_fragment"/>
+                        <if test="orderBy == null or orderBy == ''">
+                              ORDER BY CNTR_SQNC ASC
+                        </if>
+                        <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                     )
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="CntrMap.searchCntrCdNm" parameterType="map" resultType="resultMap">
+         SELECT /* CntrMap.searchCntrCdNm */
+                CNTR_CD, CNTR_NM
+           FROM TB_CNTR
+          WHERE USE_YN = 'Y'
+       ORDER BY CNTR_CD, CNTR_NM
+    </select>
+
+    <insert id="CntrMap.insertCntr" parameterType="map">
+        INSERT  /* CntrMap.insertCntr */
+          INTO TB_CNTR
+             ( CNTR_CD, CNTR_NM, USE_YN, CNTR_TLNO, CNTR_FXNO
+             , CNTR_SQNC, CNTR_EXPI, RMAP_URL_ADDR, CNTR_CTI_IP_ADDR, CNTR_CTI_PORT_NO
+             , CNTR_REC_IP_ADDR, CNTR_REC_PORT_NO, RGSR_ID, RGSN_DTTM, AMND_ID
+             , AMNT_DTTM )
+        VALUES
+             ( #{cntr_cd}, #{cntr_nm}, #{use_yn}, REPLACE(#{cntr_tlno}, '-', ''), REPLACE(#{cntr_fxno}, '-', '')
+             , #{cntr_sqnc}, #{cntr_expi}, #{rmap_url_addr}, #{cntr_cti_ip_addr}, #{cntr_cti_port_no}
+             , #{cntr_rec_ip_addr}, #{cntr_rec_port_no}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="CntrMap.updateCntr" parameterType="map">
+        UPDATE  /* CntrMap.updateCntr */
+               TB_CNTR
+           SET CNTR_NM = #{cntr_nm}
+             , USE_YN = #{use_yn}
+             , CNTR_TLNO = REPLACE(#{cntr_tlno},'-','')
+             , CNTR_FXNO = REPLACE(#{cntr_fxno},'-','')
+             , CNTR_SQNC = #{cntr_sqnc}
+             , CNTR_EXPI = #{cntr_expi}
+             , RMAP_URL_ADDR = #{rmap_url_addr}
+             , CNTR_CTI_IP_ADDR = #{cntr_cti_ip_addr}
+             , CNTR_CTI_PORT_NO = #{cntr_cti_port_no}
+             , CNTR_REC_IP_ADDR = #{cntr_rec_ip_addr}
+             , CNTR_REC_PORT_NO = #{cntr_rec_port_no}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="CntrMap.deleteCntr" parameterType="map">
+        DELETE /* CntrMap.deleteCntr */
+          FROM TB_CNTR
+         WHERE CNTR_CD IN (${Center})
+    </delete>
+
+    <select id="CntrMap.getCntrMaxOrder" parameterType="map" resultType="int">
+        SELECT /* CntrMap.getCntrMaxOrder */
+               NVL(MAX(CNTR_SQNC), 0)
+          FROM TB_CNTR
+    </select>
+
+    <update id="CntrMap.updateCntrOrder" parameterType="map">
+    <![CDATA[
+        UPDATE /* CntrMap.updateCntrOrder */
+               TB_CNTR
+           SET CNTR_SQNC = CASE CNTR_CD WHEN #{cntr_cd} THEN ${cntr_sqnc}
+                           ELSE CASE SIGN(${old_cntr_sqnc} - ${cntr_sqnc}) WHEN -1 THEN CNTR_SQNC - 1
+                                                                             WHEN  1 THEN CNTR_SQNC + 1 END
+                           END
+          WHERE CNTR_SQNC <= CASE SIGN(${old_cntr_sqnc} - ${cntr_sqnc}) WHEN  1 THEN ${old_cntr_sqnc}
+                                                                          WHEN -1 THEN ${cntr_sqnc}
+                             END
+            AND CNTR_SQNC >= CASE SIGN(${old_cntr_sqnc} - ${cntr_sqnc}) WHEN  1 THEN ${cntr_sqnc}
+                                                                         WHEN -1 THEN ${old_cntr_sqnc}
+                             END
+    ]]>
+    </update>
+
+    <select id="CntrMap.getCntrDuplicateOrderCount" parameterType="map" resultType="int">
+        SELECT /* CntrMap.getCntrDuplicateOrderCount */
+               COUNT(*)
+          FROM TB_CNTR
+         WHERE CNTR_CD != #{cntr_cd}
+           AND CNTR_SQNC = #{cntr_sqnc}
+    </select>
+
+
+    <insert id="CntrMap.registerOffday" parameterType="map">
+        INSERT /* CntrMap.registerOffday */
+          INTO TB_OFFDAY
+               (OFFDAYID, OFFDAYNM, STARTD, ENDD, OFFDAYDESC
+             , REPEATFG, USE_YN, RGSR_ID, RGSN_DTTM, AMND_ID
+             , AMNT_DTTM, LUNARFG, CNTR_CD)
+        SELECT OFFDAYID, OFFDAYNM, STARTD, ENDD, OFFDAYDESC
+             , REPEATFG, USE_YN, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), LUNARFG, #{cntr_cd}
+          FROM TB_OFFDAY
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerBasicvalue" parameterType="map">
+        INSERT /* CntrMap.registerBasicvalue */
+          INTO TB_BASICVALUE
+               (BASICVALUEID, BASICVALUENM, BASICVALUE, BASICVALUEDESC, RGSR_ID
+             , RGSN_DTTM, AMND_ID, AMNT_DTTM, USE_YN, CNTR_CD)
+        SELECT BASICVALUEID, BASICVALUENM, BASICVALUE, BASICVALUEDESC, #{rgsr_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), USE_YN, #{cntr_cd}
+          FROM TB_BASICVALUE
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerCodeset" parameterType="map">
+        INSERT /* CntrMap.registerCodeset */
+          INTO TB_CODESET
+               (CODESETCD, CODESETNM, CODESETDESC, USE_YN, RGSR_ID
+             , RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD)
+        SELECT CODESETCD, CODESETNM, CODESETDESC, USE_YN, #{rgsr_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{cntr_cd}
+          FROM TB_CODESET
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerCode" parameterType="map">
+        INSERT /* CntrMap.registerCode */
+          INTO TB_CODE
+               (CODECD, CODESETCD, CODENM, CODEORD, USE_YN, CNTR_CD
+             , CODEDESC, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT CODECD, CODESETCD, CODENM, CODEORD, USE_YN, #{cntr_cd}
+             , CODEDESC, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_CODE
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerProgram" parameterType="map">
+        INSERT /* CntrMap.registerProgram */
+          INTO TB_PROGRAM
+               (PROGRAMCD, PARPROGRAMCD, PROGRAMNM, FILENM, PROGRAMORD
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, MENUCD
+             , PROGRAMDEPTH, TOPIMAGE, POPUPFG, CALLFUNCTION, ADMINFG
+             , CNTR_CD)
+        SELECT PROGRAMCD, PARPROGRAMCD, PROGRAMNM, FILENM, PROGRAMORD
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), MENUCD
+             , PROGRAMDEPTH, TOPIMAGE, POPUPFG, CALLFUNCTION, ADMINFG
+             , #{cntr_cd}
+          FROM TB_PROGRAM
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerCseltype" parameterType="map">
+        INSERT /* CntrMap.registerCseltype */
+          INTO TB_CSELTYPE
+               (CSELTYPECD, PARCSELTYPECD, CSELTYPENM, CSELTYPEORD, CSELTYPEDESC
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, USE_YN, CNTR_CD
+             , CSELTYPEDEPTH)
+        SELECT CSELTYPECD, PARCSELTYPECD, CSELTYPENM, CSELTYPEORD, CSELTYPEDESC
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), USE_YN, #{cntr_cd}
+             , CSELTYPEDEPTH
+          FROM TB_CSELTYPE
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerAuthorityProgram" parameterType="map">
+        INSERT /* CntrMap.registerAuthorityProgram */
+          INTO TB_AUTHPGM
+               (AUTHORITYCD, PROGRAMCD, SEARCHFG, MODIFYFG, DELETEFG
+             , REGISTERFG, CNTR_CD)
+        SELECT AUTHORITYCD, PROGRAMCD, SEARCHFG, MODIFYFG, DELETEFG
+             , REGISTERFG, #{cntr_cd}
+          FROM TB_AUTHPGM
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerMainPosition" parameterType="map">
+        INSERT /* CntrMap.registerMainPosition */
+          INTO TB_MAINPOSITION
+               (MAINPOSITIONCD, CNTR_CD, USERID, MAINCD, USE_YN
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT MAINPOSITIONCD, #{cntr_cd}, USERID, MAINCD, USE_YN
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_MAINPOSITION
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerMain" parameterType="map">
+        INSERT /* CntrMap.registerMain */
+          INTO TB_MAIN
+               (MAINCD, MAINNM, MAINDESC, USE_YN, RGSR_ID, LINKURL, SELECTCOL, SELECTCOLNM
+             , RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD, SQLMAPID)
+        SELECT MAINCD, MAINNM, MAINDESC, USE_YN, #{rgsr_id}, LINKURL, SELECTCOL, SELECTCOLNM
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{cntr_cd}, SQLMAPID
+          FROM TB_MAIN
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerExcel" parameterType="map">
+        INSERT /* CntrMap.registerAuthorityProgram */
+          INTO TB_EXCEL
+               (EXCELCD, EXCELNM, EXCELDESC, USE_YN, RGSR_ID
+             , RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD, SQLMAPID)
+        SELECT EXCELCD, EXCELNM, EXCELDESC, USE_YN, #{rgsr_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{cntr_cd}, SQLMAPID
+          FROM TB_EXCEL
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <insert id="CntrMap.registerExcelprop" parameterType="map">
+        INSERT /* CntrMap.registerExcelprop */
+          INTO TB_EXCELPROP
+               (EXCELPROPCD, EXCELCD, EXCELPROPNM, EXCELPROPORD, USE_YN, CNTR_CD
+             , EXCELPROPDESC, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT EXCELPROPCD, EXCELCD, EXCELPROPNM, EXCELPROPORD, USE_YN, #{cntr_cd}
+             , EXCELPROPDESC, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EXCELPROP
+         WHERE CNTR_CD = #{basiccntr_cd}
+    </insert>
+
+    <select id="CntrMap.searchCntrTeamUser" parameterType="map" resultType="resultMap">
+        SELECT /* CntrMap.searchCntrTeamUser */
+               NODEID, NODENM, PNODEID, DEPTH, GPNODEID
+          FROM (SELECT CNTR_CD AS NODEID, CNTR_NM AS NODENM, NULL AS PNODEID, 1 AS DEPTH, CNTR_SQNC AS ORD, NULL AS GPNODEID
+                  FROM TB_CNTR
+                 WHERE USE_YN = 'Y'
+                   AND CNTR_CD=#{cntr_cd}
+             UNION ALL
+                SELECT TEAMCD AS NODEID, TEAMNM AS NODENM, CNTR_CD AS PNODEID, 2 AS DEPTH, TEAMORD AS ORD, NULL AS GPNODEID
+                  FROM TB_TEAM
+                 WHERE USE_YN = 'Y'
+                   AND CNTR_CD=#{cntr_cd}
+             UNION ALL
+                SELECT USERID AS NODEID, USERNM AS NODENM, TEAMCD AS PNODEID, 3 AS DEPTH, NULL AS ORD, CNTR_CD AS GPNODEID
+                  FROM TB_USER
+                 WHERE STATECD IN ('10', '30')
+                   AND CNTR_CD=#{cntr_cd}
+               )
+      ORDER BY DEPTH ASC, ORD ASC, NODENM ASC
+    </select>
+</mapper>

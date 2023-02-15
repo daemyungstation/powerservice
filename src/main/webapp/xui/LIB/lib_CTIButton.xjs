@@ -1,0 +1,216 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[var CTI_STATUS_READY           = "대기";
+var CTI_STATUS_ACW             = "후처리";   // 후처리 (0) : 후처리
+var CTI_STATUS_NOT_READY_0     = "휴식";     // 휴식   (0) : 소프트폰 로그인 상태
+var CTI_STATUS_NOT_READY_2     = "식사";     // 휴식   (2) : 식사
+var CTI_STATUS_NOT_READY_4     = "교육";     // 휴식   (4) : 교육
+var CTI_STATUS_RINGING         = "전화인입";
+var CTI_STATUS_INITIATED       = "전화발신";
+var CTI_STATUS_BUSY            = "통화중";
+var CTI_STATUS_HELD            = "보류중";
+var CTI_STATUS_CONSULTATION_1  = "협의시도";
+var CTI_STATUS_CONSULTATION_2  = "협의연결";
+var CTI_STATUS_CONSULTATION_3  = "협의통화";
+var CTI_STATUS_CONSULTATIONCONF_1  = "3자시도";
+var CTI_STATUS_CONSULTATIONCONF_2  = "3자협의";
+var CTI_STATUS_CONSULTATIONCONF_3  = "3자통화";
+var CTI_STATUS_LOGOUT          = "로그아웃";
+
+var CTI_STATUS_STARTRECDUAL    = "부분시작";
+var CTI_STATUS_ENDRECDUAL      = "부분종료";
+var CTI_STATUS_CANCELRECDUAL      = "부분취소";
+
+var ctiStatus = CTI_STATUS_LOGOUT;
+
+var arrBtnConrData = {};
+var arrBtnId = {}
+
+// 상태에 따른 버튼 제어 초기화
+function gfn_initSoftPhoneData() {
+	// 상태에 따른 버튼 제어 데이터
+    //    대기 걸기 받기 끊기 보류/해제 전환/취소 이석 로그인/아웃
+    arrBtnConrData[CTI_STATUS_READY]          // 대기
+       = ["X",  "X",  "X",  "X",  "X",         "X",    "O",  "O"];
+	arrBtnConrData[CTI_STATUS_ACW]            // 후처리
+       = ["O",  "O",  "X",  "X",  "X",         "X",    "O",  "O"];
+    arrBtnConrData[CTI_STATUS_NOT_READY_4]    // 교육
+       = ["O",  "O",  "X",  "X",  "X",         "X",    "O",  "O"];
+    arrBtnConrData[CTI_STATUS_NOT_READY_2]    // 식사
+       = ["O",  "O",  "X",  "X",  "X",         "X",    "O",  "O"];
+    arrBtnConrData[CTI_STATUS_NOT_READY_0]    // 휴식
+       = ["O",  "O",  "X",  "X",  "X",         "X",    "O",  "O"];
+    arrBtnConrData[CTI_STATUS_RINGING]        // 호인입
+       = ["X",  "X",  "O",  "X",  "X",         "X",    "X",  "X"];
+    arrBtnConrData[CTI_STATUS_INITIATED]      // 발신
+       = ["X",  "X",  "X",  "O",  "X",         "X",    "X",  "X"];
+    arrBtnConrData[CTI_STATUS_BUSY]           // 통화중
+       = ["X",  "X",  "X",  "O",  "O",         "O",    "X",  "X"];
+    arrBtnConrData[CTI_STATUS_HELD]           // 보류
+       = ["X",  "X",  "X",  "X",  "O",         "X",    "X",  "X"];
+    arrBtnConrData[CTI_STATUS_LOGOUT]         // 로그아웃
+       = ["X",  "X",  "X",  "X",  "X",         "X",    "X",  "O"];
+	arrBtnConrData[CTI_STATUS_CONSULTATION_1] // 협의시도
+       = ["X",  "X",  "X",  "X",  "X",         "O",    "X",  "X"];
+	arrBtnConrData[CTI_STATUS_CONSULTATION_2] // 협의연결
+       = ["X",  "X",  "X",  "X",  "X",         "O",    "X",  "X"];
+	arrBtnConrData[CTI_STATUS_CONSULTATION_3] // 협의통화
+       = ["X",  "X",  "X",  "O",  "X",         "X",    "X",  "X"];
+	arrBtnConrData[CTI_STATUS_CONSULTATIONCONF_1] // 3자통화시도
+       = ["X",  "X",  "X",  "X",  "X",         "O",    "X",  "X"];
+	arrBtnConrData[CTI_STATUS_CONSULTATIONCONF_2] // 3자협의
+       = ["X",  "X",  "X",  "X",  "X",         "O",    "X",  "X"];
+    arrBtnConrData[CTI_STATUS_CONSULTATIONCONF_3] // 3자통화
+       = ["X",  "X",  "X",  "O",  "X",         "X",    "X",  "X"];
+           
+	arrBtnId[0] =  "btn_ready"; // 대기
+	arrBtnId[1] =  "btn_makeCallPop"; // 걸기
+	arrBtnId[2] =  "btn_answer"; // 받기
+	arrBtnId[3] =  "btn_clearCall"; // 끊기
+	arrBtnId[4] =  "btn_hold"; // 보류/해제
+	arrBtnId[5] =  "btn_transfer"; // 전환/취소
+	arrBtnId[6] =  "btn_notReady"; // 이석
+	arrBtnId[7] =  "btn_ctiLogin"; // 로그인/아웃
+}
+
+// CTI 버튼제어 및 상담원 상태 저장
+function gfn_changeCtiStatus(psChnlStat, psIncoTlno) {
+	trace("[lib_CTIButton] gfn_changeCtiStatus => " + psChnlStat);
+    
+    ctiStatus = psChnlStat;              // 현재 CTI 상태 저장
+    _gfn_setBtnEnable(psChnlStat);       // 버튼 활성화 제어
+    stc_txt_ctiStatus.text = psChnlStat; // CTI 상태명 화면 표시
+    if (psChnlStat == CTI_STATUS_RINGING || psChnlStat == CTI_STATUS_INITIATED) {
+		stc_txt_tlno.text = gfn_phoneNumStr(psIncoTlno); // 인입번호
+		stc_txt_qdn_nm.text = ""; // 인입경로
+	} else if (psChnlStat == CTI_STATUS_READY) { // 대기
+		fn_initInboundMain(); // 인바운드 초기화
+	}
+	
+    // 상담사 CTI이력 저장
+    switch (psChnlStat) {
+		//
+		// 상담이력 상태 정의 완료시 코드 CHL040 수정
+		//
+		case CTI_STATUS_READY :           _gfn_changeChnlStat("C110"); break; // 대기
+		case CTI_STATUS_NOT_READY_0 :     _gfn_changeChnlStat("C240"); break; // 휴식
+		case CTI_STATUS_NOT_READY_2 :     _gfn_changeChnlStat("C230"); break; // 식사
+		case CTI_STATUS_NOT_READY_4 :     _gfn_changeChnlStat("C260"); break; // 교육
+        case CTI_STATUS_ACW :             _gfn_changeChnlStat("C410"); break; // 후처리
+        case CTI_STATUS_LOGOUT :          _gfn_changeChnlStat("C510"); break; // 로그아웃
+        case CTI_STATUS_RINGING :         _gfn_changeChnlStat("C310"); break; // 전화인입 => 통화
+        case CTI_STATUS_INITIATED :       _gfn_changeChnlStat("C310"); break; // 전화발신 => 통화
+        case CTI_STATUS_BUSY :            _gfn_changeChnlStat("C310"); break; // 통화중   => 통화
+        case CTI_STATUS_HELD :            _gfn_changeChnlStat("C310"); break; // 보류중   => 통화
+        case CTI_STATUS_CONSULTATION_1 :  _gfn_changeChnlStat("C310"); break; // 협의시도 => 통화
+        case CTI_STATUS_CONSULTATION_2 :  _gfn_changeChnlStat("C310"); break; // 협의연결 => 통화
+        case CTI_STATUS_CONSULTATION_3 :  _gfn_changeChnlStat("C310"); break; // 협의통화 => 통화
+        case CTI_STATUS_CONSULTATIONCONF_1 :  _gfn_changeChnlStat("C310"); break; // 3자시도 => 통화
+        case CTI_STATUS_CONSULTATIONCONF_2 :  _gfn_changeChnlStat("C310"); break; // 3자협의 => 통화
+        case CTI_STATUS_CONSULTATIONCONF_3 :  _gfn_changeChnlStat("C310"); break; // 3자통화 => 통화
+	}
+}
+
+// button enable
+function _gfn_setBtnEnable(sType)
+{
+	for (var i=0; i<8; i++) {
+		//trace("arrBtnConrData["+sType+"]["+i+"] = " + arrBtnConrData[sType][i] + " / arrBtnId["+i+"] = " + arrBtnId[i]);
+		arrBtnConrData[sType][i] == "X" ? eval(arrBtnId[i]).enable = false : eval(arrBtnId[i]).enable = true;
+	}
+}
+
+// 상담사 상태 저장
+var gsCurChnlStat = "";
+function _gfn_changeChnlStat(psChnlStat)
+{
+	if (psChnlStat == gsCurChnlStat) {
+		return;
+	}
+	
+	gsCurChnlStat = psChnlStat;
+	
+	try {
+		var szSvcid       = "saveChnlStatInfo";
+		var szController  = "/chnl/chnl-stat-info/save";
+		var szInDs        = "";
+		var szOutDs       = "";
+		var szParam       = "chnl_typ_cd=C chnl_stat_cd="+psChnlStat;
+		var szRetCallback = "";
+		
+		// 트랜젝션 공통함수 호출
+		gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+    } catch (e) {
+        gsCurChnlStat = "";
+        trace("[lib_CTIButton] _gfn_changeChnlStat => Error!");
+    }
+}
+
+// 버튼 선택에 따른 콜 제어 호출
+function gfn_setCtiStatus(sType)
+{
+	switch(sType) {
+		case "btn_ready":     // 대기
+			gfn_agentReady();
+		break;
+		
+		case "btn_makeCallPop":  // 걸기 팝업
+			pdv_makeCall.trackPopupByComponent(btn_makeCallPop, -2, 32);
+		break;
+		
+		case "btn_makeCall":  // 걸기
+			var tlno = pdv_makeCall.edt_makeCall.value;
+			if (gfn_isNull(tlno)) {
+				alert("발신 전화번호가 없습니다.");
+				return;
+			}
+			
+			gfn_makeCall(tlno);
+			pdv_makeCall.closePopup();
+		break;
+		
+		case "btn_answer":    // 받기
+			var sCallTyp = ds_callInfo.getColumn(0, "call_typ");
+			if (sCallTyp == "I") {             // 일반
+				fn_incomingCall(); // 상담저장 호출
+			} else { // 호전환시도, 3자통화시도, 내선
+				gfn_answerCall();
+			} 
+		break;
+		
+		case "btn_clearCall": // 끊기
+			gfn_clearCall();
+		break;
+		
+		case "btn_hold":      // 보류
+			if (ctiStatus == CTI_STATUS_HELD) {
+				btn_hold.class = "btn_Top_Cti05"; // 보류 class 변경
+				gfn_retrieveCall();
+			} else {
+				btn_hold.class = "btn_Top_Cti08"; // 보류 해제 class 변경
+				gfn_holdCall();
+			}
+		break;
+		
+		case "btn_transfer":  // 전환
+			if (btn_transfer.class == "btn_Top_Cti06") { // 전환
+				var reVal = gfn_diaLog("호전환", -1, -1, 884, 601, "PS020000::PS020601.xfdl", false, {}, false, false, true);
+			} else {                                     // 전환 취소
+				gfn_reconnectCall();
+			}
+			
+		break;
+		
+		case "btn_notReady":  // 이석
+			pdv_notReady.trackPopupByComponent(btn_notReady, -4, 30);
+		break;
+		
+		case "btn_ctiLogin": // 로그인
+			trace("[lib_CTIButton] 로그인 버튼 클릭 => " + ctiStatus);
+			if (ctiStatus == CTI_STATUS_LOGOUT) {
+				gfn_agentLogin();
+			} else {
+				gfn_agentLogout();
+			}
+		break;
+	}
+}]]></Script>

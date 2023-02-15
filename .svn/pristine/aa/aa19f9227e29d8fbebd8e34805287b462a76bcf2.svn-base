@@ -1,0 +1,822 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMemPayMthdMap">
+    
+    <sql id="DlwMemPayMthdMap.selectCondition_fragment">
+        <where>
+            <if test="emple_no != null and emple_no != ''">
+                AND (EMPLE_NO LIKE '%' || #{emple_no} || '%' OR GRP_EMPLE_NO = #{emple_no})
+            </if>
+            <if test="not_in_emple_no != null and not_in_emple_no != ''">
+                AND EMPLE_NO <![CDATA[<>]]> #{not_in_emple_no}
+            </if>
+            <if test="dept_cd != null and dept_cd != ''">
+                AND DEPT_CD = #{dept_cd}
+            </if>
+            <if test="emple_nm != null and emple_nm != ''">
+                AND EMPLE_NM LIKE '%'||#{emple_nm}||'%'
+            </if>
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+            <if test='grpEmpYn == "N"'>
+             <![CDATA[   AND (EMP.GRP_EMPLE_NO IS NOT NULL
+                     AND REPLACE(EMP.GRP_EMPLE_NO, ' ', '') <> ' ')  ]]>
+            </if>
+        </where>
+    </sql>
+    
+    
+    <select id="DlwMemPayMthdMap.getMemPayMthdList" parameterType="map" resultType="resultMap">
+        <!-- sql-common.xml selectAccntInfo -->
+		SELECT /*DlwMemPayMthdMap.getMemPayMthdList*/ 
+			MB.MEM_NM,
+            CASE WHEN LENGTH(NVL(MB.IDN_NO,0)) = 10 THEN MB.IDN_NO ELSE SUBSTR(MB.BRTH_MON_DAY,3,6) END AS BRTH_MON_DAY,
+		    MPA.ACCNT_NO, 
+		    MPA.MEM_NO,
+            MPA.PAY_MTHD,
+            MPA.PROD_CD,
+            PD.SECTION_THR, 
+		    CMS.ACCNT_NO AS ACCNT_NO2,
+		    CMS.BANK_CD,
+		    '' AS BANK_INI,
+            CAR.CARD_CD,
+		    FN_COM_NM ('63', CMS.BANK_CD) BANK_NM,             
+		    CMS.ICHAE_DT,
+            CAR.PAY_DT, 
+		    MPA.JOIN_DT,
+		    CMS.CNSL_DT, 
+		    CMS.ACPT_MTHD,
+		    CMS.AGREE_MTHD,
+		    NVL(CMS.DEPR,MB.MEM_NM) AS DEPR,
+		    CMS.RELTN,
+		    CMS.DEPR_CELL, 
+		    CMS.BANK_ACCNT_NO,
+            CAR.CARD_NO,
+            CAR.EXPIRE_DATE,
+            SUBSTR(CAR.EXPIRE_DATE,0,2) AS YY,
+            SUBSTR(CAR.EXPIRE_DATE,3,2) AS MM, 
+            CAR.INI_YN,
+            DECODE(NVL(CAR.INI_YN,'Y'),'N','나이스','이니시스') AS PG_INFO,
+            DECODE(CAR.CARD_GUBUN,'1','체크카드','2','선물카드','신용카드') AS CARD_GUBUN, 
+            CASE WHEN LENGTH(NVL(MB.IDN_NO,0)) = 10 THEN MB.IDN_NO ELSE NVL(CMS.BIRTH,SUBSTR(MB.BRTH_MON_DAY,3,6)) END AS CMS_BIRTH,
+            CASE WHEN LENGTH(NVL(MB.IDN_NO,0)) = 10 THEN MB.IDN_NO ELSE NVL(CAR.CARD_BIRTH,SUBSTR(MB.BRTH_MON_DAY,3,6)) END AS CARD_BIRTH,
+		    CMS.REG_MAN, 
+            CAR.REG_MAN AS CARD_REG_MAN,
+            TO_CHAR(NVL(CMS.REG_DM,SYSDATE),'YYYYMMDD') AS REG_DM, 
+            TO_CHAR(NVL(CAR.REG_DM,SYSDATE),'YYYYMMDD') AS CARD_REG_DM,
+   			NVL((SELECT MAX(DEL_FG) FROM TB_MEMBER_WDRW_REQ WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG IN ('N','R')),'NONE') AS WDRW_STAT,		    	    	    	    
+            CASE WHEN NVL(CAR.INI_YN,'N') = 'N' THEN BID ELSE INI_BID END AS BID, 
+            CASE WHEN CAR.ACCNT_NO IS NULL THEN 'N' ELSE  'Y' END AS CARD_USE,
+            CASE WHEN CMS.ACCNT_NO IS NULL THEN 'N' ELSE  'Y' END AS CMS_USE
+		FROM MEM_PROD_ACCNT MPA INNER JOIN
+		    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		    CMS_MEM CMS ON MPA.ACCNT_NO = CMS.ACCNT_NO AND CMS.DEL_FG = 'N' LEFT OUTER JOIN
+            CARD_MEM CAR ON MPA.ACCNT_NO = CAR.ACCNT_NO AND CAR.DEL_FG = 'N' 
+		WHERE 1=1  
+			AND MPA.ACCNT_NO =  #{accnt_no}
+			AND MPA.DEL_FG = 'N'
+    </select>
+    
+    <select id="DlwMemPayMthdMap.getMemPayMthdListCard" parameterType="map" resultType="resultMap">
+        <!-- sql-common.xml selectAccntInfo -->
+		SELECT /*DlwMemPayMthdMap.getMemPayMthdListCard*/
+			MB.MEM_NM,
+		    MB.BRTH_MON_DAY,
+		    MPA.ACCNT_NO,
+            MPA.MEM_NO,    
+            MPA.PROD_CD,
+            FN_COM_NM('0189',PD.SECTION_THR) AS SECTION_THR,
+		    CARD.ACCNT_NO AS ACCNT_NO2,		    
+		    CARD.CARD_CD,
+		    CARD.PAY_DT AS ICHAE_DT,
+		    CARD.CARD_JOIN_DT,
+		    CARD.CARD_CNSL_DT ,
+		    CARD.CARD_NO,
+		    '00' AS RELTN,
+		    NVL(CARD.CARD_BIRTH,SUBSTR(MB.BRTH_MON_DAY,3,6)) AS BIRTH,
+            CARD.BID,
+            CARD.INI_BID,
+            SUBSTR(CARD.EXPIRE_DATE,0,2) AS YYYY,
+            SUBSTR(CARD.EXPIRE_DATE,3,2) AS MM,
+		    CARD.REG_MAN,
+            TO_CHAR(CARD.REG_DM,'YYYYMMDD') AS REG_DM,
+		    NVL(CARD.DEL_FG,'NONE') AS CARD_YN,
+   			NVL((SELECT MAX(DEL_FG) FROM TB_MEMBER_WDRW_REQ WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG IN ('N','R')),'NONE') AS WDRW_STAT,
+            CASE WHEN PD.PROD_GUBUN = '0030' AND SUBSTR(BID, 11,3) = '001' THEN '혜택 미적용'
+                 ELSE '' END AS BOON_NAPPLY
+		FROM MEM_PROD_ACCNT MPA INNER JOIN
+		    MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+		    CARD_MEM CARD ON MPA.ACCNT_NO = CARD.ACCNT_NO
+		WHERE 1=1 
+		AND MPA.ACCNT_NO =  #{accnt_no}
+		AND MPA.DEL_FG = 'N'
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20220620
+     * 이름 : 임동진
+     * 추가내용 : 카드,CMS결제정보 이력
+     * 대상 테이블 : LF_DMUSER.NEW_CANCL_APP, LF_DMUSER.CARD_NEW_CANCL_APP
+     * ================================================================
+     * -->
+    <select id="DlwMemPayMthdMap.getDlwPymnHstrList" parameterType="map" resultType="resultMap">
+    
+SELECT
+	    	/* DlwMemPayMthdMap.getDlwPymnHstrList */
+	        ACCNT_NO,
+	        APP_CL_NM,
+	        BANK_NM,
+	        BANK_ACCNT_NO, 
+	        EXPIRE_DATE,
+	        IDN_NO,
+	        REG_MAN, 
+	        TO_CHAR(REG_DM,'YYYYMMDDHH24MISS') AS REG_DM
+	        
+		FROM
+		(
+		    SELECT 
+		        CMS.ACCNT_NO AS ACCNT_NO,
+		        SUBSTR(CMS.APP_DT,1,8) APP_DT,
+	            TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT,
+		        CMS.APP_CL,
+		        LF_DMUSER.FN_COM_NM('17',CMS.APP_CL) ||'(CMS)' APP_CL_NM, 
+		        CMS.BANK_CD, 
+		        '('|| CMS.BANK_CD ||') ' || LF_DMUSER.FN_COM_NM('63',CMS.BANK_CD) BANK_NM,
+		        SUBSTR(BANK_ACCNT_NO,0,4) || '*****' || SUBSTR(BANK_ACCNT_NO,-4) AS BANK_ACCNT_NO,   
+		        CMS.INV_TG_DT,
+		        NVL(CMS.BIRTH,'') IDN_NO,    
+		        '' AS EXPIRE_DATE,
+		        (SELECT ICHAE_DT FROM LF_DMUSER.CMS_MEM WHERE 1=1 AND DEL_FG = 'N' AND ACCNT_NO = CMS.ACCNT_NO) AS ICHAE_DT,
+	            REG_MAN,
+	            REG_DM
+		    FROM LF_DMUSER.NEW_CANCL_APP CMS
+		    WHERE 1=1
+		    AND CMS.ACCNT_NO =  #{accnt_no}
+		
+		    UNION ALL 
+		
+		    SELECT 
+		        CARD.ACCNT_NO AS ACCNT_NO,
+		        SUBSTR(CARD.APP_DT,1,8) AS APP_DT, 
+	            TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT,
+		        CARD.APP_CL, 
+		        LF_DMUSER.FN_COM_NM('17',CARD.APP_CL) || '(Card)' APP_CL_NM,
+		        CARD.CARD_CD,
+		        CASE WHEN NVL(INI_YN,'N') = 'N' THEN FN_COM_NM('0120',CARD.CARD_CD)
+                ELSE FN_COM_NM('0196',CARD.CARD_CD) END AS CARD_NM,    
+		        SUBSTR(CARD_NO,0,4) || '*****' || SUBSTR(CARD_NO,-4) AS CARD_NO,  
+		        CARD.INV_TG_DT,
+		        CARD.CARD_BIRTH,
+		        CARD.EXPIRE_DATE,
+		        (SELECT PAY_DT FROM LF_DMUSER.CARD_MEM WHERE 1=1 AND ACCNT_NO = CARD.ACCNT_NO AND DEL_FG = 'N' ) AS ICHAE_DT,
+	            REG_MAN,
+	            REG_DM 
+		    FROM LF_DMUSER.CARD_NEW_CANCL_APP CARD
+		    WHERE 1=1
+		    AND CARD.ACCNT_NO =  #{accnt_no}
+		) 
+		ORDER BY REG_DM DESC    
+    </select>
+    
+    <!--  Card 변경 정보 업데이트  -->
+    <update id="DlwMemPayMthdMap.updateCardMemInfo" parameterType="map">
+        UPDATE CARD_MEM 
+           SET PAY_DT = #{pay_dt} 
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{rgsr_id} 
+         WHERE 1=1
+           AND ACCNT_NO = #{accnt_no}
+           AND DEL_FG = 'N'
+    </update>   
+    
+    <insert id="DlwMemPayMthdMap.insertDlwCardLog"  parameterType="map" >
+        <!-- DM sql-id : insertDlwCardLog -->
+        INSERT /* DlwMemPayMthdMap.insertDlwCardLog */
+        INTO CARD_NEW_CANCL_APP
+             ( SEQ
+                  , ACCNT_NO
+                  , CARD_CD
+                  , CARD_NO
+                  , APP_DT
+                  , INV_TG_DT
+                  , APP_CL
+                  , EXPIRE_DATE
+                  , REG_DM
+                  , REG_MAN
+                  , UPD_DM
+                  , UPD_MAN
+                  , CARD_BIRTH
+                  , INI_YN 
+                  )
+        VALUES
+             (
+                  (SELECT NVL(MAX(SEQ), 0) + 1 AS SEQ  FROM CARD_NEW_CANCL_APP)
+                  , #{accnt_no} 
+                  , #{card_cd}
+                  , REPLACE(#{card_no},'-','') 
+                  , TO_CHAR(SYSDATE,'YYYYMMDD') 
+                  , #{inv_tg_dt}
+                  , #{app_cl}
+                  , #{yy} || #{mm} 
+                  , SYSDATE
+                  , #{emple_no}
+                  , sysdate
+                  , #{emple_no}
+                  , REPLACE(#{idn_no},'-','')
+                  , #{ini_yn}
+                  )
+    </insert>
+    
+    <insert id="DlwMemPayMthdMap.insertDlwCardMmbr" parameterType="map" >
+        /* DlwMemPayMthdMap.insertDlwCardMmbr */
+		BEGIN
+        	INSERT INTO CARD_MEM
+                  ( ACCNT_NO
+                  , CARD_CD
+                  , CARD_NO
+                  , EXPIRE_DATE
+                  , PAY_DT
+                  , CARD_JOIN_DT
+                  , DEL_FG
+                  , REG_DM
+                  , REG_MAN
+                  , UPD_DM
+                  , UPD_MAN
+                  , PAY_LIMIT_GUNSU
+                  , PAY_DAY_FIX_YN
+                  , PRE_PAY_YN
+                  , YEN_CHE_PRE_PAY_YN
+                  , YEN_CHE_PRE_PAY_GUNSU
+                  , BID
+                  , CARD_BIRTH
+                  , INI_BID
+                  , INI_YN
+                  , CARD_GUBUN
+                  )
+             VALUES
+                  ( #{accnt_no}
+                  , #{card_cd}
+                  , REPLACE(#{card_no},'-','')
+                  , #{exp_dt}
+                  , #{inv_tg_dt}
+                  , TO_CHAR(SYSDATE,'YYYYMMDD')
+                  ,'N'
+                  , sysdate
+                  , #{emple_no}
+                  , sysdate
+                  , #{emple_no}
+                  , '0'
+                  , 'N'
+                  , 'N'
+                  , 'N'
+                  , 0
+                  , #{bid}
+                  , REPLACE(#{idn_no},'-','')
+                  ,#{ini_bid} 
+                  ,#{ini_yn} 
+                  ,#{card_gubun}
+                  );
+                 
+                 UPDATE MEM_PROD_ACCNT_DAMO  
+                 SET PAY_MTHD = '06' 
+                 WHERE 1=1
+                   AND ACCNT_NO = #{accnt_no} 
+                   AND DEL_FG = 'N';                  
+         END;
+    </insert>
+    
+    <update id="DlwMemPayMthdMap.updateDlwCardMmbr"  parameterType="map" >
+        /* DlwMemPayMthdMap.updateDlwCardMmbr */
+
+        UPDATE CARD_MEM
+           SET CARD_CD = #{card_cd}
+               , CARD_NO =  REPLACE(#{card_no},'-','')
+             , EXPIRE_DATE = #{exp_dt}
+             , PAY_DT = #{inv_tg_dt}
+             , CARD_JOIN_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+             , DEL_FG ='N'
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{emple_no}
+             , BID = #{bid}
+             , CARD_BIRTH = REPLACE(#{idn_no},'-','')
+             , INI_BID = #{ini_bid}
+             , INI_YN = #{ini_yn} 
+         WHERE accnt_no = #{accnt_no}
+    </update>    
+    
+    <insert id="DlwMemPayMthdMap.insertDlwCmsLog" parameterType="map">
+        <!-- DM sql-id : insertCMSMemberNewByBuga -->
+        INSERT /* DlwMemPayMthdMap.insertDlwCmsLog */
+          INTO NEW_CANCL_APP
+                  ( SEQ
+                  , ACCNT_NO
+                  , BANK_ACCNT_NO
+                  , APP_DT
+                  , PAYR_NO
+                  , BANK_CD
+                  , DEPR
+                  , INV_TG_DT
+                  , APP_CL
+                  , ACPT_MTHD
+                  , RELTN
+                  , STAT
+                  , REG_DM
+                  , REG_MAN
+                  , UPD_DM
+                  , UPD_MAN
+                  , BIRTH
+                  <if test="depr_cell != null and depr_cell != ''">
+                  , DEPR_CELL
+                  </if>
+                  )
+             SELECT A.SEQ
+                  , #{accnt_no}
+                  , REPLACE(#{bank_accnt_no},'-','')
+                  , TO_CHAR(SYSDATE,'YYYYMMDD')
+                  , #{mem_no}
+                  , #{bank_cd}
+                  , #{depr_nm}
+                  , #{inv_tg_dt}
+                  , #{app_cl}
+                  , #{acpt_mthd}
+                  , #{rltn_cd}
+                  , '04'
+                  , SYSDATE
+                  , #{emple_no}
+                  , SYSDATE
+                  , #{emple_no}
+                  , REPLACE(#{idn_no},'-','')
+                  <if test="depr_cell != null and depr_cell != ''">
+                  , #{depr_cell}
+                  </if>
+             FROM (SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+                     FROM NEW_CANCL_APP) A
+    </insert>   
+    
+    <update id="DlwMemPayMthdMap.deleteDlwCmsMmbr" parameterType="map" >
+	    <!-- DM sql-id : deleteCMSMember -->
+	    /* DlwMemPayMthdMap.deleteDlwCmsMmbr */
+	    DELETE FROM CMS_MEM_DAMO  
+	    WHERE accnt_no = #{accnt_no}
+    </update>
+    
+    <insert id="DlwMemPayMthdMap.insertDlwCmsMmbr" parameterType="map" >
+        <!-- DM sql-id : insertCMSMember --> 
+        /* DlwMemPayMthdMap.insertDlwCmsMmbr */
+		BEGIN
+        INSERT INTO CMS_MEM
+                  ( ACCNT_NO
+                  , MEM_NO
+                  , BANK_CD
+                  , BANK_ACCNT_NO
+                  , ICHAE_DT
+                  , ICHAE_LIMIT_GUNSU
+                  , CMS_JOIN_DT
+                  , ACPT_MTHD
+                  , DEPR
+                  , RELTN
+                  , REG_DM
+                  , REG_MAN
+                  , UPD_DM
+                  , UPD_MAN
+                  , DEL_FG
+                  , SYNC_NO
+                  , PAY_DAY_FIX_YN
+                  , PRE_PAY_YN
+                  , PRE_PAY_GUNSU
+                  , YEN_CHE_PRE_PAY_YN
+                  , YEN_CHE_PRE_PAY_GUNSU
+                  , BIRTH
+                  , AGREE_MTHD
+                  )
+       VALUES ( #{accnt_no}
+                   , #{mem_no}
+                   , #{bank_cd}
+                   , REPLACE(#{bank_accnt_no},'-','')
+                   , #{inv_tg_dt}
+                   , '0'
+ 				   , TO_CHAR(SYSDATE,'YYYYMMDD')
+                   , #{acpt_mthd}
+                   , #{depr_nm}
+                   , #{rltn_cd}
+                   , SYSDATE
+                   , #{emple_no}
+                   , SYSDATE
+                   , #{emple_no}
+                   , 'N'
+                   , #{accnt_no}
+                   , 'N'
+                   , 'N'
+                   , 0
+                   , 'N'
+                   , 0
+                   , REPLACE(#{idn_no},'-','')
+                   ,#{agree_mthd}
+                   );
+                   
+                   UPDATE MEM_PROD_ACCNT 
+                   SET PAY_MTHD = '04'
+                   WHERE 1=1
+                   AND ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N';
+                   
+              END;
+    </insert>
+    
+    <update id="DlwMemPayMthdMap.updateDlwCmsMmbr" parameterType="map" >
+        <!-- DM sql-id : updateCMSMember -->
+        /* DlwMemPayMthdMap.updateDlwCmsMmbr */
+
+
+        UPDATE CMS_MEM
+           SET ICHAE_DT = #{inv_tg_dt}
+             , ICHAE_LIMIT_GUNSU = '0'
+             , MEM_NO = #{mem_no}
+             , CMS_JOIN_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+             , DEPR = #{depr_nm}
+             <if test="depr_cell != null and depr_cell != ''">
+             , DEPR_CELL = #{depr_cell}
+             </if>
+             , BANK_CD = #{bank_cd}
+             , BANK_ACCNT_NO =  REPLACE(#{bank_accnt_no},'-','')
+             , RELTN = #{rltn_cd}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{emple_no}
+             , DEL_FG = 'N'
+             , SYNC_NO = #{accnt_no}
+             , CNSL_DT = ''
+             , PAY_DAY_FIX_YN = 'N'
+             , PRE_PAY_YN = 'N'
+             , PRE_PAY_GUNSU = 0
+             , YEN_CHE_PRE_PAY_YN = 'N'
+             , YEN_CHE_PRE_PAY_GUNSU = 0
+             , BIRTH = REPLACE(#{idn_no},'-','')
+            <where>
+                <if test="cl_tmp == 'syncCheck'">
+                    SYNC_NO = #{accnt_no}
+                </if>
+                <if test="cl_tmp != 'syncCheck'">
+                    ACCNT_NO = #{accnt_no}
+                </if>
+            </where>
+
+
+    </update>
+    
+    <!--
+    DlwMemPayMthdMap. updateDlwCmsRprvPymt 에서 해피콜 변경 부분을 분리함
+     -->
+    <update id="DlwMemPayMthdMap.updateHpCall"  parameterType="map">
+        UPDATE /* DlwMemPayMthdMap.updateHpCall */
+               HP_CALL
+           SET STAT = '17'
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{emple_no}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+    
+    <!--
+    해피콜 이력등록
+    DlwMemPayMthdMap. updateDlwCmsRprvPymt 에서 해피콜 이력등록 부분을 분리함
+     -->
+    <insert id="DlwMemPayMthdMap.insertHpCallHist" parameterType="map">
+        INSERT /* DlwMemPayMthdMap.insertHpCallHist */
+          INTO HP_CALL_HIST
+                ( ACCNT_NO
+                , SEQ
+                , EMPLE_NO
+                , STAT
+                , NOTE
+                , CONN
+                , REG_MAN
+                , REG_DM
+                , UPD_MAN
+                , UPD_DM
+                )
+           VALUES
+                ( #{accnt_no}
+                , NVL((SELECT COUNT(SEQ) FROM HP_CALL_HIST WHERE ACCNT_NO = #{accnt_no}), 0) + 1
+                , #{emple_no}
+                , '17'
+                , '[타인카드 등록] 대리납여부 확인 요망'
+                , ''
+                , #{emple_no}
+                , SYSDATE
+                , #{emple_no}
+                , SYSDATE
+                )
+    </insert>
+    
+    <insert id="DlwMemPayMthdMap.insertDlwCmsHistoryLogs" parameterType="map" >
+        /* DlwMemPayMthdMap.insertDlwCmsHistoryLogs */
+
+        INSERT INTO TB_CMS_HISTORY_LOGS
+                  ( ACCNT_NO
+                  , RESULT_CODE
+                  , RESULT_MSG
+                  , REG_MAN
+                  , REG_DM
+                  )
+             VALUES
+                  ( #{accnt_no}
+                  , #{cd}
+                  , #{cd_nm}
+                  , #{rgsr_id}
+                  , sysdate
+                  )
+    </insert>
+    
+    <!--  CMS 변경 정보 업데이트  -->
+    <update id="DlwMemPayMthdMap.updateCmsMemInfo" parameterType="map">
+        UPDATE CMS_MEM
+           SET ICHAE_DT = #{ichae_dt}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+         WHERE 1=1
+           AND ACCNT_NO = #{accnt_no}
+           AND DEL_FG = 'N'
+
+    </update>    
+    
+    <select id="DlwMemPayMthdMap.getAccntMid" parameterType="map" resultType="String">
+        <!-- DM sql-id : selectAccntStat -->
+
+            SELECT MAX(MID_KEY)
+            FROM
+            (
+                SELECT
+                    'dmlife001m'||'Zq7E5qjYbqPMZWHvlZtt1HbC8jJIPfAkVkkGOvf7gRoKfweOMCiHu/VPob5uGrIDyYQyplxnknTXxX2D8F+emA==' AS MID_KEY
+                FROM DUAL
+
+                UNION ALL
+
+                SELECT CML.MID || CML.KEY AS MID_KEY
+
+                FROM CARD_MID_LIST CML INNER JOIN
+                    PRODUCT PD ON CML.MID = PD.MID
+                WHERE 1=1
+
+            <if test="menu_gbn == null or menu_gbn == ''">
+                <if test="pay_no lt 36">
+                    AND PD.PROD_CD = #{prod_cd}
+                </if>
+                 <if test="pay_no gte 36">
+                    AND PD.PROD_CD = 'MID'
+                </if>
+            </if>
+
+            <if test="menu_gbn != ''">
+                AND CML.MID = SUBSTR(#{bid},5,10)
+            </if>
+            ) TBL
+
+        <!--
+            <if test="gbn_batch == null or gbn_batch == ''">
+                AND nvl(WDRW1.STAT,'00') NOT IN ('01','02')
+            </if>
+            <if test="gbn_batch != null and gbn_batch != ''">
+                AND nvl(WDRW1.STAT,'00')='01'
+                AND NOT EXISTS ( SELECT  ACCNT_NO FROM RT_CARD_PAY_LOG WHERE ACCNT_NO =#{accnt_no} AND RESULT_CODE ='99' )
+            </if>
+        -->
+    </select>    
+    
+    <insert id="DlwMemPayMthdMap.insertCons" parameterType="map">
+        <selectKey keyProperty="consno" resultType="String" order="BEFORE">
+            SELECT 'CSL' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(PS_WILLVI.SEQ_CONS.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+		/* DlwMemPayMthdMap.insertCons */
+		BEGIN
+	        INSERT INTO PS_WILLVI.TB_CONS
+	        (
+	            CNTR_CD,CONSNO,CONSNO_GROP_NO,MEM_NO,ACPG_CHNL_CD,ACPG_DTTM,ACTP_ID,TOTL_CONS_HR,ACCNT_NO,EMPLE_NO,
+	            CONS_TYP1_CD,CONS_TYP2_CD,CONS_TYP3_CD,CONS_STAT_CD,CONS_DSPSMDDL_DTPT_CD,CONS_MEMO_CNTN,
+	            CONS_DSPS_DTTM,CHPR_ID,RGSR_ID,RGSN_DTTM,AMND_ID,AMNT_DTTM    
+	        )
+	        VALUES 
+	        (
+	            'CCA', #{consno}, #{consno}, #{mem_no},'99',TO_CHAR(SYSDATE,'YYYYMMDDHH24MI'),#{rgsr_id},0,#{accnt_no},#{rgsr_id}, 
+	           #{cons_typ1_cd},#{cons_typ2_cd},#{cons_typ3_cd},#{cons_stat_cd},#{cons_dspsmddl_dtpt_cd}, #{cons_memo_tit},
+	            TO_CHAR(SYSDATE,'YYYYMMDDHH24MI'),#{rgsr_id}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MI'),#{rgsr_id},TO_CHAR(SYSDATE,'YYYYMMDDHH24MI')
+	        ) ;
+	
+	        INSERT INTO PS_WILLVI.TB_CONS_HSTR
+	        (
+	            CNTR_CD,CONSNO,CHNG_DTTM,CONSNO_GROP_NO,MEM_NO,ACPG_CHNL_CD,ACPG_DTTM,ACTP_ID,TOTL_CONS_HR,ACCNT_NO,EMPLE_NO,
+	            CONS_TYP1_CD,CONS_TYP2_CD,CONS_TYP3_CD,CONS_STAT_CD,CONS_DSPSMDDL_DTPT_CD,CONS_MEMO_CNTN,
+	            CONS_DSPS_DTTM,CHPR_ID,RGSR_ID,RGSN_DTTM,AMND_ID,AMNT_DTTM    
+	        )
+	        VALUES 
+	        (
+	            'CCA', #{consno},SYSDATE, #{consno}, #{mem_no},'99',TO_CHAR(SYSDATE,'YYYYMMDDHH24MI'),#{rgsr_id},0,#{accnt_no},#{rgsr_id}, 
+	           #{cons_typ1_cd},#{cons_typ2_cd},#{cons_typ3_cd},#{cons_stat_cd},#{cons_dspsmddl_dtpt_cd}, #{cons_memo_tit},
+	            TO_CHAR(SYSDATE,'YYYYMMDDHH24MI'),#{rgsr_id}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MI'),#{rgsr_id},TO_CHAR(SYSDATE,'YYYYMMDDHH24MI')
+	        ) ;
+        END;
+    </insert>
+    
+    <update id="DlwMemPayMthdMap.deleteDlwCardMember" parameterType="map" >
+        /* DlwMemPayMthdMap.deleteDlwCardMember */
+        DELETE FROM CARD_MEM_DAMO  
+        WHERE accnt_no = #{accnt_no}
+        <!-- 
+        UPDATE 
+               CARD_MEM_DAMO
+           SET CARD_CNSL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , DEL_FG ='Y'
+             , INI_YN = ''
+             , BID = ''
+             , INI_BID = ''
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{emple_no}
+         WHERE accnt_no = #{accnt_no}
+          -->
+    </update>
+    
+    <update id="DlwMemPayMthdMap.updateAccntPayMthd" parameterType="map">
+        UPDATE MEM_PROD_ACCNT
+           SET PAY_MTHD = #{new_pay_mthd}
+             , UPD_DM = SYSDATE
+             , UPD_MAN = #{upd_man}
+         WHERE 1=1
+           AND ACCNT_NO = #{accnt_no}
+           AND PAY_MTHD = #{old_pay_mthd}
+
+    </update>
+    
+   <select id="DlwMemPayMthdMap.getCmsAccntCount" parameterType="map" resultType="int">
+		SELECT 
+			/*DlwMemPayMthdMap.getCmsAccntCount*/
+			COUNT(*)
+		FROM CMS_MEM CMS LEFT OUTER JOIN
+			    TB_CMS_SEND_INFO CSI ON CMS.ACCNT_NO || TO_CHAR(CMS.REG_DM,'YYYYMMDDHH24MMSS') = CSI.CMS_KEY AND CSI.DEL_FG ='N'  
+		WHERE 1=1
+		    <if test="accnt_no != null and accnt_no != ''">
+                AND CMS.ACCNT_NO  = #{accnt_no}
+            </if>
+        	 <if test="date_type == '01'"> 
+	             <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                 AND  CMS.CMS_JOIN_DT <![CDATA[>=]]> #{stt_dt}
+	                 AND  CMS.CMS_JOIN_DT <![CDATA[<=]]> #{end_dt}
+	             </if> 
+	         </if>	 	    
+		    AND CMS.DEL_FG = 'N' 
+		    
+    	    <if test="send_stat != null and send_stat != ''">
+               AND  NVL(CSI.SEND_STAT,'00') = #{send_stat} 
+            </if>
+    </select>
+    
+    <select id="DlwMemPayMthdMap.getCmsAccntList" parameterType="map" resultType="resultMap">
+        	<!-- sql-common.xml selectAccntInfo -->
+			SELECT /* DlwMemPayMthdMap.getCmsAccntList */
+			    CMS.ACCNT_NO, 
+			    CMS.MEM_NO,
+			    CMS.BANK_CD, 
+			    FN_COM_NM ('63', CMS.BANK_CD) BANK_NM,   
+			    CMS.ICHAE_DT,
+			    CMS.CMS_JOIN_DT,
+			    CMS.DEPR, 
+			    CMS.RELTN,
+			    SUBSTR(CMS.BANK_ACCNT_NO,0,4) || '****' || SUBSTR(CMS.BANK_ACCNT_NO,-4) AS BANK_ACCNT_NO,
+			    SUBSTR(CMS.BIRTH,0,2) || '**' || SUBSTR(CMS.BIRTH,-2) AS BIRTH,      
+			    NVL(CMS.AGREE_MTHD,'4') AS AGREE_MTHD,
+			    '' AS FILE_YN, 
+			    CMS.ACCNT_NO || TO_CHAR(CMS.REG_DM,'YYYYMMDDHH24MMSS') AS CMS_KEY,
+			    NVL(CSI.SEND_STAT,'00') AS SEND_STAT
+			FROM CMS_MEM CMS LEFT OUTER JOIN
+			    TB_CMS_SEND_INFO CSI ON CMS.ACCNT_NO || TO_CHAR(CMS.REG_DM,'YYYYMMDDHH24MMSS') = CSI.CMS_KEY AND CSI.DEL_FG='N'
+			WHERE 1=1   
+			    <if test="accnt_no != null and accnt_no != ''">
+	                AND CMS.ACCNT_NO  = #{accnt_no} 
+	            </if>			           
+	            
+	        	 <if test="date_type == '01'"> 
+		             <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+		                 AND  CMS.CMS_JOIN_DT <![CDATA[>=]]> #{stt_dt}
+		                 AND  CMS.CMS_JOIN_DT <![CDATA[<=]]> #{end_dt} 
+		             </if> 
+		         </if>	             
+			    AND CMS.DEL_FG = 'N'  
+			      
+			    <if test="send_stat != null and send_stat != ''">
+	                AND  NVL(CSI.SEND_STAT,'00') = #{send_stat}
+	            </if>
+    </select>
+    
+   <select id="DlwMemPayMthdMap.getCmsSendCount" parameterType="map" resultType="int">
+		SELECT 
+			/*DlwMemPayMthdMap.getCmsSendCount*/
+			COUNT(*)
+			FROM TB_CMS_SEND_INFO CSI INNER JOIN
+			    CMS_MEM CMS ON CSI.CMS_KEY = CMS.ACCNT_NO || TO_CHAR(CMS.REG_DM,'YYYYMMDDHH24MMSS') INNER JOIN
+			    MEMBER MB ON CMS.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+			WHERE 1=1	
+			   <if test="accnt_no != null and accnt_no != ''">
+			    	AND CMS.ACCNT_NO  = #{accnt_no}
+				</if>
+				
+			    <if test="send_stat != null and send_stat != ''">
+	                AND  NVL(CSI.SEND_STAT,'00') = #{send_stat}
+	            </if>
+	            AND CSI.REG_MAN = #{rgsr_id} 				
+				AND SEND_DT =  #{send_dt}
+				AND CSI.DEL_FG = 'N'
+			    AND CMS.DEL_FG = 'N'    
+    </select>
+    
+    <select id="DlwMemPayMthdMap.getCmsSendList" parameterType="map" resultType="resultMap">
+        	<!-- sql-common.xml selectAccntInfo -->
+			SELECT /* DlwMemPayMthdMap.getCmsSendList */    
+			    CMS.ACCNT_NO, 
+			    CMS.BIRTH, 
+			    CMS.BANK_CD, 
+			    CMS.BANK_ACCNT_NO,  
+			    NVL(CMS.AGREE_MTHD,'4') AS AGREE_MTHD,			    
+			    CSI.CMS_KEY
+			FROM TB_CMS_SEND_INFO CSI INNER JOIN
+			    CMS_MEM CMS ON CSI.CMS_KEY = CMS.ACCNT_NO || TO_CHAR(CMS.REG_DM,'YYYYMMDDHH24MMSS') INNER JOIN
+			    MEMBER MB ON CMS.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' 
+			WHERE 1=1	
+			   <if test="accnt_no != null and accnt_no != ''"> 
+			    	AND CSI.ACCNT_NO  = #{accnt_no}
+				</if>		
+				
+				<if test="send_stat != null and send_stat != ''">
+	                AND  NVL(CSI.SEND_STAT,'00') = #{send_stat}
+	            </if>
+	            AND CSI.REG_MAN = #{rgsr_id}
+				AND SEND_DT =  #{send_dt}
+				AND CSI.DEL_FG = 'N'  
+			    AND CMS.DEL_FG = 'N'   
+    </select>    
+    
+    <insert id="DlwMemPayMthdMap.insertCmsTarget" parameterType="map">
+          INSERT /* DlwMemPayMthdMap.insertCmsTarget */
+          INTO TB_CMS_SEND_INFO 
+                ( 
+                 CMS_KEY  
+                , ACCNT_NO 
+                , SEND_DT 
+                , SEND_STAT
+                , DEL_FG
+                , REG_DM
+                , REG_MAN                
+                )
+           VALUES
+                ( 
+                  #{cms_key}
+                 , #{accnt_no}
+                 , TO_CHAR(SYSDATE,'YYYYMMDD')
+                 , '01'
+                 , 'N'
+                 , SYSDATE 
+                 , #{reg_man} 
+                )
+    </insert>
+    
+    <update id="DlwMemPayMthdMap.deleteCmsTarget" parameterType="map">
+        UPDATE TB_CMS_SEND_INFO
+        	/*DlwMemPayMthdMap.deleteCmsTarget*/
+           SET DEL_FG = 'Y', UPD_DM = SYSDATE, UPD_MAN= #{reg_man}           
+         WHERE 1=1
+           AND CMS_KEY = #{cms_key}
+           AND DEL_FG = 'N'
+    </update>
+    
+    <update id="DlwMemPayMthdMap.outCmsTarget" parameterType="map">
+        UPDATE TB_CMS_SEND_INFO
+        	/*DlwMemPayMthdMap.outCmsTarget*/
+           SET SEND_STAT = '02', UPD_DM = SYSDATE, UPD_MAN= #{reg_man}           
+         WHERE 1=1 
+           AND SEND_DT = #{send_dt}
+           AND SEND_STAT = '01'  
+           AND DEL_FG = 'N'
+    </update>    
+    
+    <update id="DlwMemPayMthdMap.updateMemInfo_web" parameterType="map">
+        UPDATE MEMBER
+        	/*DlwMemPayMthdMap.updateMemInfo_web*/
+           SET    
+           		<if test="gbn == 'email'">           
+           			EMAIL = #{mb_email}, UPD_DM = SYSDATE, UPD_MAN= #{reg_man}
+           		</if>
+           		<if test="gbn == 'cell'">          
+           			CELL = #{cell}, CELL1 = REPLACE(#{cell},'-',''), UPD_DM = SYSDATE, UPD_MAN= #{reg_man}
+           		</if>           
+           		<if test="gbn == 'cival'">          
+           			CI_VAL = #{ci}, UPD_DM = SYSDATE, UPD_MAN= #{reg_man}
+           		</if>           
+           		<if test="gbn == 'home'">          
+           			HOME_ZIP = #{home_zip},HOME_ADDR = #{home_addr},HOME_ADDR2 = #{home_addr2}, UPD_DM = SYSDATE, UPD_MAN= #{reg_man}
+           		</if>                      		           
+         WHERE 1=1 
+           AND MEM_NO = #{mem_no}           
+           AND DEL_FG = 'N'
+    </update>        
+    
+</mapper>

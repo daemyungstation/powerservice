@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EmshMap">
+
+    <sql id="EmshMap.selectCondition_fragment">
+        <where>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+            <if test="emsh_id != null and emsh_id != ''">
+                AND EMSH_ID = #{emsh_id}
+            </if>
+            <if test="emsh_nm != null and emsh_nm != ''">
+                AND EMSH_NM LIKE '%' || #{emsh_nm} || '%'
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="exam_use_yn != null and exam_use_yn != ''">
+                AND EMSH_ID NOT IN (SELECT EMSH_ID
+                                          FROM TB_EXAM_BASI
+                                         WHERE CNTR_CD = #{cntr_cd})
+            </if>
+            <if test="startd != null and startd != ''">
+            <![CDATA[
+                AND RGSN_DTTM >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+            ]]>
+            </if>
+            <if test="endd != null and endd != ''">
+            <![CDATA[
+                AND RGSN_DTTM <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+            ]]>
+            </if>
+            <if test="openmode != null and openmode == 'copy'">
+                AND NOT EXISTS (SELECT 'Y'
+                                  FROM TB_EXAM_BASI B
+                                 WHERE B.EMSH_ID = A.EMSH_ID
+                                   AND B.EXAM_PRGR_STAT_CD IN ('20','30','40'))
+            </if>
+            <if test="openmode != null and openmode == 'select'">
+                AND NOT EXISTS (SELECT 'Y'
+                                  FROM TB_EXAM_BASI B
+                                 WHERE B.EMSH_ID = A.EMSH_ID)
+            </if>
+            <if test="emsh_id_except != null and emsh_id_except != ''">
+                AND EMSH_ID != #{emsh_id_except}
+            </if>
+        </where>
+    </sql>
+
+    <select id="EmshMap.getEmshCount" parameterType="map" resultType="int">
+        SELECT /* EmshMap.getEmshCount */
+               COUNT(*)
+          FROM TB_EMSH A
+         <include refid="EmshMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EmshMap.getEmshList" parameterType="map" resultType="resultMap">
+        SELECT /* EmshMap.getEmshList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EMSH_ID, EMSH_NM, EMSH_EXPI, EXAM_DTSC_BAS_CD
+                     , LVL1_SCR_VL, LVL2_SCR_VL, LVL3_SCR_VL
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , EXAM_DTSC_BAS_NM, RGSR_NM, AMND_NM, EXAM_PRGR_STAT_CD, EXAM_PRBM_CNT
+                     , TOTL_EXAM_PRBM_DTSC_VL, ADDFG
+                  FROM (SELECT EMSH_ID, EMSH_NM, EMSH_EXPI, EXAM_DTSC_BAS_CD, LVL1_SCR_VL
+                             , LVL2_SCR_VL, LVL3_SCR_VL
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('EXM010', EXAM_DTSC_BAS_CD, A.CNTR_CD) AS EXAM_DTSC_BAS_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT EXAM_PRGR_STAT_CD
+                                  FROM TB_EXAM_BASI
+                                 WHERE EMSH_ID = A.EMSH_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EXAM_PRGR_STAT_CD
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_PRBM
+                                 WHERE EMSH_ID = A.EMSH_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EXAM_PRBM_CNT
+                             , (SELECT SUM(EXAM_PRBM_DTSC_VL)
+                                  FROM TB_EXAM_PRBM
+                                 WHERE EMSH_ID = A.EMSH_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS TOTL_EXAM_PRBM_DTSC_VL
+                             , CASE WHEN EXISTS (SELECT *
+                                                  FROM TB_EXAM_BASI
+                                                 WHERE EMSH_ID = A.EMSH_ID
+                                                   AND CNTR_CD = A.CNTR_CD) THEN 'Y' ELSE 'N' END AS ADDFG
+                          FROM TB_EMSH A
+                      <include refid="EmshMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EmshMap.insertEmsh" parameterType="map">
+        <selectKey keyProperty="emsh_id" resultType="String" order="BEFORE">
+            SELECT 'EMS' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* EmshMap.insertEmsh */
+          INTO TB_EMSH
+               (EMSH_ID, EMSH_NM, EMSH_EXPI, EXAM_DTSC_BAS_CD, LVL1_SCR_VL
+              , LVL2_SCR_VL, LVL3_SCR_VL, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{emsh_id}, #{emsh_nm}, #{emsh_expi}, #{exam_dtsc_bas_cd}, #{lvl1_scr_vl}
+              , #{lvl2_scr_vl}, #{lvl3_scr_vl}, #{bzpt_div}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="EmshMap.updateEmsh" parameterType="map">
+        UPDATE /* EmshMap.updateEmsh */
+               TB_EMSH A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            <if test="emsh_nm != null and emsh_nm != ''">
+             , A.EMSH_NM    = #{emsh_nm}
+            </if>
+            <if test="emsh_expi != null and emsh_expi != ''">
+             , A.EMSH_EXPI  = #{emsh_expi}
+            </if>
+            <if test="exam_dtsc_bas_cd != null and exam_dtsc_bas_cd != ''">
+             , A.EXAM_DTSC_BAS_CD = #{exam_dtsc_bas_cd}
+             , A.LVL1_SCR_VL      = #{lvl1_scr_vl}
+             , A.LVL2_SCR_VL    = #{lvl2_scr_vl}
+             , A.LVL3_SCR_VL       = #{lvl3_scr_vl}
+            </if>
+         WHERE A.EMSH_ID    = #{emsh_id}
+    </update>
+
+    <delete id="EmshMap.deleteEmsh" parameterType="map">
+        DELETE /* EmshMap.deleteEmsh */
+          FROM TB_EMSH
+         WHERE EMSH_ID = #{emsh_id}
+    </delete>
+
+    <insert id="EmshMap.copyEmsh" parameterType="map">
+        <selectKey keyProperty="new_emsh_id" resultType="String" order="BEFORE">
+            SELECT 'EMS' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* EmshMap.copyEmsh */
+          INTO TB_EMSH
+               (EMSH_ID, EMSH_NM, EMSH_EXPI, EXAM_DTSC_BAS_CD, LVL1_SCR_VL
+              , LVL2_SCR_VL, LVL3_SCR_VL, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT #{new_emsh_id}, SUBSTRB(EMSH_NM, 1, 93) || '_복사', EMSH_EXPI, EXAM_DTSC_BAS_CD, LVL1_SCR_VL
+             , LVL2_SCR_VL, LVL3_SCR_VL, BZPT_DIV
+             , CNTR_CD, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EMSH
+         WHERE EMSH_ID = #{emsh_id}
+    </insert>
+
+</mapper>

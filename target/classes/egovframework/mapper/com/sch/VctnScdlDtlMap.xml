@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="VctnScdlDtlMap">
+
+    <sql id="VctnScdlDtlMap.selectCondition_fragment">
+        WHERE VCTN_YRMN = #{vctn_yrmn}
+          AND CNTR_CD = #{cntr_cd}
+        <if test="team_cd != null and team_cd != ''">
+          AND TEAM_CD = #{team_cd}
+        </if>
+        <if test="vctn_dy != null and vctn_dy != ''">
+          AND VCTN_DY = #{vctn_dy}
+        </if>
+    </sql>
+
+    <select id="VctnScdlDtlMap.getVctnScdlDtlNmprCnt" parameterType="map" resultType="String">
+        SELECT /* VctnScdlDtlMap.getVctnScdlDtlNmprCnt */
+               VCTN_NMPR_CNT
+          FROM TB_VCTN_SCDL_DTL
+        <include refid="VctnScdlDtlMap.selectCondition_fragment" />
+    </select>
+
+    <select id="VctnScdlDtlMap.getVctnScdlDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* VctnScdlDtlMap.getVctnScdlDtlList */
+               #{vctn_yrmn} AS VCTN_YRMN, A.*
+             , B.CNTR_CD, B.TEAM_CD AS TEAM2_CD, B.TEAM_NM AS TEAM2_NM, C.TEAM_CD AS TEAM1_CD, C.TEAM_NM AS TEAM1_NM
+             , (SELECT NVL(SUM(C.VCTN_NMPR_CNT), 0)
+                  FROM TB_VCTN_SCDL_DTL C
+        <include refid="VctnScdlDtlMap.selectCondition_fragment" />
+                   AND C.TEAM_CD = B.TEAM_CD) AS TOTAL
+          FROM (SELECT *
+                  FROM (SELECT CNTR_CD, TEAM_CD, VCTN_DY, VCTN_NMPR_CNT
+                          FROM TB_VCTN_SCDL_DTL
+        <include refid="VctnScdlDtlMap.selectCondition_fragment" />
+                       )
+                 PIVOT (SUM(VCTN_NMPR_CNT) FOR VCTN_DY IN ('01' AS D01, '02' AS D02, '03' AS D03, '04' AS D04, '05' AS D05
+                                                         , '06' AS D06, '07' AS D07, '08' AS D08, '09' AS D09, '10' AS D10
+                                                         , '11' AS D11, '12' AS D12, '13' AS D13, '14' AS D14, '15' AS D15
+                                                         , '16' AS D16, '17' AS D17, '18' AS D18, '19' AS D19, '20' AS D20
+                                                         , '21' AS D21, '22' AS D22, '23' AS D23, '24' AS D24, '25' AS D25
+                                                         , '26' AS D26, '27' AS D27, '28' AS D28, '29' AS D29, '30' AS D30, '31' AS D31)
+                       )
+               ) A
+             , TB_CONS_TEAM B
+             , TB_CONS_TEAM C
+         WHERE A.TEAM_CD(+) = B.TEAM_CD
+           AND A.CNTR_CD(+) = B.CNTR_CD
+           AND B.CNTR_CD = #{cntr_cd}
+           AND B.USE_YN = 'Y'
+           AND B.HGRN_TEAM_CD = C.TEAM_CD
+           AND B.CNTR_CD = C.CNTR_CD
+           AND C.USE_YN = 'Y'
+         ORDER BY C.TEAM_SQNC ASC, B.TEAM_SQNC ASC
+    </select>
+
+    <insert id="VctnScdlDtlMap.insertVctnScdlDtl" parameterType="map">
+        <selectKey keyProperty="vctn_scdl_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'VSD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* VctnScdlDtlMap.insertVctnScdlDtl */
+          INTO TB_VCTN_SCDL_DTL
+               (VCTN_SCDL_DTL_ID, TEAM_CD, VCTN_YRMN, VCTN_DY, VCTN_NMPR_CNT
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{vctn_scdl_dtl_id}, #{team_cd}, #{vctn_yrmn}, #{vctn_dy}, #{vctn_nmpr_cnt}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <delete id="VctnScdlDtlMap.deleteVctnScdlDtl" parameterType="map">
+        DELETE /* VctnScdlDtlMap.deleteVctnScdlDtl */
+          FROM TB_VCTN_SCDL_DTL
+         WHERE CNTR_CD = #{cntr_cd}
+           AND TEAM_CD = #{team_cd}
+           AND VCTN_YRMN = #{vctn_yrmn}
+    </delete>
+
+</mapper>

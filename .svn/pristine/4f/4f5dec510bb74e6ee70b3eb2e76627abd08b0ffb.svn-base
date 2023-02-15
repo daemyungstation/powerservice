@@ -1,0 +1,338 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="WorkMain" classname="WORK" inheritanceid="" position="absolute 0 0 1260 684" titletext="메인" scrollbars="none" oninit="form_oninit" onactivate="form_onactivate" onclose="form_onclose" onkeydown="form_onkeydown">
+    <Layouts>
+      <Layout>
+        <Static id="sta_WorkArea" class="sta_WorkArea" style="padding:0 0 0 0;" position2="absolute l:0 r:0 t:0px b:10" positiontype="position2"/>
+        <Div id="div_Work" taborder="1" position2="absolute l:10 r:10 t:32px b:20px" positiontype="position2" scrollbars="none"/>
+        <Div id="div_Comm" taborder="2" tabstop="false" url="PS990000::PS99_CommTopBtn.xfdl" scrollbars="none" position2="absolute l:10px r:2px t:8px h:22" positiontype="position2"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[
+
+/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+var pv_winKey;		//업무화면 Key코드
+var pv_menuId;		//메뉴 ID
+var pv_menuUrl;		//업무화면 Url
+var pv_scrnNo;		//업무화면 화면식별번호
+var pv_scrnId;		//업무화면 ID
+//var pv_scrnShrdCd;	//업무화면 단축번호
+var pv_menuTitle;	//업무화면 Title
+//var pv_menuTitle2;	//업무화면 Title2
+//var pv_helpUrl;		//도움말 URL
+var pv_usrParameter;		
+
+var pv_openType 	= "M";		// 오픈타입 MDI(M), Popup(P)
+
+var nFormZoom 		= 100;
+var nGrdWidthZoom 	= 1.0;
+var nGrdHeightZoom 	= 1.0;
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function form_oninit(obj:Form, e:InitEventInfo)
+{
+    var oFrame = this.getOwnerFrame();
+    var pgmChildId = oFrame.pgmChildId;
+
+	pv_openType     = oFrame.openType;			// 오픈타입 MDI(M), Popup(P)
+	pv_winKey       = oFrame.winKey;			
+	pv_scrnId       = oFrame.prgmChildId;		// init_PS030000::PS030200
+	pv_menuUrl      = oFrame.prgmUrl;
+	pv_menuId       = oFrame.prgmCode;
+	pv_menuTitle    = oFrame.srcTitle;
+	pv_usrParameter = oFrame.usrParameter;
+		
+	this.menu_id = pv_menuId;
+	this.menu_nm = pv_menuTitle;
+
+	mainframe.titletext = "";
+	
+	
+// 	trace(" pv_openType    >>>> "+ pv_openType    );
+// 	trace(" pv_winKey      >>>> "+ pv_winKey      );
+// 	trace(" pv_scrnId      >>>> "+ pv_scrnId      );
+// 	trace(" pv_menuUrl     >>>> "+ pv_menuUrl     );
+// 	trace(" pv_menuId      >>>> "+ pv_menuId      );
+// 	trace(" pv_menuTitle   >>>> "+ pv_menuTitle   );
+//  trace(" pv_usrParameter>>>> "+ pv_usrParameter);
+    
+    
+    
+    // 콜센터 예외처리
+    //if(GV_BZDPDIVCD == "CCC") {
+    if(GV_BZDPDIVCD == "CCE" || GV_BZDPDIVCD == "CCL" || GV_BZDPDIVCD == "CCM") {
+		this.style.backgroundImage = "IMG::bg_workareaCC.png";
+    }
+    
+    if (!gfn_isNull(pv_menuUrl)) {
+		pv_menuUrl = pv_menuUrl.indexOf("xfdl") >= 0 ? pv_menuUrl : pv_menuUrl +".xfdl";
+		
+		this.div_Work.url 		= pv_menuUrl;
+		this.div_Work.prgmId 	= pv_menuId;
+	}
+	
+	//인바운드, 아웃바운드일 경우 공통영역 보이지 않게 처리
+	if (pv_winKey.indexOf("init_")>=0) {
+		div_Comm.url = '';
+		div_Comm.visible = false;
+		
+		div_Work.position2 = "absolute l:10 r:10 t:10px b:20px";
+	}
+}
+
+
+/********************************************************************************************/
+/*  6. 사용자 함수                                                                      	*/
+/********************************************************************************************/
+// 즐겨찾기 버튼 제어
+function fn_setMyMenuEntryICon()
+{
+	//var arrWinkey = pv_winKey.split("_");		//PS040000::PS040100_115326_319
+	div_Comm.fn_setMyMenuEntryICon(pv_menuId);
+}
+
+
+/***************************************************************************
+ * desc       : 업무영역 프로세스 호출 , 공통버튼 처리
+ * parameter  : strCallGbn
+ * return     : none
+ * ex         : 
+ ***************************************************************************/
+function fn_ActionCall(objBtn, e, strCallGbn)
+{
+	if(strCallGbn == "INIT") {
+		div_Work.fn_commInit(gfn_getCommTypeInit());
+	} else if(strCallGbn == "SEARCH") {
+		div_Work.fn_commSearch(gfn_getCommTypeInit());
+	} else if(strCallGbn == "ADD") {
+		div_Work.fn_commAdd(gfn_getCommTypeInit());		
+	} else if(strCallGbn == "SAVE") {
+		div_Work.fn_commSave(gfn_getCommTypeSave());		
+	} else if(strCallGbn == "DELETE") {
+		div_Work.fn_commDelete(gfn_getCommTypeDelete());		
+	} else if(strCallGbn == "CAPTURE") {
+		//if(confirm("화면캡쳐 하시겠습니까?")) {
+			gfn_captureForm(this, pv_menuTitle, "jpg", "", true);
+		//}
+	} else if(strCallGbn == "FAVORITE") {
+		//div_Work.fn_commFavorite();
+		//alert("즐겨찾기 처리");
+	} else if(strCallGbn == "INOUT") {
+		fn_commInOut(objBtn, e);				
+	} else if(strCallGbn == "CLOSE") {
+		if(confirm("폼을 닫으시겠습니까?"))
+			f_close();
+	} else {
+	
+	}
+}
+
+// InOut 처리 - Popup 화면으로 Docking
+function fn_commInOut(obj, e)
+{
+	if(pv_openType == "P") {		// 화면 IN
+		pv_openType = "M";
+
+		var objFrame = this.getOwnerFrame();
+		var bSucc = objFrame.hideModeless();
+
+		if(bSucc) {
+			obj.class = "btn_WF_Exp";
+			
+			var iRow = gds_OpenList.findRow("WINKEY", pv_winKey);
+			gds_OpenList.deleteRow(iRow);			
+			
+			//var objDs = ap_LeftFrame.form.ds_Menu;
+			//var arrwinKey = pv_winKey.split("_");
+			//gfn_chkOpenMenu(arrwinKey[0],objDs);
+			
+			// 팝업으로 나가면서 제거된 속성을 복구한다.
+			var objDs = gds_Pgm;
+			pv_menuTitle = objFrame.titletext;
+			var nRow = objDs.findRow("pgm_cd", pv_menuId);
+			
+			ap_WorkFrame.addChild(pv_winKey, objFrame);
+			
+			//신규 생성되는 화면을 gds_OpenList 에 등록
+			gfn_addGblDSMenu(pv_winKey, nRow, objDs);
+
+			objFrame.dragmovetype 			= "all";
+			objFrame.showtitlebar 			= false;
+			objFrame.resizable 				= true;
+			objFrame.style.border.width 	= "0";
+			
+ 			this.position.width = this.position.width - 2;
+ 			this.position.height = this.position.height + 52;
+
+			this.sta_WorkArea.class = "sta_WorkArea";
+			//this.sta_WorkArea.style.background.image = "IMG::bg_workframe.png";
+			//this.sta_WorkArea.style.background.repeat = "stretch";
+			//this.sta_WorkArea.style.background.imageedge = "20,20";
+			
+			objFrame.style.border = "0 solid #343434ff";
+			objFrame.show();	
+			
+			ap_MDITabFrame.form.lfn_setNaviAdd(pv_winKey, pv_menuTitle);
+			ap_MDITabFrame.form.lfn_activeTabpage(pv_winKey);
+			ap_activeWinId = pv_winKey;
+		}	
+	
+	} else {						// 화면 OUT
+
+		var sPrewinKey 	= fn_getPreWinKey(pv_winKey);
+		pv_openType 	= "P";
+		obj.class 		= "btn_WF_Redu";
+
+		// MDI영역의 이전업무영역 Focus 처리
+		if(sPrewinKey != "") ap_MDITabFrame.form.lfn_activeTabpage(sPrewinKey);
+		
+		
+		// 탭영역, gds_OpenList 삭제처리
+		ap_MDITabFrame.form.lfn_deleteTabpage(pv_winKey);		
+		
+		// Popup Open
+		var objChildFrame = ap_WorkFrame.removeChild(pv_winKey);
+		
+// 		// 콜센터 예외처리
+// 		if(GV_BZDPDIVCD == "CCE" || GV_BZDPDIVCD == "CCL" || GV_BZDPDIVCD == "CCM") {
+// 			objChildFrame.openstatus 			= "normal";
+// 			objChildFrame.position.width 		= 1052;
+// 		} else {
+// 			objChildFrame.openstatus 			= "maximize";
+// // 			objChildFrame.openstatus 			= "normal";
+// // 			objChildFrame.position.width 		= 1052;
+// 		}
+
+		objChildFrame.showtitlebar 			= true;
+		objChildFrame.style.border 			= "1px solid black";
+		objChildFrame.titletext 			= pv_menuTitle;
+		
+// 		alert(objChildFrame.form.div_Work.position.width);
+// 		objChildFrame.form.div_Work.position.width = 992;
+
+		// Popup으로 빼낼 경우 사이즈를 표준사이즈로 복원한다.
+		objChildFrame.position.width 		= 1260;
+		objChildFrame.openstatus 			= "normal";
+		objChildFrame.showModeless(ap_WorkFrame);
+		
+		// 팝업오픈시 중앙으로 위치이동
+		objChildFrame.form.fn_movePosition();
+
+
+//		// 콜센터 예외처리
+//		if(GV_BZDPDIVCD == "CCE" || GV_BZDPDIVCD == "CCL" || GV_BZDPDIVCD == "CCM") {
+//			objChildFrame.openstatus 			= "normal";
+//			objChildFrame.position.width 		= 1052;
+//
+//			// 팝업오픈시 중앙으로 위치이동
+//			objChildFrame.form.fn_movePosition();			
+//			
+//		} else {
+//			objChildFrame.openstatus 			= "maximize";
+//		}		
+
+
+
+		//관리업무일 경우
+		if(gds_OpenList.rowcount == 1) {
+			ap_MDITabFrame.form.fn_WorkMainShow("HOME")
+			
+			var iRow = gds_OpenList.findRow("WINKEY", pv_winKey);
+			gds_OpenList.deleteRow(iRow);
+			//gfn_delGblDSMenu(pv_winKey);	
+		} else {
+			var iRow = gds_OpenList.findRow("WINKEY", pv_winKey);
+			gds_OpenList.deleteRow(iRow);
+		}
+	}	
+}
+
+function fn_getPreWinKey(winKey)
+{
+	var sPrewinKey 	= "";
+	
+	var nRow = gds_OpenList.findRow("WINKEY", winKey);
+	if(nRow != -1 && nRow > 0)
+		sPrewinKey = gds_OpenList.getColumn(nRow-1, "WINKEY");
+	else if(nRow == 0 && gds_OpenList.rowcount > 1)
+		sPrewinKey = gds_OpenList.getColumn(nRow+1, "WINKEY");
+		
+	return sPrewinKey;
+}
+
+function fn_movePosition()
+{
+	var objFrame = this.getOwnerFrame();
+
+	var nLeft 	= application.mainframe.position.left + (application.mainframe.position.width - this.position.width)/2;
+	var nTop 	= application.mainframe.position.top + (application.mainframe.position.height - this.position.height)/2;
+	
+	if(nLeft < 0) 	nLeft = 0;
+	if(nTop < 0) 	nTop = 0;
+
+	objFrame.enableevent = false;
+	objFrame.move(nLeft, nTop);
+	objFrame.enableevent = true;
+	
+	this.sta_WorkArea.class 		= "";			//sta_WorkArea
+	objFrame.style.border.style 	= "solid";
+	objFrame.style.border.color 	= "#343434";
+	objFrame.position.width 		= objFrame.position.width - 10;
+	objFrame.position.height 		= objFrame.position.height - 10;
+	
+	objFrame.form.style.background = "";
+}
+
+
+/********************************************************************************************/
+/*  7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+function form_onactivate(obj:Form, e:ActivateEventInfo)
+{
+ 	if(pv_openType == "M") {
+		if(gfn_isNull(pv_winKey) == true) return;
+		//gfn_activeForm(pv_winKey);
+		
+		// 즐겨찾기 아이콘 처리
+		fn_setMyMenuEntryICon();
+	} 	
+}
+
+function form_onclose(obj:Form, e:CloseEventInfo)
+{
+	if(pv_openType == "M") {
+		if(gfn_isNull(pv_winKey) == true) return;
+		gfn_frameOnClose(pv_winKey);
+	} else {
+		var iRow = gds_OpenList.findRow("WINKEY", pv_winKey);
+		gds_OpenList.deleteRow(iRow);		
+	}
+}
+
+function form_onkeydown(obj:Form, e:KeyEventInfo)
+{
+	if(e.keycode == 27)
+	{
+		setWaitCursor(false, true);
+	}
+	
+	gfn_shortcutKey(obj, e);	
+}
+
+function f_close()
+{
+	if(gfn_isNull(div_Work.url) == true) close();
+	div_Work.url = "";
+	if(gfn_isNull(div_Work.url) == true) close();
+}
+
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,880 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="UserMap">
+
+    <sql id="UserMap.selectCondition_fragment">
+        <where>
+            <if test="rolecd != null and rolecd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_ROLE_USER
+                             WHERE CNTR_CD = A.CNTR_CD
+                               AND ((ROLE_CD = #{rolecd}
+                                 AND ROLE_TRGT_TYP_CD = '10'
+                                 AND ROLE_TRGT_ID = A.USER_ID)
+
+                                 OR (ROLE_CD = #{rolecd}
+                                 AND ROLE_TRGT_TYP_CD = '20'
+                                 AND (ROLE_TRGT_ID = A.TEAM_CD OR ROLE_TRGT_ID = (SELECT HGRN_TEAM_CD
+                                                                                    FROM TB_CONS_TEAM
+                                                                                   WHERE TEAM_CD = A.TEAM_CD))))
+                            )
+            </if>
+            <if test="rolecdList != null and rolecdList != '' and rolecdList.size > 0">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_ROLE_USER
+                             WHERE CNTR_CD = A.CNTR_CD
+                               AND ((<foreach collection="rolecdList" item="item" separator="," close=")" open="ROLE_CD IN (">
+                                         #{item}
+                                     </foreach>
+                                 AND ROLE_TRGT_TYP_CD = '10'
+                                 AND ROLE_TRGT_ID = A.USER_ID)  
+
+                                 OR (<foreach collection="rolecdList" item="item" separator="," close=")" open="ROLE_CD IN (">
+                                         #{item}
+                                     </foreach>
+                                 AND ROLE_TRGT_TYP_CD = '20'
+                                 AND (ROLE_TRGT_ID = A.TEAM_CD OR ROLE_TRGT_ID = (SELECT HGRN_TEAM_CD
+                                                                                    FROM TB_CONS_TEAM
+                                                                                   WHERE TEAM_CD = A.TEAM_CD))))
+                            )
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND USER_ID = #{user_id}
+            </if>
+            <!-- 최초 로그인 조건 -->
+            <if test="lgn_id != null and lgn_id != ''">
+                AND UPPER(LGN_ID) = UPPER(#{lgn_id})
+                AND USE_YN = 'Y'
+            </if>
+            <if test="item != null and item != ''">
+                <if test="searchItem == 'user_nm'">
+                    AND USER_NM LIKE '%' || #{item} || '%'
+                </if>
+                <if test="searchItem == 'lgn_id'">
+                    AND LGN_ID = #{item}
+                </if>
+                <if test="searchItem == 'cti_id'">
+                    AND CTI_ID = #{item}
+                </if>
+            </if>
+            <if test="user_nm != null and user_nm != ''">
+                AND USER_NM LIKE '%' || #{user_nm} || '%'
+            </if>
+            <if test="user_stat_cd != null and user_stat_cd != ''">
+                AND USER_STAT_CD = #{user_stat_cd}
+            </if>
+            <if test="authoritycds != null and authoritycds != ''">
+                AND ATHR_CD IN (${authoritycds})
+            </if>
+            <if test="athr_cd != null and athr_cd != ''">
+                AND ATHR_CD = #{athr_cd}
+            </if>
+            <choose>
+                <when test="team_cd != null and team_cd != ''">
+                AND TEAM_CD = #{team_cd}
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TEAM_CD IN (SELECT TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+            <if test="userids != null and userids != ''">
+                AND USER_ID NOT IN
+                <foreach collection="userids" item="item" separator="," close=")" open="(">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="duty_cd != null and duty_cd != ''">
+                AND DUTY_CD = #{duty_cd}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="pwd != null and pwd != ''">
+                AND PWD = #{pwd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <select id="UserMap.getUserCount" parameterType="map" resultType="int">
+        SELECT /* UserMap.getUserCount */
+               COUNT(*)
+          FROM TB_USER A
+        <include refid="UserMap.selectCondition_fragment" />
+    </select>
+
+    <select id="UserMap.getUserList" parameterType="map" resultType="resultMap">
+        SELECT /* UserMap.getUserList */
+               C.*
+             , (SELECT GDS_CD
+                  FROM TB_ATHR
+                 WHERE C.ATHR_CD = ATHR_CD
+                   AND C.CNTR_CD = CNTR_CD) AS ATHR_GDS_CD
+             , CASE WHEN PWD_AMNT_DTTM IS NOT NULL
+                     AND SYSDATE - TO_DATE(PWD_AMNT_DTTM, 'YYYYMMDDHH24MISS') > NVL((SELECT BAS_VL
+                                                                                  FROM TB_BAS_VL
+                                                                                 WHERE CNTR_CD = C.CNTR_CD
+                                                                                   AND BAS_VL_NM = 'pw_check_day'), 90) THEN 'Y'
+                    ELSE 'N'
+                END AS PWD_AMNT_YN
+            , (SELECT XMLAGG(XMLELEMENT(COL ,'', '#' || ROLE_CD) ORDER BY ROLE_CD).EXTRACT('//text()').GETSTRINGVAL()
+                 FROM TB_ROLE_USER D
+                WHERE D.CNTR_CD = C.CNTR_CD
+                  AND ((D.ROLE_TRGT_TYP_CD = '10' AND D.ROLE_TRGT_ID = C.USER_ID)
+                    OR (D.ROLE_TRGT_TYP_CD = '20' AND (D.ROLE_TRGT_ID = C.TEAM_CD OR D.ROLE_TRGT_ID = C.HGRN_TEAM_CD)))
+               ) AS ROLE
+            , (SELECT D.BZPT_DIV FROM TB_CONS_TEAM D WHERE D.TEAM_CD = C.TEAM_CD) AS BZPT_DIV
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.TEAM_NM
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.HGRN_TEAM_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS HGRN_TEAM_NM
+                  FROM (SELECT USER_ID, LGN_ID, USER_NM, PWD, EMPL_NO
+                             , ATHR_CD, USER_TYP_CD, USER_STAT_CD, DUTY_CD, USE_YN
+                             , BRDT, TLNO, CLPH_NO, ZPCD, URGN_TLNO
+                             , HOME_ADDR, HOME_DTPT_ADDR, EMIL_ADDR, ENCO_DT, RTCO_DT
+                             , TEAM_CD, EXTN_NO, CTI_ID, ACD_GROP_NO
+                             , CTI_USE_YN, IP_ADDR, MAC_ADDR, REC_IP_ADDR, CONS_BSWR_TYP_CD
+                             , USER_EXPI, BLNG_COMP_NM, PRCNT_NO, MEMO_NO, LAST_LOGOUT_DTTM
+                             , PWD_AMNT_DTTM, ATHN_FALR_TMCNT, DUAL_MONT_YN, MAIN_MONT_RSLU_CD, ASTN_MONT_RSLU_CD
+                             , ACTV_LOG_YN, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+                             , AMNT_DTTM, PTY_GROP_NO, EXCEL_YN
+                             , GETCODENM('USR010', USER_TYP_CD, A.CNTR_CD) AS USER_TYP_NM
+                             , GETCODENM('USR040', CONS_BSWR_TYP_CD, A.CNTR_CD) AS CONS_BSWR_TYP_NM
+                             , GETCODENM('USR020', USER_STAT_CD, A.CNTR_CD) AS USER_STAT_NM
+                             , GETCODENM('USR030', DUTY_CD, A.CNTR_CD) AS DUTY_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT ATHR_NM
+                                  FROM TB_ATHR
+                                 WHERE ATHR_CD = A.ATHR_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS ATHR_NM
+                             , (SELECT CNTR_NM
+                                  FROM TB_CNTR
+                                 WHERE CNTR_CD = A.CNTR_CD) AS CNTR_NM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                             , (SELECT HGRN_TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS HGRN_TEAM_CD
+                             , (SELECT FILE_ID
+                                  FROM TB_FILE
+                                 WHERE RLTN_ITEM_ID = A.USER_ID) AS FILE_ID
+                             , LAST_LGN_DTM
+                        <!-- 
+                             , (SELECT TO_CHAR(MIN(LGN_DTTM), 'YYYYMMDDHH24MI')
+                                  FROM TB_LGN_HSTR
+                                 WHERE USER_ID = A.USER_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND RGSN_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000'
+                                                 AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')) LGN_DTTM
+ 						-->                                                 
+                         FROM TB_USER A
+        <include refid="UserMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+                     ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+    
+    <select id="UserMap.getNewTypeUserList" parameterType="map" resultType="resultMap">
+        SELECT /* UserMap.getNewTypeUserList */
+               MAIN.*
+  	    FROM
+  	    (
+			SELECT 
+				ROWNUM AS PAGE_INDX,
+				USER_ID,
+				USER_NM,
+			    TEAM_CD,
+			    DUTY_CD,
+			    GETCODENM('USR030', DUTY_CD, TU.CNTR_CD) AS DUTY_NM
+			FROM TB_USER TU 
+	        <include refid="UserMap.selectCondition_fragment" />
+	        ORDER BY USER_NM ASC
+         ) MAIN
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+
+    <select id="UserMap.getUserNm" parameterType="map" resultType="resultMap">
+        SELECT /* UserMap.getUserNm */
+            USER_NM
+          FROM TB_USER WHERE USER_ID = #{user_id}
+    </select>
+
+    <select id="UserMap.getUserList2" parameterType="map" resultType="resultMap">
+        SELECT /* UserMap.getUserList2 */
+               PAGE_INDX, USER_ID, USER_NM, DUTY_CD, DUTY_NM
+             , TEAM_NM, TEAM_CD, CNTR_CD, LGN_ID
+          FROM (SELECT A.*
+                       , <choose>
+                             <when test="orderBy != null and orderBy != ''">
+                               ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                           </when>
+                           <otherwise>
+                               ROW_NUMBER() OVER(ORDER BY TEAM_CD ASC, DUTY_CD DESC) PAGE_INDX
+                           </otherwise>
+                       </choose>
+                    FROM (SELECT A.*, B.TEAM_NM
+                               , GETCODENM('USR030', DUTY_CD, A.CNTR_CD) AS DUTY_NM
+                            FROM (SELECT TEAM_CD, USER_ID, USER_NM, DUTY_CD, CNTR_CD, LGN_ID
+                                    FROM TB_USER A
+                                  <include refid="UserMap.selectCondition_fragment" />
+                                 ) A LEFT JOIN TB_CONS_TEAM B
+                                       ON B.TEAM_CD = A.TEAM_CD
+                                      AND B.CNTR_CD = A.CNTR_CD
+                        ) A
+                ) D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+           WHERE PAGE_INDX >= #{startLine}
+             AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+
+    <!-- 상담사 상태 조회 (호전환용) -->
+    <select id="UserMap.getUserStatusList" parameterType="map" resultType="resultMap">
+		SELECT    /* UserMap.getUserStatusList */
+				  TEAM_CD, LGN_ID, USER_NM, CTI_USE_YN, DUTY_CD
+		        , CTI_ID, CHNL_TYP_CD, CHNL_STAT_CD, AMNT_DTTM
+		        , TEAM_NM
+		        , (CASE WHEN CTI_ID='1012' THEN '2025' ELSE EXTN_NO END) AS EXTN_NO
+		        , GETCODENM('USR030', DUTY_CD, 'CCA') AS DUTY_NM
+		        , GETCODENM('CHL040', CHNL_STAT_CD, 'CCA') AS CHNL_STAT_NM
+		FROM    (
+		        SELECT  ROWNUM AS PAGE_INDX, S.*
+		        FROM    (
+		                SELECT    A.TEAM_CD, A.LGN_ID, A.USER_NM, A.CTI_USE_YN, A.DUTY_CD
+		                        , A.CTI_ID, B.CHNL_TYP_CD, B.CHNL_STAT_CD, B.AMNT_DTTM
+		                        , C.TEAM_NM
+		                        , D.TLPH_EXTN_NO
+		                        , DECODE(A.CTI_USE_YN, 'Y', D.TLPH_EXTN_NO, '') AS EXTN_NO
+		                FROM    (
+		                        SELECT  *
+		                        FROM    TB_USER
+		                        WHERE   USER_STAT_CD = '10'
+		                        
+		                        <if test="team_cd != null and team_cd != ''">
+                                    AND A.TEAM_CD = #{team_cd}
+                                </if>
+                                <if test="user_id != null and user_id != ''">
+                                    AND A.USER_ID = #{user_id}
+                                </if>
+                                <if test="duty_cd != null and duty_cd != ''">
+                                    AND A.DUTY_CD = #{duty_cd}
+                                </if>
+                                
+		                        ) A
+		                        , (
+		                        SELECT  *
+		                        FROM    TB_CHNL_STAT_INFO
+		                        WHERE   AMNT_DTTM LIKE TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'
+		                        ) B 
+		                        , TB_CONS_TEAM C
+		                        , (
+		                        SELECT  y1.cntr_cd, y1.user_id, y2.TLPH_EXTN_NO
+		                        FROM    (
+		                                SELECT  x1.cntr_cd, x1.user_id, x1.ip_addr
+		                                FROM    TB_LGN_HSTR x1, 
+		                                        (
+		                                        SELECT  CNTR_CD, USER_ID, MAX(LGN_DTTM) AS LGN_DTTM
+		                                        FROM    TB_LGN_HSTR
+		                                        WHERE   LGN_TYP_CD = 'LOGIN'
+		                                        AND     LGN_DTTM >= SYSDATE|| '000000'
+		                                        GROUP BY CNTR_CD, USER_ID
+		                                        ) x2
+		                                WHERE x1.cntr_cd = x2.cntr_cd
+		                                AND   x1.USER_ID = x2.USER_ID
+		                                AND   x1.LGN_DTTM = x2.LGN_DTTM
+		                                ) y1, TB_EXTN_NO_ADMN y2
+		                        WHERE   y1.ip_addr = y2.ip_addr
+		                        ) D
+		                 WHERE A.USER_ID = B.USER_ID(+)
+		                 AND   A.TEAM_CD = C.TEAM_CD(+)
+		                 AND   A.CNTR_CD = C.CNTR_CD(+)
+		                 AND   A.CNTR_CD = D.CNTR_CD(+)
+		                 AND   A.USER_ID = D.USER_ID(+)
+		                 
+		                 <choose>
+                             <when test="orderBy == null or orderBy == ''">
+                                 <!-- ORDER BY B.CHNL_STAT_CD ASC, B.AMNT_DTTM ASC -->
+                                 ORDER BY B.CHNL_STAT_CD ASC
+                             </when>
+                             <otherwise>
+                                 ORDER BY ${orderBy} ${orderDirection}
+                             </otherwise>
+                         </choose>
+		                 ) S
+		                 
+		        ) T
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+     </select>
+     <!-- //상담사 상태 조회 (호전환용) -->
+
+    <insert id="UserMap.insertUser" parameterType="map">
+        INSERT /* UserMap.insertUser */
+          INTO TB_USER
+             ( USER_ID, LGN_ID, USER_NM, PWD, EMPL_NO
+             , ATHR_CD, USER_TYP_CD, USER_STAT_CD, DUTY_CD, USE_YN
+             , BRDT, TLNO, CLPH_NO, ZPCD, URGN_TLNO
+             , HOME_ADDR, HOME_DTPT_ADDR, EMIL_ADDR, ENCO_DT, RTCO_DT
+             , TEAM_CD, EXTN_NO, CTI_ID, ACD_GROP_NO
+             , CTI_USE_YN, IP_ADDR, MAC_ADDR, REC_IP_ADDR, CONS_BSWR_TYP_CD
+             , USER_EXPI, BLNG_COMP_NM, PRCNT_NO, MEMO_NO, LAST_LOGOUT_DTTM
+             , PWD_AMNT_DTTM, ATHN_FALR_TMCNT, PTY_GROP_NO
+         <if test="dual_mont_yn != null and dual_mont_yn != ''">
+             , DUAL_MONT_YN
+         </if>
+             , MAIN_MONT_RSLU_CD, ASTN_MONT_RSLU_CD
+         <if test="actv_log_yn != null and actv_log_yn != ''">
+             , ACTV_LOG_YN
+         </if>
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+             , AMNT_DTTM
+             , EXCEL_YN)
+        VALUES (UPPER(#{lgn_id}), UPPER(#{lgn_id}), #{user_nm}, #{pwd}, #{empl_no}
+             , #{athr_cd}, #{user_typ_cd}, #{user_stat_cd}, #{duty_cd}, #{use_yn}
+             , replace(#{brdt}, '-', ''), replace(#{tlno}, '-', ''), replace(#{clph_no}, '-', ''), replace(#{zpcd}, '-', ''), replace(#{urgn_tlno}, '-', '')
+             , #{home_addr}, #{home_dtpt_addr}, #{emil_addr}, replace(#{enco_dt}, '-', ''), replace(#{rtco_dt}, '-', '')
+             , #{team_cd}, #{extn_no}, #{cti_id}, #{acd_grop_no}
+             , #{cti_use_yn}, #{ip_addr}, #{mac_addr}, #{rec_ip_addr}, #{cons_bswr_typ_cd}
+             , #{user_expi}, #{blng_comp_nm}, #{prcnt_no}, #{memo_no}, #{last_logout_dttm}
+             , #{pwd_amnt_dttm}, 0, #{pty_grop_no}
+         <if test="dual_mont_yn != null and dual_mont_yn != ''">
+             , #{dual_mont_yn}
+         </if>
+             , #{main_mont_rslu_cd}, #{astn_mont_rslu_cd}
+         <if test="actv_log_yn != null and actv_log_yn != ''">
+             , #{actv_log_yn}
+         </if>
+             , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+             , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , #{excel_yn})
+    </insert>
+
+    <update id="UserMap.updateUser" parameterType="map">
+        UPDATE /* UserMap.updateUser */
+               TB_USER
+           SET USER_NM = #{user_nm}
+             , EMPL_NO = #{empl_no}
+             , ATHR_CD = #{athr_cd}
+             , USER_TYP_CD = #{user_typ_cd}
+             , USER_STAT_CD = #{user_stat_cd}
+             , DUTY_CD = #{duty_cd}
+             , USE_YN = #{use_yn}
+             , BRDT = REPLACE(#{brdt}, '-', '')
+             , TLNO = REPLACE(#{tlno}, '-', '')
+             , CLPH_NO = REPLACE(#{clph_no}, '-', '')
+             , ZPCD = REPLACE(#{zpcd}, '-', '')
+             , URGN_TLNO = REPLACE(#{urgn_tlno}, '-', '')
+             , HOME_ADDR = #{home_addr}
+             , HOME_DTPT_ADDR = #{home_dtpt_addr}
+             , EMIL_ADDR = #{emil_addr}
+             , ENCO_DT = REPLACE(#{enco_dt}, '-', '')
+             , RTCO_DT = REPLACE(#{rtco_dt}, '-', '')
+             , TEAM_CD = #{team_cd}
+             , EXTN_NO = #{extn_no}
+             , CTI_ID = #{cti_id}
+             , ACD_GROP_NO = #{acd_grop_no}
+             , PTY_GROP_NO = #{pty_grop_no}
+             , CTI_USE_YN = #{cti_use_yn}
+             , IP_ADDR = #{ip_addr}
+             , MAC_ADDR = #{mac_addr}
+             , REC_IP_ADDR = #{rec_ip_addr}
+             , USER_EXPI = #{user_expi}
+             , BLNG_COMP_NM = #{blng_comp_nm}
+             , PRCNT_NO = #{prcnt_no}
+             , MEMO_NO = #{memo_no}
+             , DUAL_MONT_YN = #{dual_mont_yn}
+             , MAIN_MONT_RSLU_CD = #{main_mont_rslu_cd}
+             , ASTN_MONT_RSLU_CD = #{astn_mont_rslu_cd}
+             , ACTV_LOG_YN = #{actv_log_yn}
+             , CONS_BSWR_TYP_CD = #{cons_bswr_typ_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , EXCEL_YN = #{excel_yn}
+        WHERE USER_ID = #{user_id}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <update id="UserMap.updateUserPassword" parameterType="map">
+        UPDATE /* UserMap.updateUserPassword */
+               TB_USER
+        <set>
+            <if test="athn_falr_tmcnt != null and athn_falr_tmcnt != ''">
+               ATHN_FALR_TMCNT = #{athn_falr_tmcnt}
+            </if>
+            <if test="pwd != null and pwd != ''">
+               PWD = #{pwd}
+             , ATHN_FALR_TMCNT = 0
+             , PWD_AMNT_DTTM = DECODE(#{initfg}, 'Y', '', TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+            </if>
+        </set>
+         WHERE USER_ID = #{user_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <!-- TODO : 아래는 소스 정리 필요 -->
+
+    <insert id="UserMap.mergeChnlStatInfo" parameterType="map">
+        MERGE INTO /* UserMap.mergeChnlStatInfo */
+              TB_CHNL_STAT_INFO A
+        USING (SELECT #{rgsr_id} AS USER_ID
+                    , #{chnl_typ_cd} AS CHNL_TYP_CD
+                 FROM DUAL) B
+           ON (A.USER_ID = B.USER_ID
+           AND A.CHNL_TYP_CD = B.CHNL_TYP_CD)
+         WHEN MATCHED THEN
+              UPDATE SET CHNL_STAT_CD = #{chnl_stat_cd}
+                       , AMND_ID      = #{amnd_id}
+                       , AMNT_DTTM    = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHEN NOT MATCHED THEN
+              INSERT (USER_ID, CHNL_TYP_CD, CHNL_STAT_CD
+                    , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+              VALUES (#{rgsr_id}, #{chnl_typ_cd}, #{chnl_stat_cd}
+                    , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <!-- 센터추가시 admin계정을 복사해오는 모듈 -->
+    <insert id="UserMap.copyUserFromOtherCenter" parameterType="map">
+       INSERT INTO /* UserMap.copyUserFromOtherCenter */
+                   TB_USER
+            SELECT #{newUSER_ID}, LGN_ID, USER_NM, LOGINPW, AUTHORITYCD
+                 , USERTYPECD, TELNO, HPNO, EMERGTELNO, RESIDENTNO
+                 , BIRTHD, HOMEZIPCD1, HOMEZIPCD2, HOMEADDR1, HOMEADDR2
+                 , EMAILADDR, EMPLOYEENO, JOIND, RETIRED, USER_STAT_CD
+                 , DUTY_CD, EXTN_NO, CTI_ID, CTIPW, ACDGROUPNO
+                 , CTI_USE_YN, IP_ADDR, MACADDR, RECIP, TEAM_CD
+                 , USERDESC, COMPANY, COMPLETIONNO, MEMONO, LASTLOGOUTDT
+                 , PWDCHGDT, CONFIRMFAILCNT, DUALMONITORFG, MAINMONRESOLCD, SUBMONRESOLCD
+                 , ACTIONLOGFG, #{CNTR_CD}, REGUSER_ID, REGDT, AMND_ID
+                 , AMNT_DTTM, JOBTYPECD, JOBCHNLTYPECD, MULTIID, MULTIAUTOFG
+                 , SEC_RESIDENTNO
+              FROM TB_USER
+             WHERE CNTR_CD = #{from_CNTR_CD}
+               AND USER_ID = 'admin'
+    </insert>
+
+    <insert id="UserMap.mergeScdlUser" parameterType="map">
+        MERGE INTO /* UserMap.mergeScdlUser */
+              TB_USER A
+        USING (SELECT #{user_id} AS USER_ID
+                 FROM DUAL) B
+           ON (A.USER_ID = B.USER_ID)
+         WHEN MATCHED THEN
+              UPDATE SET USER_NM 		= #{user_nm}
+                    <if test="clph_no != null and clph_no != ''">
+                        , CLPH_NO 		= REPLACE(#{clph_no}, '-', '')
+                    </if>
+                    <if test="zpcd != null and zpcd != ''">
+                        , ZPCD 			= REPLACE(#{zpcd}, '-', '')
+                    </if>
+                    <if test="home_addr != null and home_addr != ''">
+                        , HOME_ADDR 	= #{home_addr}
+                    </if>
+                    <if test="home_dtpt_addr != null and home_dtpt_addr != ''">
+                        , HOME_DTPT_ADDR = #{home_dtpt_addr}
+                    </if>
+                    <if test="emil_addr != null and emil_addr != ''">
+                        , EMIL_ADDR 	= #{emil_addr}
+                    </if>
+                    <if test="use_yn != null and use_yn != ''">
+                        , USE_YN 		= #{use_yn}
+                    </if>
+                    <if test="empl_no != null and empl_no != ''">
+                        , EMPL_NO 		= #{empl_no}
+                    </if>
+                    <if test="enco_dt != null and enco_dt != ''">
+                        , ENCO_DT 		= #{enco_dt}
+                    </if>
+                    <if test="rtco_dt != null and rtco_dt != ''">
+                        , RTCO_DT 		= #{rtco_dt}
+                    </if>
+                       , AMND_ID     	= 'ADMIN'
+                       , AMNT_DTTM    	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHEN NOT MATCHED THEN
+              INSERT (CNTR_CD, USER_ID, LGN_ID, USER_NM, PWD
+                    , EMPL_NO, ATHR_CD, USER_TYP_CD, USER_STAT_CD, DUTY_CD
+                    , USE_YN, CLPH_NO, ZPCD, HOME_ADDR, HOME_DTPT_ADDR
+                    , EMIL_ADDR, ENCO_DT, RTCO_DT, CTI_ID, CTI_PWD
+                    , CTI_USE_YN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+              VALUES ('CCA', #{user_id}, #{user_id}, #{user_nm}, #{pwd}
+                    , #{empl_no}, 'CC20', '40', '10', '40'
+                    , #{use_yn}, REPLACE(#{clph_no}, '-', ''), REPLACE(#{zpcd}, '-', ''), #{home_addr}, #{home_dtpt_addr}
+                    , #{emil_addr}, #{enco_dt}, #{rtco_dt}, #{cti_id}, #{cti_pwd}
+                    , #{cti_use_yn}, 'ADMIN', TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), 'ADMIN', TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <select id="UserMap.getUserListForMemo" parameterType="map" resultType="resultMap">
+        SELECT /* UserMap.getUserListForMemo */
+               *
+          FROM (SELECT BB.*
+                     , ROW_NUMBER() OVER(ORDER BY TMP_NO, TEAM_NM) GRP_NO
+                  FROM (SELECT AA.*
+                             , CASE AA.TEAM_NM WHEN '인바운드'      THEN 1
+                                               WHEN '해피콜'        THEN 2
+                                               WHEN '미납'          THEN 3
+                                               WHEN '지원'          THEN 4
+                                               WHEN '비투퀄리티'    THEN 5
+                                               WHEN '윌앤비전'      THEN 6
+                                               WHEN '모든이에'      THEN 7
+                                               WHEN '의전서비스지원팀' THEN 8
+                                               ELSE 9 END TMP_NO
+                          FROM (SELECT USER_ID
+                                     , LGN_ID
+                                     , USER_NM
+                                     , EMPL_NO
+                                     , ATHR_CD
+                                     , USER_TYP_CD
+                                     , USER_STAT_CD
+                                     , DUTY_CD
+                                     , TEAM_CD
+                                     , CNTR_CD
+                                     , GETCODENM('USR030', DUTY_CD, A.CNTR_CD) AS DUTY_NM
+                                     , (SELECT TEAM_NM
+                                          FROM TB_CONS_TEAM
+                                         WHERE TEAM_CD = A.TEAM_CD
+                                           AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                                     , (SELECT HGRN_TEAM_CD
+                                          FROM TB_CONS_TEAM
+                                         WHERE TEAM_CD = A.TEAM_CD
+                                           AND CNTR_CD = A.CNTR_CD) AS HGRN_TEAM_CD
+                                     , (SELECT FILE_ID
+                                          FROM TB_FILE
+                                         WHERE RLTN_ITEM_ID = A.USER_ID) AS FILE_ID
+                                     , '' as CHK
+                                     , '' as GRPCHK
+                                  FROM TB_USER A
+                                 <include refid="UserMap.selectCondition_fragment" />
+                               ) AA
+                               WHERE NOT EXISTS (SELECT USER_ID FROM TB_USER WHERE CNTR_CD = AA.CNTR_CD AND USER_ID = AA.USER_ID AND USER_STAT_CD = '20')
+                       ) BB
+
+          )
+         ORDER BY GRP_NO, USER_NM ASC
+    </select>
+
+    <select id="UserMap.getevalUserCount" parameterType="map" resultType="int">
+        SELECT /* UserMap.getevalUserCount */
+               COUNT(*)
+          FROM TB_USER A
+           WHERE  A.CNTR_CD = 'CCA'   and  NVL(REPLACE(RTCO_DT,CHR(0),' '),' ') = ' ' AND USE_YN !='N'     <!-- 퇴사일자 사람은 조회 안되게 처리!!!  사용유무도 조회안되게처리 -->
+         <choose>
+                <when test="team_cd != null and team_cd != ''">
+                AND TEAM_CD = #{team_cd}
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TEAM_CD IN (SELECT TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+             <if test="user_id != null and user_id != ''">
+                AND user_id = #{user_id}
+            </if>
+    </select>
+    <select id="UserMap.getevalUserList" parameterType="map" resultType="resultMap">
+             SELECT /* UserMap.getevalUserList */
+                 USER_ID
+                , USER_NM
+                , EMPL_NO
+                , ATHR_CD
+                , TEAM_CD
+                ,(SELECT TEAM_NM
+                FROM TB_CONS_TEAM
+                WHERE TEAM_CD = A.TEAM_CD
+                AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                ,TEA.E_JUMSU
+                ,TEA.E_BIGO
+                ,NVL(TEA.YYMM,#{yymm}) YYMM
+                ,(SELECT MAX(SBIT)  from TB_EVAL_ADMIN where cntr_cd='CCA' and yymm=#{yymm}  )    SBIT
+                ,(select count(scode) from TB_EVAL_ADMIN where cntr_cd='CCA' and yymm=#{yymm} and nvl(sbit,'1') ='2') cnt
+
+            FROM TB_USER A
+              left join TB_EVAL_ADMIN TEA ON TEA.YYMM=#{yymm} AND A.USER_ID=TEA.SCODE
+            WHERE  A.CNTR_CD = 'CCA'   and  NVL(REPLACE(RTCO_DT,CHR(0),' '),' ') = ' ' AND USE_YN !='N'     <!-- 퇴사일자 사람은 조회 안되게 처리!!!  사용유무도 조회안되게처리 -->
+
+             <choose>
+                <when test="team_cd != null and team_cd != ''">
+                AND TEAM_CD = #{team_cd}
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TEAM_CD IN (SELECT TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+             <if test="user_id != null and user_id != ''">
+                AND user_id = #{user_id}
+            </if>
+            order by  A.TEAM_CD,user_id
+    </select>
+
+
+
+    <select id="UserMap.getevalUserCount_dtl" parameterType="map" resultType="int">
+        SELECT /* UserMap.getevalUserCount_dtl */
+               COUNT(*)
+          FROM TB_EVAL_ADMIN A
+           WHERE  CNTR_CD = 'CCA'   and
+              YYMM = #{yymm}     AND SCODE =  #{user_id}
+    </select>
+
+     <insert id="UserMap.insert_eval_admin" parameterType="map">
+        <!-- DM sql-id : UserMap.insert_eval_admin -->
+        INSERT INTO  /* UserMap.insert_eval_admin */
+            TB_EVAL_ADMIN
+            (
+              CNTR_CD
+             ,YYMM
+             ,SCODE
+             ,E_JUMSU
+             ,E_BIGO
+             ,E_USERID
+             ,SBIT
+             ,REG_DM
+             ,REG_MAN
+            )
+            values(
+                'CCA'
+                , #{yymm}
+                , #{user_id}
+                , ${e_jumsu}
+                , #{e_bigo}
+                , #{e_userid}
+                ,'1'
+                ,sysdate
+                ,#{reg_man}
+           )
+    </insert>
+
+
+    <update id="UserMap.update_eval_admin" parameterType="map">
+        UPDATE /* UserMap.update_eval_admin */
+               TB_EVAL_ADMIN
+           SET E_JUMSU =  #{e_jumsu}
+             , E_BIGO =  #{e_bigo}
+             , UPD_DM =  sysdate
+             , UPD_MAN = #{upd_man}
+             , E_USERID =  #{upd_man}
+
+         WHERE CNTR_CD ='CCA' AND YYMM = #{yymm}
+                AND SCODE =  #{user_id}
+
+
+    </update >
+
+     <update id="UserMap.update_ma_eval_admin" parameterType="map">
+        UPDATE /* UserMap.update_ma_eval_admin */
+               TB_EVAL_ADMIN
+           SET SBIT = #{sbit}
+             , END_DM =  sysdate
+             , END_MAN = #{upd_man}
+         WHERE CNTR_CD ='CCA' AND YYMM = #{yymm}
+
+    </update >
+
+
+
+     <select id="UserMap.getsearchevalUserCount" parameterType="map" resultType="int">
+        SELECT /* UserMap.getsearchevalUserCount */
+               COUNT(*)
+          FROM TB_EVAL_ADMIN A
+              left OUTER join TB_USER TU ON A.SCODE=TU.USER_ID
+           WHERE  A.CNTR_CD = 'CCA'  AND YYMM = #{yymm}     <!-- 퇴사일자 사람은 조회 안되게 처리!!!  사용유무도 조회안되게처리 -->
+         <choose>
+                <when test="team_cd != null and team_cd != ''">
+                AND TU.TEAM_CD = #{team_cd}
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TU.TEAM_CD IN (SELECT TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+             <if test="user_id != null and user_id != ''">
+                AND TU.user_id = #{user_id}
+            </if>
+    </select>
+
+      <select id="UserMap.getsearchevalUserList" parameterType="map" resultType="resultMap">
+            SELECT /* UserMap.getsearchevalUserList */
+                    '' chk
+                   ,A.yymm
+                   ,A.scode
+                   ,(SELECT USER_NM FROM TB_USER WHERE USER_ID=A.SCODE) SNAME
+                   , TU.TEAM_CD
+                        ,(SELECT TEAM_NM
+                        FROM TB_CONS_TEAM
+                        WHERE TEAM_CD = TU.TEAM_CD
+                        AND CNTR_CD = TU.CNTR_CD) AS TEAM_NM
+                   ,E_JUMSU
+                   ,E_BIGO
+                   ,A.SBIT
+                   ,A.E_USERID || '('||(SELECT USER_NM FROM TB_USER WHERE USER_ID=A.E_USERID)||')'  E_USER_NM
+                   ,(SELECT USER_NM FROM TB_USER WHERE USER_ID=A.E_USERID) E_USER_NM
+
+                   ,TO_CHAR(A.REG_DM,'YYYYMMDD') REG_DM
+                   ,A.REG_MAN || '('|| (SELECT USER_NM FROM TB_USER WHERE USER_ID=A.REG_MAN) || ')'  REG_NM
+                   ,TO_CHAR(A.UPD_DM,'YYYYMMDD') UPD_DM
+                   , case when nvl(A.UPD_MAN,'9') != '9' then A.UPD_MAN || '('|| (SELECT USER_NM FROM TB_USER WHERE USER_ID=A.UPD_MAN)||')' else '' end UPD_NM
+                   ,case when a.sbit='2' then TO_CHAR(A.END_DM,'YYYYMMDD') else '' end  END_DM
+                   , case when a.sbit = '2' then A.END_MAN || '('|| (SELECT USER_NM FROM TB_USER WHERE USER_ID=A.END_MAN)||')' else '' end END_NM
+                   ,(select count(scode) from TB_EVAL_ADMIN where cntr_cd='CCA' and yymm=#{yymm} and nvl(sbit,'1') ='2') cnt
+          FROM TB_EVAL_ADMIN A
+              left OUTER join TB_USER TU ON A.SCODE=TU.USER_ID
+           WHERE  A.CNTR_CD = 'CCA'  AND YYMM =  #{yymm}
+
+             <choose>
+                <when test="team_cd != null and team_cd != ''">
+                AND TU.TEAM_CD = #{team_cd}
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND TU.TEAM_CD IN (SELECT TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+             <if test="user_id != null and user_id != ''">
+                AND TU.user_id = #{user_id}
+            </if>
+            order by  TU.TEAM_CD,A.SCODE
+    </select>
+
+
+    <delete id="UserMap.del_eval_admin" parameterType="map" >
+        <!-- DM sql-id : del_eval_admin -->
+        DELETE /* UserMap.del_eval_admin */
+          FROM TB_EVAL_ADMIN
+         WHERE CNTR_CD='CCA' AND YYMM =  #{yymm} and   SCODE = #{scode}
+    </delete>
+
+    <!-- ================================================================
+     * 날짜 : 20200616
+     * 이름 : 송준빈
+     * 추가내용 : 마지막 로그인 시간 업데이트
+     * 대상 테이블 : PS_WILLVI.TB_USER
+     * ================================================================
+     * -->
+    <update id="UserMap.updateLastLoginDttm" parameterType="map">
+        UPDATE /* UserMap.updateLastLoginDttm */ 
+            PS_WILLVI.TB_USER
+        SET LAST_LGN_DTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE 1=1
+        AND CNTR_CD = #{cntr_cd}
+        AND USER_ID = #{user_id}
+    </update>
+    
+    <select id="UserMap.getInCallCount" parameterType="map" resultType="resultMap">
+        /* UserMap.getInCallCount */
+        SELECT COUNT(CALLTIME) AS INCALLCOUNT,
+		       SUM(CALLTIME) AS INCALLTIME
+		FROM (
+			  SELECT /*+ INDEX(TB_CTI_CRNC_DTL IDX_TB_CTI_CRNC_DTL_01) */
+			         CASE WHEN CLEAR_DTTM IS NOT NULL AND ESTABLISHED_DTTM IS NOT NULL 
+			              THEN ROUND((TO_DATE(CLEAR_DTTM, 'YYYYMMDDHH24MISS')-TO_DATE(ESTABLISHED_DTTM, 'YYYYMMDDHH24MISS'))*24*60*60, 2)
+			              ELSE 0 END AS CALLTIME
+			  FROM   TB_CTI_CRNC_DTL 
+			  WHERE  1=1
+			  AND    CALL_TYP_CD = 'I'
+			  AND    USER_ID = #{userId}  
+			  AND    RGSN_DTTM LIKE TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'
+		) 
+    </select>
+    
+    <select id="UserMap.getOutCallCount" parameterType="map" resultType="resultMap">
+        /* UserMap.getOutCallCount */
+        SELECT COUNT(CALLTIME) AS OUTCALLCOUNT,
+		       SUM(CALLTIME) AS OUTCALLTIME
+		FROM (
+			  SELECT /*+ INDEX(TB_CTI_CRNC_DTL IDX_TB_CTI_CRNC_DTL_01) */
+			         CASE WHEN CLEAR_DTTM IS NOT NULL AND ESTABLISHED_DTTM IS NOT NULL 
+			              THEN ROUND((TO_DATE(CLEAR_DTTM, 'YYYYMMDDHH24MISS')-TO_DATE(ESTABLISHED_DTTM, 'YYYYMMDDHH24MISS'))*24*60*60, 2)
+			              ELSE 0 END AS CALLTIME
+			  FROM   TB_CTI_CRNC_DTL 
+			  WHERE  1=1
+			  AND    CALL_TYP_CD = 'O'
+			  AND    USER_ID = #{userId} 
+			  AND    RGSN_DTTM LIKE TO_CHAR(SYSDATE, 'YYYYMMDD') || '%'
+		)
+    </select>
+    
+    <select id="UserMap.getUserFormCount" parameterType="map" resultType="int">
+        SELECT /* UserMap.getUserFormCount */
+               COUNT(*)
+		FROM TB_USER TU INNER JOIN
+		     TB_PGM_ATHR TPA ON TU.ATHR_CD = TPA.ATHR_CD INNER JOIN
+		     TB_PGM TP ON TPA.PGM_CD = TP.PGM_CD
+		WHERE TU.USER_ID = #{user_id}
+		AND TP.FILE_NM = #{file_nm}
+    </select>
+     
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

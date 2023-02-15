@@ -1,0 +1,220 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_GrdColSelect" classname="Comm_GrdColSelect" inheritanceid="" position="absolute 0 0 284 356" titletext="그리드 조회항목선택" onload="Comm_GrdColSelect_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_40" class="sta_popupBg1" enable="false" position="absolute 0 0 274 346"/>
+        <Grid id="grd_collist" taborder="0" useinputpanel="false" position2="absolute l:11 w:252 t:67 h:267" positiontype="position2" binddataset="ds_TitleList" formats="&lt;Formats&gt;&#10;  &lt;Format id=&quot;default&quot;&gt;&#10;    &lt;Columns&gt;&#10;      &lt;Col size=&quot;80&quot;/&gt;&#10;      &lt;Col size=&quot;80&quot;/&gt;&#10;      &lt;Col size=&quot;80&quot;/&gt;&#10;    &lt;/Columns&gt;&#10;    &lt;Rows&gt;&#10;      &lt;Row band=&quot;head&quot; size=&quot;24&quot;/&gt;&#10;      &lt;Row band=&quot;body&quot; size=&quot;24&quot;/&gt;&#10;    &lt;/Rows&gt;&#10;    &lt;Band id=&quot;head&quot;&gt;&#10;      &lt;Cell col=&quot;0&quot; disptype=&quot;normal&quot; text=&quot;_chk&quot;/&gt;&#10;      &lt;Cell col=&quot;1&quot; disptype=&quot;normal&quot; text=&quot;TitleIndex&quot;/&gt;&#10;      &lt;Cell col=&quot;2&quot; disptype=&quot;normal&quot; text=&quot;TitleText&quot;/&gt;&#10;    &lt;/Band&gt;&#10;    &lt;Band id=&quot;body&quot;&gt;&#10;      &lt;Cell col=&quot;0&quot; disptype=&quot;normal&quot; text=&quot;bind:_chk&quot;/&gt;&#10;      &lt;Cell col=&quot;1&quot; disptype=&quot;normal&quot; text=&quot;bind:TitleIndex&quot;/&gt;&#10;      &lt;Cell col=&quot;2&quot; disptype=&quot;normal&quot; text=&quot;bind:TitleText&quot;/&gt;&#10;    &lt;/Band&gt;&#10;  &lt;/Format&gt;&#10;&lt;/Formats&gt;&#10;" autofittype="col" onheadclick="Grid00_onheadclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="35"/>
+                <Column size="216"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="checkbox"/>
+                <Cell col="1" text="항목명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="checkbox" edittype="checkbox" text="bind:_chk"/>
+                <Cell col="1" style="padding:2 2 2 2;" text="bind:TitleText"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_Commit" taborder="1" text="확인" position2="absolute l:218 w:45 t:44 h:20" positiontype="position2" onclick="btn_Commit_onclick"/>
+        <Static id="Static37" text="조회항목선택" class="sta_WF_subtitle" position="absolute 20 18 221 38"/>
+        <Button id="btn_Close15" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 250 9 270 28"/>
+        <Static id="stc_41" text="조회항목선택" class="sta_popupTitle" position="absolute 10 9 185 29" transparenthittest="true"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_TitleList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="TitleIndex" type="INT" size="256"/>
+          <Column id="TitleCell" type="INT" size="256"/>
+          <Column id="TitleCol" type="INT" size="256"/>
+          <Column id="TitleText" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+function Comm_GrdColSelect_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_commPopInit(obj);
+	
+	fn_Init();
+}
+
+function fn_Init()
+{
+	var nCellCnt = pv_objGrid.getCellCount("Head");
+	
+// 	for(var i=0;i<pv_objGrid.getCellCount("head");i++)
+// 	{
+// 		var sTitleText	= pv_objGrid.getCellProperty("head", i, "text");
+// 		var nCol 		= pv_objGrid.getCellProperty("head", i, "col");
+// 		//trace(i + " sTitleText::"+sTitleText + " nCol::"+nCol);
+// 	}
+		
+	//trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+	
+	var nMergeCnt = 0;		// Merge를 한경우에는 col != cell 같지 않아서 추가로직 
+	
+	for(var i=0;i<nCellCnt;i++)
+	{
+		var nCol = pv_objGrid.getCellProperty("head", i, "col");
+		var nRow = pv_objGrid.getCellProperty("head", i, "row");
+		
+		var sBand = pv_objGrid.getFormatColProperty(nCol,"band");	// 틀고정칼럼 제외위한 예외처리
+
+		var sText = pv_objGrid.getCellText(-1, i);
+		//trace(i + " sText::"+sText + " " + +pv_objGrid.getRealColSize(i));		
+		
+		if(nRow == 0 && sBand == "body") {
+		//if(nRow == 0) {
+
+			var nColSpan = pv_objGrid.getCellProperty("head", i, "colspan");
+			var nSize = 0;
+			
+			// Col Size 계산
+			// Col Span인 경우에는 Span된 칼럼의 Size합을 계산
+			if(nColSpan == 1) {
+				nSize = pv_objGrid.getRealColSize(nCol);
+			} else {
+				for(var j=nCol;j<(nCol+nColSpan);j++)
+				{
+					nSize += pv_objGrid.getRealColSize(j);
+				}
+			}
+			
+			//trace("nCol::"+nCol+" nSize::"+nSize);
+			
+			//trace("nMergeCnt::"+nMergeCnt);
+				
+			var aRow = ds_TitleList.addRow();
+			if(nSize == 0) {
+				ds_TitleList.setColumn(aRow, "_chk", 0);	
+			} else {
+				ds_TitleList.setColumn(aRow, "_chk", 1);	
+			}
+			ds_TitleList.setColumn(aRow, "TitleIndex", 	i);
+			ds_TitleList.setColumn(aRow, "TitleCell", 	nCol+nMergeCnt);
+			ds_TitleList.setColumn(aRow, "TitleCol", 	nCol);
+			//ds_TitleList.setColumn(aRow, "TitleIndex", i);
+			ds_TitleList.setColumn(aRow, "TitleText", gfn_clearTextSortMark(pv_objGrid.getCellText(-1, i)));
+			
+			if(nColSpan != 1) nMergeCnt = nMergeCnt - (nColSpan - 1);
+			
+		} else {
+			continue;
+		}
+	
+		ds_TitleList.filter("gfn_getLength(TitleText)>0&&(TitleText!=0&&TitleText!=1&&TitleText!='No')");
+		//ds_TitleList.filter("gfn_getLength(TitleText)>0&&(TitleText!=0&&TitleText!=1)");
+		ds_TitleList.rowposition = 0;
+		
+		if(ds_TitleList.findRow("_chk", 1) != -1) grd_collist.setCellProperty("head", 0, "text", 1);
+		//trace("row::" + pv_objGrid.getCellProperty("head", i, "row") + " col::" + pv_objGrid.getCellProperty("head", i, "col"));
+	}
+}
+
+function fn_Commit()
+{
+	var fRow = ds_TitleList.findRow("_chk", 1);
+	
+	ds_TitleList.filter("");
+	
+// 	if(fRow == -1) {
+// 
+// 	} else {
+
+// 	for(var i=0;i<pv_objGrid.getCellCount("head");i++)
+// 	{
+// 		var sTitleText	= pv_objGrid.getCellProperty("head", i, "text");
+// 		var nCol 		= pv_objGrid.getCellProperty("head", i, "col");
+// 		trace(i + " sTitleText::"+sTitleText + " nCol::"+nCol);
+// 	}
+	//return;
+
+	for(var i=0;i<ds_TitleList.rowcount;i++)
+	{
+		var nCell 		= ds_TitleList.getColumn(i, "TitleCell");
+		var nCol 		= ds_TitleList.getColumn(i, "TitleCol");
+		var nIndex		= ds_TitleList.getColumn(i, "TitleIndex");
+		
+		var nColSpan 	= pv_objGrid.getCellProperty("head", nIndex, "colspan");
+		
+		if(ds_TitleList.getColumn(i, "_chk") == 0) {
+			var nSize 		= 0;
+		} else {
+			var nSize 		= pv_objGrid.getFormatColSize(nCol) <= 0 ? 80 : pv_objGrid.getFormatColSize(nCol);
+		}
+		
+		//trace("nCol::"+nCol);
+		
+// 		var sTitleText	= pv_objGrid.getCellProperty("head", nCol, "text");
+// 		var sColType	= pv_objGrid.getCellProperty("head", nCol, "displaytype");
+
+		var sTitleText	= pv_objGrid.getCellProperty("head", nCell, "text");
+		var sColType	= pv_objGrid.getCellProperty("head", nCell, "displaytype");
+		
+		
+		//if(fRow == -1) nSize = 0;
+		
+		//trace("pv_objGrid::"+ pv_objGrid +" nCol::"+nCol+" nCellIndex::"+nIndex + " nColSpan::" +nColSpan +" nSize::"+nSize + " sTitleText::"+sTitleText);
+		
+		//trace("nCol::"+nCol+" nColSpan::"+nColSpan);
+		
+		if(nColSpan == 1) {
+			if(gfn_getLength(sTitleText) <= 0 || sTitleText == 0 || sTitleText == 1) {
+				if(nSize > 0) {
+					if(sColType == "checkbox")
+						nSize = 35;					// 공통체크박스 예외처리
+					else
+						nSize = 25;					// 공통상태칼럼 예외처리
+				}	
+			}
+			trace(nCol+" nCol::"+nCol + " " + "nSize::"+nSize);
+			pv_objGrid.setRealColSize(nCol, nSize, false);	
+		} else {
+			for(var j=nCol;j<(nCol+nColSpan);j++)
+			{	
+				if(ds_TitleList.getColumn(i, "_chk") == 0) {
+					var nSize 		= 0;
+				} else {
+					var nSize 		= pv_objGrid.getFormatColSize(j) <= 0 ? 80 : pv_objGrid.getFormatColSize(j);
+				}
+				pv_objGrid.setRealColSize(j, nSize, false);	
+			}
+		}
+
+	}
+/*	}*/
+}
+
+function btn_Commit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_Commit();
+	close();
+}
+
+function Grid00_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_setGridCheckAll(obj, e);
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

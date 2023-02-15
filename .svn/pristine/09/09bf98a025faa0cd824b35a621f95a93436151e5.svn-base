@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExamPrbmItemMap">
+
+    <sql id="ExamPrbmItemMap.selectCondition_fragment">
+        <where>
+            <if test="exam_prbm_item_id != null and exam_prbm_item_id != ''">
+                AND EXAM_PRBM_ITEM_ID = #{exam_prbm_item_id}
+            </if>
+            <if test="exam_prbm_id != null and exam_prbm_id != ''">
+                AND EXAM_PRBM_ID = #{exam_prbm_id}
+            </if>
+            <if test="exam_prbm_item_cntn != null and exam_prbm_item_cntn != ''">
+                AND EXAM_PRBM_ITEM_CNTN LIKE '%' || #{exam_prbm_item_cntn} || '%'
+            </if>
+            <if test="cran_yn != null and cran_yn != ''">
+                AND CRAN_YN = #{cran_yn}
+            </if>
+            <if test="expe_sqnc != null and expe_sqnc != ''">
+                AND EXPE_SQNC = #{expe_sqnc}
+            </if>
+        </where>
+    </sql>
+
+    <select id="ExamPrbmItemMap.getExamPrbmItemCount" parameterType="map" resultType="int">
+        SELECT /* ExamPrbmItemMap.getExamPrbmItemCount */
+               COUNT(*)
+          FROM TB_EXAM_PRBM_ITEM
+         <include refid="ExamPrbmItemMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ExamPrbmItemMap.getExamPrbmItemList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmItemMap.getExamPrbmItemList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_PRBM_ITEM_ID, EXAM_PRBM_ID, EXAM_PRBM_ITEM_CNTN, CRAN_YN
+                     , EXPE_SQNC, CNTR_CD, RGSR_ID, RGSN_DTTM
+                     , AMND_ID, AMNT_DTTM, CRAN_YN_BOOL, RGSR_NM, AMND_NM
+                  FROM (SELECT EXAM_PRBM_ITEM_ID, EXAM_PRBM_ID, EXAM_PRBM_ITEM_CNTN, CRAN_YN, EXPE_SQNC
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (CASE WHEN CRAN_YN = 'Y' THEN 'true' ELSE '' END) AS CRAN_YN_BOOL
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EXAM_PRBM_ITEM A
+                      <include refid="ExamPrbmItemMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ExamPrbmItemMap.insertExamPrbmItem" parameterType="map">
+        <selectKey keyProperty="exam_prbm_item_id" resultType="String" order="BEFORE">
+            SELECT 'EPI' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ExamPrbmItemMap.insertExamPrbmItem */
+          INTO TB_EXAM_PRBM_ITEM
+               (EXAM_PRBM_ITEM_ID, EMSH_ID, EXAM_PRBM_ID, EXAM_PRBM_ITEM_CNTN, CRAN_YN, EXPE_SQNC
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT #{exam_prbm_item_id}, #{emsh_id}, #{exam_prbm_id}, #{exam_prbm_item_cntn}, #{cran_yn}, NVL(MAX(EXPE_SQNC), 0) + 1
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EXAM_PRBM_ITEM
+         WHERE EXAM_PRBM_ID = #{exam_prbm_id}
+    </insert>
+
+    <update id="ExamPrbmItemMap.updateExamPrbmItem" parameterType="map">
+        UPDATE /* ExamPrbmItemMap.updateExamPrbmItem */
+               TB_EXAM_PRBM_ITEM A
+           SET A.AMND_ID        = #{amnd_id}
+             , A.AMNT_DTTM            = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , A.EXAM_PRBM_ITEM_CNTN = #{exam_prbm_item_cntn}
+             , A.CRAN_YN        = NVL(#{cran_yn}, 'N')
+             , A.EXPE_SQNC        = #{expe_sqnc}
+         WHERE A.EXAM_PRBM_ITEM_ID   = #{exam_prbm_item_id}
+           AND A.EXAM_PRBM_ID       = #{exam_prbm_id}
+    </update>
+
+    <delete id="ExamPrbmItemMap.deleteExamPrbmItem" parameterType="map">
+        DELETE /* ExamPrbmItemMap.deleteExamPrbmItem */
+          FROM TB_EXAM_PRBM_ITEM
+         WHERE EXAM_PRBM_ID = #{exam_prbm_id}
+       <if test="exam_prbm_item_id != null and exam_prbm_item_id != ''">
+           AND EXAM_PRBM_ITEM_ID = #{exam_prbm_item_id}
+       </if>
+       <if test="exam_prbm_item_idexcept != null and exam_prbm_item_idexcept != ''">
+           AND EXAM_PRBM_ITEM_ID != #{exam_prbm_item_idexcept}
+       </if>
+    </delete>
+
+    <delete id="ExamPrbmItemMap.deleteExamPrbmItemByEmshId" parameterType="map">
+        DELETE /* ExamPrbmItemMap.deleteExamPrbmItemByEmshId */
+          FROM TB_EXAM_PRBM_ITEM
+         WHERE EXAM_PRBM_ID IN (SELECT EXAM_PRBM_ID
+                                FROM TB_EXAM_PRBM
+                               WHERE EMSH_ID = #{emsh_id})
+    </delete>
+
+    <insert id="ExamPrbmItemMap.copyExamPrbmItem" parameterType="map">
+        INSERT /* ExamPrbmItemMap.copyExamPrbmItem */
+          INTO TB_EXAM_PRBM_ITEM
+               (EXAM_PRBM_ITEM_ID, EMSH_ID, EXAM_PRBM_ID
+              , EXAM_PRBM_ITEM_CNTN, CRAN_YN, EXPE_SQNC
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        SELECT ('EQI' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0')), #{new_emsh_id}, #{new_exam_prbm_id}
+             , EXAM_PRBM_ITEM_CNTN, CRAN_YN, EXPE_SQNC
+             , CNTR_CD, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          FROM TB_EXAM_PRBM_ITEM
+         WHERE EXAM_PRBM_ID = #{exam_prbm_id}
+    </insert>
+
+    <select id="ExamPrbmItemMap.getExamPrbmItemAnsrList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamPrbmItemMap.getExamPrbmItemAnswerList */
+               A.EXAM_PRBM_ID, A.EXAM_PRBM_ITEM_ID, A.EXAM_PRBM_ITEM_CNTN, A.CRAN_YN, A.EXPE_SQNC
+             , (SELECT (CASE WHEN #{exam_prbm_typ_cd} = '20'
+                             THEN (CASE WHEN INSTR(B.PRBM_ANSR_CNTN, A.EXAM_PRBM_ITEM_ID, 1, 1) <![CDATA[>]]> 0
+                                        THEN A.EXAM_PRBM_ITEM_ID
+                                        ELSE NULL
+                                   END)
+                             ELSE B.PRBM_ANSR_CNTN
+                        END)
+                  FROM TB_EXAM_PRBM_ANSR B
+                 WHERE B.EXAM_PRBM_ID = A.EXAM_PRBM_ID
+                   AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+                   AND B.EMSH_ID = #{emsh_id}
+                   AND B.EXAM_ID = #{exam_id}
+               ) AS PRBM_ANSR_CNTN
+          FROM TB_EXAM_PRBM_ITEM A
+         WHERE A.EXAM_PRBM_ID = #{exam_prbm_id}
+         ORDER BY A.EXAM_PRBM_ID, A.EXPE_SQNC
+    </select>
+
+    <update id="ExamPrbmItemMap.updateExamPrbmItemExpeSqnc" parameterType="map">
+        UPDATE /* ExamPrbmItemMap.updateExamPrbmItemExpeSqnc */
+               TB_EXAM_PRBM_ITEM
+           SET CNTR_CD = #{cntr_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        <if test="expe_sqnc != null and expe_sqnc != ''">
+            , EXPE_SQNC = #{expe_sqnc}
+        </if>
+         WHERE EXAM_PRBM_ITEM_ID = #{exam_prbm_item_id}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+</mapper>

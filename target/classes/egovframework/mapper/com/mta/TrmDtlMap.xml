@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TrmDtlMap">
+
+    <!-- 조건부분 (15.03.26) -->
+    <sql id="TrmDtlMap.selectCondition_fragment">
+        <where>
+            <if test="term_id != null and term_id != ''">
+                AND TERM_ID = #{term_id}
+            </if>
+
+            <if test="term_nm != null and term_nm != ''">
+                <if test="dateType == 'all'">
+                    AND UPPER(TERM_NM) LIKE '%' || UPPER(#{term_nm}) || '%'
+                </if>
+                <if test="dateType == 'back'">
+                    AND UPPER(TERM_NM) LIKE UPPER(#{term_nm}) || '%'
+                </if>
+                <if test="dateType == 'front'">
+                    AND UPPER(TERM_NM) LIKE '%' || UPPER(#{term_nm})
+                </if>
+                <if test="dateType == 'correct'">
+                    AND UPPER(TERM_NM) = UPPER(#{term_nm})
+                </if>
+            </if>
+
+            <if test="term_enlt_nm != null and term_enlt_nm != ''">
+                <if test="dateType2 == 'all'">
+                    AND UPPER(TERM_ENLT_NM) LIKE '%' || UPPER(#{term_enlt_nm}) || '%'
+                </if>
+                <if test="dateType2 == 'back'">
+                    AND UPPER(TERM_ENLT_NM) LIKE UPPER(#{term_enlt_nm}) || '%'
+                </if>
+                <if test="dateType2 == 'front'">
+                    AND UPPER(TERM_ENLT_NM) LIKE '%' || UPPER(#{term_enlt_nm})
+                </if>
+                <if test="dateType2 == 'correct'">
+                    AND UPPER(TERM_ENLT_NM) = UPPER(#{term_enlt_nm})
+                </if>
+            </if>
+
+            <if test="startd != null and startd != ''">
+                <![CDATA[
+                AND AMNT_DTTM >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+                ]]>
+            </if>
+
+            <if test="endd != null and endd != ''">
+                <![CDATA[
+                AND AMNT_DTTM <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+                ]]>
+            </if>
+        </where>
+    </sql>
+    <!-- // 조건부분 -->
+
+    <!-- 용어 건수조회 (15.03.26) -->
+    <select id="TrmDtlMap.getTrmDtlCount" parameterType="map" resultType="int">
+        SELECT /* TrmDtlMap.getTrmDtlCount */
+            COUNT(*)
+          FROM TB_TERM_DTL
+          <include refid="TrmDtlMap.selectCondition_fragment"/>
+    </select>
+    <!-- // 용어 건수조회  -->
+
+    <!-- 용어 목록조회 (15.03.26) -->
+    <select id="TrmDtlMap.getTrmDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* TrmDtlMap.getTrmDtlList */
+               PAGE_INDX
+             , TERM_ID, TERM_NM
+             , TERM_ENLT_NM, AP_VRBL_NM, TERM_EXPI
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, RGSR_NM, AMND_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                 FROM ( SELECT TERM_ID, TERM_NM
+                             , TERM_ENLT_NM, AP_VRBL_NM, TERM_EXPI
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                          FROM TB_TERM_DTL A
+                        <include refid="TrmDtlMap.selectCondition_fragment"/>
+
+                        <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       )B
+               )C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    <!-- //용어 목록조회 -->
+
+    <!-- 용어 등록 (15.03.26) -->
+    <insert id="TrmDtlMap.insertTrmDtl" parameterType="map">
+        <selectKey keyProperty="term_id" resultType="String" order="BEFORE">
+            SELECT 'TRM' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT INTO /* TrmDtlMap.insertTrmDtl */
+            TB_TERM_DTL
+          VALUES ( #{term_id}, #{term_nm}, #{term_enlt_nm}, #{ap_vrbl_nm}, #{term_expi},
+                   #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // 용어 등록 -->
+
+    <!-- 용어 구성 내역 등록 (15.03.31) -->
+    <insert id="TrmDtlMap.insertCommondiction" parameterType="map">
+        INSERT INTO /* TrmDtlMap.insertCommondiction */
+            TB_TERM_COMS_DTL
+          VALUES ( #{term_id}, #{word_id},
+                   #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    <!-- // 용어 구성 내역 등록 -->
+
+    <!-- 용어 수정 (15.03.26) -->
+    <update id="TrmDtlMap.updateTrmDtl" parameterType="map">
+        UPDATE /* TrmDtlMap.updateTrmDtl */
+            TB_TERM_DTL
+          SET TERM_NM = #{term_nm}
+            , TERM_ENLT_NM = #{term_enlt_nm}
+            , AP_VRBL_NM = #{ap_vrbl_nm}
+            , TERM_EXPI = #{term_expi}
+            , AMND_ID = #{amnd_id}
+            , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE TERM_ID = #{term_id}
+    </update>
+    <!-- // 용어 수정 -->
+
+    <!-- 용어 내역 삭제 (15.03.26) -->
+    <delete id="TrmDtlMap.deleteTrmDtl" parameterType="map">
+        DELETE /* TrmDtlMap.deleteTrmDtl */
+          FROM TB_TERM_DTL
+         WHERE
+         <choose>
+             <when test="term_id == null or term_id == ''">
+                 TERM_ID
+                 <foreach collection="selectcheck" item="item" open="IN (" separator="," close=")">
+                     #{item}
+                 </foreach>
+             </when>
+             <otherwise>
+                 TERM_ID = #{term_id}
+             </otherwise>
+         </choose>
+    </delete>
+    <!-- // 용어 삭제 -->
+
+    <!-- 용어 구성 내역 삭제 (15.03.31) -->
+    <delete id="TrmDtlMap.deleteCommondiction" parameterType="map">
+        DELETE /* TrmDtlMap.deleteCommondiction */
+          FROM TB_TERM_COMS_DTL
+         WHERE
+         <choose>
+             <when test="term_id == null or term_id == ''">
+                 TERM_ID
+                 <foreach collection="selectcheck" item="item" open="IN (" separator="," close=")">
+                     #{item}
+                 </foreach>
+             </when>
+             <otherwise>
+                 TERM_ID = #{term_id}
+             </otherwise>
+         </choose>
+    </delete>
+    <!-- // 용어 삭제 -->
+
+    <!-- 단어명 중복체크 (15.03.27) -->
+    <select id="TrmDtlMap.checkTrmDtl" parameterType="map" resultType="int">
+        SELECT /* TrmDtlMap.checkTrmDtl */
+            COUNT(*)
+          FROM TB_TERM_DTL WHERE TERM_NM = #{term_nm}
+    </select>
+    <!-- // 단어명 중복체크 -->
+
+    <!-- 단어명이 단어 사전에 있는지 확인 (15.03.27) -->
+    <select id="TrmDtlMap.getWrdDicCheck" parameterType="String" resultType="String">
+        SELECT /* TrmDtlMap.getWrdDicCheck */
+            WORD_ENLT_NM
+          FROM TB_WORD_DICT WHERE WORD_NM = #{word_nm}
+    </select>
+    <!-- // 단어명이 단어 사전에 있는지 확인 -->
+
+    <!-- 용어명 조회 (15.03.31) -->
+    <select id="TrmDtlMap.getTrmDtlnm" parameterType="String" resultType="String">
+        SELECT /* TrmDtlMap.getTrmDtlnm */
+            TERM_NM
+          FROM TB_TERM_DTL WHERE TERM_ID = #{term_id}
+    </select>
+    <!-- // 용어명 조회 -->
+
+    <!-- 용어 정보를 검색 (15.03.31) -->
+    <select id="TrmDtlMap.getTrmDtlNmList" parameterType="String" resultType="resultMap">
+        SELECT /* TrmDtlMap.getTrmDtlNmList */
+            TERM_ENLT_NM, TERM_NM, TERM_ID
+          FROM TB_TERM_DTL
+          <include refid="TrmDtlMap.selectCondition_fragment"/>
+    </select>
+    <!-- // 용어 정보를 검색 -->
+
+    <!-- 칼럼상세정보 건수조회 (15.05.14) -->
+    <select id="TrmDtlMap.getRefercolmCount" parameterType="map" resultType="int">
+        SELECT /* TrmDtlMap.getRefercolmCount */
+            COUNT(*)
+          FROM TB_TBL_COLM_DTL
+          <include refid="TrmDtlMap.selectCondition_fragment"/>
+    </select>
+    <!-- // 칼럼상세정보 건수조회 -->
+
+</mapper>
+

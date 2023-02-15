@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="CalbDtlHstrMap">
+
+    <sql id="CalbDtlHstrMap.selectCondition_fragment">
+        <where>
+            <if test="calb_id != null and calb_id != ''">
+            AND CALB_ID = #{calb_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+            AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="CalbDtlHstrMap.getCalbDtlHstrCount" parameterType="map" resultType="int">
+        SELECT /* CalbDtlHstrMap.getCalbDtlHstrCount */
+               COUNT(*)
+          FROM TB_CALB_DTL_HSTR A
+        <include refid="CalbDtlHstrMap.selectCondition_fragment" />
+    </select>
+
+    <select id="CalbDtlHstrMap.getCalbDtlHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* CalbDtlHstrMap.getCalbDtlHstrList */
+               ROWNUM AS PAGE_INDX
+             , B.*
+          FROM (SELECT CALB_ID, TO_CHAR(CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM, CHPR_ID, CRNC_SIDO_DTTM
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , CALB_RESL_CD, CALB_DSPS_RSN_CD
+                     , GETCODENM('CNS040', CALB_RESL_CD, CNTR_CD) AS CALB_RESL_NM
+                     , GETCODENM('CNS050', CALB_DSPS_RSN_CD, CNTR_CD) AS CALB_DSPS_RSN_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.CHPR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS CHPR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                  FROM TB_CALB_DTL_HSTR A
+        <include refid="CalbDtlHstrMap.selectCondition_fragment" />
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                 ORDER BY ${orderBy} ${orderDirection}
+            </when>
+            <otherwise>
+                 ORDER BY CHNG_DTTM DESC
+            </otherwise>
+        </choose>
+               ) B
+    </select>
+
+    <insert id="CalbDtlHstrMap.insertCalbDtlHstr" parameterType="map">
+        INSERT /* CalbDtlHstrMap.insertCalbDtlHstr */
+          INTO TB_CALB_DTL_HSTR
+               (CALB_ID, CHNG_DTTM, CHPR_ID, CRNC_SIDO_DTTM, CALB_RESL_CD
+              , CALB_DSPS_RSN_CD, CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID
+              , AMNT_DTTM)
+        VALUES (#{calb_id}, SYSTIMESTAMP, #{chpr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{calb_resl_cd}
+              , #{calb_dsps_rsn_cd}, #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}
+              , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+</mapper>

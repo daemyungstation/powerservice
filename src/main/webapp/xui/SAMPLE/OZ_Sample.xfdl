@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="OZ_Sample" classname="OZ_Sample" inheritanceid="" position="absolute 0 0 1024 768" titletext="New Form">
+    <Layouts>
+      <Layout>
+        <ActiveX id="ActiveX00" position="absolute 19 39 1000 746" anchor="all" taborder="0" progid="{0DEF32F8-170F-46F8-B1FF-4BF7443F5F25}"/>
+        <Button id="Button00" taborder="1" text="오즈개행(^)" position="absolute 813 5 902 31" onclick="Button00_onclick"/>
+        <Button id="Button01" taborder="1" text="엔터개행(\n)" position="absolute 910 5 999 31" onclick="Button01_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_ozReport" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="ID" type="STRING" size="256"/>
+          <Column id="NAME" type="STRING" size="256"/>
+          <Column id="ADDRESS" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="ID">1</Col>
+            <Col id="NAME">HONG</Col>
+            <Col id="ADDRESS">SEOUL</Col>
+          </Row>
+          <Row>
+            <Col id="ID">2</Col>
+            <Col id="NAME">PARK</Col>
+            <Col id="ADDRESS">BUSAN</Col>
+          </Row>
+          <Row>
+            <Col id="ID">3</Col>
+            <Col id="NAME">KIM</Col>
+            <Col id="ADDRESS">ANSAN</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var ozSep = "^";
+
+	var sUrl = "connection.servlet="+gfn_getOZReportUrl() + ozSep; 
+	sUrl += "connection.reportname=/QR.ozr" + ozSep;
+	sUrl += "information.debug=true" + ozSep;
+	sUrl += "viewer.isframe=false" + ozSep;
+	sUrl += "viewer.namespace=kyowon\\ozviewer" + ozSep;
+	sUrl += "connection.pcount=1" + ozSep;
+	sUrl += "connection.args1=formparam=1234567890" + ozSep;
+	sUrl += "odi.odinames=kyowon" + ozSep;
+	sUrl += "odi.kyowon.pcount=1" + ozSep;
+	sUrl += "odi.kyowon.args1=odiparam="  + ozSep;
+	
+	trace("sUrl::"+sUrl);
+	
+	this.ActiveX00.CreateReportEx(sUrl,ozSep);
+}
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_viewOzReport(ds_ozReport);
+}
+
+function fn_viewOzReport(objDs)
+{
+	var ozSep 		= "\n";
+	var ozColDiv 	= "^";
+	var ozRowDiv 	= "///";
+	
+	//var csvData = "ID^NAME^ADDRESS///INTEGER^VARCHAR^VARCHAR///1^Park Chan Ho^Texas///2^Shin Ki Sung^Seoul///3^Kim Byung Hyun^Arizona";
+	var csvData = fn_getCsvData_OzReport(objDs, ozColDiv, ozRowDiv);
+
+	var sUrl = "connection.servlet=http://10.1.20.66:8800/oz60/server" + ozSep; 
+	sUrl += "connection.reportname=/QR.ozr" + ozSep;
+	sUrl += "information.debug=true" + ozSep;
+	sUrl += "viewer.isframe=false" + ozSep;
+	sUrl += "viewer.namespace=kyowon\\ozviewer" + ozSep;
+	sUrl += "connection.pcount=1" + ozSep;
+	sUrl += "connection.args1=formparam=1234567890" + ozSep;
+	sUrl += "odi.odinames=kyowon" + ozSep;
+	sUrl += "odi.kyowon.pcount=1" + ozSep;
+	sUrl += "odi.kyowon.args1=odiparam=" + ozSep;
+	
+	sUrl += "ozr.aaa=formparam=123" + ozSep;
+	sUrl += "ozr.bbb=formparam=ert" + ozSep;
+	
+	// csv 처리용도
+	sUrl += "odi.kyowon.args2=csvdata=" + csvData + ozSep;
+	sUrl += "connection.args3=coldiv=" + ozColDiv + ozSep;
+	sUrl += "connection.args4=rowdiv=" + ozRowDiv + ozSep;
+	
+	trace("sUrl::"+sUrl);
+	
+	this.ActiveX00.CreateReport(sUrl);
+}
+
+function fn_getCsvData_OzReport(objDs, colDiv, rowDiv)
+{
+	//var csvData = "ID^NAME^ADDRESS///INTEGER^VARCHAR^VARCHAR///1^Park Chan Ho^Texas///2^Shin Ki Sung^Seoul///3^Kim Byung Hyun^Arizona";
+	var csvData 	= "";
+	var colList 	= "";
+	var typeList 	= "";
+	var rowList 	= "";
+	
+	for(var i=0;i<objDs.getColCount();i++)
+	{
+		if(i==0) {
+			colList += objDs.getColID(i);
+		} else {
+			colList += colDiv+ objDs.getColID(i);
+		}
+		
+		var o_cinfo =  objDs.getColumnInfo(i);
+		if(i==0) {
+			typeList += o_cinfo.type;
+		} else {
+			typeList += colDiv+ o_cinfo.type;
+		}		
+	}
+
+	for(var i=0;i<objDs.rowcount;i++)
+	{
+		if(i!=0) {
+			rowList += rowDiv;
+		}
+	
+		for(var j=0;j<objDs.getColCount();j++)
+		{
+			if(j==0) {
+				rowList += objDs.getColumn(i,j);
+			} else {
+				rowList += colDiv+ objDs.getColumn(i,j);
+			}	
+		}
+	}
+	
+	csvData = colList + rowDiv + typeList + rowDiv + rowList;
+	
+	trace("csvData::"+csvData);
+	
+	return csvData;
+}]]></Script>
+  </Form>
+</FDL>

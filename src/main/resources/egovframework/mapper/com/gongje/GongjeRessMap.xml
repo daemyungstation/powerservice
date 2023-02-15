@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjeRessMap">
+
+    <select id="GongjeRessMap.getGongjeRessCount" parameterType="map" resultType="int">
+
+        SELECT /* "GongjeRessMap.getGongjeRessCount" */
+               COUNT(*)
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'R'
+
+    </select>
+
+   <select id="GongjeRessMap.getGongjeRessList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeRessMap.getGongjeRessList */
+               *
+          FROM (   SELECT '51' GUBUN,
+                   A.ACCNT_NO,
+                   B.DED_NO,
+                   C.MEM_NM,
+                   RESN_PROC_DAY AS PROC_DAY,
+                   NVL(D.PAY_AMT,0) PAY_AMT,
+                   CASE WHEN A.RESN_CL IN('01','03') THEN 'E'
+                        WHEN A.RESN_CL IN('02') THEN 'R' ELSE 'E' END RESN_CL
+                    FROM (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) CNT, RESCISSION.* FROM RESCISSION)RC WHERE CNT = 1 ) A
+                        LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                        LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+                        LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+                    WHERE A.DEL_FG = 'N' /* 삭제되지 않은 데이터 */
+                      AND A.NEW_YN = 'Y' /* 공제신고 되지 않은   */
+                      <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>  /* 공제번호 존재하며 */
+                      AND ((RESN_CL IN('01','03') AND A.RESN_PROC_YN = 'Y') OR (RESN_CL IN('02','04')))
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+                      /* 2017.10.16 김준호 이름변경시 변경후, 해약, 행사 가능하도록 수정 */
+                --    AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM REG_UPD_DEL_INF WHERE DAT1 = '성명' AND WORK_DM >= '20170101' AND NEW_YN = 'Y' AND ACCNT_NO IS NOT NULL)
+                      AND A.ACCNT_NO IN(SELECT ACCNT_NO FROM GONGJE_HIST_TEMP WHERE ACCNT_NO = A.ACCNT_NO AND CL = 'R')
+                      <if test="stt_dt != null and stt_dt != ''">
+                          <![CDATA[AND RESN_PROC_DAY >= #{stt_dt} ]]>
+                      </if>
+                      <if test="end_dt != null and end_dt != ''">
+                          <![CDATA[AND RESN_PROC_DAY <= #{end_dt} ]]>
+                      </if>
+                ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <insert id="GongjeRessMap.getGongjeRessInsert" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeRessMap.getGongjeRessInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'R'
+    </insert>
+
+    <insert id="GongjeRessMap.getGongjeRessInsert_Temp" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeRessMap.getGongjeRessInsert_Temp */
+
+        INSERT INTO GONGJE_HIST_TEMP
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'R',
+                A.ACCNT_NO,
+                '00',
+                NVL(D.PAY_AMT,0) PAY_AMT,
+                RESN_PROC_DAY
+        FROM (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) CNT, RESCISSION.* FROM RESCISSION)RC WHERE CNT = 1 ) A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+        WHERE A.DEL_FG = 'N' /* 삭제되지 않은 데이터 */
+          AND A.NEW_YN = 'Y' /* 공제신고 되지 않은   */
+          <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>  /* 공제번호 존재하며 */
+          AND ((RESN_CL IN('01','03') AND A.RESN_PROC_YN = 'Y') OR (RESN_CL IN('02','04')))
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+     --     AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM REG_UPD_DEL_INF WHERE DAT1 = '성명' AND WORK_DM >= '20170101' AND NEW_YN = 'Y' AND ACCNT_NO IS NOT NULL)
+          <if test="stt_dt != null and stt_dt != ''">
+              <![CDATA[AND RESN_PROC_DAY >= #{stt_dt} ]]>
+          </if>
+          <if test="end_dt != null and end_dt != ''">
+              <![CDATA[AND RESN_PROC_DAY <= #{end_dt} ]]>
+          </if>
+    </insert>
+
+    <select id="GongjeRessMap.getGongjeRess_CnclList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeRessMap.getGongjeRess_CnclList */
+               '51' GUBUN,
+               A.ACCNT_NO,
+               B.DED_NO,
+               C.MEM_NM,
+               TO_CHAR(SYSDATE,'YYYYMMDD') AS PROC_DAY,
+               NVL(D.PAY_AMT,0) PAY_AMT,
+               'C' AS RESN_CL
+        FROM (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) CNT, RESCISSION.* FROM RESCISSION)RC WHERE CNT = 1 ) A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+        WHERE A.DEL_FG = 'N' 			 /* 삭제되지 않은 데이터 */
+          AND A.NEW_YN = 'N' 			 /* 공제신고 되었으며   */
+          AND NVL(B.DED_NO,' ') != ' '   /* 공제번호 존재하며 */
+          AND ((RESN_CL IN('01','03') AND A.RESN_PROC_YN = 'Y') OR (RESN_CL IN('02','04')))
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND A.ACCNT_NO = #{accnt_no}
+
+    </select>
+
+    <insert id="GongjeRessMap.getGongjeRess_CnclInsert" parameterType="map" >
+
+        /* GongjeRessMap.getGongjeRess_CnclInsert */
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'R_C',
+                A.ACCNT_NO,
+                '00',
+                NVL(D.PAY_AMT,0) PAY_AMT,
+                TO_CHAR(SYSDATE,'YYYYMMDD')
+        FROM (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) CNT, RESCISSION.* FROM RESCISSION)RC WHERE CNT = 1 ) A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON B.MEM_NO = C.MEM_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+        WHERE A.DEL_FG = 'N' 						 /* 삭제되지 않은 데이터 */
+          AND A.NEW_YN = 'N' 						 /* 공제신고 되었으며    */
+          AND NVL(B.DED_NO,' ') != ' '               /* 공제번호 존재하며    */
+          AND ((RESN_CL IN('01','03') AND A.RESN_PROC_YN = 'Y') OR (RESN_CL IN('02','04')))
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND A.ACCNT_NO = #{accnt_no}
+    </insert>
+
+</mapper>

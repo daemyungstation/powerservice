@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjeHangsaMap">
+
+    <select id="GongjeHangsaMap.getGongjeHangsaCount" parameterType="map" resultType="int">
+
+        SELECT /* "GongjeHangsaMap.getGongjeHangsaCount" */
+               COUNT(*)
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'E'
+
+    </select>
+
+   <select id="GongjeHangsaMap.getGongjeHangsaList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeHangsaMap.getGongjeHangsaList */
+               *
+          FROM (   SELECT '52' GUBUN,
+                           A.ACCNT_NO,
+                           B.DED_NO,
+                           C.MEM_NM,
+                           EVENT_PROC_DAY,
+                           D.PAY_AMT,
+                           'E' TYPE
+                     FROM EVENT A
+                        LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+                        LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+                        LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+                        LEFT OUTER JOIN PRODUCT E ON E.PROD_CD = B.PROD_CD
+                    WHERE A.DEL_FG = 'N'
+                      AND A.NEW_YN = 'Y'
+                      AND B.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+                      /* 2017.10.16 김준호 이름변경시 변경후, 해약, 행사 가능하도록 수정 */
+                 --   AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM REG_UPD_DEL_INF WHERE DAT1 = '성명' AND WORK_DM <![CDATA[>=]]> '20170101' AND NEW_YN = 'Y' AND ACCNT_NO IS NOT NULL)
+                      AND A.ACCNT_NO IN(SELECT ACCNT_NO FROM GONGJE_HIST_TEMP WHERE ACCNT_NO = A.ACCNT_NO AND CL = 'E')
+                      <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>
+                      <![CDATA[AND D.NO > 0 ]]>
+                      AND E.PROD_CD NOT IN('67','F3','H3','I4','I5','I6 ','R6')
+                      <if test="stt_dt != null and stt_dt != ''">
+                          <![CDATA[AND EVENT_PROC_DAY >= #{stt_dt} ]]>
+                      </if>
+                      <if test="end_dt != null and end_dt != ''">
+                          <![CDATA[AND EVENT_PROC_DAY <= #{end_dt} ]]>
+                      </if>
+                ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <insert id="GongjeHangsaMap.getGongjeHangsaInsert" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeHangsaMap.getGongjeHangsaInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'E'
+    </insert>
+
+    <insert id="GongjeHangsaMap.getGongjeHangsaInsert_Temp" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeHangsaMap.getGongjeHangsaInsert_Temp */
+
+        INSERT INTO GONGJE_HIST_TEMP
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'E',
+                A.ACCNT_NO,
+                '00',
+                D.PAY_AMT,
+                EVENT_PROC_DAY
+        FROM EVENT A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+            LEFT OUTER JOIN PRODUCT E ON E.PROD_CD = B.PROD_CD
+        WHERE A.DEL_FG = 'N'
+          AND A.NEW_YN = 'Y'
+          AND B.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+      --    AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM REG_UPD_DEL_INF WHERE DAT1 = '성명' AND WORK_DM <![CDATA[>=]]> '20170101' AND NEW_YN = 'Y' AND ACCNT_NO IS NOT NULL)
+          <![CDATA[AND NVL(B.DED_NO,' ') <> ' ' ]]>
+          <![CDATA[AND D.NO > 0 ]]>
+          AND E.PROD_CD NOT IN('67','F3','H3','I4','I5','I6 ','R6')
+          <if test="stt_dt != null and stt_dt != ''">
+              <![CDATA[AND EVENT_PROC_DAY >= #{stt_dt} ]]>
+          </if>
+          <if test="end_dt != null and end_dt != ''">
+              <![CDATA[AND EVENT_PROC_DAY <= #{end_dt} ]]>
+          </if>
+    </insert>
+
+    <select id="GongjeHangsaMap.getGongjeHangsa_CnclList" parameterType="map" resultType="resultMap">
+
+        SELECT  /* GongjeHangsaMap.getGongjeHangsa_CnclList */
+                 '52' GUBUN,
+                 A.ACCNT_NO,
+                 B.DED_NO,
+                 C.MEM_NM,
+                 TO_CHAR(SYSDATE,'YYYYMMDD') AS EVENT_PROC_DAY,
+                 D.PAY_AMT,
+                 'C' TYPE
+         FROM EVENT A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+            LEFT OUTER JOIN PRODUCT E ON E.PROD_CD = B.PROD_CD
+        WHERE A.DEL_FG = 'N'
+          AND A.NEW_YN = 'N'
+          AND B.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND NVL(B.DED_NO,' ') !=' '
+          AND A.ACCNT_NO = #{accnt_no}
+
+    </select>
+
+    <insert id="GongjeHangsaMap.getGongjeHangsa_CnclInsert" parameterType="map" >
+
+        /* GongjeHangsaMap.getGongjeHangsa_CnclInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, TOT_AMT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'E_C',
+                A.ACCNT_NO,
+                '00',
+                D.PAY_AMT,
+                TO_CHAR(SYSDATE, 'YYYYMMDD')
+        FROM EVENT A
+            LEFT OUTER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN MEMBER C ON C.MEM_NO = B.MEM_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' AND NEW_YN = 'N' GROUP BY ACCNT_NO) D ON D.ACCNT_NO = A.ACCNT_NO
+            LEFT OUTER JOIN PRODUCT E ON E.PROD_CD = B.PROD_CD
+        WHERE A.DEL_FG = 'N'
+          AND A.NEW_YN = 'N'
+          AND B.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          AND NVL(B.DED_NO,' ') != ' '
+          AND A.ACCNT_NO = #{accnt_no}
+    </insert>
+
+</mapper>

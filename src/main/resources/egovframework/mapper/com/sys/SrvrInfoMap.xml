@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SrvrInfoMap">
+
+    <sql id="SrvrInfoMap.selectCondition_fragment">
+        <where>
+            <if test="srvr_id != null and srvr_id != ''">
+                SRVR_ID = #{srvr_id}
+            </if>
+            <if test="srvr_nm != null and srvr_nm != ''">
+                AND SRVR_NM LIKE '%' || #{srvr_nm} || '%'
+            </if>
+            <if test="srvr_ip_addr != null and srvr_ip_addr != ''">
+                AND SRVR_IP_ADDR LIKE '%' || #{srvr_ip_addr} || '%'
+            </if>
+            <if test="srvr_port_no != null and srvr_port_no != ''">
+                AND SRVR_PORT_NO LIKE '%' || #{srvr_port_no} || '%'
+            </if>
+            <if test="srvr_expi != null and srvr_expi != ''">
+                AND SRVR_EXPI LIKE '%' || #{srvr_expi} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="SrvrInfoMap.getSrvrInfoCount" parameterType="map" resultType="int">
+        SELECT /* SrvrInfoMap.getSrvrInfoCount */
+               COUNT(*)
+          FROM TB_SRVR_INFO A
+        <include refid="SrvrInfoMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="SrvrInfoMap.getSrvrInfoList" parameterType="map" resultType="resultMap">
+        SELECT /* SrvrInfoMap.getSrvrInfoList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT SRVR_ID, SRVR_NM, SRVR_IP_ADDR, SRVR_PORT_NO, SRVR_EXPI
+                             , WAS_INFO_CNTN
+                          FROM TB_SRVR_INFO A
+        <include refid="SrvrInfoMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="SrvrInfoMap.insertSrvrInfo" parameterType="map">
+        INSERT /* SrvrInfoMap.insertSrvrInfo */
+          INTO TB_SRVR_INFO
+               (SRVR_ID, SRVR_NM, SRVR_IP_ADDR, SRVR_PORT_NO, SRVR_EXPI
+              , WAS_INFO_CNTN)
+        VALUES (#{srvr_id}, #{srvr_nm}, #{srvr_ip_addr}, #{srvr_port_no}, #{srvr_expi}
+              , #{was_info_cntn})
+    </insert>
+
+    <update id="SrvrInfoMap.updateSrvrInfo" parameterType="map">
+        UPDATE /* SrvrInfoMap.updateSrvrInfo */
+               TB_SRVR_INFO
+           SET SRVR_NM = #{srvr_nm}
+             , SRVR_IP_ADDR = #{srvr_ip_addr}
+             , SRVR_PORT_NO = #{srvr_port_no}
+             , SRVR_EXPI = #{srvr_expi}
+             , WAS_INFO_CNTN = #{was_info_cntn}
+         WHERE SRVR_ID = #{srvr_id}
+    </update>
+
+    <delete id="SrvrInfoMap.deleteSrvrInfo" parameterType="map">
+        DELETE /* SrvrInfoMap.deleteSrvrInfo */
+          FROM TB_SRVR_INFO
+         WHERE 1=1
+         <if test="selectcheck != null and selectcheck != ''">
+             AND SRVR_ID
+             <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                #{item}
+             </foreach>
+         </if>
+    </delete>
+
+    <select id="SrvrInfoMap.getSrvrInfoBySrvrIpAddr" parameterType="map" resultType="resultMap">
+        SELECT /* SrvrInfoMap.getSrvrInfoBySrvrIpAddr */
+               SRVR_ID, SRVR_IP_ADDR, SRVR_PORT_NO, SRVR_EXPI, WAS_INFO_CNTN
+          FROM TB_SRVR_INFO
+         WHERE SRVR_IP_ADDR = #{srvr_ip_addr}
+    </select>
+
+</mapper>

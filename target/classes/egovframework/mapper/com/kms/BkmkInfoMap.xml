@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="BkmkInfoMap">
+
+    <!-- 공동 WHERE -->
+    <sql id="BkmkInfoMap.selectCondition_fragment">
+        <where>
+            <if test="bkmk_div_cd != null and bkmk_div_cd != ''">
+                AND BKMK_DIV_CD = #{bkmk_div_cd}
+            </if>
+            <if test="bkmk_id != null and bkmk_id != ''">
+                AND BKMK_ID = #{bkmk_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="bkmk_nm != null and bkmk_nm != ''">
+                AND BKMK_NM LIKE '%' || #{bkmk_nm} || '%'
+            </if>
+            <if test="team1_cd != null and team1_cd != ''">
+                AND (TEAM_CD IN ('ALL', #{team1_cd})
+                     OR TEAM_CD IN (SELECT T1.TEAM_CD FROM TB_CONS_TEAM T1 WHERE T1.HGRN_TEAM_CD = #{team1_cd})
+                    )
+            </if>
+            <if test="team2_cd != null and team2_cd != ''">
+                AND (TEAM_CD IN ('ALL', #{team2_cd})
+                     OR TEAM_CD IN (SELECT T1.HGRN_TEAM_CD FROM TB_CONS_TEAM T1 WHERE T1.TEAM_CD = #{team2_cd})
+                    )
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND USER_ID IN ('ALL', #{user_id})
+            </if>
+        </where>
+    </sql>
+
+    <select id="BkmkInfoMap.getBkmkInfoCount" parameterType="map" resultType="int">
+        SELECT /* BkmkInfoMap.getBkmkInfoCount */
+               COUNT(*)
+          FROM TB_BKMK_INFO
+        <include refid="BkmkInfoMap.selectCondition_fragment" />
+    </select>
+
+    <select id="BkmkInfoMap.getBkmkInfoList" parameterType="map" resultType="resultMap">
+        SELECT D.*
+          FROM (SELECT /* BkmkInfoMap.getBkmkInfoList */
+                       ROWNUM AS PAGE_INDX, C.*
+                     , GETCODENM('KMS020', C.BKMK_DIV_CD, CNTR_CD) AS BKMK_DIV_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = C.RGSR_ID
+                           AND CNTR_CD = C.CNTR_CD) AS RGSR_NM
+                     , (SELECT USER_NM
+                          FROM TB_USER
+                         WHERE USER_ID = C.AMND_ID
+                           AND CNTR_CD = C.CNTR_CD) AS AMND_NM
+                   FROM (SELECT B.*
+                              , DECODE(TEAM1_CD, '', '전체', (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = B.TEAM1_CD AND CNTR_CD = B.CNTR_CD)) AS TEAM1_NM
+                              , DECODE(TEAM2_CD, '', '전체', (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = B.TEAM2_CD AND CNTR_CD = B.CNTR_CD)) AS TEAM2_NM
+                              , DECODE(USER_ID, '', '전체', (SELECT USER_NM FROM TB_USER WHERE USER_ID = B.USER_ID AND CNTR_CD = B.CNTR_CD)) AS USER_NM
+                          FROM (SELECT BKMK_ID, CNTR_CD, TEAM_CD, USER_ID, BKMK_DIV_CD
+                                     , BKMK_NM, BKMK_ADDR, EXPE_SQNC, SCRN_WIDT_VL, SCRN_HGHT_VL
+                                     , USE_YN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                                     , COALESCE((SELECT B.TEAM_CD
+                                                   FROM TB_CONS_TEAM B
+                                                      , TB_CONS_TEAM C
+                                                  WHERE B.TEAM_CD = C.HGRN_TEAM_CD
+                                                    AND (B.TEAM_CD = A.TEAM_CD
+                                                     OR C.TEAM_CD = A.TEAM_CD)
+                                                    AND ROWNUM = 1), '') AS TEAM1_CD
+                                     , COALESCE((SELECT C.TEAM_CD
+                                                   FROM TB_CONS_TEAM B
+                                                      , TB_CONS_TEAM C
+                                                  WHERE B.TEAM_CD = C.HGRN_TEAM_CD
+                                                    AND C.TEAM_CD = A.TEAM_CD), '')  AS TEAM2_CD
+                                  FROM TB_BKMK_INFO A
+                          <include refid="BkmkInfoMap.selectCondition_fragment" />
+                                ) B
+                          <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                          </if>
+                        ) C
+               ) D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <select id="BkmkInfoMap.getBkmkInfoMaxOrd" parameterType="map" resultType="int">
+        SELECT /* BkmkInfoMap.getBkmkInfoMaxOrd */
+               NVL(MAX(EXPE_SQNC), 0)
+          FROM TB_BKMK_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+        <if test="bkmk_div_cd != null and bkmk_div_cd != ''">
+            AND BKMK_DIV_CD = #{bkmk_div_cd}
+        </if>
+    </select>
+
+
+
+    <select id="BkmkInfoMap.getBkmkInfoDupCount" parameterType="map" resultType="int">
+        SELECT /* BkmkInfoMap.getBkmkInfoDupCount */
+               COUNT(*)
+          FROM TB_BKMK_INFO
+         WHERE CNTR_CD = #{cntr_cd}
+           AND BKMK_DIV_CD = #{bkmk_div_cd}
+           AND EXPE_SQNC = #{expe_sqnc}
+       <if test="bkmk_id != null and bkmk_id != ''">
+           AND BKMK_ID != #{bkmk_id}
+       </if>
+    </select>
+
+    <insert id="BkmkInfoMap.insertBkmkInfo" parameterType="map">
+        <selectKey keyProperty="bkmk_id" resultType="String" order="BEFORE">
+            SELECT 'BKM' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT  /* BkmkInfoMap.insertBkmkInfo */
+          INTO TB_BKMK_INFO
+               (BKMK_ID, CNTR_CD, TEAM_CD, USER_ID, BKMK_DIV_CD
+             , BKMK_NM, BKMK_ADDR
+         <if test="scrn_widt_vl != null and scrn_widt_vl != ''">
+             , SCRN_WIDT_VL
+         </if>
+         <if test="scrn_hght_vl != null and scrn_hght_vl != ''">
+             , SCRN_HGHT_VL
+         </if>
+             , EXPE_SQNC
+             , USE_YN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{bkmk_id}, #{cntr_cd}
+             , <choose>
+                    <when test="team2_cd != null and team2_cd != '' and team2_cd != 'ALL'">
+                        NVL(#{team2_cd}, 'ALL')
+                    </when>
+                    <otherwise>
+                        NVL(#{team1_cd}, 'ALL')
+                    </otherwise>
+               </choose>
+             , NVL(#{user_id}, 'ALL'), #{bkmk_div_cd}
+             , #{bkmk_nm}, #{bkmk_addr}
+         <if test="scrn_widt_vl != null and scrn_widt_vl != ''">
+             , #{scrn_widt_vl}
+         </if>
+         <if test="scrn_hght_vl != null and scrn_hght_vl != ''">
+             , #{scrn_hght_vl}
+         </if>
+             , #{expe_sqnc}
+             , #{use_yn}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="BkmkInfoMap.updateBkmkInfo" parameterType="map">
+        UPDATE  /* BkmkInfoMap.updateBkmkInfo */
+               TB_BKMK_INFO
+           SET <choose>
+                    <when test="team2_cd != null and team2_cd != '' and team2_cd != 'ALL'">
+                        TEAM_CD = NVL(#{team2_cd}, 'ALL')
+                    </when>
+                    <otherwise>
+                        TEAM_CD = NVL(#{team1_cd}, 'ALL')
+                    </otherwise>
+               </choose>
+             , USER_ID = NVL(#{user_id}, 'ALL')
+             , BKMK_DIV_CD = #{bkmk_div_cd}
+             , BKMK_NM = #{bkmk_nm}
+             , BKMK_ADDR = #{bkmk_addr}
+             <if test="scrn_widt_vl != null and scrn_widt_vl != ''">
+             , SCRN_WIDT_VL = #{scrn_widt_vl}
+             </if>
+             <if test="scrn_hght_vl != null and scrn_hght_vl != ''">
+             , SCRN_HGHT_VL = #{scrn_hght_vl}
+             </if>
+             , EXPE_SQNC = #{expe_sqnc}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE BKMK_ID = #{bkmk_id}
+    </update>
+
+    <update id="BkmkInfoMap.updateBkmkInfoOrd" parameterType="map">
+        <![CDATA[
+        UPDATE TB_BKMK_INFO
+           SET EXPE_SQNC = CASE BKMK_ID WHEN #{bkmk_id} THEN ${expe_sqnc}
+                                        ELSE CASE SIGN(${old_bkmkinfo_ord} - ${expe_sqnc}) WHEN -1 THEN EXPE_SQNC - 1
+                                                                                              WHEN  1 THEN EXPE_SQNC + 1
+                                             END
+                             END
+         WHERE EXPE_SQNC <= CASE SIGN(${old_bkmkinfo_ord} - ${expe_sqnc}) WHEN  1 THEN ${old_bkmkinfo_ord}
+                                                                           WHEN -1 THEN ${expe_sqnc}
+                            END
+           AND EXPE_SQNC >= CASE SIGN(${old_bkmkinfo_ord} - ${expe_sqnc}) WHEN  1 THEN ${expe_sqnc}
+                                                                          WHEN -1 THEN ${old_bkmkinfo_ord}
+                            END
+           AND BKMK_DIV_CD = #{bkmk_div_cd}
+           AND CNTR_CD = #{cntr_cd}
+        ]]>
+        <if test="user_id != null and user_id != ''">
+           AND USER_ID = #{user_id}
+        </if>
+        <choose>
+             <when test="team2_cd != null and team2_cd != '' and team2_cd != 'ALL'">
+           AND TEAM_CD = NVL(#{team2_cd}, 'ALL')
+             </when>
+             <otherwise>
+           AND TEAM_CD = NVL(#{team1_cd}, 'ALL')
+             </otherwise>
+        </choose>
+    </update>
+
+    <delete id="BkmkInfoMap.deleteBkmkInfo" parameterType="map">
+        DELETE /* BkmkInfoMap.deleteBkmkInfo */
+          FROM TB_BKMK_INFO
+         WHERE
+        <choose>
+            <when test="bkmk_id == null or bkmk_id == ''">
+               BKMK_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                           #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               BKMK_ID = #{bkmk_id}
+            </otherwise>
+        </choose>
+    </delete>
+
+</mapper>

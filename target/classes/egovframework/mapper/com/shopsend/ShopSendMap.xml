@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ShopSendMap">
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171226
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰연동테이블에 cash history를 전송
+    * ================================================================
+    -->
+    <update id="ShopSendMap.insertshopSendCashHistory" statementType="CALLABLE" >
+        {call SP_SHOPPING_CASH_HISTORY_BATCH()}
+    </update>
+
+    <!--
+    * ================================================================
+    * 날짜 : 20171226
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰연동테이블에 member history를 전송
+    * ================================================================
+    -->
+    <update id="ShopSendMap.insertshopSendMemberHistory" statementType="CALLABLE">
+        {call LF_DMUSER.SP_SHOPPING_MEM_HISTORY_BATCH()}
+    </update>
+
+	<!--
+    * ================================================================
+    * 날짜 : 20180612
+    * 이름 : 송준빈
+    * 추가내용 : 쇼핑몰연동테이블에 Point Payment 를 전송
+    * ================================================================
+    -->
+    <update id="ShopSendMap.insertshopSendPointPayment" statementType="CALLABLE">
+        {call LF_DMUSER.SP_SHOPPING_POINT_PAY_BATCH()}
+    </update>
+    
+    <!--
+    <insert id="ShopSendMap.insertshopSendCashHistory" parameterType="map">
+    BEGIN
+        INSERT INTO CASH_HISTORY
+                    (
+                        ID
+                       ,MEMBER_ID
+                       ,TYPE
+                       ,AMT
+                       ,CREATE_DATE
+                    )
+        SELECT TBL.MEM_NO AS ID /* 고유번호 */
+              ,TBL.ACCNT_NO AS MEMBER_ID /* 회원번호 */
+              ,TBL.TYPE AS TYPE	/* 금액타입 */
+              ,FN_RESN_AMT(TBL.PROD_CD, TBL.TRUE_COUNT, TBL.JOIN_DT) AS AMT /* 해약금 */
+              ,SYSDATE AS CREATE_DATE /* 데이터생성일 */
+          FROM
+          (
+              SELECT A.MEM_NO AS MEM_NO
+                      ,A.ACCNT_NO AS ACCNT_NO
+                      ,'A' AS TYPE
+                      ,C.PROD_CD AS PROD_CD
+                      ,NVL((SELECT MAX(NO) FROM PAY_MNG WHERE ACCNT_NO = A.ACCNT_NO AND DEL_FG = 'N'),0) AS TRUE_COUNT
+                      ,A.JOIN_DT AS JOIN_DT
+                      ,DECODE(FN_ACCNT_STAT(A.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STATE
+                  FROM MEM_PROD_ACCNT A
+                  INNER JOIN MEMBER B
+                          ON A.MEM_NO = B.MEM_NO
+                  INNER JOIN PRODUCT C
+                          ON A.PROD_CD = C.PROD_CD
+              WHERE 1=1
+                  AND A.DEL_FG = 'N' /* 삭제되지 않은 고객별상품정보. */
+                  AND B.DEL_FG = 'N' /* 삭제되지 않은 회원. */
+                  AND B.CI_VAL IS NOT NULL
+          ) TBL
+        WHERE 1=1
+          AND TBL.STATE = '정상'
+          AND TBL.TRUE_COUNT > 0
+          AND TBL.ACCNT_NO IN ('201101001193', '201101001160', '201101000357');
+      END ;
+    </insert>
+    -->
+
+     <!--
+    <parameterMap id="getListByProcParamMap1" type="map">
+        <parameter property="P_MEM_NO" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_ACCNT_NO" mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+        <parameter property="P_STATE" 	 mode="IN" 	jdbcType="VARCHAR" javaType="java.lang.String" />
+    </parameterMap>
+    -->
+</mapper>

@@ -1,0 +1,192 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_LogOut" classname="Comm_LogOut" inheritanceid="" position="absolute 0 0 284 243" titletext="로그아웃" onload="Comm_LogOut_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_114" class="sta_popupBg4" enable="false" position="absolute 0 0 274 233"/>
+        <Static id="stc_113" text="최종사용정보" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="2" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 250 8 270 27"/>
+        <Static id="stc_115" text="연결 시작" class="sta_workLabel2" position="absolute 12 45 107 71"/>
+        <Static id="stc_116" class="sta_workData" position="absolute 106 45 263 71"/>
+        <Static id="stc_117" text="연결 종료" class="sta_workLabel2" position="absolute 12 70 107 96"/>
+        <Static id="stc_118" class="sta_workData" position="absolute 106 70 263 96"/>
+        <Static id="stc_119" text="사용 시간" class="sta_workLabel2" position="absolute 12 95 107 121"/>
+        <Static id="stc_120" class="sta_workData" position="absolute 106 95 263 121"/>
+        <Static id="Static19" text="종료하시겠습니까?" position="absolute 116 140 252 168"/>
+        <ImageViewer id="ImageViewer00" taborder="1" image="URL('IMG::alert_warring.png')" position="absolute 56 131 106 178" style="background:transparent;border:0 none #808080ff ;"/>
+        <Edit id="edt_StartTime" taborder="1" value="10시 12분 21초" readonly="true" position="absolute 109 48 260 68"/>
+        <Edit id="edt_EndTime" taborder="1" value="12시 23분 13초" readonly="true" position="absolute 109 73 260 93"/>
+        <Edit id="edt_ConnectingTime" taborder="1" value="2시간 10분 54초" readonly="true" position="absolute 109 98 260 118"/>
+        <Button id="btn_Commit" taborder="0" text="예" class="btn_popupSave" position="absolute 65 197 137 217" onclick="btn_Commit_onclick"/>
+        <Button id="btn_Cancel" taborder="1" text="아니오" class="btn_popupCloseB" position="absolute 139 197 211 217" onclick="btn_Cancel_onclick"/>
+        <WebBrowser id="wbr_logout" position="absolute 0 251 93 310" anchor="default" taborder="3" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function Comm_LogOut_onload(obj:Form, e:LoadEventInfo)
+{
+	edt_ConnectingTime.value = fn_setConnectionTime();
+}
+
+function fn_setConnectionTime()
+{
+	var sCurTime = GV_wsoRvYn!="Y" ? fn_getTodayFull() : "00000000000000";
+	
+	var sShh = GV_LOGINTIME.substr(8,2);
+	var sSmm = GV_LOGINTIME.substr(10,2);
+	var sSss = GV_LOGINTIME.substr(12,2);
+	
+	var sEhh = sCurTime.substr(8,2);
+	var sEmm = sCurTime.substr(10,2);
+	var sEss = sCurTime.substr(12,2);
+
+	var sSTime = sShh + "시 ";
+		sSTime += sSmm + "분 ";
+		sSTime += sSss + "초";
+		
+	var sETime = sEhh + "시 ";
+		sETime += sEmm + "분 ";
+		sETime += sEss + "초";
+
+	this.edt_StartTime.value 	= sSTime;
+	this.edt_EndTime.value 		= sETime;
+	
+	// 사용시간
+	var sUsingSecond = gfn_getSecondDiff(GV_LOGINTIME, sCurTime);
+	var sUhh = parseInt(sUsingSecond/3600, 10);
+	var sUmm = parseInt((sUsingSecond/60)%60, 10);
+	var sUss = parseInt(sUsingSecond%60, 10);
+	
+	var sConnectingTime = "";
+	
+	if(sUhh > 0)
+		sConnectingTime += sUhh + "시간 ";
+		
+	if(sUmm > 0)
+		sConnectingTime += sUmm + "분 ";
+
+	if(sUss > 0)
+		sConnectingTime += sUss + "초";	
+
+	return sConnectingTime;
+}
+
+function btn_Commit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(GV_wsoRvYn == "Y") {
+		close(true);
+	} else {
+
+		// 콜센터(CCC) 예외처리
+		if(GV_ADLTYPCd == "11121") {
+			fn_logout_ccc();
+		} else {
+			ap_MainFrame.visible = false; 			// 메인프레임을 안보이게 처리한다.
+			this.getOwnerFrame().visible = false;	// 종료팝업창을 안보이게 처리한다.
+			
+			ap_LogoutCk = false; // 로그아웃한다는 플레그
+			
+			// 서버 세션정보 삭제
+			fn_sessionDelete(gfn_getCommTypeDelete());
+		}
+	}
+}
+
+// 로그아웃 전 cti상태 체크 및 로그아웃 정보 수정
+function fn_logout_ccc()
+{
+	var sCtiStat = ap_TopFrame.form.sta_ctiStat.text;
+	
+	if (sCtiStat != "로그아웃") {
+		alert("CTI를 먼저 해제해야 합니다.");
+		return false;
+	} else {
+		// 로그아웃 정보, 근태정보 update
+		// KWData 설정
+		trace("========= gds_CCCUserInfo ========> " + gds_CCCUserInfo.rowcount);
+		gfn_kwDataInit();
+		gfn_setKwData_trscCode("CCC06060U01");
+
+		gfn_tranNMCI('SEARCH'
+					, "ds_AgentUserInfo=gds_CCCUserInfo"
+					, ""
+					, "fn_logout_ccc_callback");
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_logout_ccc_callback()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_logout_ccc_callback(strSvcID, nErrorCode, strErrorMsg)
+{
+	if (nErrorCode == 0) {
+		ap_MainFrame.visible = false; 			// 메인프레임을 안보이게 처리한다.
+		this.getOwnerFrame().visible = false;	// 종료팝업창을 안보이게 처리한다.
+		
+		// 서버 세션정보 삭제
+		fn_sessionDelete(gfn_getCommTypeDelete());
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_sessionDelete()
+ * 기      능		: 세션삭제
+ ***************************************************************************/
+function fn_sessionDelete(sType)
+{
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_trscCode("SYS00001R24");
+
+	gfn_tranNMCI(sType
+				, ""
+				, ""
+				, "fn_sessionDelete_callBack"
+				, true
+				, false);
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_sessionDelete_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_sessionDelete_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	close(true);
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function btn_Cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/*****************************************************************************************
+ * 함  수  명	:	fn_getTodayFull
+ * 입      력	:	
+ * 반      환	:	오늘날짜를 반환(YYYYMMDDhhmmss)
+ * 기      능	:	오늘날짜(YYYYMMDDhhmmss)를 반환하는 함수
+ *****************************************************************************************/  
+function fn_getTodayFull()
+{
+	var d = new Date();
+	var s = d.getFullYear()
+	      + ((d.getMonth() + 1) + "").padLeft(2, '0')
+	      + (d.getDate() + "").padLeft(2, '0')
+	      + (d.getHours() + "").padLeft(2, '0')
+	      + (d.getMinutes() + "").padLeft(2, '0')
+	      + (d.getSeconds() + "").padLeft(2, '0');
+
+	return (s);
+}]]></Script>
+  </Form>
+</FDL>

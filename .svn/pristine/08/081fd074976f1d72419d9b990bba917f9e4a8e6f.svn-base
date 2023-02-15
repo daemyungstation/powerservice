@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="SmartEditor" classname="SmartEditor" inheritanceid="" position="absolute 0 0 1210 731" titletext="New Form" onload="SmartEditor_onload">
+    <Layouts>
+      <Layout>
+        <WebBrowser id="wb_editor" position="absolute 579 79 1196 682" taborder="0" onloadcompleted="wb_editor_onloadcompleted"/>
+        <Button id="btn_set" taborder="1" text="Set" onclick="btn_set_onclick" position="absolute 7 29 85 50" positiontype="position"/>
+        <Button id="btn_get" taborder="1" text="Get" onclick="btn_get_onclick" position="absolute 95 29 173 50" positiontype="position"/>
+        <TextArea id="tae_contents" taborder="1" wordwrap="word" position2="absolute l:7 w:561 t:79 h:603" positiontype="position2"/>
+        <Button id="btn_readonly" taborder="1" text="readonly" onclick="btn_readonly_onclick" position="absolute 578 29 656 50" positiontype="position"/>
+        <Button id="btn_modify" taborder="1" text="modify" onclick="btn_modify_onclick" position="absolute 666 29 744 50" positiontype="position"/>
+        <Static id="Static01" text="※ Runtime - WebBrowser 컴포넌트의 버그로 현재 onloadcompleted() 이벤트가 발생하지 않고 있습니다. (추후 패치 예정)" position2="absolute l:0 w:947 t:691 h:22" positiontype="position2" style="color:crimson;font:Gulim,10,bold;"/>
+        <Static id="Static05" text="NAVER SmartEditor 2.0" position="absolute 0 0 172 18"/>
+        <Static id="Static02" text="TextArea" class="sta_WASA_label" position="absolute 7 61 168 75"/>
+        <Static id="stc000" text="WebBrowser" class="sta_WASA_label" position="absolute 579 61 740 75"/>
+        <ActiveX id="wb_editor" position2="absolute l:580 w:624 t:79 h:604" positiontype="position2" anchor="default" taborder="1" progid="{8856F961-340A-11D0-A96B-00C04FD705A2}"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item0" compid="tae_contents" propid="value" datasetid="ds_contents" columnid="CONTENTS"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_contents" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="CONTENTS" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="CONTENTS">&lt;P&gt;&lt;SPAN style="COLOR: #009e25; FONT-SIZE: 11pt"&gt;네이버&lt;/SPAN&gt; &lt;SPAN&gt;&lt;STRONG&gt;&lt;SPAN style="COLOR: #0075c8; FONT-SIZE: 18pt"&gt;스마트에디터&lt;/SPAN&gt;&lt;SPAN style="COLOR: #0075c8; FONT-SIZE: 18pt"&gt; 2.0&lt;/SPAN&gt;&lt;/STRONG&gt;&lt;/SPAN&gt; &lt;EM&gt;입니다.&lt;/EM&gt;&lt;/P&gt;</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/* 스마트에디터 사용 버전 : SE2.1.1.8141
+ * Drag & Drop 방식은 사용하지 않음 - se/popup/quick_photo/QuickPhotoPopup.js 파일의 checkDragAndDropAPI() 설정 변경
+ * 사진업로드파일 경로 - se/popup/quick_photo/QuickPhotoPopup.js 파일의 html5Upload() - sUploadURL, callFileUploader() - sUrl 변수에 설정
+ * 사진첨부파일 저장 경로 - Service/ImageUpload.jsp 파일의 fileUrl, PATH 변수에 설정
+ */
+
+//var strServiceRoot = "http://localhost:8080/STEP/Service/";	//jsp파일 경로
+//var strServiceRoot = "http://127.0.0.1:7001/krp-tool/SMEDITOR/Service/";
+
+var strServiceRoot = "about:blank";
+//var strServiceRoot = "http://localhost:7001/KRP_TEST/Service/";
+//var strServiceRoot = "http://kwerpt.kyowon.co.kr/editor_test/Service/";
+
+// 폼 로드 시
+function SmartEditor_onload(obj:Form, e:LoadEventInfo)
+{
+	// 웹에디터 페이지 로드
+	//wb_editor.url = strServiceRoot+"SMEditor.jsp?v_width="+wb_editor.position.width+"&v_height="+wb_editor.position.height;
+	
+	//var sUrl = strServiceRoot+"SMEditor.html?v_width="+wb_editor.position.width+"&v_height="+wb_editor.position.height;
+	var sUrl = strServiceRoot+"SMEditor.html";
+	
+	//trace("sUrl::"+sUrl);
+	wb_editor.url = sUrl;
+}
+
+// 웹에디터에 값 셋팅
+function btn_set_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var objDoc = wb_editor.document;
+	
+	var scontents = ds_contents.getColumn(0,"CONTENTS");
+	
+	objDoc.getElementById("editorData").value = scontents;
+	objDoc.getElementById("editorSetBtn").click();
+}
+
+// 웹에디터에서 값 가져오기
+function btn_get_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var objDoc = wb_editor.document;
+	
+	objDoc.getElementById("editorGetBtn").click();
+	
+	var sContents = objDoc.getElementById("editorData").value;
+	
+	ds_contents.setColumn(0,"CONTENTS",sContents);
+	
+	trace(ds_contents.saveXML());
+}
+
+// 읽기전용 페이지
+function btn_readonly_onclick(obj:Button,  e:ClickEventInfo)
+{
+	wb_editor.document.body.innerHTML = ds_contents.getColumn(0,"CONTENTS");
+	
+	//wb_editor.Document.body.innerHTML = ds_contents.getColumn(0,"CONTENTS");
+}
+
+// 수정 페이지
+function btn_modify_onclick(obj:Button,  e:ClickEventInfo)
+{
+	wb_editor.url = "about:blank";
+	
+	// 웹에디터 페이지 로드
+	//wb_editor.url = strServiceRoot+"SMEditor.html?v_width="+wb_editor.position.width+"&v_height="+wb_editor.position.height;
+	wb_editor.url = strServiceRoot+"SMEditor.html";
+}
+
+// 웹 에디터 로드 완료 시
+function wb_editor_onloadcompleted(obj:WebBrowser, e:WebLoadCompEventInfo)
+{
+	
+	trace("wb_editor_onloadcompleted:"+e.url);
+	
+	if ( e.url == "about:blank" )	return;
+	
+	var objDoc = wb_editor.document;
+	
+	var scontents = ds_contents.getColumn(0,"CONTENTS");
+	
+	objDoc.getElementById("editorData").value = scontents;
+	objDoc.getElementById("editorSetBtn").click();
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCertfMap">
+
+     <sql id="DlwCertfMap.selectCondition_fragment">
+        <where>
+             <if test="stt_dt != null and stt_dt != ' ' and end_dt != null and end_dt != ' '">
+                    AND a.dlv_dsps_dt BETWEEN #{stt_dt} AND #{end_dt}
+             </if>
+
+             <if test="dlv_type_cd != null and dlv_type_cd != ''">
+                AND A.SNDG_KIND_CD = #{dlv_type_cd}
+             </if>
+             <if test="dsps_mthd_cd != null and dsps_mthd_cd != ''">
+                AND A.DSPS_MTHD_CD = #{dsps_mthd_cd}
+             </if>
+			 <if test="main_contract != null and main_contract != '' and main_contract != '99'">
+                AND A.MAIN_CONTRACT = #{main_contract}
+             </if>
+             <if test="main_contract != null and main_contract != '' and main_contract == '99'">
+                AND A.MAIN_CONTRACT IS NULL
+             </if>
+        </where>
+    </sql>
+
+
+
+    <!-- 증서 출력 정보의 수-->
+    <select id="DlwCertfMap.getCertfCount" parameterType="map" resultType="int">
+
+
+        /* DlwCertfMap.getCertfCount */
+        <if test="dept_cd != null and dept_cd != ''">
+        WITH CTE (dept_cd, dept_nm, high_dept_cd)
+        AS
+            (
+            SELECT      DEPT_CD, DEPT_NM, HIGH_DEPT_CD
+            FROM        DEPARTMENT
+            WHERE       DEPT_CD = #{dept_cd}
+
+            UNION ALL
+
+            SELECT      A.DEPT_CD, A.DEPT_NM, A.HIGH_DEPT_CD
+            FROM        DEPARTMENT A, CTE B
+            WHERE       A.HIGH_DEPT_CD = B.DEPT_CD
+            )
+        </if>
+        SELECT COUNT(*)
+          FROM MEM_PROD_ACCNT ACCNT
+                INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                LEFT OUTER JOIN HP_CALL HAP ON ACCNT.ACCNT_NO = HAP.ACCNT_NO
+        <if test="dept_cd != null and dept_cd != ''">
+                INNER JOIN EMPLOYEE EMP ON ACCNT.EMPLE_NO = EMP.EMPLE_NO
+                INNER JOIN DEPARTMENT DEPT ON EMP.DEPT_CD = DEPT.DEPT_CD
+                INNER JOIN MEMBER MEM ON MEM.MEM_NO = ACCNT.MEM_NO
+                , CTE
+        </if>
+        WHERE ACCNT.del_fg = 'N'
+        <if test="dataAthrQury != null and dataAthrQury != ''">
+        ${dataAthrQury}
+        </if>
+        AND EXISTS (SELECT 'X'
+                    FROM PAY_MNG
+                   WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                     AND DEL_FG = 'N')
+        <if test="dept_cd != null and dept_cd != ''">
+        AND CTE.DEPT_CD = EMP.DEPT_CD
+        </if>
+        AND NOT EXISTS(  SELECT ACCNT_NO
+                           FROM EVENT
+                          WHERE EVENT.ACCNT_NO = ACCNT.ACCNT_NO
+                            AND DEL_FG = 'N')
+        <if test="stt_dt != null and stt_dt != ' ' and end_dt != null and end_dt != ' '">
+        AND ACCNT.join_dt BETWEEN #{stt_dt} AND #{end_dt}
+        </if>
+        <if test="prod_cd != null and prod_cd != ''">
+        AND PROD.prod_cd = #{prod_cd}
+        </if>
+        <if test="hist_ck == '01'">
+        AND EXISTS (SELECT 'X'
+                      FROM CERTF_HIST
+                     WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                       AND (CERTF_KIND = '0001' OR CERTF_KIND = '0004'))
+        </if>
+        <if test="hist_ck == '02'">
+        AND NOT EXISTS (SELECT  'X'
+                          FROM CERTF_HIST
+                         WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                           AND (CERTF_KIND = '0001' OR CERTF_KIND = '0004'))
+        </if>
+        <if test="clause_hist_ck == '01'">
+        AND EXISTS (SELECT  'X'
+                          FROM CERTF_HIST
+                         WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                           AND CERTF_KIND = '0006')
+        </if>
+        <if test="clause_hist_ck == '02'">
+        AND NOT EXISTS (SELECT  'X'
+                          FROM CERTF_HIST
+                         WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                           AND CERTF_KIND = '0006')
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+        AND ACCNT.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="main_contract != null and main_contract != '' and main_contract != '99'">
+            AND ACCNT.MAIN_CONTRACT = #{main_contract}
+        </if>
+        <if test="main_contract != null and main_contract != '' and main_contract == '99'">
+            AND ACCNT.MAIN_CONTRACT IS NULL
+        </if>
+        <if test="kstbit != null and kstbit != ''">
+            AND ACCNT.ACCNT_NO NOT IN (SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG = 'N')
+			</if>
+
+        ${condQury}
+    </select>
+
+    <!-- 증서 출력 정보 -->
+    <select id="DlwCertfMap.getCertfList" parameterType="map" resultType="resultMap">
+    <!-- sql-task.xml : selectCertfList -->
+        /* DlwCertfMap.getCertfList */
+        <if test="dept_cd != null and dept_cd != ''">
+        WITH CTE (dept_cd, dept_nm, high_dept_cd)
+        AS
+            (
+            SELECT      DEPT_CD, DEPT_NM, HIGH_DEPT_CD
+            FROM        DEPARTMENT
+            WHERE       DEPT_CD = #{dept_cd}
+            UNION ALL
+            SELECT      A.DEPT_CD, A.DEPT_NM, A.HIGH_DEPT_CD
+            FROM        DEPARTMENT A, CTE B
+            WHERE       A.HIGH_DEPT_CD = B.DEPT_CD
+            )
+        </if>
+        SELECT ACCNT.ACCNT_NO
+             , ACCNT.DED_NO
+             , ACCNT.MEM_NO
+             , FN_MEM_NM(ACCNT.MEM_NO) AS MEM_NM
+             , ACCNT.JOIN_DT AS JOIN_DT
+             , to_char(ADD_MONTHS( ADD_MONTHS(to_date(ACCNT.JOIN_DT, 'yyyymmdd'),PROD.EXPR_NO),-(1+ACCNT.NEW_CHAN_GUNSU)),'yyyymmdd') AS EXPR_DT
+             , CASE WHEN PROD.PROD_CD = '30' OR PROD.PROD_CD = '31' THEN 3900000
+                    ELSE PROD.EXPR_NO * PROD.MON_PAY_AMT
+                END AS PROD_AMT
+             , (CASE WHEN PROD.EXPR_NO = 12 THEN 2 ELSE 1 END) *
+               (CASE WHEN PROD.PROD_CD = '30' THEN 325000
+                    WHEN PROD.PROD_CD = '31' THEN 3900000
+                    ELSE PROD.MON_PAY_AMT
+               END) AS MON_PAY_AMT
+             , CASE WHEN PROD.PROD_CD = '30' OR PROD.PROD_CD = '31' THEN 11
+                    ELSE ACCNT.NEW_CHAN_GUNSU
+                END NEW_CHAN_GUNSU
+             , FN_COM_NM('01', ACCNT.PAY_MTHD) AS PAY_MTHD
+             , ACCNT.NEW_CHAN_GUNSU*PROD.MON_PAY_AMT AS DAECHE_AMT
+             , PROD.PROD_CL
+             , PROD.EXPR_NO/(CASE WHEN PROD.EXPR_NO = 12 THEN 2 ELSE 1 END) AS EXPR_NO
+             , PROD.EXPR_NO - ACCNT.NEW_CHAN_GUNSU AS PAY_GIGAN
+             , (SELECT COUNT(*)
+                  FROM PAY_MNG
+                 WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                   AND PAY_MNG.PAY_DAY IN (SELECT  MIN(PAY_MNG.PAY_DAY)  AS PAY_DAY
+                                                                    FROM PAY_MNG
+                                                                   WHERE PAY_MNG.ACCNT_NO = ACCNT.ACCNT_NO
+                                                                     AND DEL_FG = 'N'
+                                                                   )
+                   AND DEL_FG = 'N') AS JOIN_PAY_COUNT
+             , FN_DEPT_NM((SELECT DEPT_CD FROM EMPLOYEE WHERE EMPLE_NO = ACCNT.EMPLE_NO)) AS DEPT_NM
+             , FN_EMPLE_NM(ACCNT.EMPLE_NO) AS EMPLE_NM
+             <!-- 기존 주소(통합) 부분은 주석처리 - 2018.03.16 정승철
+             , CASE
+                 WHEN
+                     NVL((SELECT POST_MTR_RCV FROM MEM_PROD_ACCNT WHERE MEM_PROD_ACCNT.ACCNT_NO = ACCNT.MEM_NO AND DEL_FG = 'N'), '01') = '01'
+                 THEN
+                     (SELECT '우 ' || HOME_ZIP || ') '|| HOME_ADDR || ' ' || HOME_ADDR2 FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                 ELSE
+                     (SELECT '우 ' || WRPL_ZIP || ') '|| WRPL_ADDR || ' ' || WRPL_ADDR2 FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+               END AS ADDR
+              -->
+             <!--  상세주소마스킹을 위해 '주소+상세주소' 로 분리 - 2018.03.16 정승철 -->
+             , CASE
+                 WHEN
+                     NVL((SELECT POST_MTR_RCV FROM MEM_PROD_ACCNT WHERE MEM_PROD_ACCNT.ACCNT_NO = ACCNT.MEM_NO AND DEL_FG = 'N'), '01') = '01'
+                 THEN
+                     (SELECT '우 ' || HOME_ZIP || ') '|| HOME_ADDR FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                 ELSE
+                     (SELECT '우 ' || WRPL_ZIP || ') '|| HOME_ADDR FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+               END AS ADDR
+             , CASE
+                 WHEN
+                     NVL((SELECT POST_MTR_RCV FROM MEM_PROD_ACCNT WHERE MEM_PROD_ACCNT.ACCNT_NO = ACCNT.MEM_NO AND DEL_FG = 'N'), '01') = '01'
+                 THEN
+                     (SELECT HOME_ADDR2 FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                 ELSE
+                     (SELECT WRPL_ADDR2 FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+               END AS ADDR2
+             , CASE
+                 WHEN
+                     NVL((SELECT POST_MTR_RCV FROM MEM_PROD_ACCNT WHERE MEM_PROD_ACCNT.ACCNT_NO = ACCNT.ACCNT_NO AND DEL_FG = 'N'), '01') = '01'
+                 THEN
+                     (SELECT length(HOME_ADDR||HOME_ADDR2) FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                 ELSE
+                     (SELECT length(WRPL_ADDR||WRPL_ADDR2) FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+               END AS LEN
+             , (SELECT SUBSTR(IDN_NO, 0,7) || '-' || SUBSTR(IDN_NO, 7, 7) FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO) AS IDN_NO
+             , PROD.PROD_NM
+             , CASE
+                 WHEN
+                     ACCNT.JOIN_DT <![CDATA[<]]> '20101228'
+                 THEN
+                     'N'
+                 ELSE
+                     'Y'
+               END AS JOIN_DT_GBN
+             , 'N' AS CHK_YN
+             , '' AS chk
+             , CASE
+                 WHEN
+                     NVL((SELECT CONTC_TM FROM MEMBER WHERE MEM_NO = ACCNT.MEM_NO AND DEL_FG = 'N'), '0') = '0'
+                 THEN
+                     (SELECT CELL FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                 WHEN
+                     (SELECT CONTC_TM FROM MEMBER WHERE MEM_NO = ACCNT.MEM_NO AND DEL_FG = 'N') = '1'
+                 THEN
+                     (SELECT HOME_TEL FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                 WHEN
+                     (SELECT CONTC_TM FROM MEMBER WHERE MEM_NO = ACCNT.MEM_NO AND DEL_FG = 'N') = '2'
+                 THEN
+                     (SELECT WRPL_TEL FROM MEMBER WHERE MEMBER.MEM_NO = ACCNT.MEM_NO)
+                END AS TELL
+              , (SELECT CP_CD FROM COUPON_HIST WHERE ACCNT_NO = ACCNT.ACCNT_NO) AS CP_CD
+              , CASE WHEN (SELECT  MIN(ACCNT_NO) FROM CERTF_HIST WHERE ACCNT_NO = ACCNT.ACCNT_NO AND (CERTF_KIND = '0001' OR CERTF_KIND = '0004')) IS NULL
+                     THEN '미출력'
+                     ELSE '증서출력'
+                END IS_PRT
+              , CASE WHEN (SELECT  MIN(ACCNT_NO) FROM CERTF_HIST WHERE ACCNT_NO = ACCNT.ACCNT_NO AND CERTF_KIND = '0006') IS NULL
+                     THEN '미출력'
+                     ELSE '약관출력'
+                END IS_CLAUSE_PRT
+              , CASE WHEN HAP.STAT = '01'
+                     THEN '승인'
+                     WHEN HAP.STAT = '011'
+                     THEN '재승인'
+                     ELSE ''
+                END HP_STAT
+              , FN_COM_NM('113',NVL(ACCNT.JOIN_CL,'01')) AS JOIN_CL
+              , (SELECT DLV_ID FROM PS_WILLVI.TB_DLV WHERE ACCNT_NO = ACCNT.ACCNT_NO) AS DLV_ID
+              , NVL(ACCNT.MAIN_CONTRACT, '01') AS MAIN_CONTRACT /* 주계약이 설정되어 있지 않은 경우, default 상조(01) */
+              , ACCNT.PROD_CD
+
+          FROM MEM_PROD_ACCNT ACCNT
+                    INNER JOIN PRODUCT PROD ON ACCNT.PROD_CD = PROD.PROD_CD
+                    LEFT OUTER JOIN HP_CALL HAP ON ACCNT.ACCNT_NO = HAP.ACCNT_NO
+            <if test="dept_cd != null and dept_cd != ''">
+              INNER JOIN EMPLOYEE EMP ON ACCNT.EMPLE_NO = EMP.EMPLE_NO
+              INNER JOIN DEPARTMENT DEPT ON EMP.DEPT_CD = DEPT.DEPT_CD
+              INNER JOIN MEMBER MEM ON MEM.MEM_NO = ACCNT.MEM_NO
+              , CTE
+            </if>
+
+         WHERE ACCNT.del_fg = 'N'
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+            ${dataAthrQury}
+            </if>
+             AND EXISTS (SELECT 'x'
+                           FROM PAY_MNG
+                          WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                            AND DEL_FG = 'N')
+            <if test="dept_cd != null and dept_cd != ''">
+            AND CTE.DEPT_CD = EMP.DEPT_CD
+            </if>
+
+            <if test="stt_dt != null and stt_dt != ' ' and end_dt != null and end_dt != ' '">
+
+                        AND join_dt BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+
+            <if test="prod_cd != null and prod_cd != ''">
+            AND PROD.prod_cd = #{prod_cd}
+            </if>
+            <if test="hist_ck == '01'">
+            AND EXISTS (SELECT 'X'
+                          FROM CERTF_HIST
+                         WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                           AND (CERTF_KIND = '0001' OR CERTF_KIND = '0004'))
+            </if>
+            <if test="hist_ck == '02'">
+            AND NOT EXISTS (SELECT  'X'
+                              FROM CERTF_HIST
+                             WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                               AND (CERTF_KIND = '0001' OR CERTF_KIND = '0004'))
+            </if>
+            <if test="clause_hist_ck == '01'">
+            AND EXISTS (SELECT  'X'
+                              FROM CERTF_HIST
+                             WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                               AND CERTF_KIND = '0006')
+            </if>
+            <if test="clause_hist_ck == '02'">
+            AND NOT EXISTS (SELECT  'X'
+                              FROM CERTF_HIST
+                             WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                               AND CERTF_KIND = '0006')
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+            AND ACCNT.ACCNT_NO = #{accnt_no}
+            </if>
+            <if test="main_contract != null and main_contract != '' and main_contract != '99'">
+                AND ACCNT.MAIN_CONTRACT = #{main_contract}
+            </if>
+            <if test="main_contract != null and main_contract != '' and main_contract == '99'">
+                AND ACCNT.MAIN_CONTRACT IS NULL
+            </if>
+            <if test="kstbit != null and kstbit != ''">
+            AND ACCNT.ACCNT_NO NOT IN (SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG = 'N')
+			</if>
+            ${condQury}
+    </select>
+
+    <!-- 증서 발급 여부 조회 -->
+    <select id="DlwCertfMap.getCertPrintChk" parameterType="map" resultType="int">
+        <!-- sql-task.xml : certPrintChk -->
+        SELECT /* DlwCertfMap.getCertPrintChk */
+               COUNT(1)
+          FROM CERTF_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+           AND CERTF_KIND = #{certf_kind}
+    </select>
+
+    <!-- 증서발급 등록 -->
+    <insert id="DlwCertfMap.insertCertHist" parameterType="map">
+        <!-- sql-task.xml : insertCertHist -->
+        INSERT /* DlwCertfMap.insertCertHist */
+          INTO CERTF_HIST
+             ( SEQ
+             , ACCNT_NO
+             , PRN_DT
+             , PRN_MAN
+             , PRN_TYPE
+             , SEND_MTH
+             , REG_DM
+             , REG_MAN
+             , CERTF_KIND
+             )
+        SELECT SEQ_CERTFHIST.NEXTVAL
+             , #{accnt_no}
+             , SYSDATE
+             , #{reg_man}
+             , #{prn_type}
+             , #{send_mth}
+             , SYSDATE
+             , #{reg_man}
+             , #{certf_kind}
+          FROM DUAL
+    </insert>
+
+
+
+     <!-- 증서 재발급요청 리스트 -->
+    <select id="DlwCertfMap.getCertfprodList" parameterType="map" resultType="resultMap">
+    <!-- sql-task.xml : selectCertfList -->
+
+
+      select   /* dlwcertfmap.getcertfprodlist */
+            cm.seq,
+              ROW_NUMBER() OVER(ORDER BY cm.prod_cd, cm.app_dm desc) seqbun,
+            cm.prod_cd,
+            p.prod_nm,
+            p.prod_amt,
+            p.mon_pay_amt,
+            p.expr_no,
+            p.prod_cl,
+            fn_com_nm('85', p.prod_cd) prod_cl_nm,
+              app_dm,
+            coffin1,     coffin2,
+            shroud_m1,     shroud_m2,
+            shroud_d1,     shroud_d2,
+            coffin_gds1,     coffin_gds2 ,     coffin_gds3 ,
+            mortuary_gds1,	mortuary_gds2,     mortuary_gds3 ,
+            car1,     car2,    car3,
+            flower_m1,     flower_m2,     flower_m3,
+            flower_d1,     flower_d2,     flower_d3,
+            funeral_clothes1,     funeral_clothes2,     funeral_clothes3,
+            helper_m1,    helper_m2,    helper_m3,
+            helper_d1,    helper_d2,    helper_d3,
+            terms_svc,
+            terms_dtl,
+            consm_nt,
+            refund_nt,
+            resn_amt_info,
+            refund_amt,    asset,
+            consm_amt_mng,
+            refund_math1,     refund_math2,     refund_math3,
+            to_char(cm.reg_dm, 'yyyymmdd') reg_dm
+            , etc, etc_val
+        from certf_mng cm
+        join product p on cm.prod_cd = p.prod_cd and p.del_fg='N'
+        where 1=1
+        and cm.del_fg='N'
+         <if test="prod_cd != null and prod_cd != ''">
+                AND CM.PROD_CD = #{prod_cd}
+         </if>
+           <if test="stt_dt != null and stt_dt != ' ' and end_dt != null and end_dt != ' '">
+            AND cm.app_dm BETWEEN #{stt_dt} AND #{end_dt}
+            </if>
+             <if test="prod_cl != null and prod_cl != ''">
+                AND P.PROD_CL = #{prod_cl}
+         </if>
+
+
+      ORDER BY cm.prod_cd, cm.app_dm desc
+
+    </select>
+
+
+
+     <select id="DlwCertfMap.getjengseCount" parameterType="map" resultType="int">
+
+
+
+       SELECT  /* DlwCertfMap.getjengseCount */
+                   count(A.DLV_ID)
+                       FROM (
+                         SELECT A.DLV_ID,
+                               A.ACCNT_NO,
+                               MB.MEM_NO,
+                               MB.MEM_NM ,
+                                MB.CELL AS CELL,
+                                (MB.HOME_ZIP || ') ' || MB.HOME_ADDR || ' ' || MB.HOME_ADDR2) AS HOME_ZIP,
+                               MPA.RESORT_NO AS CSMM_PRFL_NO,
+                               A.SNDG_KIND_CD,
+                               A.DLV_TYPE_CD ,
+                               B.DLV_NO,
+                               B.SQNC_NO,
+                               B.DLV_STAT_CD,
+                               B.DLV_STAT_CD AS OLD_DLV_STAT_CD ,
+                               B.DSPS_MTHD_CD,
+                               B.DSPS_RSN_CD,
+                               B.DLV_DSPS_DT,
+                               B.DLV_DSPS_RSN_CD ,
+                               A.CNTR_CD,
+                               A.RGSR_ID,
+                               A.RGSN_DTTM,
+                               B.AMND_ID,
+                               B.AMNT_DTTM,
+                               MPA.MAIN_CONTRACT
+                         FROM
+                          (SELECT A.*
+                           FROM PS_WILLVI.TB_DLV A ) A INNER JOIN
+                            (SELECT A.*
+                             FROM
+                             (
+                                SELECT ROW_NUMBER() OVER (PARTITION BY DLV_ID
+                                                 ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX ,
+                                               A.*
+                                FROM PS_WILLVI.TB_DLV_DTL A
+                              ) A
+                              WHERE A.DLV_INDEX = 1 ) B ON A.DLV_ID = B.DLV_ID INNER JOIN
+                              MEM_PROD_ACCNT MPA ON A.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                              MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'
+                            ) A
+
+                            <include refid="DlwCertfMap.selectCondition_fragment" />
+                <!--      where   a.dlv_dsps_dt >='20170401'  and   a.dlv_dsps_dt <='20170406'  and
+                            A.DLV_TYPE_CD = '10'  AND
+
+                            A.DSPS_MTHD_CD = '40'
+                             -->
+
+    </select>
+
+
+
+      <select id="DlwCertfMap.getjengseList" parameterType="map" resultType="resultMap">
+
+            SELECT /* DlwCertfMap.getjengseList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY DLV_ID DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                     , SNDG_KIND_NM || '(' || DLV_TYPE_NM || '_' || DLV_STAT_NM || ') ' || DLV_DSPS_DT  || ' : ' || DLV_NO AS DLV_NM
+                  FROM (
+
+SELECT A.*
+                             , PS_WILLVI.GETCODENM('CHL120', A.SNDG_KIND_CD, A.CNTR_CD) AS SNDG_KIND_NM
+                             , PS_WILLVI.GETCODENM('CHL080', A.DLV_TYPE_CD, A.CNTR_CD) AS DLV_TYPE_NM
+                             , PS_WILLVI.GETCODENM('CHL090', A.DLV_STAT_CD, A.CNTR_CD) AS DLV_STAT_NM
+                             , PS_WILLVI.GETCODENM('CHL100', A.DSPS_MTHD_CD, A.CNTR_CD) AS DSPS_MTHD_NM
+                             , PS_WILLVI.GETCODENM('CHL110', A.DLV_DSPS_RSN_CD, A.CNTR_CD) AS DLV_DSPS_RSN_NM
+                             , PS_WILLVI.GETCODENM((SELECT ADTL_CD
+                                             FROM PS_WILLVI.TB_CD
+                                            WHERE CD_SET_CD='CHL100'
+                                              AND CD = A.DSPS_MTHD_CD
+                                              AND CNTR_CD = A.CNTR_CD)
+                                         , A.DSPS_RSN_CD, A.CNTR_CD) AS DSPS_RSN_NM
+                             , (SELECT USER_NM
+                                  FROM PS_WILLVI.TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM PS_WILLVI.TB_USER C
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                       FROM (
+                         SELECT A.DLV_ID,
+                               A.ACCNT_NO,
+                               MB.MEM_NO,
+                               MB.MEM_NM ,
+                                MB.CELL AS TELL,
+                                (MB.HOME_ZIP || ') ' || MB.HOME_ADDR || ' ' || MB.HOME_ADDR2) AS ADDR,
+                               MPA.RESORT_NO AS CSMM_PRFL_NO,
+                               A.SNDG_KIND_CD,
+                               A.DLV_TYPE_CD ,
+                               B.DLV_NO,
+                               B.SQNC_NO,
+                               B.DLV_STAT_CD,
+                               B.DLV_STAT_CD AS OLD_DLV_STAT_CD ,
+                               B.DSPS_MTHD_CD,
+                               B.DSPS_RSN_CD,
+                               B.DLV_DSPS_DT,
+                               B.DLV_DSPS_RSN_CD ,
+                               A.CNTR_CD,
+                               A.RGSR_ID,
+                               A.RGSN_DTTM,
+                               B.AMND_ID,
+                               B.AMNT_DTTM
+                                ,FN_DEPT_NM((SELECT DEPT_CD FROM EMPLOYEE WHERE EMPLE_NO = MPA.EMPLE_NO)) AS DEPT_NM
+                               , PROD.PROD_NM
+                               ,MPA.JOIN_DT
+                               , FN_EMPLE_NM(MPA.EMPLE_NO) AS EMPLE_NM
+                               , CASE WHEN (SELECT  MIN(ACCNT_NO) FROM CERTF_HIST WHERE ACCNT_NO = a.ACCNT_NO AND (CERTF_KIND = '0001' OR CERTF_KIND = '0004')) IS NULL
+                                     THEN '미출력'
+                                     ELSE '출력'
+                                END IS_PRT
+                               , FN_COM_NM('01', MPA.PAY_MTHD) AS PAY_MTHD
+                               , CASE WHEN HAP.STAT = '01'
+                                     THEN '승인'
+                                     WHEN HAP.STAT = '011'
+                                     THEN '재승인'
+                                     ELSE ''
+                                END HP_STAT
+                               , FN_COM_NM('113',NVL(MPA.JOIN_CL,'01')) AS JOIN_CL
+							   , MPA.MAIN_CONTRACT 
+                         FROM
+                          (SELECT A.*
+                           FROM PS_WILLVI.TB_DLV A ) A INNER JOIN
+                            (SELECT A.*
+                             FROM
+                             (
+                                SELECT ROW_NUMBER() OVER (PARTITION BY DLV_ID
+                                                 ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX ,
+                                               A.*
+                                FROM PS_WILLVI.TB_DLV_DTL A
+                              ) A
+                              WHERE A.DLV_INDEX = 1 ) B ON A.DLV_ID = B.DLV_ID INNER JOIN
+                              MEM_PROD_ACCNT MPA ON A.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                              MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'
+                              INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                              LEFT OUTER JOIN HP_CALL HAP ON a.ACCNT_NO = HAP.ACCNT_NO
+                            ) A
+                <include refid="DlwCertfMap.selectCondition_fragment" />
+                <!--      where   a.dlv_dsps_dt >='20170401'  and   a.dlv_dsps_dt <='20170406'  and
+                            A.DLV_TYPE_CD = '10'  AND
+
+                            A.DSPS_MTHD_CD = '40'
+                             -->
+
+                             ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+
+    </select>
+
+
+
+</mapper>

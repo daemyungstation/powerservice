@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GongjeSinMap">
+
+    <delete id="GongjeSinMap.getGongjeTempDelete" >
+
+        DELETE /* GongjeSinMap.getGongjeTempDelete */
+          FROM GONGJE_HIST_TEMP
+
+    </delete>
+
+    <select id="GongjeSinMap.getGongjeNewCount" parameterType="map" resultType="int">
+
+        SELECT /* GongjeSinMap.getGongjeNewCount */
+               COUNT(*)
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'D'
+
+    </select>
+
+   <select id="GongjeSinMap.getGongjeNewList" parameterType="map" resultType="resultMap">
+
+        SELECT /* GongjeSinMap.getGongjeNewList */
+               *
+          FROM (   SELECT  '01' GUBUN,        /* 신규 */
+                            A.ACCNT_NO,  /* 소비자번호 */
+                            B.MEM_NM,    /* 소비자성명 */
+                            <![CDATA[CASE WHEN LENGTH(NVL(B.IDN_NO,' ')) <> 10 AND SUBSTR(B.BRTH_MON_DAY,1,2) = '19' AND B.SEX = '0001' THEN SUBSTR(B.BRTH_MON_DAY,3,6) || '1000000'
+                                 WHEN LENGTH(NVL(B.IDN_NO,' ')) <> 10 AND SUBSTR(B.BRTH_MON_DAY,1,2) = '19' AND B.SEX = '0002' THEN SUBSTR(B.BRTH_MON_DAY,3,6) || '2000000'
+                                 WHEN LENGTH(NVL(B.IDN_NO,' ')) <> 10 AND SUBSTR(B.BRTH_MON_DAY,1,2) = '20' AND B.SEX = '0001' THEN SUBSTR(B.BRTH_MON_DAY,3,6) || '3000000'
+                                 WHEN LENGTH(NVL(B.IDN_NO,' ')) <> 10 AND SUBSTR(B.BRTH_MON_DAY,1,2) = '20' AND B.SEX = '0002' THEN SUBSTR(B.BRTH_MON_DAY,3,6) || '4000000'
+                                 WHEN LENGTH(NVL(B.IDN_NO,' ')) = 10 THEN B.IDN_NO
+                            ELSE '' END BRTH_MON_DAY, ]]> /* 주민번호 */
+                            A.JOIN_DT AS JOIN_DT,   /* 계약시작일(YYYYMMDD) */
+                            C.PROD_NM,   /* 상품종류(상품명기술) */
+                            C.PROD_AMT,  /* 총계약금액 */
+                            C.EXPR_NO,   /* 총계약회차 */
+                            TO_CHAR(ADD_MONTHS(ADD_MONTHS(JOIN_DT, C.EXPR_NO-A.NEW_CHAN_GUNSU), -1), 'YYYYMMDD') AS MDATE, /* 만기일자 */
+                            CASE WHEN A.PAY_MTHD = '04' THEN CASE WHEN LENGTH(D.ICHAE_DT) = 1 THEN '0' || TO_CHAR(D.ICHAE_DT) ELSE D.ICHAE_DT END /* CMS */
+                                 WHEN A.PAY_MTHD = '06' THEN CASE WHEN LENGTH(E.PAY_DT) = 1 THEN '0' || TO_CHAR(E.PAY_DT) ELSE E.PAY_DT END   /* 카드 */
+                                 ELSE '05' END CDAY,                    /* 손수 : 월납입예정일 */
+                            C.MON_PAY_AMT, /* 월납입계약금액 */
+                            SUBSTR(A.JOIN_DT,1,6) YYYYMM, /* 정산년월(신규는 가입월 기본) */
+                            A.JOIN_DT AS PAY_DT,                /* 납입일자(가입일자) */
+                            1 AS PAY_NUM,                                            /* 납입회차(기본 1회차) */
+                            0 AS PAY_AMT,										     /* 납입금액(기본 0원) */
+                            <![CDATA[CASE WHEN NVL(B.HOME_ZIP,' ') <> ' ' THEN B.HOME_ZIP ELSE B.WRPL_ZIP END POST,        /* 우편번호 */
+                            CASE WHEN NVL(B.HOME_ADDR,' ') <> ' ' THEN B.HOME_ADDR ELSE B.WRPL_ADDR END ADDR1,    /* 주소1 */
+                            CASE WHEN NVL(B.HOME_ADDR2,' ') <> ' ' THEN B.HOME_ADDR2 ELSE B.WRPL_ADDR2 END ADDR2, /* 주소2 */
+                            CASE WHEN NVL(B.CELL,' ') <> ' ' THEN B.CELL ELSE '010-0000-0000' END TEL]]>,         /* 연락처 */
+                            B.EMAIL																				   /* 이메일 */
+                    FROM MEM_PROD_ACCNT A
+                        LEFT OUTER JOIN MEMBER B ON A.MEM_NO = B.MEM_NO
+                        LEFT OUTER JOIN PRODUCT C ON C.PROD_CD = A.PROD_CD
+                        LEFT OUTER JOIN CMS_MEM D ON D.ACCNT_NO = A.ACCNT_NO
+                        LEFT OUTER JOIN CARD_MEM E ON E.ACCNT_NO = A.ACCNT_NO
+                        LEFT OUTER JOIN (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) AS CNT, ACCNT_NO, APP_CL
+                                           FROM NEW_CANCL_APP
+                                          WHERE STAT = '04'
+                                          GROUP BY ACCNT_NO, APP_CL, SEQ) CM WHERE CNT = 1) F ON A.ACCNT_NO = F.ACCNT_NO
+                        LEFT OUTER JOIN (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) AS CNT, ACCNT_NO, APP_CL
+                                           FROM CARD_NEW_CANCL_APP
+                                          GROUP BY ACCNT_NO, APP_CL, SEQ) CA WHERE CNT = 1) G ON A.ACCNT_NO = G.ACCNT_NO
+                        LEFT OUTER JOIN HP_CALL H ON H.ACCNT_NO = A.ACCNT_NO
+                        LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, MAX(PAY_DAY) PAY_DAY, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' GROUP BY ACCNT_NO) I ON I.ACCNT_NO = A.ACCNT_NO
+                    WHERE A.DEL_FG = 'N'		   /* 삭제된 회원이 아니며 */
+                      AND NVL(A.DED_NO,' ') = ' ' /* 공제회원번호가 존재하지 않으며 */
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N') /* 해약회원제외 */
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N')      /* 행사회원제외 */
+                      AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+                      AND A.ACCNT_NO IN(SELECT ACCNT_NO FROM GONGJE_HIST_TEMP WHERE ACCNT_NO = A.ACCNT_NO AND CL = 'D')
+                      <![CDATA[AND NVL(I.NO,0) > 0 ]]>                                     /* 입금 1회차 이상 존재 */
+                      <if test="stt_dt != null and stt_dt != ''">
+                         <![CDATA[AND A.JOIN_DT >= #{stt_dt} ]]>
+                      </if>
+                      <if test="end_dt != null and end_dt != ''">
+                         <![CDATA[AND A.JOIN_DT <= #{end_dt} ]]>
+                      </if>
+                ) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <insert id="GongjeSinMap.getGongjeNewInsert" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeSinMap.getGongjeNewInsert */
+
+        INSERT INTO GONGJE_HIST
+               (GDATE, CL, ACCNT_NO, GBIT, SIDATE)
+        SELECT  GDATE, CL, ACCNT_NO, GBIT, SIDATE
+        FROM GONGJE_HIST_TEMP
+        WHERE CL = 'D'
+    </insert>
+
+    <insert id="GongjeSinMap.getGongjeNewInsert_Temp" parameterType="map" >
+        <!-- sql-life.xml insertMember -->
+
+        /* GongjeSinMap.getGongjeNewInsert_Temp */
+
+        INSERT INTO GONGJE_HIST_TEMP
+               (GDATE, CL, ACCNT_NO, GBIT, SIDATE)
+        SELECT  TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                'D',
+                A.ACCNT_NO,
+                '00',
+                A.JOIN_DT
+        FROM MEM_PROD_ACCNT A
+            LEFT OUTER JOIN MEMBER B ON A.MEM_NO = B.MEM_NO
+            LEFT OUTER JOIN PRODUCT C ON C.PROD_CD = A.PROD_CD
+            LEFT OUTER JOIN CMS_MEM D ON D.ACCNT_NO = A.ACCNT_NO
+            LEFT OUTER JOIN CARD_MEM E ON E.ACCNT_NO = A.ACCNT_NO
+            LEFT OUTER JOIN (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) AS CNT, ACCNT_NO, APP_CL
+                               FROM NEW_CANCL_APP
+                              WHERE STAT = '04'
+                              GROUP BY ACCNT_NO, APP_CL, SEQ) CM WHERE CNT = 1) F ON A.ACCNT_NO = F.ACCNT_NO
+            LEFT OUTER JOIN (SELECT * FROM (SELECT ROW_NUMBER() OVER(PARTITION BY ACCNT_NO  ORDER BY SEQ DESC) AS CNT, ACCNT_NO, APP_CL
+                               FROM CARD_NEW_CANCL_APP
+                              GROUP BY ACCNT_NO, APP_CL, SEQ) CA WHERE CNT = 1) G ON A.ACCNT_NO = G.ACCNT_NO
+            LEFT OUTER JOIN HP_CALL H ON H.ACCNT_NO = A.ACCNT_NO
+            LEFT OUTER JOIN (SELECT ACCNT_NO, COUNT(NO) NO, MAX(PAY_DAY) PAY_DAY, SUM(PAY_AMT) PAY_AMT FROM PAY_MNG WHERE DEL_FG = 'N' GROUP BY ACCNT_NO) I ON I.ACCNT_NO = A.ACCNT_NO
+        WHERE A.DEL_FG = 'N'		   /* 삭제된 회원이 아니며 */
+          AND NVL(A.DED_NO,' ') = ' ' /* 공제회원번호가 존재하지 않으며 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM RESCISSION WHERE DEL_FG='N') /* 해약회원제외 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM EVENT WHERE DEL_FG='N')      /* 행사회원제외 */
+          AND A.ACCNT_NO NOT IN(SELECT ACCNT_NO FROM GONGJE_HIST WHERE GBIT IN('00','01','02'))
+          <![CDATA[AND NVL(I.NO,0) > 0 ]]>                                     /* 입금 1회차 이상 존재 */
+          <if test="stt_dt != null and stt_dt != ''">
+             <![CDATA[AND A.JOIN_DT >= #{stt_dt} ]]>
+          </if>
+          <if test="end_dt != null and end_dt != ''">
+             <![CDATA[AND A.JOIN_DT <= #{end_dt} ]]>
+          </if>
+    </insert>
+
+</mapper>

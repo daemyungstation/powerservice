@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MyMenuMap">
+
+    <sql id="MyMenuMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="my_menu_id != null and my_menu_id != ''">
+                AND A.MY_MENU_ID = #{my_menu_id}
+            </if>
+            <if test="hgrn_my_menu_id != null and hgrn_my_menu_id != ''">
+                AND A.HGRN_MY_MENU_ID = #{hgrn_my_menu_id}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND A.USER_ID = #{user_id}
+            </if>
+            <if test="my_menu_lvl_cnt != null and my_menu_lvl_cnt != ''">
+                AND A.MY_MENU_LVL_CNT = #{my_menu_lvl_cnt}
+            </if>
+        </where>
+    </sql>
+
+    <select id="MyMenuMap.getMyMenuCount" parameterType="map" resultType="int">
+        SELECT /* MyMenuMap.getMyMenuCount */
+               COUNT(*)
+            FROM TB_MY_MENU A
+        <include refid="MyMenuMap.selectCondition_fragment" />
+    </select>
+
+    <select id="MyMenuMap.getMyMenuList" parameterType="map" resultType="resultMap">
+        SELECT /* MyMenuMap.getMyMenuList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY GROUP_ID ASC, MY_MENU_LVL_CNT ASC, MY_MENU_ID ASC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT A.*
+                            , (CASE WHEN HGRN_MY_MENU_ID IS NULL THEN MY_MENU_ID
+                                    ELSE HGRN_MY_MENU_ID
+                               END) AS GROUP_ID
+                            , (SELECT B.USER_NM
+                                 FROM TB_USER B
+                                WHERE USER_ID = A.RGSR_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                            , (SELECT B.USER_NM
+                                 FROM TB_USER B
+                                WHERE USER_ID = A.AMND_ID
+                                  AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM (SELECT MY_MENU_ID, HGRN_MY_MENU_ID, MY_MENU_LVL_CNT
+                                     , USER_ID, MY_MENU_TITL, PGM_CD
+                                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                                  FROM TB_MY_MENU A
+                              <include refid="MyMenuMap.selectCondition_fragment" />
+                               ) A
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="MyMenuMap.insertMyMenu" parameterType="map">
+        <selectKey keyProperty="my_menu_id" resultType="String" order="BEFORE">
+            SELECT 'MMD' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* MyMenuMap.insertMyMenu */
+          INTO TB_MY_MENU
+               (MY_MENU_ID, HGRN_MY_MENU_ID, MY_MENU_LVL_CNT
+              , USER_ID, MY_MENU_TITL, PGM_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{my_menu_id}, #{hgrn_my_menu_id}, #{my_menu_lvl_cnt}
+              , #{user_id}, #{my_menu_titl}, #{pgm_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="MyMenuMap.updateMyMenu" parameterType="map">
+        UPDATE /* MyMenuMap.updateMyMenu */
+               TB_MY_MENU
+           SET AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID = #{amnd_id}
+             , MY_MENU_TITL = #{my_menu_titl}
+         WHERE MY_MENU_ID = #{my_menu_id}
+    </update>
+
+    <delete id="MyMenuMap.deleteMyMenu" parameterType="map">
+        DELETE /* MyMenuMap.deleteMyMenu */
+          FROM TB_MY_MENU
+         WHERE
+         <choose>
+            <when test="my_menu_id == null or my_menu_id == ''">
+               MY_MENU_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                        #{item}
+                </foreach>
+            </when>
+            <otherwise>
+               MY_MENU_ID = #{my_menu_id}
+            OR HGRN_MY_MENU_ID = #{my_menu_id}
+            </otherwise>
+        </choose>
+    </delete>
+</mapper>

@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace = "WklyRprgBasiMap">
+
+    <select id = "WklyRprgBasiMap.getWklyUserCount" parameterType="map" resultType="int">
+        SELECT /* WklyRprgBasiMap.getWklyUserCount */
+               COUNT(*)
+          FROM (SELECT A.USER_ID AS RPTR_ID
+                     , A.USER_NM AS RPTR_NM
+                     , A.TEAM_CD
+                     , A.YM AS WKLY_RPRG_BAS_YRMN
+                     , A.WEEKLY AS WKLY_RPRG_WT_SQNC
+                     , A.WEEK_STARTD, A.WEEK_ENDD, A.CNTR_CD
+                     , B.WKLY_RPRG_ID, B.WKLY_RPRG_NM, B.APPR_ID, B.WKLY_RPRG_PRGR_STAT_CD
+                     , B.SBMS_DTTM, B.SBMS_YN
+                     , B.RGSR_ID, B.AMNT_DTTM, B.AMND_ID, B.RGSN_DTTM
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TEAM_CD
+                           AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                  FROM (SELECT A.*, B.*
+                          FROM (SELECT TO_CHAR (WEEK_START, 'YYYYMM') AS YM
+                                     , TO_CHAR (WEEK_START, 'W') AS WEEKLY
+                                     , TO_CHAR(WEEK_START, 'YYYYMMDD') AS WEEK_STARTD
+                                     , TO_CHAR(WEEK_END, 'YYYYMMDD') AS WEEK_ENDD
+                                  FROM ( SELECT TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+                                              , TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+                                           FROM (SELECT TO_DATE(#{wkly_rprg_bas_yrmn}, 'YYYYMM') AS START_DT
+                                                         , LAST_DAY(TO_DATE(#{writeym2}, 'YYYYMM')) AS END_DT
+                                                   FROM DUAL
+                                                )
+                                        CONNECT BY LEVEL <![CDATA[<=]]> END_DT - START_DT
+                                       )
+                                 GROUP BY WEEK_START, WEEK_END
+                                 ORDER BY WEEK_START, WEEKLY
+                                ) A ,
+                                (SELECT *
+                                   FROM TB_USER A
+                                  WHERE USER_STAT_CD = '10'
+                                    <if test="user_id != null and user_id != ''">
+                                        AND USER_ID = #{user_id}
+                                    </if>
+                                    <choose>
+                                        <when test="team2_cd != null and team2_cd != ''">
+                                            AND TEAM_CD = #{team2_cd}
+                                        </when>
+                                        <when test="team1_cd != null and team1_cd != ''">
+                                            AND TEAM_CD IN (SELECT TEAM_CD
+                                                              FROM TB_CONS_TEAM
+                                                             WHERE HGRN_TEAM_CD = #{team1_cd})
+                                        </when>
+                                    </choose>
+                               ) B
+                           WHERE YM || WEEKLY BETWEEN #{wkly_rprg_bas_yrmn} || #{wkly_rprg_wt_sqnc} AND #{writeym2} || #{week2}
+                     ) A LEFT JOIN TB_WKLY_RPRG_BASI B
+                           ON A.USER_ID = B.RPTR_ID
+                          AND A.YM = B.WKLY_RPRG_BAS_YRMN
+                          AND A.WEEKLY = B.WKLY_RPRG_WT_SQNC
+
+            ) A
+    </select>
+
+    <select id = "WklyRprgBasiMap.getWklyUserList" parameterType="map" resultType="resultMap">
+        SELECT /*WklyRprgBasiMap.getWklyUserList*/
+               *
+          FROM (SELECT <choose>
+                            <when test="orderBy != null and orderBy != ''">
+                                ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                            </when>
+                            <otherwise>
+                                ROW_NUMBER() OVER (ORDER BY WKLY_RPRG_BAS_YRMN DESC, WKLY_RPRG_WT_SQNC DESC, TEAM_CD ASC, RPTR_NM ASC) AS PAGE_INDX
+                            </otherwise>
+                         </choose>
+                     , A.*
+                  FROM (SELECT WKLY_RPRG_ID, WKLY_RPRG_BAS_YRMN, WKLY_RPRG_WT_SQNC
+                             , WEEK_STARTD, WEEK_ENDD, RPTR_ID, RPTR_NM, TEAM_CD, TEAM_NM
+                             , APPR_ID, SBMS_YN
+                             , CNTR_CD, RGSR_ID, AMNT_DTTM, AMND_ID, RGSN_DTTM
+                             , TO_CHAR(SBMS_DTTM, 'YYYYMMDDHH24MISS') AS SBMS_DTTM
+                             , NVL(WKLY_RPRG_PRGR_STAT_CD, '10') AS WKLY_RPRG_PRGR_STAT_CD
+                             , NVL(WKLY_RPRG_NM, SUBSTR(WKLY_RPRG_BAS_YRMN, 1, 4) || '년 ' || SUBSTR(WKLY_RPRG_BAS_YRMN, 5, 2) || '월 ' || WKLY_RPRG_WT_SQNC || '주차 주간보고') AS WKLY_RPRG_NM
+                             , GETCODENM('PMS130', NVL(WKLY_RPRG_PRGR_STAT_CD, '10'), CNTR_CD) AS WKLY_RPRG_PRGR_STAT_NM
+                             , TO_CHAR(NVL((SELECT SUM(WKLY_BSWR_WGVL_VL) FROM TB_WKLY_BSWR_DTL WHERE WKLY_RPRG_ID = A.WKLY_RPRG_ID), 0), 'FM0.0') AS WKLY_BSWR_WGVL_VL
+                             , (SELECT HGRN_TEAM_CD
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD) AS HGRN_TEAM_CD
+                             , (SELECT USER_NM
+                                 FROM TB_USER
+                                 WHERE USER_ID = A.APPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS APPR_NM
+                             , (SELECT USER_NM
+                                 FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM (SELECT A.USER_ID AS RPTR_ID
+                                     , A.USER_NM AS RPTR_NM
+                                     , A.TEAM_CD
+                                     , A.YM AS WKLY_RPRG_BAS_YRMN
+                                     , A.WEEKLY AS WKLY_RPRG_WT_SQNC
+                                     , A.WEEK_STARTD, A.WEEK_ENDD, A.CNTR_CD
+                                     , B.WKLY_RPRG_ID, B.WKLY_RPRG_NM, B.APPR_ID, B.WKLY_RPRG_PRGR_STAT_CD
+                                     , B.SBMS_DTTM, B.SBMS_YN
+                                     , B.RGSR_ID, B.AMNT_DTTM, B.AMND_ID, B.RGSN_DTTM
+                                     , (SELECT TEAM_NM
+                                          FROM TB_CONS_TEAM
+                                         WHERE TEAM_CD = A.TEAM_CD
+                                           AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                                  FROM (SELECT A.*, B.*
+                                          FROM (SELECT TO_CHAR (WEEK_START, 'YYYYMM') AS YM
+                                                     , TO_CHAR (WEEK_START, 'W') AS WEEKLY
+                                                     , TO_CHAR(WEEK_START, 'YYYYMMDD') AS WEEK_STARTD
+                                                     , TO_CHAR(WEEK_END, 'YYYYMMDD') AS WEEK_ENDD
+                                                  FROM ( SELECT TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+                                                              , TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+                                                           FROM (SELECT TO_DATE(#{wkly_rprg_bas_yrmn}, 'YYYYMM') AS START_DT
+                                                                         , LAST_DAY(TO_DATE(#{writeym2}, 'YYYYMM')) AS END_DT
+                                                                   FROM DUAL
+                                                                )
+                                                        CONNECT BY LEVEL <![CDATA[<=]]> END_DT - START_DT
+                                                       )
+                                                 GROUP BY WEEK_START, WEEK_END
+                                                 ORDER BY WEEK_START, WEEKLY
+                                                ) A ,
+                                                (SELECT *
+                                                   FROM TB_USER A
+                                                  WHERE USER_STAT_CD = '10'
+                                                    <if test="user_id != null and user_id != ''">
+                                                        AND USER_ID = #{user_id}
+                                                    </if>
+                                                    <choose>
+                                                        <when test="team2_cd != null and team2_cd != ''">
+                                                            AND TEAM_CD = #{team2_cd}
+                                                        </when>
+                                                        <when test="team1_cd != null and team1_cd != ''">
+                                                            AND TEAM_CD IN (SELECT TEAM_CD
+                                                                              FROM TB_CONS_TEAM
+                                                                             WHERE HGRN_TEAM_CD = #{team1_cd})
+                                                        </when>
+                                                    </choose>
+                                               ) B
+                                           WHERE YM || WEEKLY BETWEEN #{wkly_rprg_bas_yrmn} || #{wkly_rprg_wt_sqnc} AND #{writeym2} || #{week2}
+                                     ) A LEFT JOIN TB_WKLY_RPRG_BASI B
+                                           ON A.USER_ID = B.RPTR_ID
+                                          AND A.YM = B.WKLY_RPRG_BAS_YRMN
+                                          AND A.WEEKLY = B.WKLY_RPRG_WT_SQNC
+                               ) A
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id = "WklyRprgBasiMap.insertWklyReport" parameterType="map">
+        <selectKey keyProperty="new_wkly_rprg_id" resultType="String" order="BEFORE">
+        SELECT 'WKR' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        MERGE INTO /* WklyRprgBasiMap.insertWklyReport */
+                    TB_WKLY_RPRG_BASI A
+        USING ( SELECT #{wkly_rprg_bas_yrmn} AS WKLY_RPRG_BAS_YRMN
+                     , #{wkly_rprg_wt_sqnc} AS WKLY_RPRG_WT_SQNC
+                     , #{rptr_id} AS RPTR_ID
+                  FROM DUAL ) B
+          ON ( A.WKLY_RPRG_BAS_YRMN = B.WKLY_RPRG_BAS_YRMN
+                  AND A.WKLY_RPRG_WT_SQNC = B.WKLY_RPRG_WT_SQNC
+                AND A.RPTR_ID = B.RPTR_ID)
+          WHEN MATCHED THEN
+              UPDATE SET
+                     AMND_ID = #{amnd_id}
+                   , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+          WHEN NOT MATCHED THEN
+              INSERT  ( WKLY_RPRG_ID, WKLY_RPRG_NM, WKLY_RPRG_BAS_YRMN, WKLY_RPRG_WT_SQNC
+                     , WKLY_RPRG_PRGR_STAT_CD, SBMS_DTTM, RPTR_ID, APPR_ID
+                     , CNTR_CD, RGSR_ID, AMND_ID, RGSN_DTTM, AMNT_DTTM )
+                VALUES (#{new_wkly_rprg_id}, #{wkly_rprg_nm}, #{wkly_rprg_bas_yrmn}, #{wkly_rprg_wt_sqnc}
+                     , #{wkly_rprg_prgr_stat_cd}, #{sbms_dttm}, #{rptr_id}, #{appr_id}
+                     , #{cntr_cd}, #{rgsr_id}, #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id = "WklyRprgBasiMap.updateWklyReport" parameterType="map">
+        UPDATE /* TB_WKLY_RPRG_BASI.updateWklyReport */
+               TB_WKLY_RPRG_BASI
+           SET WKLY_RPRG_PRGR_STAT_CD = '20'
+             , SBMS_YN       = 'N'
+         WHERE CNTR_CD       = #{cntr_cd}
+           AND WKLY_RPRG_ID  = #{wkly_rprg_id}
+    </update>
+
+    <update id = "WklyRprgBasiMap.commitWklyReport" parameterType="map">
+        UPDATE /* WklyRprgBasiMap.commitWklyReport*/
+               TB_WKLY_RPRG_BASI
+           SET SBMS_DTTM    = SYSTIMESTAMP
+             , SBMS_YN      = 'Y'
+             , WKLY_RPRG_PRGR_STAT_CD = '30'
+             , APPR_ID      = #{appr_id}
+             , AMND_ID      = #{amnd_id}
+             , AMNT_DTTM    = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHERE CNTR_CD      = #{cntr_cd}
+           AND WKLY_RPRG_ID = #{wkly_rprg_id}
+    </update>
+
+    <select id = "WklyRprgBasiMap.getWklyReportResult" parameterType="map" resultType="resultMap">
+        SELECT /* WklyRprgBasiMap.getWklyReportResult */
+              *
+          FROM (SELECT WKLY_BSWR_TYP_CD, WKLY_BSWR_TYP_NM, WKLY_BSWR_DTLS_CD, WKLY_BSWR_DTLS_NM, RPTR_ID
+                     , RPTR_NM, BFWK_PLAN_CNTN, THWK_ACRS_CNTN, NTWK_PLAN_CNTN, WKLY_BSWR_WGVL_VL
+                     , WKLY_BSWR_TYP_CNT, WKLY_BSWR_DTLS_CNT, RPTR_CNT, TEAM_CD, TEAM_NM
+                     , (SELECT COUNT(RPTR_ID)
+                          FROM TB_WKLY_RPRG_BASI
+                         WHERE SBMS_YN = 'Y'
+                           AND WKLY_RPRG_BAS_YRMN  = #{wkly_rprg_bas_yrmn}
+                           AND WKLY_RPRG_WT_SQNC     = #{wkly_rprg_wt_sqnc}
+                           <if test="appr_id != null and appr_id != ''">
+                           AND APPR_ID = #{appr_id}
+                           </if>
+                            <choose>
+                                <when test="team2_cd != null and team2_cd != ''">
+                                AND TEAM_CD = #{team2_cd}
+                                </when>
+                                <when test="team1_cd != null and team1_cd != ''">
+                                AND TEAM_CD IN (SELECT TEAM_CD
+                                                  FROM TB_CONS_TEAM
+                                                 WHERE HGRN_TEAM_CD = #{team1_cd})
+                                </when>
+                            </choose>
+                         ) AS USERCHK
+                  FROM (SELECT A.WKLY_BSWR_TYP_CD, A.WKLY_BSWR_DTLS_CD, A.WKLY_BSWR_WGVL_VL, B.RPTR_ID
+                             , A.BFWK_PLAN_CNTN, A.THWK_ACRS_CNTN, A.NTWK_PLAN_CNTN, C.TEAM_CD
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.RPTR_ID) AS RPTR_NM
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = C.TEAM_CD) AS TEAM_NM
+                             , (SELECT WKLY_BSWR_TYP_NM
+                                  FROM TB_WKLY_BSWR_TYP
+                                 WHERE WKLY_BSWR_TYP_CD = A.WKLY_BSWR_TYP_CD) AS WKLY_BSWR_TYP_NM
+                             , (SELECT WKLY_BSWR_DTLS_NM
+                                  FROM TB_WKLY_BSWR_DTLS_CD
+                                 WHERE WKLY_BSWR_TYP_CD = A.WKLY_BSWR_TYP_CD
+                                   AND WKLY_BSWR_DTLS_CD = A.WKLY_BSWR_DTLS_CD) AS WKLY_BSWR_DTLS_NM
+                             , COUNT(A.WKLY_BSWR_TYP_CD) OVER(PARTITION BY A.WKLY_BSWR_TYP_CD) AS WKLY_BSWR_TYP_CNT
+                             , COUNT(A.WKLY_BSWR_DTLS_CD) OVER(PARTITION BY A.WKLY_BSWR_DTLS_CD, A.WKLY_BSWR_TYP_CD) AS WKLY_BSWR_DTLS_CNT
+                             , COUNT(B.RPTR_ID) OVER(PARTITION BY B.RPTR_ID, A.WKLY_BSWR_DTLS_CD, A.WKLY_BSWR_TYP_CD) AS RPTR_CNT
+                          FROM TB_WKLY_BSWR_DTL A, TB_WKLY_RPRG_BASI B, TB_USER C
+                         WHERE A.WKLY_RPRG_ID = B.WKLY_RPRG_ID
+                           AND B.RPTR_ID = C.USER_ID
+                           AND B.SBMS_YN = 'Y'
+                           AND B.WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+                           AND B.WKLY_RPRG_WT_SQNC = #{wkly_rprg_wt_sqnc}
+                           <if test="appr_id != null and appr_id != ''">
+                           AND B.APPR_ID = #{appr_id}
+                           </if>
+                            <choose>
+                                <when test="team2_cd != null and team2_cd != ''">
+                                AND TEAM_CD = #{team2_cd}
+                                </when>
+                                <when test="team1_cd != null and team1_cd != ''">
+                                AND TEAM_CD IN (SELECT TEAM_CD
+                                                  FROM TB_CONS_TEAM
+                                                 WHERE HGRN_TEAM_CD = #{team1_cd})
+                                </when>
+                            </choose>
+                      ORDER BY A.WKLY_BSWR_TYP_CD, A.WKLY_BSWR_DTLS_CD, RPTR_NM
+                       )
+                )
+    </select>
+
+    <select id = "WklyRprgBasiMap.getWklyReportResultCount" parameterType="map" resultType="int">
+        SELECT /* WklyRprgBasiMap.getWklyReportResultCount */
+               COUNT(*)
+          FROM TB_WKLY_BSWR_DTL A, TB_WKLY_RPRG_BASI B, TB_USER C
+         WHERE A.WKLY_RPRG_ID = B.WKLY_RPRG_ID
+           AND B.RPTR_ID = C.USER_ID
+           AND B.SBMS_YN = 'Y'
+           AND B.WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+           AND B.WKLY_RPRG_WT_SQNC = #{wkly_rprg_wt_sqnc}
+           <if test="wkly_bswr_typ_cd != null and wkly_bswr_typ_cd != ''">
+           AND A.WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+           </if>
+           <if test="appr_id != null and appr_id != ''">
+           AND B.APPR_ID = #{appr_id}
+           </if>
+           <choose>
+               <when test="team2_cd != null and team2_cd != ''">
+               AND TEAM_CD = #{team2_cd}
+               </when>
+               <when test="team1_cd != null and team1_cd != ''">
+               AND TEAM_CD IN (SELECT TEAM_CD
+                                 FROM TB_CONS_TEAM
+                                WHERE HGRN_TEAM_CD = #{team1_cd})
+               </when>
+           </choose>
+    </select>
+
+    <select id = "WklyRprgBasiMap.getExcelUserList" parameterType="map" resultType="resultMap">
+        SELECT /* WklyRprgBasiMap.getExcelUserList */
+               USER_ID, USER_NM, USER_STAT_CD, TEAM_NM, ATHR_NM
+             , DUTY_CD, DUTY_NM, TEAM_CD, TEAM_SQNC, HGRN_TEAM_CD
+          FROM (SELECT A.USER_ID, A.USER_NM, A.USER_STAT_CD, A.DUTY_CD, A.TEAM_CD
+                     , GETCODENM('USR030', A.DUTY_CD, 'CCA') AS DUTY_NM
+                     , (SELECT HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TEAM_CD) AS HGRN_TEAM_CD
+                     , (SELECT TEAM_SQNC
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TEAM_CD) AS TEAM_SQNC
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = A.TEAM_CD) AS TEAM_NM
+                     , (SELECT ATHR_NM
+                          FROM TB_ATHR
+                         WHERE ATHR_CD = A.ATHR_CD
+                           AND cntr_cd = A.cntr_cd) AS ATHR_NM
+                  FROM TB_USER A, TB_WKLY_RPRG_BASI B
+                 WHERE A.USER_STAT_CD = '10'
+                   AND A.USER_ID = B.RPTR_ID(+)
+                <if test="appr_id != null and appr_id != ''">
+                   AND B.APPR_ID = #{appr_id}
+                </if>
+                <if test="wkly_rprg_bas_yrmn != null and wkly_rprg_bas_yrmn != ''">
+                    AND B.WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+                </if>
+                <if test="wkly_rprg_wt_sqnc != null and wkly_rprg_wt_sqnc != ''">
+                    AND B.WKLY_RPRG_WT_SQNC = #{wkly_rprg_wt_sqnc}
+                </if>
+            <choose>
+                <when test="team2_cd != null and team2_cd != ''">
+                   AND TEAM_CD = #{team2_cd}
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                   AND TEAM_CD IN (SELECT TEAM_CD
+                                     FROM TB_CONS_TEAM
+                                    WHERE HGRN_TEAM_CD = #{team1_cd})
+               </when>
+           </choose>
+             )
+             GROUP BY USER_ID, USER_NM, USER_STAT_CD, TEAM_NM, ATHR_NM, DUTY_NM, DUTY_CD, TEAM_CD, TEAM_SQNC, HGRN_TEAM_CD
+             ORDER BY HGRN_TEAM_CD, TEAM_SQNC, TEAM_CD, DUTY_CD DESC, USER_NM
+    </select>
+
+    <select id = "WklyRprgBasiMap.getWklybswrList" parameterType="map" resultType="resultMap">
+        SELECT /* WklyRprgBasiMap.getWklybswrList */
+               *
+          FROM (SELECT A.WKLY_RPRG_ID, A.WKLY_RPRG_BAS_YRMN, A.WKLY_RPRG_WT_SQNC, A.WKLY_RPRG_PRGR_STAT_CD
+                     , A.RPTR_ID, B.WKLY_BSWR_TYP_CD, B.WKLY_BSWR_DTLS_CD, B.NTWK_PLAN_CNTN
+                  FROM TB_WKLY_RPRG_BASI A, TB_WKLY_BSWR_DTL B
+                 WHERE A.WKLY_RPRG_ID = B.WKLY_RPRG_ID
+                   AND WKLY_RPRG_PRGR_STAT_CD = '30'
+                   AND WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+                   AND WKLY_RPRG_WT_SQNC =#{wkly_rprg_wt_sqnc}
+                   AND RPTR_ID = #{rptr_id}
+                   AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+                   AND WKLY_BSWR_DTLS_CD = #{wkly_bswr_dtls_cd}
+               )
+    </select>
+
+    <select id = "WklyRprgBasiMap.getWklyFile" parameterType="map" resultType="resultMap">
+        SELECT /* WklyRprgBasiMap.getWklyFile */
+               B.FILE_ID, B.RLTN_ITEM_ID, B.ATCH_TYP_CD, B.FILE_NM, B.FILE_SIZE_VL
+            , (SELECT USER_NM
+                 FROM TB_USER
+                WHERE USER_ID = RPTR_ID) AS RPTR_NM
+          FROM (SELECT *
+                  FROM TB_WKLY_RPRG_BASI A
+                <where>
+                    <if test="wkly_rprg_bas_yrmn != null and wkly_rprg_bas_yrmn != ''">
+                        AND WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+                    </if>
+                    <if test="wkly_rprg_wt_sqnc != null and wkly_rprg_wt_sqnc != ''">
+                        AND WKLY_RPRG_WT_SQNC = #{wkly_rprg_wt_sqnc}
+                    </if>
+                    <if test="appr_id != null and appr_id != ''">
+                        AND APPR_ID = #{appr_id}
+                    </if>
+                    <if test="team1_cd != null and team1_cd != ''">
+                        AND EXISTS (SELECT *
+                                      FROM TB_USER B, TB_CONS_TEAM C
+                                     WHERE B.TEAM_CD = C.TEAM_CD
+                                       AND B.CNTR_CD = C.CNTR_CD
+                                       AND B.USER_ID = A.RPTR_ID
+                                       AND B.CNTR_CD = A.CNTR_CD
+                                       AND C.HGRN_TEAM_CD = #{team1_cd})
+                    </if>
+                    <if test="team2_cd != null and team2_cd != ''">
+                        AND EXISTS (SELECT *
+                                      FROM TB_USER
+                                     WHERE USER_ID = A.RPTR_ID
+                                       AND CNTR_CD = A.CNTR_CD
+                                       AND TEAM_CD = #{team2_cd})
+                    </if>
+                </where>
+               ) A
+            RIGHT JOIN
+               (SELECT *
+                  FROM TB_FILE
+                 WHERE RLTN_TBL_NM = 'TB_WKLY_RPRG_BASI'
+                   AND EXISTS (SELECT *
+                                 FROM TB_WKLY_RPRG_BASI A
+                                WHERE WKLY_RPRG_ID = RLTN_ITEM_ID
+                              <if test="wkly_rprg_bas_yrmn != null and wkly_rprg_bas_yrmn != ''">
+                                  AND A.WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+                              </if>
+                              <if test="wkly_rprg_wt_sqnc != null and wkly_rprg_wt_sqnc != ''">
+                                  AND A.WKLY_RPRG_WT_SQNC = #{wkly_rprg_wt_sqnc}
+                              </if>
+                              <if test="appr_id != null and appr_id != ''">
+                                  AND A.APPR_ID = #{appr_id}
+                              </if>
+                              <if test="team1_cd != null and team1_cd != ''">
+                                  AND EXISTS (SELECT *
+                                                FROM TB_USER B, TB_CONS_TEAM C
+                                               WHERE B.TEAM_CD = C.TEAM_CD
+                                                 AND B.CNTR_CD = C.CNTR_CD
+                                                 AND B.USER_ID = A.RPTR_ID
+                                                 AND B.CNTR_CD = A.CNTR_CD
+                                                 AND C.HGRN_TEAM_CD = #{team1_cd})
+                              </if>
+                              <if test="team2_cd != null and team2_cd != ''">
+                                  AND EXISTS (SELECT *
+                                                FROM TB_USER
+                                               WHERE USER_ID = A.RPTR_ID
+                                                 AND CNTR_CD = A.CNTR_CD
+                                                 AND TEAM_CD = #{team2_cd})
+                              </if>
+                               )
+               ) B
+              ON A.WKLY_RPRG_ID = B.RLTN_ITEM_ID
+    </select>
+</mapper>

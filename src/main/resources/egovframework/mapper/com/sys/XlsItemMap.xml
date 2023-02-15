@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="XlsItemMap">
+
+    <sql id="XlsItemMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="xls_id != null and xls_id != ''">
+                AND A.XLS_ID = #{xls_id}
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND A.USE_YN = #{use_yn}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 엑셀항목 건수 -->
+    <select id="XlsItemMap.getXlsItemCount" parameterType="map" resultType="int">
+       SELECT /* XlsItemMap.getXlsItemCount */
+              COUNT(*)
+         FROM TB_XLS_ITEM A
+       <include refid="XlsItemMap.selectCondition_fragment"/>
+    </select>
+
+    <!-- 엑셀항목 검색 -->
+    <select id="XlsItemMap.getXlsItemList" parameterType="map" resultType="resultMap">
+        SELECT /* XlsItemMap.getXlsItemList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , XLS_ID, XLS_COLM_ID, XLS_COLM_NM, XLS_COLM_EXPI, XLS_COLM_SQNC
+                     , USE_YN, MEGE_YN, XLS_COLM_TYPE_CD
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , RGSR_NM, AMND_NM
+                  FROM (SELECT XLS_ID, XLS_COLM_ID, XLS_COLM_NM, XLS_COLM_EXPI, XLS_COLM_SQNC
+                             , USE_YN, MEGE_YN, XLS_COLM_TYPE_CD
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_XLS_ITEM A
+        <include refid="XlsItemMap.selectCondition_fragment"/>
+        <if test="orderBy == null or orderBy == ''">
+                      ORDER BY A.XLS_COLM_SQNC ASC
+        </if>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       )
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <!-- 엑셀항목 등록 -->
+    <insert id="XlsItemMap.insertXlsItem" parameterType="map">
+        INSERT /* XlsItemMap.insertXlsItem */
+          INTO TB_XLS_ITEM
+               (XLS_ID, XLS_COLM_ID, XLS_COLM_NM, XLS_COLM_EXPI, XLS_COLM_SQNC
+              , USE_YN, MEGE_YN, XLS_COLM_TYPE_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+       VALUES (#{xls_id}, #{xls_colm_id}, #{xls_colm_nm}, #{xls_colm_expi}, #{xls_colm_sqnc}
+             , #{use_yn}, #{mege_yn}, #{xls_colm_type_cd}
+             , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <!-- 엑셀항목 수정 -->
+    <update id="XlsItemMap.updateXlsItem" parameterType="map">
+        UPDATE /* XlsItemMap.updateXlsItem */
+               TB_XLS_ITEM
+           SET XLS_COLM_NM = #{xls_colm_nm}
+             , XLS_COLM_EXPI = #{xls_colm_expi}
+             , XLS_COLM_SQNC = #{xls_colm_sqnc}
+             , USE_YN = #{use_yn}
+             , MEGE_YN = #{mege_yn}
+             , XLS_COLM_TYPE_CD = #{xls_colm_type_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE XLS_COLM_ID = #{xls_colm_id}
+          AND XLS_ID = #{xls_id}
+    </update>
+
+    <!-- 엑셀항목 삭제 -->
+    <delete id="XlsItemMap.deleteXlsItem" parameterType="map">
+        DELETE /* XlsItemMap.deleteXlsItem */
+          FROM TB_XLS_ITEM
+         WHERE XLS_ID = #{xls_id}
+    </delete>
+
+    <!-- 엑셀항목(팝업) 등록 -->
+    <insert id="XlsItemMap.insertXlsItemPopup" parameterType="map">
+        INSERT /* XlsItemMap.insertXlsItemPopup */
+          INTO TB_XLS_ITEM
+              (XLS_ID, XLS_COLM_ID, XLS_COLM_SQNC, USE_YN, MEGE_YN
+             , XLS_COLM_TYPE_CD
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+       SELECT #{xls_id}, #{xls_colm_id}, NVL(MAX(XLS_COLM_SQNC), 0) + 1, 'Y', 'N'
+            , '10'
+            , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         FROM TB_XLS_ITEM
+        WHERE XLS_ID = #{xls_id}
+    </insert>
+
+    <!-- 엑셀항목(팝업) 수정 -->
+    <update id="XlsItemMap.updateXlsItemPopup" parameterType="map">
+        UPDATE /* XlsItemMap.updateXlsItemPopup */
+               TB_XLS_ITEM
+           SET XLS_COLM_NM = #{xls_colm_nm}
+             , XLS_COLM_EXPI = #{xls_colm_expi}
+             , XLS_COLM_SQNC = NVL(#{xls_colm_sqnc}, 0)
+             , USE_YN = NVL(#{use_yn}, 'Y')
+             , MEGE_YN = NVL(#{mege_yn}, 'N')
+             , XLS_COLM_TYPE_CD = NVL(#{xls_colm_type_cd}, '10')
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE XLS_COLM_ID = #{xls_colm_id}
+          AND XLS_ID = #{xls_id}
+    </update>
+
+    <!-- 엑셀항목(팝업) 삭제 -->
+    <delete id="XlsItemMap.deleteXlsItemPopup" parameterType="map">
+        DELETE /* XlsItemMap.deleteXlsItemPopup */
+          FROM TB_XLS_ITEM
+         WHERE XLS_ID = #{xls_id}
+           AND XLS_COLM_ID
+           <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+           </foreach>
+    </delete>
+
+</mapper>

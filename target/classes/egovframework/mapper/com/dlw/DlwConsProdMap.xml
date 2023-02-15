@@ -1,0 +1,2415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwConsProdMap">
+
+    <!-- 회원 상품 정보 조회 -->
+    <select id="DlwConsProdMap.getDlwConsProdList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectMemberList -->
+
+
+       SELECT /* DlwConsProdMap.getDlwConsProdList */
+                       B.MEM_NO, B.OLD_MID, B.ACCNT_NO, B.PROD_CD, B.EMPLE_NO
+                     , B.APPFM_NO, B.COMPT_DT, B.BEF_EMPLE_CD, B.PAY_PERD, B.PAY_MTHD
+                     , B.POST_MTR_RCV, B.JOIN_PROD, B.NEW_CHAN_GUNSU, B.ORG_JOIN_GUNSU, B.CERTF_RCV_CHK
+                     , B.DED_NO, B.TR_MEM_NO, B.RESORT_MEM_NO, B.RESORT_MEM_GUBUN
+                     , B.BEFORE_DC_CNT, B.RESORT_MEM_NM, B.RECOMMEND_EMPLE_NO, B.INSPL_ZIP, B.INSPL_ADDR
+                     , B.INSPL_ADDR2, B.REAL_LOTTERY_NO, B.PROD_KIND, B.RAND_NUM
+                     , B.ORDER_NUM, B.INSPL_PHONE
+                     , C.STAT AS APPR_STAT, C.EMPLE_NO APPV_MAN_CD
+                     , D.PROD_AMT, D.MON_PAY_AMT, D.PROD_CL
+                     , D.EXPR_NO
+                     , CASE WHEN F.RESN_PROC_YN = 'Y' THEN F.RESN_PAY_AMT
+                            ELSE TRUNC(FN_RESN_AMT_NEW(B.PROD_CD,(SELECT NVL(COUNT(PAY_AMT),0) FROM PAY_MNG WHERE ACCNT_NO = B.ACCNT_NO AND DEL_FG = 'N'),B.JOIN_DT)) -
+                                 (SELECT NVL(SUM(DC_AMT),0)
+                                    FROM DC_AMT_REG
+                                   WHERE DC_AMT_REG.ACCNT_NO = B.ACCNT_NO ) -
+                                 NVL((WITH V AS (SELECT NVL(SUM(NVL(SUB_USE_AMT,0)) - SUM(NVL(SUB_CAN_AMT,0)) ,0) USE_AMT
+                                                      , GOODS_ID
+                                                   FROM ( SELECT CASE WHEN TYPE = 'U' THEN SUM(AMT) ELSE 0 END AS SUB_USE_AMT 
+                                                               , CASE WHEN TYPE = 'C' THEN SUM(AMT) ELSE 0 END AS SUB_CAN_AMT 
+                                                               , GOODS_ID
+                                                            FROM CASH_HISTORY@TB_SHOPPING LINK_CH
+                                                           WHERE 1=1
+                                                           GROUP BY TYPE ,GOODS_ID
+                                                         )
+                                                   GROUP BY GOODS_ID
+                                                )
+                                      SELECT USE_AMT
+                                        FROM V
+                                       WHERE GOODS_ID = B.ACCNT_NO), 0)
+                            END AS RESN_AMT
+                     , (SELECT COUNT(NO) PAY_NO
+                          FROM PAY_MNG
+                         WHERE ACCNT_NO= B.ACCNT_NO
+                           AND DEL_FG='N'
+                      GROUP BY ACCNT_NO) AS PAY_NO
+
+                     , FN_YEN_CHE(B.ACCNT_NO) AS PAY_STATE
+                     , FN_PAY_STATE(B.ACCNT_NO) AS UNION_PAY_STATE
+                     , FN_PROD_NM(B.PROD_CD) AS PROD_NM
+                     , FN_EMPLE_NM(B.EMPLE_NO) AS EMPLE_NM
+                     , FN_EMPLE_NM(B.BEF_EMPLE_CD) AS BEF_EMPLE_NM
+
+                     , (CASE WHEN F.ACCNT_NO IS NOT NULL AND F.RESN_CL!='02' AND NVL(F.RESN_PROC_YN,'N') = 'N'
+                                  THEN '해약미처리'
+                             ELSE FN_EVENT(B.ACCNT_NO)
+                         END) AS EVENT_NM
+
+                     , FN_EVENT_DAY(B.ACCNT_NO) AS EVENT_DAY
+                     , FN_COM_NM('01', B.PAY_MTHD) AS PAY_MTHD_NM
+                     , FN_COM_NM('03', B.PAY_PERD) AS PAY_PERD_NM
+                     , FN_COM_NM('04', B.POST_MTR_RCV) AS POST_MTR_RCV_NM
+                     , FN_EMPLE_NM(B.REG_MAN) REG_MAN
+                     , FN_GETMEMPRODACCNTSVC(B.ACCNT_NO) AS MEM_PROD_ACCNT_SVC
+
+                     , NVL(B.JOIN_CL,'01') AS JOIN_CL
+                     , NVL(B.B2B_COMP_CD, ' ') B2B_COMP_CD
+                     , NVL(B.B2B_EMPLE_NO, ' ') B2B_EMPLE_NO
+                     , NVL(B.OCB_REG_YN, 'Y') OCB_REG_YN
+                     , NVL(B.OCB_POINT_YN, 'Y') OCB_POINT_YN
+                     , NVL(B.ACCNT_NOTE, ' ') ACCNT_NOTE
+                     , NVL(B.ID_NO, ' ') ID_NO
+                     , NVL(B.KB_NO, ' ') KB_NO
+                     , NVL(B.SM_SHOP_INFO, ' ') SM_SHOP_INFO
+                     , NVL(FN_COM_NM('0184', B.SM_SHOP_INFO), ' ') SM_SHOP_NM
+                     , NVL(PROD_MODEL_KIND, ' ') PROD_MODEL_KIND
+                     , NVL(TO_CHAR(PROD_MODEL_CD), ' ') PROD_MODEL_CD
+                     , CASE WHEN B.PAY_GUBUN = '' THEN '00' ELSE B.PAY_GUBUN END AS PAY_GUBUN
+                     , CASE WHEN EXISTS (SELECT *
+                                           FROM MEM_PROD_ACCNT
+                                          WHERE ACCNT_NO = B.ACCNT_NO
+                                            AND DEL_FG = 'N'
+                                            AND TRUNC(SYSDATE - TO_DATE(JOIN_DT,'YYYY-MM-DD')) <![CDATA[<]]>  14)
+                                 THEN '02'
+                            ELSE '01'
+                        END AS R_GUBN <!-- 해약 청약 구분: 가입기간 2주일 이내 상품 -->
+                     , TO_CHAR(B.REG_DM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM
+                     , B.JOIN_DT AS JOIN_DT
+                     , /*CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, B.BANK_ACCNT_NO))*/ '암호화' BANK_ACCNT_NO
+
+                     , (SELECT FN_EMPLE_NM(EMPLE_NO)
+                          FROM HP_CALL
+                         WHERE ACCNT_NO = B.ACCNT_NO) AS CNSL_MAN
+                     , (SELECT FN_COM_NM('81', STAT) <!-- 해피콜 상담상태 -->
+                          FROM HP_CALL
+                         WHERE ACCNT_NO = B.ACCNT_NO) AS HPCL_STAT_NM
+                     , (SELECT STAT
+                          FROM HP_CALL
+                         WHERE ACCNT_NO = B.ACCNT_NO) AS HPCL_STAT_CD
+                     , CASE WHEN NVL(B.JA_SUBSCRPT_YN, 'N') = ''
+                                 THEN 'N'
+                            ELSE NVL(B.JA_SUBSCRPT_YN, 'N')
+                        END JA_SUBSCRPT_YN
+                     , CASE WHEN (SELECT COUNT(*)
+                                    FROM PRODUCT_KIND
+                                   WHERE <![CDATA[PROD_CD = B.PROD_CD) > 0]]>
+                                 THEN 'Y'
+                            ELSE 'N'
+                        END PROD_KIND_YN
+                     , FN_DEPT_NM((SELECT DEPT_CD
+                                         FROM EMPLOYEE
+                                        WHERE EMPLE_NO = B.EMPLE_NO)) AS EMPLE_DEPT_NM
+                     , (SELECT CELL
+                          FROM EMPLOYEE
+                         WHERE EMPLE_NO = B.EMPLE_NO) AS EMPLE_CELL
+                     , FN_DEPT_NM((SELECT DEPT_CD
+                                         FROM EMPLOYEE
+                                        WHERE EMPLE_NO = B.BEF_EMPLE_CD)) AS BEF_EMPLE_DEPT_NM
+                     , (SELECT CELL
+                          FROM EMPLOYEE
+                         WHERE EMPLE_NO = B.BEF_EMPLE_CD) AS BEF_EMPLE_CELL
+                     , FN_DEPT_NM((SELECT DEPT_CD
+                                         FROM EMPLOYEE
+                                        WHERE EMPLE_NO = B.RECOMMEND_EMPLE_NO)) AS RECOM_EMPLE_DEPT_NM
+                     , (SELECT CELL
+                          FROM EMPLOYEE
+                         WHERE EMPLE_NO = B.RECOMMEND_EMPLE_NO) AS RECOM_EMPLE_CELL
+                     , NVL(( SELECT COM_NM
+                                  FROM B2BCOMCD
+                                 WHERE COM_CD = B.B2B_COMP_CD ), ' ') AS B2B_COMP_NM
+                     <!-- 모델분류명 변경 -->
+                     <!-- , ISNULL((SELECT PROD_KIND_NM
+                                 FROM PRODUCT_KIND
+                                WHERE PROD_CD = B.PROD_CD
+                                  AND SEQ = B.PROD_KIND), '') PROD_KIND_NM -->
+                     , (SELECT FN_MODEL_CL_NM(PMM.PROD_KIND)
+                          FROM PRODUCT_MODEL_MST PMM
+                         WHERE PMM.PROD_CD = B.PROD_CD
+                           AND PMM.PROD_KIND = B.PROD_MODEL_KIND
+                           AND PMM.DEL_FG = 'N') AS PROD_MODEL_KIND_NM
+                     <!-- 모델명 조회 추가 -->
+                     , NVL(TBL_PMD.MODEL_NM,' ') || NVL(CASE WHEN NVL(TBL_PMD.DISCONTINUED_DT, '9999/12/31') >  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                                             THEN ''
+                                                             ELSE '(단종)'
+                                                             END,' ') PROD_MODEL_NM
+                     <!-- 상품종류명 조회 추가 -->
+                     , (SELECT PROD_KIND_NM
+                          FROM PRODUCT_KIND
+                         WHERE MODEL_CL_CD = B.PROD_MODEL_KIND
+                           AND SEQ = B.PROD_KIND) AS PROD_KIND_NM
+                     , CASE WHEN E.NO = 1
+                                 THEN 'Y'
+                            ELSE 'N'
+                        END AS PAY_STAT_1NO
+                     , FN_COM_NM('81', C.STAT) AS APPR_RELTN
+                     , NVL(TO_CHAR(C.REG_DM, 'YYYY-MM-DD HH24:MI:SS'), ' ') AS APPR_DAY
+                     , TO_CHAR(ADD_MONTHS(JOIN_DT, D.EXPR_NO-B.NEW_CHAN_GUNSU-1 +
+                       NVL((SELECT NVL(MME.EXT_PERIOD, 0) FROM LF_DMUSER.TB_MEMBER_MANGI_EXT MME WHERE 1=1 AND DEL_FG = 'N' AND MME.ACCNT_NO = B.ACCNT_NO), 0) * 12 ),'YYYYMMDD') AS MAN_DAY
+                     , FN_EMPLE_NM(C.EMPLE_NO) AS APPV_MAN_NM
+                     , CASE WHEN NVL(D.PROD_GUBUN, ' ') = '0006' THEN 'Y' ELSE 'N' END LGBESTCL
+                     , CASE WHEN D.PROD_CD IN ('S7','S8','S9','T0','X5','X6') THEN 'Y' ELSE 'N' END SMCL
+                     <!-- , CASE WHEN F.ACCNT_NO IS NULL -->
+                     , CASE WHEN F.ACCNT_NO IS NOT NULL
+                                 THEN 'Y'
+                            ELSE 'N'
+                        END AS RESN_YN <!-- 해약 구분 -->
+                     , CASE WHEN G.ACCNT_NO IS NOT NULL
+                                 THEN 'Y'
+                            ELSE 'N'
+                        END AS CMS_YN
+                     , NVL(I.DOC_FILE, ' ') AS DOC_FILE
+                     , (SELECT NVL(MAX(NO),0)
+                          FROM PAY_MNG
+                         WHERE ACCNT_NO = B.ACCNT_NO
+                           AND DEL_FG = 'N') AS PAY_COUNT
+                     , B.MEMBERSHIP_YN, B.RESORT_NO
+                     , CASE WHEN (B.OCB_GUBN = '00' OR (B.OCB_GUBN = '01' AND (SELECT COUNT(*)
+                                                                             FROM OCB_HIST OH
+                                                                            WHERE OH.ACCNT_NO = B.ACCNT_NO
+                                                                              <![CDATA[AND OH.OCB_CD <> '' AND OH.STAT = '00'
+                                                                              AND OH.USE_YN = 'Y') > 0]]>)
+                                                                       OR (SELECT OH.USE_YN
+                                                                             FROM OCB_HIST OH
+                                                                            WHERE <![CDATA[OH.OCB_CD <> '']]>
+                                                                              AND OH.ACCNT_NO = B.ACCNT_NO
+                                                                              AND OH.USE_YN = 'Y'
+                                                                              AND OH.STAT = '01') = 'Y'
+                                                                       OR (SELECT COUNT(*)
+                                                                             FROM OCB_HIST OH
+                                                                            WHERE <![CDATA[OH.OCB_CD <> ''
+                                                                              AND OH.ACCNT_NO = B.ACCNT_NO
+                                                                              AND OH.STAT = '00'
+                                                                              AND OH.USE_YN = 'N') > 0]]>) THEN '발급'
+                          ELSE CASE WHEN NVL(TBL_OCB.OCB_POINT, 0) <![CDATA[>]]> 0 THEN '미발급'
+                                ELSE '미대상'
+                                END
+                          END AS OCB_GUBN
+                     , FN_EMPLE_NM(RECOMMEND_EMPLE_NO) RECOMNM
+                     , J.CELL EMPCELL
+                     , CASE WHEN NVL(TBL_OCB.OCB_POINT, 0) <![CDATA[>]]> 0 THEN '01'
+                            WHEN NVL(TBL_OCB.OCB_POINT, 0) = 0 THEN '02'
+                            ELSE '03'
+                            END CARD_GUBUN
+                    , CASE WHEN (SELECT COUNT(*)
+                                   FROM EVENT
+                                  WHERE DEL_FG = 'N'
+                                    AND ACCNT_NO = B.ACCNT_NO) = 1
+                           THEN (SELECT SEQ
+                                   FROM EVENT
+                                  WHERE DEL_FG = 'N'
+                                    AND ACCNT_NO = B.ACCNT_NO)
+                           ELSE NULL
+                       END AS EVENT_SEQ
+                    , (SELECT MAX( TO_CHAR(CRT_FILE_DM,'YYYYMMDD'))
+                        FROM OCB_HIST
+                       WHERE USE_YN = 'Y'
+                         AND ACCNT_NO = B.ACCNT_NO
+                         AND ROWNUM = 1
+                      )  AS OCB_CRT_DT
+                      ,KYDATE
+                      ,KSTBIT
+                      ,B2B_EMPLE_CI
+                      ,SECTION_THR
+                      ,B.MAIN_CONTRACT
+                      ,FN_COM_NM('0194', B.MAIN_CONTRACT) AS MAIN_CONTRACT_NM
+        FROM MEM_PROD_ACCNT B
+              LEFT OUTER JOIN EMPLOYEE J ON B.EMPLE_NO = J.EMPLE_NO
+                    LEFT OUTER JOIN (SELECT *
+                                         FROM(SELECT A.*, ROW_NUMBER() OVER(PARTITION BY ACCNT_NO ORDER BY SEQ DESC) AS CNT
+                                          FROM HP_CALL_HIST A) TBL
+                               WHERE CNT = 1) C ON B.ACCNT_NO = C.ACCNT_NO
+              LEFT OUTER JOIN PRODUCT D ON B.PROD_CD = D.PROD_CD AND D.DEL_FG = 'N'
+              LEFT OUTER JOIN PAY_MNG E ON B.ACCNT_NO = E.ACCNT_NO AND E.DEL_FG = 'N' AND E.NO = 1
+              LEFT OUTER JOIN RESCISSION F ON B.ACCNT_NO = F.ACCNT_NO AND F.DEL_FG = 'N'
+              LEFT OUTER JOIN CMS_MEM G ON B.ACCNT_NO = G.ACCNT_NO AND G.DEL_FG = 'N'
+              LEFT OUTER JOIN DOCKEEP I ON B.APPFM_NO = I.DOC_KEY
+              LEFT OUTER JOIN (SELECT * FROM(SELECT CARD_CODE , TO_NUMBER(OCB_POINT) OCB_POINT, ROW_NUMBER() OVER(PARTITION BY CARD_CODE ORDER BY APP_DT DESC) CNT
+                                   FROM OCB_CARD_CODE_MNG
+                                  WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> APP_DT
+                                    AND DEL_FG = 'N'
+                              )AA WHERE CNT = 1 )TBL_OCB ON D.MEMBERSHIP = TBL_OCB.CARD_CODE
+              LEFT OUTER JOIN (SELECT PMM.PROD_CD, PMD.MODEL_CD, PMM.PROD_KIND, PMD.DISCONTINUED_DT, PMD.MODEL_NM
+                               FROM PRODUCT_MODEL_DTL PMD
+                                  INNER JOIN PRODUCT_MODEL_MST PMM ON PMD.SEQ = PMM.SEQ AND PMM.DEL_FG = 'N'
+                               <!-- 2018.05.17 회원상품정보 조회시에는 단종된 상품도 조회될 수 있도록 주석처리
+                                               ex) 조회형태: 단종시 모델명+(단종) 형태로 조회됨 -->
+                               <!-- WHERE NVL(PMD.DISCONTINUED_DT, '99991231')  >  TO_CHAR(SYSDATE, 'YYYYMMDD') -->
+                               ) TBL_PMD ON TBL_PMD.PROD_CD = B.PROD_CD
+                                        AND TBL_PMD.MODEL_CD = B.PROD_MODEL_CD
+                                        AND TBL_PMD.PROD_KIND = B.PROD_MODEL_KIND
+        WHERE 1=1
+           AND B.DEL_FG = 'N'
+           AND B.MEM_NO = #{mem_no}
+        <if test="accnt_no != null and accnt_no != ''">
+            AND B.ACCNT_NO = #{accnt_no}
+        </if>
+
+            ORDER BY  JOIN_DT  DESC
+
+    </select>
+
+    <!-- 모델분류 -->
+    <select id="DlwConsProdMap.getDlwModlMstInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-common.selectModelMstInfo -->
+
+
+        SELECT /* DlwConsProdMap.getDlwModlMstInfo */
+               PROD_KIND
+             , FN_MODEL_CL_NM(PROD_KIND) AS PROD_KIND_NM
+          FROM PRODUCT_MODEL_MST
+         WHERE PROD_CD = #{prod_cd}
+           AND DEL_FG = 'N'
+      ORDER BY PROD_CD
+             , ORDR_TURN
+             , PROD_KIND
+    </select>
+
+    <!-- 모델명 -->
+    <select id="DlwConsProdMap.getDlwModlDtlInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-common.selectModelDtlInfo -->
+        SELECT /* DLWCONSPRODMAP.GETDLWMODLDTLINFO */
+               PMD.MODEL_NM || CASE WHEN NVL(PMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                        THEN ''
+                                   ELSE '(단종)'
+                               END MODL_NM
+             , TO_CHAR(PMD.MODEL_CD) MODL_CD
+          FROM PRODUCT_MODEL_DTL PMD INNER JOIN PRODUCT_MODEL_MST PMM
+                    ON PMD.SEQ = PMM.SEQ
+                    AND PMM.DEL_FG = 'N'
+         WHERE PMM.PROD_CD = #{prod_cd}
+           AND PMM.PROD_KIND = #{prod_model_kind}
+        <if test="continued != null and continued != ''">
+            <if test="continued.equalsIgnoreCase('Y')">
+                AND NVL(PMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD')
+            </if>
+        </if>
+      ORDER BY PMD.ORDR_TURN, PMD.MODEL_NM
+    </select>
+
+    <!-- 상품종류 -->
+    <select id="DlwConsProdMap.getDlwProdKindList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectProdKindList -->
+        SELECT /* DlwConsProdMap.getDlwProdKindList */
+               SEQ
+             , PROD_KIND_NM
+          FROM PRODUCT_KIND
+         WHERE MODEL_CL_CD = #{prod_model_kind}
+           AND (DEL_FG = 'N' OR DEL_FG IS NULL)
+      ORDER BY SEQ
+    </select>
+
+    <!-- 회원 상품 정보 조회 - 해약금 -->
+    <select id="DlwConsProdMap.getProdInfoInq" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-task.prodInfoInq -->
+
+        SELECT /* DlwConsProdMap.getProdInfoInq */
+               P.PROD_CD
+             , P.PROD_NM
+             , P.EXPR_NO
+             , P.MON_PAY_AMT
+             , P.PROD_AMT
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N' ) PAY_AMT1
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG_DTL
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N' ) PAY_AMT2
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG_DTL1
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N' ) PAY_AMT3
+             , NVL(B.PAY_AMT,0)AS PAY_AMT
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG
+                 WHERE DEL_FG='N'
+                   AND ACCNT_NO = #{accnt_no}) AS SANGJO_PAY_AMT
+             , NVL(B.PAY_AMT_COUNT,0) AS PAY_AMT_COUNT
+             , NVL(D.DC_AMT,0) AS DC_AMT
+             , M.NEW_CHAN_GUNSU
+             , M.JOIN_DT AS JOIN_DT
+             , FN_YEN_CHE(M.ACCNT_NO) AS OVRD_MON
+             <!-- [ 실 사용금액  = 사용금액 - 취소금액 ]    (2018.01.22) -->
+             <!-- 
+            , ( SELECT NVL(SUM(NVL(SUB_USE_AMT,0)) - SUM(NVL(SUB_CAN_AMT,0)) ,0) USE_AMT
+                   FROM ( SELECT CASE WHEN TYPE = 'U' THEN SUM(AMT) ELSE 0 END AS SUB_USE_AMT
+                               , CASE WHEN TYPE = 'C' THEN SUM(AMT) ELSE 0 END AS SUB_CAN_AMT
+                            FROM CASH_HISTORY@TB_SHOPPING LINK_CH
+                           WHERE 1=1
+                             AND GOODS_ID =  #{accnt_no}
+                           GROUP BY TYPE
+                        )
+               ) AS USE_AMT
+                -->
+          FROM MEM_PROD_ACCNT M 
+         INNER JOIN PRODUCT P
+            ON M.PROD_CD = P.PROD_CD
+          LEFT OUTER JOIN (SELECT ACCNT_NO
+                                , SUM(PAY_AMT) AS PAY_AMT
+                                , SUM(PAY_AMT_COUNT) AS PAY_AMT_COUNT
+                             FROM (SELECT ACCNT_NO, NVL(SUM(PAY_AMT),0) AS PAY_AMT, NVL(COUNT(PAY_AMT),0) AS PAY_AMT_COUNT
+                                     FROM PAY_MNG
+                                    WHERE DEL_FG = 'N'
+                                      AND ACCNT_NO = #{accnt_no}
+                                 GROUP BY ACCNT_NO
+                                UNION ALL
+                                   SELECT ACCNT_NO, NVL(SUM(PAY_AMT),0)AS PAY_AMT, 0 AS PAY_AMT_COUNT
+                                     FROM PAY_MNG_DTL
+                                    WHERE DEL_FG = 'N'
+                                      AND ACCNT_NO = #{accnt_no}
+                                 GROUP BY ACCNT_NO
+                                UNION ALL
+                                   SELECT ACCNT_NO, NVL(SUM(PAY_AMT),0)AS PAY_AMT, 0 AS PAY_AMT_COUNT
+                                     FROM PAY_MNG_DTL1
+                                    WHERE DEL_FG = 'N'
+                                      AND ACCNT_NO = #{accnt_no}
+                                 GROUP BY ACCNT_NO) TEMP
+                         GROUP BY ACCNT_NO)B
+            ON M.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN (SELECT ACCNT_NO, NVL(SUM(DC_AMT),0) AS DC_AMT
+                             FROM DC_AMT_REG
+                            GROUP BY ACCNT_NO) D
+            ON M.ACCNT_NO = D.ACCNT_NO
+         WHERE M.ACCNT_NO = #{accnt_no}
+           AND M.DEL_FG = 'N'
+    </select>
+
+
+    <!-- 회원 상품 정보 조회 - 해약금 -->
+    <select id="DlwConsProdMap.getProdInfoInqNew" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-task.prodInfoInq -->
+
+        SELECT /* DlwConsProdMap.getProdInfoInqNew */
+               P.PROD_CD
+             , P.PROD_NM
+             , P.EXPR_NO
+             , P.MON_PAY_AMT
+             , P.PROD_AMT
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N' ) PAY_AMT1
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG_DTL
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N' ) PAY_AMT2
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG_DTL1
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG = 'N' ) PAY_AMT3
+             , NVL(B.PAY_AMT,0)AS PAY_AMT
+             , (SELECT NVL(SUM(PAY_AMT),0)
+                  FROM PAY_MNG
+                 WHERE DEL_FG='N'
+                   AND ACCNT_NO = #{accnt_no}) AS SANGJO_PAY_AMT
+             , NVL(B.PAY_AMT_COUNT,0) AS PAY_AMT_COUNT
+             , NVL(D.DC_AMT,0) AS DC_AMT
+             , M.NEW_CHAN_GUNSU
+             , M.JOIN_DT AS JOIN_DT
+             , FN_YEN_CHE(M.ACCNT_NO) AS OVRD_MON
+             <!-- [ 실 사용금액  = 사용금액 - 취소금액 ]    (2018.01.22) -->
+             <!-- [ 메인화면 쇼핑몰 연동으로 인한 삭제 ]     (2018.01.30) 김찬영 -->
+
+             <!-- , ( SELECT NVL(SUM(NVL(SUB_USE_AMT,0)) - SUM(NVL(SUB_CAN_AMT,0)) ,0) USE_AMT
+                   FROM ( SELECT CASE WHEN TYPE = 'U' THEN SUM(AMT) ELSE 0 END AS SUB_USE_AMT
+                               , CASE WHEN TYPE = 'C' THEN SUM(AMT) ELSE 0 END AS SUB_CAN_AMT
+                            FROM CASH_HISTORY@TB_SHOPPING LINK_CH
+                           WHERE 1=1
+                             AND GOODS_ID =  #{accnt_no}
+                           GROUP BY TYPE
+                        )
+               ) AS USE_AMT-->
+             , 0 AS USE_AMT
+          FROM MEM_PROD_ACCNT M
+         INNER JOIN PRODUCT P
+            ON M.PROD_CD = P.PROD_CD
+          LEFT OUTER JOIN (SELECT ACCNT_NO
+                                , SUM(PAY_AMT) AS PAY_AMT
+                                , SUM(PAY_AMT_COUNT) AS PAY_AMT_COUNT
+                             FROM (SELECT ACCNT_NO, NVL(SUM(PAY_AMT),0) AS PAY_AMT, NVL(COUNT(PAY_AMT),0) AS PAY_AMT_COUNT
+                                     FROM PAY_MNG
+                                    WHERE DEL_FG = 'N'
+                                      AND ACCNT_NO = #{accnt_no}
+                                 GROUP BY ACCNT_NO
+                                UNION ALL
+                                   SELECT ACCNT_NO, NVL(SUM(PAY_AMT),0)AS PAY_AMT, 0 AS PAY_AMT_COUNT
+                                     FROM PAY_MNG_DTL
+                                    WHERE DEL_FG = 'N'
+                                      AND ACCNT_NO = #{accnt_no}
+                                 GROUP BY ACCNT_NO
+                                UNION ALL
+                                   SELECT ACCNT_NO, NVL(SUM(PAY_AMT),0)AS PAY_AMT, 0 AS PAY_AMT_COUNT
+                                     FROM PAY_MNG_DTL1
+                                    WHERE DEL_FG = 'N'
+                                      AND ACCNT_NO = #{accnt_no}
+                                 GROUP BY ACCNT_NO) TEMP
+                         GROUP BY ACCNT_NO)B
+            ON M.ACCNT_NO = B.ACCNT_NO
+          LEFT OUTER JOIN (SELECT ACCNT_NO, NVL(SUM(DC_AMT),0) AS DC_AMT
+                             FROM DC_AMT_REG
+                            GROUP BY ACCNT_NO) D
+            ON M.ACCNT_NO = D.ACCNT_NO
+         WHERE M.ACCNT_NO = #{accnt_no}
+           AND M.DEL_FG = 'N'
+    </select>
+
+    <!-- 현재 회차 조회 - 해약금 -->
+    <select id="DlwConsProdMap.getNowMonthCount" parameterType="map" resultType="int">
+    <!-- DM sql-id: sql-task.getNowMonthCount -->
+
+        SELECT /* DlwConsProdMap.getNowMonthCount */
+               CASE WHEN (EXPR_NO - NEW_CHAN_GUNSU) = PAY_NO AND JOIN_NO >= PAY_NO THEN JOIN_NO
+                    WHEN (EXPR_NO - NEW_CHAN_GUNSU) = PAY_NO THEN PAY_NO
+                    ELSE PAY_NO
+                END NMCOUNT
+          FROM (SELECT FN_DIFF_MONTH(SYSDATE, JOIN_DT) + 1 AS JOIN_NO
+                     , NEW_CHAN_GUNSU
+                     , EXPR_NO
+                     , NVL(COUNT(R.NO), 0) AS PAY_NO
+                  FROM MEM_PROD_ACCNT M
+                 INNER JOIN PRODUCT P
+                    ON M.PROD_CD = P.PROD_CD
+                  LEFT OUTER JOIN PAY_MNG R
+                    ON M.ACCNT_NO = R.ACCNT_NO
+                   AND R.DEL_FG = 'N'
+                 WHERE M.ACCNT_NO = #{accnt_no}
+              GROUP BY M.ACCNT_NO, M.JOIN_DT, NEW_CHAN_GUNSU, EXPR_NO
+                ) T
+    </select>
+
+    <!-- 해약환급금 존재 정보 -->
+    <select id="DlwConsProdMap.getResnAmt" parameterType="map" resultType="int">
+    <!-- DM sql-id: sql-task.getResnAmt_new -->
+        SELECT /* DlwConsProdMap.getResnAmt */
+            TRUNC(NVL(FN_RESN_AMT_NEW(#{prod_cd},#{pay_cnt},#{join_dt}),0)) AS RESN_AMT
+        FROM DUAL
+
+        <!--
+        SELECT /* DlwConsProdMap.getResnAmt */
+                    CASE WHEN RESN_AMT=0 AND #{pay_cnt} > 12
+                         THEN (SELECT MAX(RESN_AMT) RESN_AMT
+                                 FROM (SELECT TO_NUMBER(MAX(RESN_AMT)) AS RESN_AMT
+                                         FROM RESNSTD_M M
+                                   INNER JOIN RESNSTD_D D
+                                           ON M.SEQ = D.MST_SEQ
+                                        WHERE M.PROD_CD = #{prod_cd}
+                                          AND M.MODEL_CL_CD = (SELECT PROD_MODEL_KIND
+                                                                 FROM MEM_PROD_ACCNT
+                                                                WHERE ACCNT_NO = #{accnt_no})
+                                          AND D.NO <![CDATA[<]]> #{pay_cnt}
+                                          AND M.APP_DAY = (SELECT MAX(APP_DAY)
+                                                                                    FROM RESNSTD_M
+                                                                                   WHERE USE_YN = 'Y'
+                                                                                     AND APP_DAY <![CDATA[<=]]> #{join_dt}
+                                                                                     AND PROD_CD = #{prod_cd})
+                                     GROUP BY D.MST_SEQ
+                                    UNION ALL
+                                       SELECT - 1 AS RESN_AMT FROM DUAL)T
+                               )
+                          ELSE CAST(RESN_AMT AS NUMERIC)
+                      END RESN_AMT
+          FROM (SELECT MAX(RESN_AMT) RESN_AMT
+                  FROM (SELECT NVL(MAX(D.RESN_AMT),0) AS RESN_AMT
+                          FROM PRODUCT P
+                             , RESNSTD_M M
+                             , RESNSTD_D D
+                         WHERE P.PROD_CD = M.PROD_CD
+                           AND M.SEQ = D.MST_SEQ
+                           AND M.MODEL_CL_CD = (SELECT PROD_MODEL_KIND
+                                                  FROM MEM_PROD_ACCNT
+                                                 WHERE ACCNT_NO = #{accnt_no})
+                           AND M.PROD_CD = #{prod_cd}
+                           AND D.NO = #{pay_cnt}
+                           AND M.APP_DAY= (SELECT MAX(APP_DAY)
+                                                                     FROM RESNSTD_M
+                                                                    WHERE USE_YN = 'Y'
+                                                                      AND APP_DAY <![CDATA[<=]]> TO_CHAR(#{join_dt})
+                                                                      AND PROD_CD = #{prod_cd})
+
+             UNION ALL
+                SELECT -1 AS RESN_AMT FROM DUAL) AD
+                 ) A
+
+     -->
+    </select>
+
+    <!-- 부가서비스 정보 카운트 -->
+    <select id="DlwConsProdMap.getProdSrvcHistForMPAS" parameterType="map" resultType="int">
+    <!-- DM sql-id: sql-life.selectSvcHistForMPAS -->
+
+
+        SELECT /* DlwConsProdMap.getProdSrvcHistForMPAS */
+               COUNT(*)
+          FROM SVC_ISU_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+           AND SEQ IN (SELECT SEQ
+                         FROM MEM_PROD_ACCNT_SVC
+                        WHERE ACCNT_NO = #{accnt_no})
+    </select>
+
+    <!-- 상품별 부가서비스 리스트 조회 -->
+    <select id="DlwConsProdMap.getProdSrvcMstList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectProdOptSvcMstList -->
+
+        /* DlwConsProdMap.getProdSrvcMstList */
+        SELECT
+               *
+        FROM
+        (
+            SELECT
+                   *
+            FROM (SELECT POSM.SEQ, P.PROD_CD, P.PROD_NM, POSM.APP_NO, POSM.MEM_CL
+                        , POSM.RESORT_MEM_CL, USE_YN, POSM.VITAL_SERVICE, POSM.ONLINE_APP_GUBUN
+                        , FN_COM_NM('106',POSM.MEM_CL) AS MEM_CL_NM
+                        , FN_GETPRODOPTSVCDTL_NM(POSM.SEQ) AS OPT_SVC_NM
+                        , FN_GETPRODOPTSVCDTL_NM2(POSM.SEQ) AS OPT_SVC_NM_EX
+                        , FN_GETPRODOPTSVCDTL_CD(POSM.SEQ) AS SVC_CD
+                        , CASE WHEN POSM.USE_YN = 'Y' THEN '사용'
+                               WHEN POSM.USE_YN ='N' THEN '중지'
+                          ELSE '-' END AS USE_YN_NM
+                        , CASE WHEN ((POSM.APP_NO IS NULL) OR (POSM.APP_NO=0)) THEN '후방'
+                          ELSE '전방' END AS SVC_EVENT_BF_CL
+                        , FN_EMPLE_NM(POSM.UPD_MAN) UPD_MAN
+                        , FN_EMPLE_NM(POSM.REG_MAN) REG_MAN
+                        , NVL(POSM.START_DT, '99991231') START_DT
+                        , NVL(POSM.END_DT, '99991231') END_DT
+                        , (CASE WHEN NVL(TBL.PSEQ, 0) <![CDATA[>]]> 0 THEN 'Y' ELSE 'N' END) ISU_YN
+                        , DECODE(POSM.APP_NO,0,'후방',TO_CHAR(POSM.APP_NO)) AS APP_NO_NM
+                     FROM PROD_OPT_SVC_MST POSM
+               INNER JOIN PRODUCT P
+                       ON POSM.PROD_CD = P.PROD_CD
+              LEFT OUTER JOIN (SELECT POSMST.SEQ, COUNT(POSMST.SEQ) PSEQ
+                                     FROM PROD_OPT_SVC_MST POSMST
+                                        INNER JOIN PROD_OPT_SVC_DTL POSD ON POSMST.SEQ = POSD.SEQ AND POSD.OPT_SVC_CD = FN_GETPRODOPTSVCDTL_CD(POSMST.SEQ)
+                                        INNER JOIN SVC_ISU_HIST SIH ON POSMST.SEQ = SIH.SEQ AND POSD.OPT_SVC_CD = SIH.OPTSVC_SEQ
+                                        AND SIH.ACCNT_NO = #{accnt_no}
+                                        GROUP BY POSMST.SEQ) TBL
+                                        ON TBL.SEQ = POSM.SEQ ) TMP
+             WHERE 1=1
+               AND PROD_CD = #{prod_cd}
+            <if test="use_yn != null and use_yn != ''">
+                AND (nvl(TMP.END_DT, '99991231') <![CDATA[>=]]> to_char(SYSDATE, 'YYYYMMDD')  AND TMP.START_DT <![CDATA[<=]]> to_char(SYSDATE, 'YYYYMMDD'))
+            </if>
+            <if test="mem_cl != null and mem_cl != ''">
+                AND MEM_CL = #{mem_cl}
+            </if>
+       )
+       ORDER BY APP_NO_NM
+    </select>
+
+    <!-- 할인우대권 체크 -->
+    <select id="DlwConsProdMap.validateDiscntPassNo" parameterType="map" resultType="String">
+    <!-- DM sql-id: sql-life.validateDiscntPassNo -->
+        SELECT /* DlwConsProdMap.validateDiscntPassNo */
+               CASE WHEN (SELECT COUNT(*)
+                            FROM MEM_PROD_ACCNT
+                           WHERE RAND_NUM = DPD.RAND_NUM) <![CDATA[<=]]> 0
+                         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN TO_CHAR(DPM.ISSUE_DT, 'YYYYMMDD') AND TO_CHAR(DPM.VALID_DT, 'YYYYMMDD')
+                    THEN 'Y'
+                    WHEN (SELECT COUNT(*)
+                            FROM MEM_PROD_ACCNT
+                           WHERE RAND_NUM = DPD.RAND_NUM) <![CDATA[>]]> 0
+                         AND
+                         DPM.DUP_YN = 'Y'
+                         AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN TO_CHAR(DPM.ISSUE_DT, 'YYYYMMDD') AND TO_CHAR(DPM.VALID_DT, 'YYYYMMDD')
+                    THEN 'Y'
+                    ELSE 'N'
+               END
+          FROM DISCNT_PASS_MST DPM
+               INNER JOIN DISCNT_PASS_DTL DPD
+                       ON DPM.SEQ = DPD.SEQ
+                      AND DPD.RAND_NUM = #{rand_num}
+         WHERE DPM.DEL_FG = 'N'
+    </select>
+
+    <!-- 특별할인 -->
+    <select id="DlwConsProdMap.selectNewChanGunsuDPM" parameterType="map" resultType="String">
+        <!-- DM sql-id: sql-life.selectNewChanGunsuDPM -->
+
+        SELECT /* DlwConsProdMap.selectNewChanGunsuDPM */
+               NVL((SELECT LPAD(TO_CHAR(NVL(NEW_CHAN_GUNSU, 0)), 3, '0')
+                         FROM DISCNT_PASS_MST
+                        WHERE DEL_FG = 'N'
+                          AND SEQ = (SELECT SEQ
+                                       FROM DISCNT_PASS_DTL
+                                      WHERE RAND_NUM = #{rand_num})), '000')
+          FROM DUAL
+    </select>
+
+    <!-- 리조트 정보 조회 -->
+    <select id="DlwConsProdMap.getResortInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectResortInfo -->
+
+    SELECT /* DlwConsProdMap.getResortInfo */
+           A.*
+      FROM (SELECT MBR.MEM_NO
+                 , MPA.PAY_GUBUN
+                 , MPA.RESORT_MEM_NO
+                 , MPA.RESORT_MEM_NM
+              FROM MEMBER MBR
+                    INNER JOIN MEM_PROD_ACCNT MPA
+                        ON MPA.MEM_NO = MBR.MEM_NO AND MPA.DEL_FG = 'N'
+             WHERE MBR.DEL_FG = 'N'
+               AND (MPA.PAY_GUBUN IS NOT NULL
+               AND MPA.PAY_GUBUN != '')
+               AND MBR.MEM_NO = #{mem_no}
+             ORDER BY MPA.JOIN_DT DESC
+             ) A
+     WHERE ROWNUM <![CDATA[<]]> 2
+    </select>
+
+    <!-- B2B 회사 건수 -->
+    <select id="DlwConsProdMap.getB2bCompCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwConsProdMap.getB2bCompCount */
+               COUNT(*)
+          FROM B2BCOMCD
+         WHERE USE_YN = 'Y'
+        <if test="com_nm != null and com_nm != ''">
+            AND UPPER(COM_NM) LIKE '%' || UPPER(TRIM(#{com_nm})) || '%'
+        </if>
+    </select>
+
+    <!-- B2B 회사 조회 -->
+    <select id="DlwConsProdMap.getB2bCompList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectB2bCompCd -->
+
+
+        SELECT /* DlwConsProdMap.getB2bCompList */
+               A.*
+          FROM (SELECT COM_CD, COM_NM,
+                        <choose>
+                            <when test="orderBy != null and orderBy != ''">
+                                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                            </when>
+                            <otherwise>
+                                '' AS PAGE_INDX
+                            </otherwise>
+                        </choose>
+                  FROM B2BCOMCD
+                 WHERE USE_YN = 'Y'
+                <if test="com_nm != null and com_nm != ''">
+                    AND UPPER(COM_NM) LIKE '%' || UPPER(TRIM(#{com_nm})) || '%'
+                </if>
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <!-- 삼성매장 건수 -->
+    <select id="DlwConsProdMap.getSmShopCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwConsProdMap.getSmShopCount */
+               COUNT(*)
+          FROM COM_CD
+         WHERE GRP_CD = '0184'
+           AND USE_YN = 'Y'
+        <if test="sm_shop_info != null and sm_shop_info != ''">
+            AND COM_CD = #{sm_shop_info}
+        </if>
+        <if test="sm_shop_nm != null and sm_shop_nm != ''">
+            AND CD_NM LIKE '%' || #{sm_shop_nm} || '%'
+        </if>
+    </select>
+
+    <!-- 삼성매장 조회 -->
+    <select id="DlwConsProdMap.getSmShopList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectSmShopList -->
+
+
+        SELECT /* DlwConsProdMap.getSmShopList */
+               B.*
+          FROM (SELECT A.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                        </when>
+                        <otherwise>
+                            '' AS PAGE_INDX
+                        </otherwise>
+                    </choose>
+                  FROM (SELECT COM_CD AS SM_SHOP_INFO, CD_NM AS SM_SHOP_NM, ORDR_TURN
+                          FROM COM_CD
+                         WHERE GRP_CD = '0184'
+                           AND USE_YN = 'Y'
+                        <if test="sm_shop_info != null and sm_shop_info != ''">
+                            AND COM_CD = #{sm_shop_info}
+                        </if>
+                        <if test="sm_shop_nm != null and sm_shop_nm != ''">
+                            AND CD_NM LIKE '%'|| #{sm_shop_nm} || '%'
+                        </if>
+                        ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <!-- 2구좌 가입 제한 확인 -->
+    <select id="DlwConsProdMap.getNoSaleAccnt" parameterType="map" resultType="String">
+    <!-- DM sql-id: sql-life.selectNoSaleAccnt -->
+        SELECT /* DlwConsProdMap.getNoSaleAccnt */
+               CASE WHEN SUBSTR(NVL((SELECT GRP_EMPLE_NO
+                                        FROM EMPLOYEE
+                                       WHERE EMPLE_NO = #{emple_no}), ''), 1, 1) = '7'
+                                         AND (SELECT COUNT(ACCNT.ACCNT_NO)
+                                                FROM EMPLOYEE EMP
+                                          INNER JOIN MEM_PROD_ACCNT ACCNT
+                                                  ON EMP.EMPLE_NO = ACCNT.EMPLE_NO
+                                                 AND ACCNT.DEL_FG = 'N'
+                                          INNER JOIN PRODUCT PROD
+                                                  ON ACCNT.PROD_CD = PROD.PROD_CD
+                                               WHERE EMP.EMPLE_NO = #{emple_no}
+                                                 AND NVL(PROD.NO_SALE_ACCNT_PROD, 'N') = 'Y'
+                                                 AND NVL(EMP.NO_SALE_ACCNT_EMP, 'Y') = 'Y'
+                                                 AND NVL(FN_EVENT(ACCNT.ACCNT_NO), '') IN ('', '부활')) >= 2
+                                                 AND NVL((SELECT NO_SALE_ACCNT_PROD
+                                                               FROM PRODUCT
+                                                              WHERE PROD_CD = #{prod_cd}), 'N') = 'Y'
+                                                 AND NVL((SELECT NO_SALE_ACCNT_EMP
+                                                               FROM EMPLOYEE
+                                                              WHERE EMPLE_NO = #{emple_no}), 'Y') = 'Y'
+                         THEN 'N'
+                    ELSE 'Y'
+                END
+          FROM DUAL
+    </select>
+
+    <!-- 이벤트 가입상품 수 조회: AS-IS: 주민번호로 체크 -->
+    <!-- 기존 쿼리 오류 있음 => 사용하지 않음: 상품코드 54 -->
+    <select id="DlwConsProdMap.getEventAccntCnt" parameterType="map" resultType="String">
+    <!-- DM sql-id: sql-life.selectEventAccntCnt -->
+
+
+        SELECT /* DlwConsProdMap.getEventAccntCnt */
+               COUNT(TBL.MEM_NO) CNT
+          FROM (SELECT MBR.MEM_NO
+                     , FN_EVENT(MPA.ACCNT_NO) EVT_NM
+                  FROM MEMBER MBR
+            INNER JOIN MEM_PROD_ACCNT MPA
+                    ON MBR.MEM_NO = MPA.MEM_NO
+                   AND MPA.DEL_FG = 'N'
+                 WHERE MBR.DEL_FG = 'N'
+                   AND MPA.PROD_CD = '54'
+                   AND MBR.MEM_NM = #{mem_nm}
+                   AND CONVERT(VARCHAR, BRTH_MON_DAY, 112) = #{brth_mon_day}
+                ) TBL
+         WHERE TBL.EVT_NM != '행사'
+    </select>
+
+    <!-- 카드코드 조회 -->
+    <select id="DlwConsProdMap.getCardCode" parameterType="String" resultType="String">
+    <!-- DM sql-id: sql-life.selectCardCode -->
+
+
+        SELECT /* DlwConsProdMap.getCardCode */
+               MEMBERSHIP
+          FROM PRODUCT
+         WHERE PROD_CD = #{prod_cd}
+    </select>
+
+    <select id="DlwConsProdMap.createAccntNo" parameterType="String" resultType="String">
+        <!-- DM sql-id: sql-life.createAccntNo -->
+        SELECT /* DlwConsProdMap.createAccntNo */
+               FN_CREATE_ACCNT_NO(#{prod_cd}, TO_CHAR(SYSDATE, 'YYYYMMDD')) AS ACCNT_NO
+          FROM DUAL
+    </select>
+
+    <!-- 상품정보 등록 -->
+    <!-- DM sql-id: sql-life.insertMemProdAccnt -->
+    <insert id="DlwConsProdMap.insertMemProdAccnt" parameterType="map">
+        INSERT /* DlwConsProdMap.insertMemProdAccnt */
+          INTO MEM_PROD_ACCNT
+               (ACCNT_NO
+              , MEM_NO
+              , PROD_CD
+              , EMPLE_NO
+              , APPFM_NO
+              , JOIN_DT
+              , COMPT_DT
+              , BEF_EMPLE_CD
+              , PAY_PERD
+              , PAY_MTHD
+              , POST_MTR_RCV
+              , JOIN_PROD
+              , NEW_CHAN_GUNSU
+              , ORG_JOIN_GUNSU
+              , CERTF_RCV_CHK
+              , PAY_STAT_1NO
+              , BANK_ACCNT_NO
+              , REG_DM
+              , REG_MAN
+              , UPD_DM
+              , UPD_MAN
+              , DEL_FG
+              , MEMBERSHIP_YN
+              , RESORT_NO
+              , RESORT_MEM_NO
+              , RESORT_MEM_GUBUN
+              , PAY_GUBUN
+              , BEFORE_DC_CNT
+              , JOIN_CL
+              , RESORT_MEM_NM
+              , B2B_COMP_CD
+              , B2B_EMPLE_NO
+              , RECOMMEND_EMPLE_NO       <!-- 추천인 -->
+              , ACCNT_NOTE                <!-- 비고 -->
+              , INSPL_ZIP
+              , INSPL_ADDR
+              , INSPL_ADDR2
+              , INSPL_PHONE
+              , APPFM_IMG_PATH
+              , JA_SUBSCRPT_YN
+              , PROD_KIND
+              , RAND_NUM
+              , OCB_REG_YN
+              , OCB_POINT_YN
+              , ORDER_NUM
+              , ID_NO
+              , LG_SHOP_INFO
+              , KB_NO
+              , PROD_MODEL_KIND
+              , PROD_MODEL_CD
+              , SM_SHOP_INFO
+              , KSTBIT
+              , B2B_EMPLE_CI
+              , MAIN_CONTRACT
+                )
+          SELECT #{accnt_no}                                <!-- ACCNT_NO -->
+               , #{mem_no}                                  <!-- MEM_NO -->
+               , REGEXP_REPLACE(#{prod_cd}, '( ){1,}', '')  <!-- PROD_CD -->
+               , #{emple_no}                                <!-- EMPLE_NO -->
+               , #{appfm_no}                                <!-- APPFM_NO -->
+               , #{join_dt}                                 <!-- JOIN_DT -->
+               , #{compt_dt}                                <!-- COMPT_DT -->
+               , #{bef_emple_cd}                            <!-- BEF_EMPLE_CD -->
+               , #{pay_perd}                                <!-- PAY_PERD -->
+               , #{pay_mthd}                                <!-- PAY_MTHD -->
+               , '02'                                       <!-- POST_MTR_RCV -->
+               , #{join_prod}                               <!-- JOIN_PROD -->
+               , TO_NUMBER(#{new_chan_gunsu})               <!-- NEW_CHAN_GUNSU -->
+               , TO_NUMBER(#{org_join_gunsu})               <!-- ORG_JOIN_GUNSU -->
+               , #{certf_rcv_chk}                           <!-- CERTF_RCV_CHK -->
+               , #{pay_stat_1no}                            <!-- PAY_STAT_1NO -->
+               , TO_CHAR(#{bank_accnt_no})                  <!-- BANK_ACCNT_NO -->
+               , SYSDATE                                    <!-- REG_DM -->
+               , #{rgsr_id}                                 <!-- REG_MAN -->
+               , SYSDATE                                    <!-- UPD_DM -->
+               , #{amnd_id}                                 <!-- UPD_MAN -->
+               , 'N'                                        <!-- DEL_FG -->
+            <if test="membership != null and membership != ''">
+                , 'Y'
+                , (select NVL(MAX(RESORT_NO) + 1, '1') from mem_prod_accnt)  AS RESORT_NO
+            </if>
+            <if test="membership == null or membership == ''">
+                , 'N'
+                , ''
+            </if>
+               , #{resort_mem_no}                           <!-- RESORT_MEM_NO -->
+               , #{resort_mem_gubun}                        <!-- RESORT_MEM_GUBUN -->
+               , #{pay_gubun}                               <!-- PAY_GUBUN -->
+               , #{before_dc_cnt}                           <!-- BEFORE_DC_CNT -->
+               , #{join_cl}                                 <!-- JOIN_CL -->
+               , #{resort_mem_nm}                           <!-- RESORT_MEM_NM -->
+               , #{b2b_comp_cd}                             <!-- B2B_COMP_CD -->
+               , #{b2b_emple_no}                           <!-- B2B_EMPLE_NO -->
+               , #{recommend_emple_no}                     <!-- RECOMMEND_EMPLE_NO -->
+               , #{accnt_note}                             <!-- ACCNT_NOTE -->
+               , #{inspl_zip}                              <!-- INSPL_ZIP -->
+               , #{inspl_addr}                             <!-- INSPL_ADDR -->
+               , #{inspl_addr2}                            <!-- INSPL_ADDR2 -->
+               , #{inspl_phone}                            <!-- INSPL_PHONE -->
+               , #{appfm_img_path}                         <!-- APPFM_IMG_PATH -->
+               , NVL(#{ja_subscrpt_yn}, 'N')               <!-- JA_SUBSCRPT_YN -->
+               , #{prod_kind}                              <!-- PROD_KIND -->
+               , #{rand_num}                               <!-- RAND_NUM -->
+               , 'Y'                                       <!-- OCB_REG_YN -->
+               , 'Y'                                       <!-- OCB_POINT_YN -->
+               , #{order_num}                              <!-- ORDER_NUM -->
+               , #{id_no}                                  <!-- ID_NO -->
+               , #{lg_shop_info}                           <!-- LG_SHOP_INFO -->
+               , #{kb_no}                                  <!-- KB_NO -->
+               , #{prod_model_kind}                        <!-- PROD_MODEL_KIND -->
+               , #{prod_model_cd}                          <!-- PROD_MODEL_CD -->
+               , #{sm_shop_info}                           <!-- SM_SHOP_INFO -->
+               ,'01'                                       <!-- KSTBIT -->
+               ,#{b2b_emple_ci}
+               ,#{main_contract}
+            FROM dual
+    </insert>
+
+    <!-- 스마트라이프 상담 등록 -->
+    <insert id="DlwConsProdMap.insertSmartLifeCnslMng" parameterType="map">
+    <!-- DM sql-id: sql-life.insertSmartLifeCnslMng -->
+
+        <selectKey keyProperty="cnsl_man" resultType="String" order="BEFORE">
+                SELECT NVL((SELECT CNSL_MAN
+                                              FROM SL_CNSL_MNG C
+                                             WHERE ACCNT_NO = #{accnt_no}
+                                               AND CNSL_STAT ='0004'
+                                               AND SEQ = (SELECT MAX(SEQ)
+                                                            FROM SL_CNSL_MNG
+                                                           WHERE ACCNT_NO = C.ACCNT_NO
+                                                             AND CNSL_STAT ='0004')
+                                                         ) , #{rgsr_id})
+                  FROM DUAL
+        </selectKey>
+
+        INSERT /* DlwConsProdMap.insertSmartLifeCnslMng */
+          INTO SL_CNSL_MNG
+              ( SEQ
+              , CNSL_SEQ
+              , ACCNT_NO
+              , CNSL_DT
+              , CNSL_MAN
+            <if test="imsi_card_no != null and imsi_card_no != ''">
+              , IMSI_CARD_NO
+            </if>
+            <if test="sl_card_no != null and sl_card_no != ''">
+              , SL_CARD_NO
+            </if>
+              , ISSUE_STAT, CNSL_STAT
+            <if test="note != null and note != ''">
+              , NOTE
+            </if>
+              , REG_MAN
+              , REG_DM
+              , UPD_MAN
+              , UPD_DM
+              )
+        SELECT NVL(MAX(SEQ),0)+1
+             , 1
+             , #{accnt_no}
+             , SYSDATE
+             , #{cnsl_man}
+            <if test="imsi_card_no != null and imsi_card_no != ''">
+                , REPLACE((TO_CHAR(#{imsi_card_no})), ' ', '')
+            </if>
+            <if test="sl_card_no != null and sl_card_no != ''">
+                , REPLACE((TO_CHAR(#{sl_card_no})), ' ', '')
+            </if>
+            , #{issue_stat}
+            , #{cnsl_stat}
+            <if test="note != null and note != ''">
+            , #{note}
+            </if>
+            , #{rgsr_id}
+            , SYSDATE
+            , #{amnd_id}
+            , SYSDATE
+        FROM SL_CNSL_MNG
+    </insert>
+
+    <!-- 스마트라이프 상담 수정 -->
+    <update id="DlwConsProdMap.updateMemProdAccnt" parameterType="map" timeout="3">
+    <!-- DM sql-id: sql-life.updateMemProdAccnt -->
+        UPDATE /* DlwConsProdMap.updateMemProdAccnt */
+               MEM_PROD_ACCNT
+           SET PROD_CD 			= #{prod_cd}
+             , EMPLE_NO 		= #{emple_no}
+             , APPFM_NO 		= #{appfm_no}
+             , COMPT_DT 		= #{compt_dt}
+             , BEF_EMPLE_CD 	= #{bef_emple_cd}
+             , PAY_PERD 		= #{pay_perd}
+             , PAY_MTHD 		= #{pay_mthd}
+             <!-- , POST_MTR_RCV 	= #{post_mtr_rcv} -->
+             , JOIN_PROD 		= #{join_prod}
+             , NEW_CHAN_GUNSU 	= TO_NUMBER(#{new_chan_gunsu})
+             , ORG_JOIN_GUNSU 	= TO_NUMBER(#{org_join_gunsu})
+             , CERTF_RCV_CHK 	= #{certf_rcv_chk}
+             , PAY_STAT_1NO 	= #{pay_stat_1no}
+             , BANK_ACCNT_NO	= (TO_CHAR(#{bank_accnt_no}))
+             , UPD_DM 			= SYSDATE
+             , UPD_MAN 			= #{amnd_id}
+             , DEL_FG 			= #{del_fg}
+        <if test="membership != null and membership != ''">
+            <if test="resort_no == null or resort_no == ''">
+                , MEMBERSHIP_YN	= 'Y'
+                , RESORT_NO		= (SELECT NVL(MAX(RESORT_NO ) + 1, '1')
+                                     FROM MEM_PROD_ACCNT)
+            </if>
+        </if>
+             , RESORT_MEM_NO	= #{resort_mem_no}
+             , RESORT_MEM_GUBUN = #{resort_mem_gubun}
+             , PAY_GUBUN   	    = #{pay_gubun}
+             , BEFORE_DC_CNT    = #{before_dc_cnt}
+        <if test="join_cl != null and join_cl != ''">
+            , join_cl           = #{join_cl}
+        </if>
+             , RESORT_MEM_NM	= #{resort_mem_nm}
+             , B2B_COMP_CD		= #{b2b_comp_cd}
+             , B2B_EMPLE_NO	    = #{b2b_emple_no}
+             , RECOMMEND_EMPLE_NO = #{recommend_emple_no}
+             , ACCNT_NOTE 		= #{accnt_note}
+             , INSPL_ZIP 		= #{inspl_zip}
+             , INSPL_ADDR 		= #{inspl_addr}
+             , INSPL_ADDR2   	= #{inspl_addr2}
+             , INSPL_PHONE		= #{inspl_phone}
+             , JA_SUBSCRPT_YN	= NVL(#{ja_subscrpt_yn}, 'N')
+        <if test="prod_kind != null and prod_kind != ''">
+            , PROD_KIND         = #{prod_kind}
+        </if>
+        <if test="prod_kind == null or prod_kind == ''">
+            , PROD_KIND         = null
+        </if>
+             , OCB_REG_YN       = #{ocb_reg_yn}
+             , OCB_POINT_YN     = #{ocb_point_yn}
+             , RAND_NUM         = #{rand_num}
+             , ORDER_NUM        = #{order_num}
+             , ID_NO            = #{id_no}
+             , LG_SHOP_INFO     = #{lg_shop_info}
+             , SM_SHOP_INFO     = #{sm_shop_info}
+             , KB_NO            = #{kb_no}
+             , PROD_MODEL_KIND  = #{prod_model_kind}
+             , PROD_MODEL_CD    = #{prod_model_cd}
+             , KYDATE			= #{kydate}
+        <!--      , KSTBIT			= #{kstbit}  -->
+             , B2B_EMPLE_CI     = #{b2b_emple_ci}
+             , MAIN_CONTRACT    = #{main_contract}
+         WHERE ACCNT_NO = #{accnt_no}
+
+    </update>
+
+   <!-- 구좌별 부가서비스 상세 등록 -->
+    <insert id="DlwConsProdMap.insertMemProdAccntSvc" parameterType="map">
+    <!-- DM sql-id: sql-life.insertMemProdAccntSvc -->
+        INSERT /* DlwConsProdMap.insertMemProdAccntSvc */
+          INTO MEM_PROD_ACCNT_SVC
+             ( ACCNT_NO
+             , DTL_SEQ
+             , SEQ
+             , REG_MAN
+             , REG_DT
+             )
+        SELECT #{accnt_no}
+             , NVL(MAX(TO_NUMBER(DTL_SEQ)),0)+1
+             , #{seq}
+             , #{rgsr_id}
+             , SYSDATE
+          FROM MEM_PROD_ACCNT_SVC
+         WHERE ACCNT_NO = #{accnt_no}
+
+
+    </insert>
+
+    <!-- 구좌별 부가서비스 삭제 -->
+    <delete id="DlwConsProdMap.deleteMemProdAccntSvc" parameterType="map">
+    <!-- DM sql-id: sql-life.insertMemProdAccntSvc -->
+        DELETE /* DlwConsProdMap.deleteMemProdAccntSvc */
+          FROM MEM_PROD_ACCNT_SVC
+         WHERE ACCNT_NO = #{accnt_no}
+    </delete>
+
+    <!-- 스마트라이프 카드정보 조회 -->
+    <select id="DlwConsProdMap.getSmartLifeCardInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectSmartLifeCardInfo -->
+        SELECT /* DlwConsProdMap.getSmartLifeCardInfo */
+               T.*
+          FROM (SELECT 1 SEQ
+                     , 'S' AS DTL_FLAG
+                     , CARD_CD
+                     , PAY_DT
+                     , CM.CARD_NO AS CARD_NO
+                     , SUBSTR(EXPIRE_DATE,1,2)  AS EXPR_YY
+                     , SUBSTR(EXPIRE_DATE,-2) AS EXPR_MM
+                  FROM CARD_MEM CM
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND DEL_FG='N'
+
+             UNION ALL
+
+                SELECT NVL(MAX(SEQ),2) SEQ
+                     , CASE WHEN MAX(IMSI_CARD_NO) IS NOT NULL THEN
+                                'I'
+                            ELSE
+                                ''
+                            END AS DTL_FLAG
+                     , '' CARD_CD
+                     , '' PAY_DT
+                     , MAX(IMSI_CARD_NO) AS CARD_NO
+                     , '' EXPR_YY
+                     , '' EXPR_MM
+                  FROM SL_CNSL_MNG
+                 WHERE ACCNT_NO = #{accnt_no}) T
+         WHERE ROWNUM = 1
+    </select>
+
+    <!-- 해피콜 등록여부 -->
+    <select id="DlwConsProdMap.getHpCallCount" parameterType="String" resultType="int">
+    <!-- DM sql-id: sql-life.selectHpCallCount -->
+
+
+        SELECT COUNT(*)
+          FROM HP_CALL
+         WHERE ACCNT_NO = #{accnt_no}
+    </select>
+
+    <!-- 해피콜 배정 등록 -->
+    <insert id="DlwConsProdMap.insertHpCallInfo" parameterType="map">
+    <!-- DM sql-id: sql-life.insertHpCallInfo -->
+        INSERT /* DlwConsProdMap.insertHpCallInfo */
+          INTO HP_CALL
+               (ACCNT_NO, EMPLE_NO, STAT, ASSIGN_DM, REG_DM
+              , REG_MAN, UPD_DM, UPD_MAN)
+        VALUES (#{accnt_no}, #{emple_no}, #{stat}, SYSDATE, SYSDATE
+              , #{emple_no}, SYSDATE, #{emple_no})
+    </insert>
+
+    <!-- 리조트번호 조회 -->
+    <select id="DlwConsProdMap.getResortNo" parameterType="String" resultType="String">
+
+
+        SELECT /* DlwConsProdMap.getResortNo */
+               RESORT_NO
+          FROM MEM_PROD_ACCNT
+         WHERE ACCNT_NO = #{accnt_no}
+    </select>
+
+    <!-- 조회 이력 저장 -->
+    <insert id="DlwConsProdMap.insertSearchHist" parameterType="map">
+    <!-- DM sql-id: sql-life.insertDayInqHis -->
+        INSERT /* DlwConsProdMap.insertSearchHist */
+          INTO DAY_INQ_HIS
+               (SEQ, ACCNT_NO, WORK_DM, PROC_FG, WORK_YN
+              , REG_DM, REG_MAN, UPD_DM, UPD_MAN)
+        SELECT A.SEQ, #{accnt_no}, SYSDATE, 'S', 'Y'
+             , SYSDATE, #{rgsr_id}, SYSDATE, #{amnd_id}
+          FROM (SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+                  FROM DAY_INQ_HIS
+                 WHERE ACCNT_NO = #{accnt_no}
+                   AND TO_CHAR(WORK_DM,'YYYYMMDD') = TO_CHAR(SYSDATE,'YYYYMMDD')) A
+    </insert>
+
+     <!-- 변경삭제내역 등록 -->
+    <insert id="DlwConsProdMap.insertReqUpdDelInf" parameterType="map" timeout="3">
+    <!-- DM sql-id: sql-life.insertReqUpdDelInf -->
+        INSERT /* DlwConsProdMap.insertReqUpdDelInf */
+          INTO REG_UPD_DEL_INF
+             ( SEQ
+             , EMPLE_NO
+             , MEM_NO
+             , ACCNT_NO
+             , WORK_DM
+             , DAT1
+             , DAT2
+             , DAT3
+             , CL1
+             , CL2
+             , OCC_RESON
+             , NEW_YN
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN)
+        SELECT A.SEQ
+             , #{rgsr_id}
+             , #{mem_no}
+             , #{accnt_no}
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , #{dat1}
+             , #{dat2}
+             , #{dat3}
+             , #{cl1}
+             , ''
+             , ''
+             , 'Y'
+             , SYSDATE
+             , #{rgsr_id}
+             , SYSDATE
+             , #{amnd_id}
+          FROM (SELECT NVL(MAX(SEQ), 0)+1 AS SEQ
+                  FROM REG_UPD_DEL_INF) A
+    </insert>
+    <!-- CMS 출금이체 신청중인지 체크 -->
+    <select id="DlwConsProdMap.getCmsWdrwReqChk" parameterType="String" resultType="String">
+    <!-- DM sql-id: sql-life.cmsWdrwReqChk -->
+
+
+        SELECT /* DlwConsProdMap.cmsWdrwReqChk */
+               MAX(ACCNT_NO)
+          FROM WDRW_REQ WR
+         WHERE WR.ACCNT_NO = #{accnt_no}
+           AND WR.STAT IN ('01', '02')
+    </select>
+
+    <!-- 카드 출금이체 신청중인지 체크 -->
+    <select id="DlwConsProdMap.getCardWdrwReqChk" parameterType="String" resultType="String">
+    <!-- DM sql-id: sql-life.cardWdrwReqChk -->
+
+
+         SELECT /* DlwConsProdMap.getCardWdrwReqChk */
+                MAX(ACCNT_NO)
+          FROM CARD_WDRW_REQ WR
+         WHERE WR.ACCNT_NO = #{accnt_no}
+           AND WR.STAT IN ('01', '02')
+    </select>
+
+    <select id="DlwConsProdMap.getPayChk" parameterType="String" resultType="String">
+    <!-- DM sql-id: sql-life.payChk -->
+        SELECT /* DlwConsProdMap.getPayChk */
+               CASE WHEN NVL(SUM(CNT),0) > 0 THEN
+                        'N'
+                    ELSE
+                        'Y'
+                    END
+          FROM (SELECT COUNT(*) CNT
+                  FROM PAY_MNG
+                 WHERE DEL_FG = 'N'
+                   AND ACCNT_NO = #{accnt_no}
+                UNION ALL
+                SELECT COUNT(*) CNT
+                  FROM PAY_MNG_DTL
+                 WHERE DEL_FG = 'N'
+                   AND ACCNT_NO = #{accnt_no}
+                UNION ALL
+                SELECT COUNT(*) CNT
+                  FROM PAY_MNG_DTL1
+                 WHERE DEL_FG = 'N'
+                   AND ACCNT_NO = #{accnt_no})
+    </select>
+
+    <!-- [delFlagMemProdAccnt del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagMemProdAccnt" parameterType="map" timeout="3">
+    <!-- DM sql-id: sql-life.delFlagMemProdAccnt -->
+        UPDATE /* DlwConsProdMap.delFlagMemProdAccnt */
+               MEM_PROD_ACCNT
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagPayMng del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagPayMng" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagPayMng -->
+        UPDATE /* DlwConsProdMap.delFlagPayMng */
+               PAY_MNG
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagRescission del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagRescission" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagRescission -->
+        UPDATE /* DlwConsProdMap.delFlagRescission */
+               RESCISSION
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagCnclBrkdnMng del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagCnclBrkdnMng" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagCnclBrkdnMng -->
+        UPDATE /* DlwConsProdMap.delFlagCnclBrkdnMng */
+               CNCL_BRKDN_MNG
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagEvent del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagEvent" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagEvent -->
+        UPDATE /* DlwConsProdMap.delFlagEvent */
+               EVENT
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagTaxtProc del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagTaxtProc" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagTaxtProc -->
+        UPDATE /* DlwConsProdMap.delFlagTaxtProc */
+               TAXT_PROC
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagCmsMemb del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagCmsMemb" parameterType="map" timeout="3">
+    <!-- DM sql-id: sql-life.delFlagCmsMemb -->
+        UPDATE /* DlwConsProdMap.delFlagCmsMemb */
+               CMS_MEM
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagMstrChgInf del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagMstrChgInf" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagMstrChgInf -->
+        UPDATE /* DlwConsProdMap.delFlagMstrChgInf */
+               MSTR_CHG_INF
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagGasuAmtReg del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagGasuAmtReg" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagGasuAmtReg -->
+        UPDATE /* DlwConsProdMap.delFlagGasuAmtReg */
+               GASU_AMT_REG
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagDcAmtReg del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagDcAmtReg" parameterType="map">
+    <!-- DM sql-id: sql-life.delFlagDcAmtReg -->
+        UPDATE /* DlwConsProdMap.delFlagDcAmtReg */
+               DC_AMT_REG
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- [delFlagCardMemb del_fg 수정] -->
+    <update id="DlwConsProdMap.delFlagCardMemb" parameterType="map" timeout="3">
+    <!-- DM sql-id: sql-life.delFlagCardMemb -->
+        UPDATE /* DlwConsProdMap.delFlagCardMemb */
+               CARD_MEM
+           SET DEL_FG   = 'Y'
+             , UPD_DM   = SYSDATE
+             , UPD_MAN  = #{amnd_id}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <!-- 발주정보 조회 -->
+    <select id="DlwConsProdMap.getOdrgInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selectSSOrderInfo -->
+
+
+        SELECT /* DlwConsProdMap.getOdrgInfo */
+               ACCNT_NO
+             , CONFIRM_DT CONFIRM_DT
+             ,  DELIVERY_DT DELIVERY_DT
+             ,  ORDER_DT ORDER_DT
+          FROM DELIVERY_INFO
+         WHERE ACCNT_NO = #{accnt_no}
+    </select>
+
+    <select id="DlwConsProdMap.getTotCondQury" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-cond.selectTotCondListQry -->
+        WITH W_MAIN /* DlwConsProdMap.getTotCondQury */
+                    AS (SELECT ROW_NUMBER() OVER(ORDER BY RCL.ORDR_TURN) SEQ
+                             , RAG.LVL
+                             , RCL.COLUMN_CD
+                             , RCL.COLUMN_NM
+                             , 'DUMMY' AS GROUP_NM
+                          FROM EMPLOYEE EMP
+                         INNER JOIN REPORT_AUTH_GRP RAG ON EMP.REPORT_AUTH = RAG.REPORT_GRP_CD
+                         INNER JOIN REPORT_AUTH_GRP_DTL RAGD ON RAG.REPORT_GRP_CD = RAGD.REPORT_GRP_CD
+                         INNER JOIN REPORT_COLUMN_LIST RCL ON RCL.COLUMN_CD = RAGD.COLUMN_CD
+                         WHERE EMP.EMPLE_NO = #{paramEmpleNo}
+                      ORDER BY RCL.ORDR_TURN
+        )
+        SELECT (SELECT LVL
+                  FROM W_MAIN
+                 WHERE SEQ=(SELECT MAX(SEQ)
+                               FROM W_MAIN
+                              )) AS LVL
+             , (SELECT LISTAGG(COLUMN_CD, ',') WITHIN GROUP (ORDER BY SEQ)
+                  FROM W_MAIN) AS dfQry
+             , (SELECT LISTAGG(COLUMN_NM, ',') WITHIN GROUP (ORDER BY SEQ)
+                 FROM W_MAIN) AS dgLbQry
+          FROM DUAL
+    </select>
+
+    <!-- 해피콜 상태 체크 -->
+    <select id="DlwConsProdMap.getHpclAckdStatChk" parameterType="map" resultType="String">
+        SELECT /* DlwConsProdMap.getHpclAckdStatChk */
+               CASE WHEN EXISTS (SELECT 'Y'
+                                   FROM HP_CALL
+                                  WHERE ACCNT_NO = #{accnt_no}
+                                    AND STAT = #{hpcl_stat_cd})
+                         THEN 'A'
+                    WHEN EXISTS (SELECT 'Y'
+                                   FROM HP_CALL
+                                  WHERE ACCNT_NO = #{accnt_no})
+                         THEN 'U'
+                    ELSE 'I'
+                END
+          FROM DUAL
+    </select>
+
+     <!-- 전자서명 상태값 [00(인증값)_00(상품계약서 상태값)] -->
+    <select id="DlwConsProdMap.getNiceAuthStat" parameterType="map" resultType="resultMap">
+           SELECT /* DlwConsProdMap.getNiceAuthStat */
+            NICE_NO,
+            AUTH_01,
+            AUTH_02
+            FROM ( SELECT NICE_NO
+                          ,AUTH_01
+                          ,AUTH_02
+                          ,RANK() OVER (ORDER BY IDX_AUTH DESC) IDX_AUTH
+                      FROM ( SELECT NICE_NO
+                                ,AUTH_01
+                                ,AUTH_02
+                                ,RANK AS IDX_AUTH
+                            FROM ( SELECT A.NICE_NO
+                                          ,A.UPP_TX_TYPE AS AUTH_01 -- 01 02 03 완료
+                                          ,'신규' AS AUTH_02
+                                          ,RANK() OVER (ORDER BY NICE_NO DESC) RANK
+                                      FROM LF_DMUSER.TB_MEMBER_NICE_INFO A
+                                    WHERE CI_VAL = #{ci_val}
+                                  )
+                              WHERE RANK = 1
+
+                            UNION ALL
+
+                           SELECT B.NICE_NO
+                               ,A.UPP_TX_TYPE AS AUTH_01
+                               ,B.UPP_TX_TYPE AS AUTH_02
+                               ,2 AS IDX_AUTH
+                           FROM LF_DMUSER.TB_MEMBER_NICE_INFO A
+                           LEFT OUTER JOIN LF_DMUSER.TB_MEMBER_NICE_INFO_SECOND B
+                                   ON A.NICE_NO = B.NICE_NO
+                          WHERE 1=1
+                              AND B.DEL_FG = 'N'
+                            AND B.ACCNT_NO = #{accnt_no}
+                        ) TBL
+               )
+         WHERE IDX_AUTH = 1
+    </select>
+
+    <!-- 해피콜 등록 -->
+    <insert id="DlwConsProdMap.insertHpclAckd" parameterType="map">
+    <!-- DM sql-id: sql-life.insertHpCallByAllStat -->
+        INSERT INTO /* DlwConsProdMap.insertHpclAckd */
+               HP_CALL
+               (ACCNT_NO, EMPLE_NO, BEF_EMPLE_NO, STAT, ASSIGN_DM
+              , REG_MAN, REG_DM, UPD_MAN, UPD_DM)
+        VALUES (#{accnt_no}, #{rgsr_id}, '', #{hpcl_stat_cd}, SYSDATE
+              , #{rgsr_id}, SYSDATE, #{amnd_id} , SYSDATE)
+    </insert>
+
+    <!-- 해피콜 승인 상태 변경 -->
+    <update id="DlwConsProdMap.updateHpclAckd" parameterType="map">
+    <!-- DM sql-id: sql-life.updateHpCallStat -->
+        UPDATE /* DlwConsProdMap.updateHpclAckd */
+               HP_CALL
+           SET STAT = #{hpcl_stat_cd}
+             , UPD_MAN = #{amnd_id}
+             , UPD_DM = SYSDATE
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+
+    <select id="DlwConsProdMap.getHpCallCnt" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwConsProdMap.getHpCallCnt */
+               COUNT(*)
+          FROM HP_CALL HP
+             , MEM_PROD_ACCNT ACCNT
+             , PRODUCT PROD
+             , MEMBER  MEM
+             , (SELECT A.ACCNT_NO
+                     , (CASE WHEN A.POST_MTR_RCV = '01'
+                                THEN CASE WHEN LENGTH(M.HOME_ADDR) = 0
+                                                            THEN ('우)' || WRPL_ZIP)
+                                                       ELSE (HOME_ZIP)
+                                      END
+                                        ELSE CASE WHEN LENGTH(M.WRPL_ADDR) = 0
+                                                       THEN ( HOME_ZIP)
+                                                  ELSE (WRPL_ZIP)
+                                              END
+                          END
+                         ) AS POST
+                     , (CASE WHEN A.POST_MTR_RCV = '01'
+                                 THEN CASE WHEN LENGTH(M.HOME_ADDR) = 0
+                                                THEN WRPL_ADDR
+                                           ELSE HOME_ADDR
+                                       END
+                            ELSE CASE WHEN LENGTH(M.WRPL_ADDR) = 0
+                                           THEN HOME_ADDR
+                                      ELSE	WRPL_ADDR
+                                  END
+                         END
+                        ) AS ADDR1
+                     , (CASE WHEN A.POST_MTR_RCV = '01'
+                                 THEN CASE WHEN LENGTH(M.HOME_ADDR) = 0
+                                                THEN WRPL_ADDR2
+                                           ELSE HOME_ADDR2
+                                       END
+                              ELSE CASE WHEN LENGTH(M.WRPL_ADDR) = 0
+                                           THEN HOME_ADDR2
+                                      ELSE	WRPL_ADDR2
+                                   END
+                        END
+                        ) AS ADDR2
+                  FROM MEM_PROD_ACCNT A
+                     , MEMBER M
+                 WHERE A.MEM_NO = M.MEM_NO) MT
+         WHERE HP.ACCNT_NO = ACCNT.ACCNT_NO
+           AND MEM.MEM_NO = ACCNT.MEM_NO
+           AND ACCNT.PROD_CD = PROD.PROD_CD
+           AND ACCNT.ACCNT_NO = MT.ACCNT_NO
+        <if test="statcds != null and statcds != ''">
+            AND HP.STAT IN (${statcds})
+        </if>
+        <if test="stat != null and stat != ''">
+            AND HP.STAT = #{stat}
+        </if>
+        <if test="user_id != null and user_id != ''">
+            AND HP.EMPLE_NO = #{user_id}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND HP.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+            <if test="date_typ == 'JD'">
+                AND ACCNT.JOIN_DT  BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+            </if>
+            <if test="date_typ == 'HD'">
+                AND TO_CHAR(HP.ASSIGN_DM,'YYYYMMDD')  BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+            </if>
+            <if test="date_typ == 'CD'">
+                AND ACCNT.REG_DM BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+            </if>
+        </if>
+        <if test="prod_cd != null and prod_cd != ''">
+            AND PROD.PROD_CD = #{prod_cd}
+        </if>
+        <if test="emple_no != null and emple_no != ''">
+            AND ACCNT.EMPLE_NO	= #{emple_no}
+        </if>
+           AND MEM.DEL_FG <![CDATA[<>]]> 'Y'
+           AND ACCNT.DEL_FG <![CDATA[<>]]> 'Y'
+           AND PROD.DEL_FG <![CDATA[<>]]> 'Y'
+    </select>
+
+    <!-- 해피콜 배정 리스트조회 -->
+    <select id="DlwConsProdMap.getHpCallList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id: sql-life.selecthpCallList -->
+
+
+        SELECT /* DlwConsProdMap.getHpCallList */
+               B.*
+          FROM (SELECT A.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ASSIGN_DM DESC) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                 FROM (SELECT HP.ACCNT_NO, MEM.MEM_NO, MEM.MEM_NM, PROD.PROD_CD, PROD.PROD_NM
+                            , ACCNT.EMPLE_NO, HP.STAT, HP.EMPLE_NO AS HP_EMPLE_NO, MEM.CELL, HOME_TEL
+                            , MT.ADDR1, MT.ADDR2, MT.POST
+                            , FN_COM_NM('0123', MEM.SEX) SEX
+                            , FN_EMPLE_NM(ACCNT.EMPLE_NO) EMPLE_NM
+                            , FN_EMPLE_NM(HP.BEF_EMPLE_NO) BEF_EMPLE_NM
+                            , FN_COM_NM(81,HP.STAT) STAT_NM
+                            , FN_DEPT_NM((SELECT DEPT_CD
+                                          FROM EMPLOYEE
+                                          WHERE EMPLE_NO = ACCNT.EMPLE_NO
+                                         )) DEPT_NM
+                            , FN_EMPLE_NM(HP.EMPLE_NO) HP_EMPLE_NM
+                            , FN_COM_NM('113',NVL(ACCNT.JOIN_CL,'01')) AS JOIN_CL
+                            , FN_COM_NM('01', ACCNT.PAY_MTHD) AS PAY_MTHD
+                            , MEM.BRTH_MON_DAY BRTH_MON_DAY
+                            , ACCNT.JOIN_DT JOIN_DT
+                            , TO_CHAR(HP.ASSIGN_DM, 'YYYYMMDD HH24:MI:SS') ASSIGN_DM
+                            , TO_CHAR(ACCNT.REG_DM, 'YYYYMMDD HH24:MI:SS') AS REG_DM
+                            , CASE WHEN MEM.CONTC_TM = '0' THEN '휴대폰'
+                                   WHEN MEM.CONTC_TM = '1' THEN '자택'
+                                   WHEN MEM.CONTC_TM = '2' THEN '직장'
+                               END CONTC_TM
+                            , CASE WHEN ACCNT.INSPL_ZIP IS NOT NULL
+                                        THEN ('우 ' || ACCNT.INSPL_ZIP || ') '|| ACCNT.INSPL_ADDR||  ' ' || ACCNT.INSPL_ADDR2)
+                                   ELSE ''
+                               END INSPL_ADDR
+                            , SUBSTR(MEM.CONTC_TM_FROM,1,2) ||':'|| SUBSTR(MEM.CONTC_TM_FROM,3,4) || '-' || SUBSTR(MEM.CONTC_TM_TO,1,2) ||':'|| SUBSTR(MEM.CONTC_TM_FROM,3,4) AS CONTC_TIME
+                            , (SELECT MAX(NO)
+                                FROM PAY_MNG
+                                WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                AND DEL_FG='N'
+                               ) AS MAX_PAY_CNT
+                            , FN_HP_CALL(HP.ACCNT_NO) AS NOTE
+                            , CASE WHEN FN_EVENT(ACCNT.ACCNT_NO) != ''
+                                        THEN ''
+                                   ELSE FN_YEN_CHE(ACCNT.ACCNT_NO)
+                               END ACCNT_STAT1
+                            , FN_KSTBITGUBUN(ACCNT.ACCNT_NO)   AS ACCNT_STAT2
+                            , CASE WHEN ACCNT.PAY_MTHD = '06'
+                                        THEN NVL((SELECT CARD_NO
+                                                  FROM CARD_MEM
+                                                  WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                                  AND DEL_FG = 'N'
+                                                  ),'')
+                                   ELSE ''
+                               END CARD_NO
+                            , CASE WHEN ACCNT.PAY_MTHD = '06'
+                                        THEN (SELECT FN_COM_NM('0120',CARD_CD)
+                                              FROM CARD_MEM
+                                              WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                              AND DEL_FG='N'
+                                              )
+                                   ELSE ''
+                               END CARD_NM
+                            , CASE WHEN ACCNT.PAY_MTHD = '06'
+                                        THEN NVL((SELECT EXPIRE_DATE
+                                                     FROM CARD_MEM
+                                                     WHERE ACCNT_NO=ACCNT.ACCNT_NO
+                                                     AND DEL_FG='N'
+                                                  ),'')
+                                   ELSE ''
+                               END EXPIRE_DATE
+                            , CASE WHEN ACCNT.PAY_MTHD = '06'
+                                        THEN NVL((SELECT PAY_DT
+                                                     FROM CARD_MEM
+                                                     WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                                     AND DEL_FG='N'
+                                                     ),'')
+                                   WHEN ACCNT.PAY_MTHD = '04'
+                                        THEN NVL((SELECT ICHAE_DT
+                                                     FROM CMS_MEM
+                                                     WHERE ACCNT_NO = ACCNT.ACCNT_NO
+                                                     AND DEL_FG='N'
+                                                      ),'')
+                                    ELSE ''
+                              END PAY_DT
+                       FROM  HP_CALL HP
+                            , MEM_PROD_ACCNT ACCNT
+                            , PRODUCT PROD
+                            , MEMBER  MEM
+                            , (SELECT A.ACCNT_NO
+                                     ,(CASE WHEN A.POST_MTR_RCV = '01'
+                                                            THEN CASE WHEN LENGTH(M.HOME_ADDR) = 0
+                                                                           THEN ('우)' || WRPL_ZIP)
+                                                                      ELSE (HOME_ZIP)
+                                                                  END
+                                                       ELSE CASE WHEN LENGTH(M.WRPL_ADDR) = 0
+                                                                      THEN ( HOME_ZIP)
+                                                                 ELSE (WRPL_ZIP)
+                                                             END
+                                          END
+                                        ) AS POST
+                                    , (CASE WHEN A.POST_MTR_RCV = '01'
+                                                THEN CASE WHEN LENGTH(M.HOME_ADDR) = 0
+                                                               THEN WRPL_ADDR
+                                                          ELSE HOME_ADDR
+                                                      END
+                                                ELSE CASE WHEN LENGTH(M.WRPL_ADDR) = 0
+                                                               THEN HOME_ADDR
+                                                          ELSE	WRPL_ADDR
+                                                      END
+                                         END
+                                       ) AS ADDR1
+                                    , (CASE WHEN A.POST_MTR_RCV = '01'
+                                                THEN CASE WHEN LENGTH(M.HOME_ADDR) = 0
+                                                               THEN WRPL_ADDR2
+                                                          ELSE HOME_ADDR2
+                                                     END
+                                                ELSE CASE WHEN LENGTH(M.WRPL_ADDR) = 0
+                                                               THEN HOME_ADDR2
+                                                          ELSE	WRPL_ADDR2
+                                                     END
+                                         END
+                                       ) AS ADDR2
+                               FROM MEM_PROD_ACCNT A
+                                    , MEMBER M
+                               WHERE A.MEM_NO = M.MEM_NO
+                              ) MT
+                            WHERE HP.ACCNT_NO = ACCNT.ACCNT_NO
+                         AND MEM.MEM_NO = ACCNT.MEM_NO
+                         AND ACCNT.PROD_CD = PROD.PROD_CD
+                         AND ACCNT.ACCNT_NO = MT.ACCNT_NO
+                        <if test="statcds != null and statcds != ''">
+                            AND HP.STAT IN (${statcds})
+                        </if>
+                        <if test="stat != null and stat != ''">
+                            AND HP.STAT = #{stat}
+                        </if>
+                        <if test="user_id != null and user_id != ''">
+                            AND HP.EMPLE_NO = #{user_id}
+                        </if>
+                        <if test="accnt_no != null and accnt_no != ''">
+                            AND HP.ACCNT_NO = #{accnt_no}
+                        </if>
+                        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                            <if test="date_typ == 'JD'">
+                                AND  ACCNT.JOIN_DT BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+                            </if>
+                            <if test="date_typ == 'HD'">
+                                AND  TO_CHAR(HP., 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+                            </if>
+                            <if test="date_typ == 'CD'">
+                                AND TO_CHAR(ACCNT.REG_DM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '')  AND REPLACE(#{end_dt}, '-', '')
+                            </if>
+                        </if>
+                        <if test="prod_cd != null and prod_cd != ''">
+                            AND PROD.PROD_CD = #{prod_cd}
+                        </if>
+                        <if test="emple_no != null and emple_no != ''">
+                            AND ACCNT.EMPLE_NO	= #{emple_no}
+                        </if>
+                         AND MEM.DEL_FG <![CDATA[<>]]> 'Y'
+                         AND ACCNT.DEL_FG <![CDATA[<>]]> 'Y'
+                         AND PROD.DEL_FG <![CDATA[<>]]> 'Y') A
+                ) B
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+            ]]>
+            </if>
+    </select>
+
+    <!-- 해피콜 이력 등록 -->
+    <insert id="DlwConsProdMap.insertHpclHist" parameterType="map">
+    <!-- DM sql-id: sql-life.insertHpCallHist -->
+        INSERT INTO /* DlwConsProdMap.insertHpclHist*/
+               HP_CALL_HIST
+               (ACCNT_NO, SEQ, EMPLE_NO, STAT, NOTE
+              , REG_DM, REG_MAN, UPD_DM, UPD_MAN )
+        SELECT #{accnt_no}, NVL(MAX(SEQ),0) + 1, #{rgsr_id}, #{hpcl_stat_cd}, #{hpcl_note}
+             , SYSDATE, #{rgsr_id}, SYSDATE, #{amnd_id}
+          FROM HP_CALL_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+    </insert>
+
+    <select id="DlwConsProdMap.getTotCondLv1Count" parameterType="map" resultType="int">
+
+
+        DECLARE @NOW_DM VARCHAR(10), @NOW_DM_1 VARCHAR(6);
+
+        SET @NOW_DM = CONVERT(VARCHAR, DATEADD(DAY, -1, DATEADD(MONTH, 1, CONVERT(DATETIME, REPLACE(#{work_mnth}, '-', '')))), 111);
+        SET @NOW_DM_1 = REPLACE(@NOW_DM, '/', '');
+
+        WITH TBL_PAGELIST AS (
+             SELECT ROW_NUMBER() OVER (ORDER BY MPA.JOIN_DT DESC, MPA.ACCNT_NO DESC) ROWNUM
+                     /*기본검색조건-시작*/
+                  , MPA.ACCNT_NO
+               FROM MEMBER MEM
+              INNER JOIN MEM_PROD_ACCNT MPA
+                      ON MEM.MEM_NO = MPA.MEM_NO
+                     AND MPA.DEL_FG = 'N'
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND MPA.ACCNT_NO = #{accnt_no}
+                    AND CONVERT(VARCHAR, MPA.JOIN_DT, 111) <![CDATA[<=]]> @NOW_DM
+                </if>
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    <if test="srch_typ == 'rgsn_dt'">
+                        AND CONVERT(VARCHAR, MPA.REG_DM, 112) BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '') /* @등록일자 */
+                    </if>
+                    <if test="srch_typ == 'join_dt'">
+                        AND CONVERT(VARCHAR, MPA.JOIN_DT, 112) BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '')/* @가입일자 */
+                    </if>
+                </if>
+               LEFT OUTER JOIN (SELECT ACCNT_NO, STAT
+                                  FROM HP_CALL) HC
+                            ON HC.ACCNT_NO = MPA.ACCNT_NO
+              INNER JOIN PRODUCT PROD
+                      ON MPA.PROD_CD = PROD.PROD_CD
+                    <if test="prod_cd != null and prod_cd != ''">
+                        AND PROD.PROD_CD = #{prod_cd}
+                    </if>
+              INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD
+                            FROM EMPLOYEE) EMP
+                      ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                    <if test="dataAthrQury != null and dataAthrQury != ''">
+                        ${dataAthrQury}
+                    </if>
+              WHERE MEM.DEL_FG = 'N'
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM.MEM_NM = #{mem_nm}
+            </if>
+                              )
+             SELECT COUNT(*)
+               FROM (SELECT PG.ROWNUM
+                       FROM MEM_PROD_ACCNT MPA
+                      INNER JOIN (
+                     SELECT ROWNUM, ACCNT_NO
+                       FROM TBL_PAGELIST
+                                  ) PG ON PG.ACCNT_NO = MPA.ACCNT_NO
+                      INNER JOIN MEMBER MEM ON MEM.MEM_NO = MPA.MEM_NO AND MEM.DEL_FG = 'N'
+                       LEFT OUTER JOIN (SELECT ACCNT_NO, STAT FROM HP_CALL) HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                      INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                      INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD, GRP_EMPLE_NO FROM EMPLOYEE) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                       LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = MPA.ACCNT_NO AND EVT.DEL_FG = 'N' AND CONVERT(VARCHAR, EVT.EVENT_PROC_DAY, 111) <![CDATA[<=]]> @NOW_DM/* @작업월: 필수 */
+                       LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = MPA.ACCNT_NO AND RESN.DEL_FG = 'N' AND CONVERT(VARCHAR, RESN.RESN_PROC_DAY, 111) <![CDATA[<=]]> @NOW_DM  /* @작업월: 필수 */
+                       LEFT OUTER JOIN TAXT_PROC TP ON TP.ACCNT_NO = MPA.ACCNT_NO AND TP.DEL_FG = 'N' AND CONVERT(VARCHAR, TP.TAXT_PROC_DAY, 111) <![CDATA[<=]]> @NOW_DM AND TP.REVL_DAY IS NULL/* @작업월: 필수 */
+                       LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAY_AMT, COUNT(NO) NO, MAX(CONVERT(VARCHAR, PAY_DAY, 111)) PAY_DAY FROM PAY_MNG WHERE DEL_FG = 'N' AND CONVERT(VARCHAR, PAY_DAY, 111) <![CDATA[<=]]> @NOW_DM GROUP BY ACCNT_NO) PM ON PM.ACCNT_NO = MPA.ACCNT_NO
+                       LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAY_AMT, COUNT(NO) NO, MAX(CONVERT(VARCHAR, PAY_DAY, 111)) PAY_DAY FROM PAY_MNG_DTL WHERE DEL_FG = 'N' AND CONVERT(VARCHAR, PAY_DAY, 111) <![CDATA[<=]]> @NOW_DM GROUP BY ACCNT_NO) PMD ON PMD.ACCNT_NO = MPA.ACCNT_NO
+                       LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAY_AMT, COUNT(NO) NO, MAX(CONVERT(VARCHAR, PAY_DAY, 111)) PAY_DAY FROM PAY_MNG_DTL1 WHERE DEL_FG = 'N' AND CONVERT(VARCHAR, PAY_DAY, 111) <![CDATA[<=]]> @NOW_DM GROUP BY ACCNT_NO) PMD1 ON PMD1.ACCNT_NO = MPA.ACCNT_NO
+                      WHERE MPA.DEL_FG = 'N'
+                ) TBL
+    </select>
+
+    <select id="DlwConsProdMap.getTotCondLv2Count" parameterType="map" resultType="int">
+        /* DlwConsProdMap.getTotCondLv2Count */
+
+        WITH TBL_PAGELIST AS (
+             SELECT ROW_NUMBER() OVER (ORDER BY MPA.JOIN_DT DESC, MPA.ACCNT_NO DESC) RNUM
+                /*기본검색조건-시작*/
+                  , MPA.ACCNT_NO
+               FROM MEMBER MEM
+              INNER JOIN MEM_PROD_ACCNT MPA ON MEM.MEM_NO = MPA.MEM_NO AND MPA.DEL_FG = 'N'
+               <if test="accnt_no != null and accnt_no != ''">
+                    AND MPA.ACCNT_NO = #{accnt_no}
+                    AND MPA.JOIN_DT <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD')
+                </if>
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    <if test="srch_typ == 'rgsn_dt'">
+                        AND TO_CHAR(MPA.REG_DM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '') /* @등록일자 */
+                    </if>
+                    <if test="srch_typ == 'join_dt'">
+                        AND MPA.JOIN_DT BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '')/* @가입일자 */
+                    </if>
+                </if>
+               LEFT OUTER JOIN (SELECT ACCNT_NO, STAT FROM HP_CALL) HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+              INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                <if test="prod_cd != null and prod_cd != ''">
+                    AND PROD.PROD_CD = #{prod_cd}
+                </if>
+               INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD FROM EMPLOYEE) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                <if test="dataAthrQury != null and dataAthrQury != ''">
+                    ${dataAthrQury}
+                </if>
+            WHERE MEM.DEL_FG = 'N'
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM.MEM_NM = #{mem_nm}
+            </if>
+        )
+        SELECT COUNT(*)
+          FROM (SELECT PG.RNUM
+                 FROM MEM_PROD_ACCNT MPA
+                INNER JOIN (SELECT ROWNUM AS RNUM
+                                 , ACCNT_NO
+                              FROM TBL_PAGELIST
+                            ) PG ON PG.ACCNT_NO = MPA.ACCNT_NO
+                INNER JOIN MEMBER MEM ON MEM.MEM_NO = MPA.MEM_NO AND MEM.DEL_FG = 'N'
+                 LEFT OUTER JOIN (SELECT ACCNT_NO, STAT FROM HP_CALL) HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD, GRP_EMPLE_NO FROM EMPLOYEE) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                 LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = MPA.ACCNT_NO AND EVT.DEL_FG = 'N' AND EVT.EVENT_PROC_DAY <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD') /* @작업월: 필수 */
+                 LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = MPA.ACCNT_NO AND RESN.DEL_FG = 'N' AND RESN.RESN_PROC_DAY <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD')  /* @작업월: 필수 */
+                 LEFT OUTER JOIN TAXT_PROC TP ON TP.ACCNT_NO = MPA.ACCNT_NO AND TP.DEL_FG = 'N' AND TP.TAXT_PROC_DAY <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD') AND TP.REVL_DAY IS NULL/* @작업월: 필수 */
+                 LEFT OUTER JOIN (SELECT ACCNT_NO
+                                       , SUM(PAY_AMT) PAY_AMT
+                                       , COUNT(NO) NO
+                                       , MAX(PAY_DAY) PAY_DAY
+                                    FROM PAY_MNG
+                                   WHERE DEL_FG = 'N'
+                                     AND PAY_DAY <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD')
+                                   GROUP BY ACCNT_NO) PM ON PM.ACCNT_NO = MPA.ACCNT_NO
+                 LEFT OUTER JOIN (SELECT ACCNT_NO
+                                       , SUM(PAY_AMT) PAY_AMT
+                                       , COUNT(NO) NO
+                                       , MAX(PAY_DAY) PAY_DAY
+                                    FROM PAY_MNG_DTL
+                                   WHERE DEL_FG = 'N'
+                                     AND PAY_DAY <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD')
+                                   GROUP BY ACCNT_NO) PMD ON PMD.ACCNT_NO = MPA.ACCNT_NO
+                 LEFT OUTER JOIN (SELECT ACCNT_NO
+                                       , SUM(PAY_AMT) PAY_AMT
+                                       , COUNT(NO) NO
+                                       , MAX(PAY_DAY) PAY_DAY
+                                    FROM PAY_MNG_DTL1
+                                   WHERE DEL_FG = 'N'
+                                     AND PAY_DAY <![CDATA[<=]]> to_char(add_months(to_date(REPLACE(#{work_mnth}, '-', ''), 'YYYYMMDD'), 1) - 1, 'YYYYMMDD')
+                                   GROUP BY ACCNT_NO) PMD1 ON PMD1.ACCNT_NO = MPA.ACCNT_NO
+                WHERE MPA.DEL_FG = 'N') TBL
+    </select>
+
+    <select id="DlwConsProdMap.getTotCondLv3Count" parameterType="map" resultType="int">
+        /* DlwConsProdMap.getTotCondLv3Count */
+
+
+
+        DECLARE @NOW_DM VARCHAR(10);
+
+        SET @NOW_DM = CONVERT(VARCHAR, DATEADD(DAY, -1, DATEADD(MONTH, 1, CONVERT(DATETIME, REPLACE(#{work_mnth}, '-', '')))), 111);
+
+        WITH TBL_PAGELIST AS (
+             SELECT ROW_NUMBER() OVER (ORDER BY MPA.JOIN_DT DESC, MPA.ACCNT_NO DESC) ROWNUM
+                /*기본검색조건-시작*/
+                  , MPA.ACCNT_NO
+              FROM MEMBER MEM
+             INNER JOIN MEM_PROD_ACCNT MPA ON MEM.MEM_NO = MPA.MEM_NO AND MPA.DEL_FG = 'N'
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND MPA.ACCNT_NO = #{accnt_no}
+                    AND CONVERT(VARCHAR, MPA.JOIN_DT, 111) <![CDATA[<=]]> @NOW_DM
+                </if>
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    <if test="srch_typ == 'rgsn_dt'">
+                        AND CONVERT(VARCHAR, MPA.REG_DM, 112) BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '') /* @등록일자 */
+                    </if>
+                    <if test="srch_typ == 'join_dt'">
+                        AND CONVERT(VARCHAR, MPA.JOIN_DT, 112) BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '')/* @가입일자 */
+                    </if>
+                </if>
+               LEFT OUTER JOIN (SELECT ACCNT_NO, STAT FROM HP_CALL) HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+              INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                    <if test="prod_cd != null and prod_cd != ''">
+                        AND PROD.PROD_CD = #{prod_cd}
+                    </if>
+              INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD FROM EMPLOYEE) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                    <if test="dataAthrQury != null and dataAthrQury != ''">
+                        ${dataAthrQury}
+                    </if>
+              WHERE MEM.DEL_FG = 'N'
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM.MEM_NM = #{mem_nm}
+            </if>
+        )
+        SELECT COUNT(*)
+          FROM (SELECT PG.ROWNUM
+                  FROM MEM_PROD_ACCNT MPA
+                 INNER JOIN (SELECT ROWNUM, ACCNT_NO
+                               FROM TBL_PAGELIST
+                            ) PG
+                         ON PG.ACCNT_NO = MPA.ACCNT_NO
+                 INNER JOIN MEMBER MEM ON MEM.MEM_NO = MPA.MEM_NO AND MEM.DEL_FG = 'N'
+                  LEFT OUTER JOIN (SELECT ACCNT_NO, STAT FROM HP_CALL) HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                 INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                 INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD, GRP_EMPLE_NO FROM EMPLOYEE) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                  LEFT OUTER JOIN EVENT EVT ON EVT.ACCNT_NO = MPA.ACCNT_NO AND EVT.DEL_FG = 'N' AND CONVERT(VARCHAR, EVT.EVENT_PROC_DAY, 111) <![CDATA[<=]]> @NOW_DM/* @작업월: 필수 */
+                  LEFT OUTER JOIN RESCISSION RESN ON RESN.ACCNT_NO = MPA.ACCNT_NO AND RESN.DEL_FG = 'N' AND CONVERT(VARCHAR, RESN.RESN_PROC_DAY, 111) <![CDATA[<=]]> @NOW_DM /* @작업월: 필수 */
+                  LEFT OUTER JOIN TAXT_PROC TP ON TP.ACCNT_NO = MPA.ACCNT_NO AND TP.DEL_FG = 'N' AND CONVERT(VARCHAR, TP.TAXT_PROC_DAY, 111) <![CDATA[<=]]> @NOW_DM AND TP.REVL_DAY IS NULL/* @작업월: 필수 */
+                  LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAY_AMT, COUNT(NO) NO, MAX(CONVERT(VARCHAR, PAY_DAY, 111)) PAY_DAY FROM PAY_MNG WHERE DEL_FG = 'N' AND CONVERT(VARCHAR, PAY_DAY, 111) <![CDATA[<=]]> @NOW_DM GROUP BY ACCNT_NO) PM ON PM.ACCNT_NO = MPA.ACCNT_NO
+                  LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAY_AMT, COUNT(NO) NO, MAX(CONVERT(VARCHAR, PAY_DAY, 111)) PAY_DAY FROM PAY_MNG_DTL WHERE DEL_FG = 'N' AND CONVERT(VARCHAR, PAY_DAY, 111) <![CDATA[<=]]> @NOW_DM GROUP BY ACCNT_NO) PMD ON PMD.ACCNT_NO = MPA.ACCNT_NO
+                  LEFT OUTER JOIN (SELECT ACCNT_NO, SUM(PAY_AMT) PAY_AMT, COUNT(NO) NO, MAX(CONVERT(VARCHAR, PAY_DAY, 111)) PAY_DAY FROM PAY_MNG_DTL1 WHERE DEL_FG = 'N' AND CONVERT(VARCHAR, PAY_DAY, 111) <![CDATA[<=]]> @NOW_DM GROUP BY ACCNT_NO) PMD1 ON PMD1.ACCNT_NO = MPA.ACCNT_NO
+                 WHERE MPA.DEL_FG = 'N'
+            ) TBL
+    </select>
+
+    <!-- 온라인변환 상품 추가 전 모델코드조회 -->
+    <select id="DlwConsProdMap.getProdModelCd" parameterType="map" resultType="String">
+        /* DlwConsProdMap.getProdModelCd */
+        SELECT nvl(MODEL_CD, '') AS MODEL_CD
+          FROM PRODUCT_MODEL_MST A
+             , PRODUCT_MODEL_DTL B
+         WHERE A.SEQ = B.SEQ
+           AND A.DEL_FG = 'N'
+           AND A.PROD_CD = #{prod_cd}
+           AND A.PROD_KIND = #{prod_model_kind}
+           AND B.MODEL_NM = #{prod_model_nm}
+    </select>
+
+    <!--
+    종합현황 조회
+     - asis 에서 권한별로 3개의 쿼리가 있었는데 모두삭제하고 1개로 대체
+    -->
+    <select id="DlwConsProdMap.getTotCondCountLv" parameterType="map" resultType="int">
+         SELECT /* DlwConsProdMap.getTotCondCountLv */
+                count(MPA.ACCNT_NO)
+           FROM LF_DMUSER.MEMBER MEM
+          INNER JOIN LF_DMUSER.MEM_PROD_ACCNT MPA
+                  ON MEM.MEM_NO = MPA.MEM_NO
+                 AND MPA.DEL_FG = 'N'
+            <if test="accnt_no != null and accnt_no != ''">
+                AND MPA.ACCNT_NO = #{accnt_no}
+                AND MPA.JOIN_DT <![CDATA[<=]]> to_char(last_Day(REPLACE(#{work_mnth}, '-', '')),'yyyymmdd')
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                <if test="srch_typ == 'rgsn_dt'">
+                   AND TO_CHAR(MPA.REG_DM, 'YYYYMMDD') BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '') /* @등록일자 */
+                </if>
+                <if test="srch_typ == 'join_dt'">
+                     AND MPA.JOIN_DT  BETWEEN REPLACE(#{stt_dt}, '-', '') AND REPLACE(#{end_dt}, '-', '')/* @가입일자 */
+                </if>
+            </if>
+          INNER JOIN LF_DMUSER.PRODUCT PROD
+                  ON MPA.PROD_CD = PROD.PROD_CD
+                <if test="prod_cd != null and prod_cd != ''">
+                    AND PROD.PROD_CD = #{prod_cd}
+                </if>
+          INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD
+                        FROM LF_DMUSER.EMPLOYEE) EMP
+                  ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                <if test="dataAthrQury != null and dataAthrQury != ''">
+                    ${dataAthrQury}
+                </if>
+          WHERE MEM.DEL_FG = 'N'
+        <if test="mem_nm != null and mem_nm != ''">
+            AND MEM.MEM_NM = #{mem_nm}
+        </if>
+    </select>
+
+    <!--
+    종합현황 조회
+     - asis 에서 권한별로 3개의 쿼리가 있었는데 모두삭제하고 1개로 대체
+    -->
+    <select id="DlwConsProdMap.getTotCondListLv" parameterType="map" resultType="resultMap" >
+        /* DlwConsProdMap.getTotCondListLv */
+        WITH TBL_PAGELIST AS (
+             SELECT ROW_NUMBER() OVER (ORDER BY MPA.ACCNT_NO) RANK
+                     /*기본검색조건-시작*/
+                  , MPA.ACCNT_NO
+               FROM LF_DMUSER.MEMBER MEM
+              INNER JOIN LF_DMUSER.MEM_PROD_ACCNT MPA
+                      ON MEM.MEM_NO = MPA.MEM_NO
+                     AND MPA.DEL_FG = 'N'
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND MPA.ACCNT_NO = #{accnt_no}
+                    AND MPA.JOIN_DT <![CDATA[<=]]> to_char(last_Day(#{work_mnth}),'yyyymmdd')
+                </if>
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    <if test="srch_typ == 'rgsn_dt'">
+                       AND TO_CHAR(MPA.REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                    <if test="srch_typ == 'join_dt'">
+                         AND MPA.JOIN_DT  BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+              INNER JOIN LF_DMUSER.PRODUCT PROD
+                      ON MPA.PROD_CD = PROD.PROD_CD
+                    <if test="prod_cd != null and prod_cd != ''">
+                        AND PROD.PROD_CD = #{prod_cd}
+                    </if>
+              INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD
+                            FROM LF_DMUSER.EMPLOYEE) EMP
+                      ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                    <if test="dataAthrQury != null and dataAthrQury != ''">
+                        ${dataAthrQury}
+                    </if>
+              WHERE MEM.DEL_FG = 'N'
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM.MEM_NM = #{mem_nm}
+            </if>
+                              )
+             SELECT TBL.*
+                  , CASE WHEN YEN_CHE = 0 AND YEN = 1 THEN '만기'
+                    WHEN YEN_CHE = 0 AND YEN = 0 THEN '정상'
+                    WHEN YEN_CHE = 1 AND YEN = 0 THEN '당월미납'
+                    WHEN YEN_CHE > 1 AND YEN = 0 THEN TO_CHAR(YEN_CHE - 1) || '회 연체'
+                    WHEN YEN_CHE <![CDATA[<]]> 0 AND YEN = 0 THEN REPLACE(TO_CHAR(YEN_CHE), '-', '')|| '회 선납'
+                    WHEN YEN_CHE <![CDATA[<]]> 0 AND YEN = 1 THEN '만기'
+                END A014
+                   , CEIL(TOTAL_CNT / 100) TOTALPAGE
+                  , TOTAL_CNT
+               FROM (SELECT PG.RANK
+                          , MPA.ACCNT_NO
+                          , MPA.MEM_NO
+                          , replace(MEM.MEM_NO,chr(0),'')          A001
+                          , replace(MPA.ACCNT_NO,chr(0),'')        A002
+                          , replace(MEM.MEM_NM,chr(0),'')          A003
+                          , replace(MEM.BRTH_MON_DAY,chr(0),'')    A004
+                          , replace(MEM.HOME_TEL,chr(0),'')        A005
+                          , replace(MEM.CELL,chr(0),'')            A006
+                          , replace(MEM.EMAIL,chr(0),'')           A007
+                          , PROD.PROD_CD
+                          , replace(PROD.PROD_NM,chr(0),'')        A008
+                          , replace(MPA.JOIN_DT,chr(0),'')         A009
+                          , replace(MPA.APPFM_NO,chr(0),'')        A010
+                          , replace(LF_DMUSER.fn_dept_nm(EMP.DEPT_CD),chr(0),'') A011
+                          , replace(EMP.EMPLE_NM,chr(0),'') A012
+                          , replace(EMP.EMPLE_NO,chr(0),'') A013
+                          , CASE WHEN EVT.ACCNT_NO IS NOT NULL THEN '행사'
+                                 WHEN RESN.ACCNT_NO IS NOT NULL THEN replace(LF_DMUSER.FN_COM_NM('64',RESN.RESN_CL), chr(0),'')
+                                 ELSE '정상'
+                             END A015
+                          , CASE WHEN EVT.ACCNT_NO IS NOT NULL THEN replace(NVL(EVT.EVENT_PROC_DAY, ''), chr(0), '')
+                           WHEN RESN.ACCNT_NO IS NOT NULL THEN replace(NVL(RESN.RESN_PROC_DAY, ''),chr(0),'')
+                                   ELSE ''
+                               END A016
+                          , replace(NVL(LF_DMUSER.FN_COM_NM('81', HC.STAT), ''),chr(0),'') A017
+                          , replace(NVL(MPA.ORDER_NUM, ''),chr(0),'') A018
+                          , replace(NVL(LF_DMUSER.FN_COM_NM('113', MPA.JOIN_CL), ''),chr(0),'') A019
+                          , replace(NVL((SELECT B.COM_NM FROM LF_DMUSER.B2BCOMCD B WHERE B.COM_CD = MPA.B2B_COMP_CD), ''),chr(0),'') AS A020
+                          , replace(NVL(MPA.B2B_EMPLE_NO, ''),chr(0),'') A021
+                          , replace(NVL(MEM.CREDIT_RATING, ''),chr(0),'') A022
+                          , replace(NVL(MPA.CRDT_MNG_NO, ''),chr(0),'') A023
+                          , replace(NVL(MPA.DED_NO, ''),chr(0),'') A024
+                          , replace(NVL(MPA.KB_NO, ''),chr(0),'') A025
+                          , NVL(CASE WHEN NVL(MEM.HOME_ZIP, '') > ' '
+                                             THEN replace(MEM.HOME_ZIP || ') ' || MEM.HOME_ADDR || ' ' || NVL(MEM.HOME_ADDR2, ''),chr(0),'')
+                                        ELSE replace(MEM.WRPL_ZIP || ') ' || MEM.WRPL_ADDR || ' ' || NVL(MEM.WRPL_ADDR2, ''), chr(0), '')
+                                    END, '') A026
+                          , replace(SUBSTR(MEM.CONTC_TM_FROM,1, 2) || ':' || SUBSTR(MEM.CONTC_TM_FROM, -2) || '~' || SUBSTR(MEM.CONTC_TM_TO, 1,2) || ':' || SUBSTR(MEM.CONTC_TM_TO, -2),chr(0),'') A027
+                          , CASE WHEN LENGTH(MEM.IDN_NO) = 10
+                                THEN ''
+                           ELSE CASE WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) = 0 THEN '영유아'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) = 1 THEN '10대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) = 2 THEN '20대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 3 THEN '30대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 4 THEN '40대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 5 THEN '50대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 6 THEN '60대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 7 THEN '70대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 8 THEN '80대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 9 THEN '90대'
+                                     WHEN TRUNC((MONTHS_BETWEEN(SYSDATE,MEM.BRTH_MON_DAY) /12 +1) / 10 ,0) / 10 = 10 THEN '100대'
+                                     ELSE '기타'
+                                 END
+                             END A028
+                          , CASE WHEN HOME_ADDR != '' THEN replace(LF_DMUSER.fn_splitstring(MEM.HOME_ADDR,' ',0), chr(0),'')
+                                 WHEN WRPL_ADDR != '' THEN replace(LF_DMUSER.fn_splitstring(MEM.WRPL_ADDR,' ',0), chr(0),'')
+                                 ELSE ''
+                             END A029
+                          , replace(NVL(MPA.ACCNT_NOTE, ''), chr(0), '') A030
+                          , replace(NVL(MPA.INSPL_ZIP || ') ' || MPA.INSPL_ADDR || ' ' || NVL(MPA.INSPL_ADDR2, ''), ''), chr(0), '') A031
+                          , replace(NVL(MPA.INSPL_PHONE, ''), chr(0), '') A032
+                          , replace(NVL(MPA.ID_NO, ''), chr(0), '') A033
+                          , replace(NVL(MPA.RECOMMEND_EMPLE_NO, ''), chr(0), '') A034
+                          , replace(NVL((SELECT LF_DMUSER.FN_COM_NM('0125', B.SALE_TYPE) FROM LF_DMUSER.B2BCOMCD B WHERE B.COM_CD = MPA.B2B_COMP_CD), ''), chr(0), '') AS A035
+                          , (SELECT replace(PK.PROD_KIND_NM, chr(0), '') AS PROD_KIND_NM FROM LF_DMUSER.PRODUCT_KIND PK WHERE PK.PROD_CD = MPA.PROD_CD AND PK.SEQ = MPA.PROD_KIND) A036
+                          , replace(LF_DMUSER.fn_emple_nm(MPA.REG_MAN), chr(0), '') A037
+                          , CASE WHEN PROD.PROD_CD IN( 'S7','S8', 'S9', 'T0', 'X5','X6' )
+                                      THEN replace(NVL(LF_DMUSER.FN_COM_NM('0184', MPA.SM_SHOP_INFO), ''), chr(0), '')
+                                 ELSE replace(NVL(LF_DMUSER.FN_COM_NM('0173', MPA.LG_SHOP_INFO), ''), chr(0), '')
+                             END A038
+                          , replace(NVL(MPA.NEW_CHAN_GUNSU * PROD.MON_PAY_AMT, 0), chr(0), '') A039
+                          , replace(NVL(MPA.NEW_CHAN_GUNSU, 0), chr(0), '') A040
+                          , (TRUNC(MONTHS_BETWEEN(LAST_DAY(#{work_mnth} || '01') ,MPA.JOIN_DT),0)  + 1) A041
+                          , replace(NVL(PM.NO, 0), chr(0), '') A042
+                          , replace(NVL(PM.NO, 0) + NVL(MPA.NEW_CHAN_GUNSU, 0), chr(0), '') A043
+                          , replace(NVL(PM.PAY_DAY, ''), chr(0), '') A044
+                          , replace(NVL(PM.PAY_AMT, 0), chr(0), '') A045
+                          , replace(NVL(PMD.PAY_AMT, 0), chr(0), '') A046
+                          , replace(NVL(PMD1.PAY_AMT, 0), chr(0), '') A047
+
+                          , NVL((SELECT B2B_AMT FROM LF_DMUSER.ALOW_AMT_ACCNT AAA WHERE AAA.ACCNT_NO = MPA.ACCNT_NO AND AAA.STND_MM = substr(#{work_mnth},1,6)), 0) A048
+                          , NVL((SELECT ALOW_AMT FROM LF_DMUSER.ALOW_AMT_ACCNT AAA WHERE AAA.ACCNT_NO = MPA.ACCNT_NO AND AAA.STND_MM = substr(#{work_mnth},1,6)), 0) A049
+                          , NVL((SELECT RESN_AMT FROM LF_DMUSER.RESN_AMT_ACCNT AAA WHERE AAA.ACCNT_NO = MPA.ACCNT_NO AND AAA.STND_MM = substr(#{work_mnth},1,6)), 0) A050
+
+                          , PROD.EXPR_NO
+                    , CASE WHEN (PROD.EXPR_NO - MPA.NEW_CHAN_GUNSU) > NVL(TRUNC(MONTHS_BETWEEN(LAST_DAY(#{work_mnth} || '01') ,MPA.JOIN_DT),0)  + 1, 0)
+                           THEN NVL(TRUNC(MONTHS_BETWEEN(LAST_DAY(#{work_mnth} || '01') ,MPA.JOIN_DT),0)  + 1, 0)  - NVL(PM.NO, 0)
+                           ELSE NVL((PROD.EXPR_NO - MPA.NEW_CHAN_GUNSU), 0) - NVL(PM.NO, 0)
+                       END YEN_CHE
+                    , CASE WHEN (PROD.EXPR_NO - MPA.NEW_CHAN_GUNSU) = PM.NO
+                           THEN 1
+                           ELSE 0
+                       END YEN
+                    , (SELECT replace(B.MODEL_CL_NM, chr(0), '') AS MODEL_CL_NM FROM LF_DMUSER.PRODUCT_MODEL_CL_CD B WHERE B.MODEL_CL_CD = MPA.PROD_MODEL_KIND) A051
+                    , (SELECT
+                        <!-- 2018.05.17 상담 상품상세정보 화면과 맞춰 단종된 상품일 경우 모델명+(단종) 형태로 조회 -->
+                        <!-- replace(PRODMD.MODEL_NM, chr(0), '') as MODEL_NM -->
+                        PRODMD.MODEL_NM || CASE WHEN NVL(PRODMD.DISCONTINUED_DT, '99991231') > TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                                THEN ''
+                                                ELSE '(단종)'
+                                                 END MODL_NM
+                         FROM LF_DMUSER.PRODUCT_MODEL_MST PRODMM
+                        INNER JOIN LF_DMUSER.PRODUCT_MODEL_DTL PRODMD
+                                ON PRODMM.SEQ = PRODMD.SEQ
+                        WHERE PRODMM.PROD_CD = MPA.PROD_CD
+                          AND PRODMM.PROD_KIND = MPA.PROD_MODEL_KIND
+                          AND PRODMM.DEL_FG = 'N'
+                          <!-- 2018.05.17 ROWNUM 조건 대신 키값인 상품모델코드로 조건추가 -->
+                          <!-- AND ROWNUM = 1 -->
+                          AND PRODMD.MODEL_CD = MPA.PROD_MODEL_CD
+                      ) A052
+                    , (SELECT COUNT(RANK) FROM TBL_PAGELIST) TOTAL_CNT
+                    , CASE WHEN PROD.PAY_TYPE = '001'
+                                THEN PROD.PROD_AMT - NVL((PROD.MON_PAY_AMT * MPA.NEW_CHAN_GUNSU), 0)
+                           ELSE NVL((SELECT SUM((D.END_NO - D.ST_NO + 1) * D.MONTH_PAY_AMT) FROM LF_DMUSER.PRODUCT_DTL D WHERE D.PROD_CD = PROD.PROD_CD AND D.MONTH_PAY_AMT > 0), 0)
+                       END - NVL(PM.PAY_AMT, 0) A053
+                    , NVL((SELECT SUM((D.END_NO - D.ST_NO + 1) * D.ALLT_AMT) FROM LF_DMUSER.PRODUCT_DTL D WHERE D.PROD_CD = PROD.PROD_CD AND D.ALLT_AMT > 0), 0)
+                      +
+                      NVL((SELECT SUM((D.END_NO - D.ST_NO + 1) * D.ADD_AMT) FROM LF_DMUSER.PRODUCT_DTL D WHERE D.PROD_CD = PROD.PROD_CD AND D.ADD_AMT > 0), 0)
+                      -
+                      (NVL(PMD.PAY_AMT, 0) + NVL(PMD1.PAY_AMT, 0)) A054
+                    ,  CASE WHEN NVL(RESN_CL,'') = '02' THEN '미대상'
+                                  WHEN NVL(RESN_PROC_YN,'N') ='Y' AND NVL(CHK_SUBMIT,'N') ='N' THEN '처리'
+                                  WHEN NVL(resn_proc_yn,'N') ='Y' AND NVL(CHK_SUBMIT,'N') ='Y' THEN '처리(송금X)'
+                                  ELSE '미처리'
+                              END A055
+                    , replace(LF_DMUSER.FN_COM_NM('01', MPA.PAY_MTHD), chr(0), '') A056
+                    , replace(EMP.GRP_EMPLE_NO, chr(0),'') A057
+                    , TO_CHAR( MPA.REG_DM, 'YYYYMMDD') A058
+                    ,  CASE WHEN MPA.PAY_MTHD ='04' THEN NVL((SELECT replace(ICHAE_DT, chr(0),'') ICHAE_DT FROM LF_DMUSER.CMS_MEM WHERE ACCNT_NO=MPA.ACCNT_NO AND DEL_FG='N'),'')
+                                  WHEN MPA.PAY_MTHD ='06' THEN NVL((SELECT replace(PAY_DT, chr(0), '') PAY_DT FROM LF_DMUSER.CARD_MEM WHERE ACCNT_NO=MPA.ACCNT_NO AND DEL_FG='N'),'')
+                                  ELSE ''
+                              END A059
+                    , replace(LF_DMUSER.FN_COM_NM('0123', MEM.SEX), chr(0),'') A060
+                    , CASE MEM.MARKT_AGR_YN WHEN 'Y' THEN '예'
+                                            WHEN 'N' THEN '아니요'
+                                            ELSE ''
+                       END A061
+                     , NVL(LF_DMUSER.FN_COM_NM('0184', MPA.SM_SHOP_INFO), ' ') A062
+                    /******************************************************************
+                    2017-09-20 마스킹으로 인한 주소 분리 작업
+                    *******************************************************************/
+                    , NVL(CASE WHEN NVL(MEM.HOME_ZIP, '') > ' '
+                            THEN REPLACE(MEM.HOME_ZIP || ') ' || MEM.HOME_ADDR || ' ',CHR(0),'')
+                            ELSE REPLACE(MEM.WRPL_ZIP || ') ' || MEM.WRPL_ADDR || ' ' , CHR(0), '')
+                      END, '') A063 /* 주소 컬럼 우편번호 + 주소1 */
+                    , NVL(MEM.HOME_ADDR2, '') A064 /* 주소 컬럼 주소2 */
+                    , REPLACE(NVL(MPA.INSPL_ZIP || ') ' || MPA.INSPL_ADDR || ' ' , ''), CHR(0), '') A065 /* 설치장소 컬럼 우편번호 + 주소1 */
+                    , NVL(MPA.INSPL_ADDR2, '') A066/* 설치장소 컬럼 주소2 */
+                    , MPA.MAIN_CONTRACT AS A067
+                    , FN_COM_NM('0194', MPA.MAIN_CONTRACT) AS MAIN_CONTRACT_NM
+                       FROM LF_DMUSER.MEM_PROD_ACCNT MPA
+                      INNER JOIN (
+                     SELECT RANK, ACCNT_NO
+                       FROM TBL_PAGELIST
+                       <if test="page != null and page != ''">
+                            WHERE RANK BETWEEN ((#{page} - 1) * 100) + 1 AND #{page} * 100
+                        </if>
+                                  ) PG ON PG.ACCNT_NO = MPA.ACCNT_NO
+                      INNER JOIN LF_DMUSER.MEMBER MEM ON MEM.MEM_NO = MPA.MEM_NO AND MEM.DEL_FG = 'N'
+                 LEFT OUTER JOIN (SELECT ACCNT_NO, STAT FROM LF_DMUSER.HP_CALL) HC ON HC.ACCNT_NO = MPA.ACCNT_NO
+                INNER JOIN LF_DMUSER.PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                INNER JOIN (SELECT EMPLE_NO, EMPLE_NM, DEPT_CD, GRP_EMPLE_NO FROM LF_DMUSER.EMPLOYEE) EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+                 LEFT OUTER JOIN LF_DMUSER.EVENT EVT ON EVT.ACCNT_NO = MPA.ACCNT_NO AND EVT.DEL_FG = 'N' AND EVT.EVENT_PROC_DAY <![CDATA[<=]]> to_char(LAST_DAY(#{work_mnth} || '01'), 'YYYYMMDD') /* @작업월: 필수 */
+                 LEFT OUTER JOIN LF_DMUSER.RESCISSION RESN ON RESN.ACCNT_NO = MPA.ACCNT_NO AND RESN.DEL_FG = 'N' AND  RESN.RESN_PROC_DAY <![CDATA[<=]]> to_char(LAST_DAY(#{work_mnth} || '01') ,'YYYYMMDD')  /* @작업월: 필수 */
+                 LEFT OUTER JOIN (SELECT PMG.ACCNT_NO
+                                       , SUM(PMG.PAY_AMT) PAY_AMT
+                                       , COUNT(PMG.NO) NO
+                                       , MAX(PMG.PAY_DAY) PAY_DAY
+                                    FROM LF_DMUSER.PAY_MNG PMG
+                                       , TBL_PAGELIST TP
+                                   WHERE PMG.ACCNT_NO = TP.ACCNT_NO
+                                     AND PMG.DEL_FG = 'N'
+                                     AND PMG.PAY_DAY <![CDATA[<=]]> to_char(LAST_DAY(#{work_mnth} || '01') ,'YYYYMMDD')
+                                   GROUP BY PMG.ACCNT_NO) PM ON PM.ACCNT_NO = MPA.ACCNT_NO
+                 LEFT OUTER JOIN (SELECT PMD2.ACCNT_NO
+                                       , SUM(PMD2.PAY_AMT) PAY_AMT
+                                       , COUNT(PMD2.NO) NO
+                                       , MAX(PMD2.PAY_DAY) PAY_DAY
+                                    FROM LF_DMUSER.PAY_MNG_DTL PMD2
+                                       , TBL_PAGELIST TP
+                                   WHERE PMD2.ACCNT_NO = TP.ACCNT_NO
+                                     AND PMD2.DEL_FG = 'N'
+                                     AND PMD2.PAY_DAY <![CDATA[<=]]> to_char(LAST_DAY(#{work_mnth} || '01') ,'YYYYMMDD')
+                                   GROUP BY PMD2.ACCNT_NO) PMD ON PMD.ACCNT_NO = MPA.ACCNT_NO
+                 LEFT OUTER JOIN (SELECT PMD3.ACCNT_NO
+                                       , SUM(PMD3.PAY_AMT) PAY_AMT
+                                       , COUNT(PMD3.NO) NO
+                                       , MAX(PMD3.PAY_DAY) PAY_DAY
+                                    FROM LF_DMUSER.PAY_MNG_DTL1 PMD3
+                                       , TBL_PAGELIST TP
+                                   WHERE PMD3.ACCNT_NO = TP.ACCNT_NO
+                                     AND PMD3.DEL_FG = 'N'
+                                     AND PMD3.PAY_DAY <![CDATA[<=]]> to_char(LAST_DAY(#{work_mnth} || '01') ,'YYYYMMDD')
+                                   GROUP BY PMD3.ACCNT_NO) PMD1 ON PMD1.ACCNT_NO = MPA.ACCNT_NO
+                WHERE MPA.DEL_FG = 'N'
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    <if test="srch_typ == 'rgsn_dt'">
+                       AND TO_CHAR(MPA.REG_DM, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                    <if test="srch_typ == 'join_dt'">
+                         AND MPA.JOIN_DT  BETWEEN #{stt_dt} AND #{end_dt}
+                    </if>
+                </if>
+                ) TBL
+        ORDER BY TBL.RANK
+
+    </select>
+
+    <!--
+    종합현황 조회
+     - asis 에서 권한별로 3개의 쿼리가 있었는데 모두삭제하고 1개로 대체
+    -->
+    <select id="DlwConsProdMap.getProdModelMst" parameterType="map" resultType="resultMap">
+        SELECT /* DlwConsProdMap.getProdModelMst */
+               SEQ
+             , PROD_CD
+             , PROD_KIND
+             , ORDR_TURN
+          FROM LF_DMUSER.PRODUCT_MODEL_MST PMM
+         WHERE PMM.PROD_CD = #{prod_cd}
+           AND PMM.del_fg = 'N'
+    </select>
+
+      <select id="getdeliveryCnt" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwConsProdMap.getHpCallCnt */
+               COUNT(*)
+          FROM DELIVERY_INFO
+        <if test="accnt_no != null and accnt_no != ''">
+            AND ACCNT_NO = #{accnt_no}
+        </if>
+
+    </select>
+
+     <!--발주목록설치장소 업데이트 -->
+    <update id="DlwConsProdMap.updatedelivery" parameterType="map" timeout="3">
+    <!-- DM sql-id: sql-life.updatedelivery -->
+        UPDATE /* DlwConsProdMap.updatedelivery */
+               DELIVERY_INFO
+           SET UPDATE_ADDR 	= #{scaddr},
+                  UPDATE_PADDR = UPDATE_ADDR
+         WHERE ACCNT_NO = #{accnt_no}
+
+    </update>
+
+     <!-- 2017.09.20 김준호 해당 고객 고유번호로 고객의 상품정보 확인 -->
+    <select id="DlwConsProdMap.selectCountProd" parameterType="map" resultType="map">
+        SELECT ACCNT_NO /* DlwConsProdMap.selectCountProd */
+        FROM MEM_PROD_ACCNT
+        WHERE 1=1
+        AND MEM_NO =#{mem_no} /* 고유번호 */
+        AND DEL_FG = 'N' /* 삭제되지 않은 건만 */
+    </select>
+
+    <!-- 매입업체(세금계산서) 회사 조회 -->
+    <select id="DlwConsProdMap.getPurCompList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwConsProdMap.getPurCompList */
+               A.*
+        FROM (SELECT
+                COM_CD,
+                CD_NM AS COM_NM
+              FROM COM_CD
+              WHERE GRP_CD = 'S021'
+              AND USE_YN = 'Y'
+                <if test="com_nm != null and com_nm != ''">
+                    AND UPPER(CD_NM) LIKE '%' || UPPER(TRIM(#{com_nm})) || '%'
+                </if>
+                ) A
+    </select>
+
+    <insert id="DlwConsProdMap.insertMemTwinAccnt1" parameterType="map">
+        INSERT INTO /* DlwConsProdMap.insertMemTwinAccnt1 */
+                    LF_DMUSER.TB_MEM_TWIN_ACCNT (TWIN_SEQ, MEM_NO, ACCNT_NO, PROD_CD, NO_DEFNITE1, NO_DEFNITE2,
+                                                 NO_DEFNITE3, NO_DEFNITE4, NO_DEFNITE5, RGSR_ID, RGSR_DTTM)
+             VALUES ((SELECT NVL(MAX(TWIN_SEQ) , 0) + 1 FROM LF_DMUSER.TB_MEM_TWIN_ACCNT WHERE 1=1),
+                     #{mem_no}, #{twin_accnt_no1}, #{prod_cd1},
+                     #{no_definite1}, #{no_definite2}, #{no_definite3}, #{no_definite4}, #{no_definite5}, #{rgsr_id}, SYSDATE)
+    </insert>
+
+    <insert id="DlwConsProdMap.insertMemTwinAccnt2" parameterType="map">
+        INSERT INTO /* DlwConsProdMap.insertMemTwinAccnt2 */
+                    LF_DMUSER.TB_MEM_TWIN_ACCNT (TWIN_SEQ, MEM_NO, ACCNT_NO, PROD_CD, NO_DEFNITE1, NO_DEFNITE2,
+                                                 NO_DEFNITE3, NO_DEFNITE4, NO_DEFNITE5, RGSR_ID, RGSR_DTTM)
+             VALUES ((SELECT NVL(MAX(TWIN_SEQ) , 0) FROM LF_DMUSER.TB_MEM_TWIN_ACCNT WHERE 1=1),
+                     #{mem_no}, #{twin_accnt_no2}, #{prod_cd2},
+                     #{no_definite1}, #{no_definite2}, #{no_definite3}, #{no_definite4}, #{no_definite5}, #{rgsr_id}, SYSDATE)
+    </insert>
+
+</mapper>
+

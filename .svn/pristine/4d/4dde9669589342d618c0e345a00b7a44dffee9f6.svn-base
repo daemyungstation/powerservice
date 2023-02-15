@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExamBasiMap">
+
+    <sql id="ExamBasiMap.selectCondition_fragment">
+        <if test="exam_id != null and exam_id != ''">
+            AND A.EXAM_ID = #{exam_id}
+        </if>
+        <if test="exam_nm != null and exam_nm != ''">
+            AND A.EXAM_NM LIKE '%' || #{exam_nm} || '%'
+        </if>
+        <if test="exam_prgr_stat_cd != null and exam_prgr_stat_cd != ''">
+            AND A.EXAM_PRGR_STAT_CD = #{exam_prgr_stat_cd}
+        </if>
+        <if test="exam_prgr_stat_cds != null and exam_prgr_stat_cds != ''">
+            AND A.EXAM_PRGR_STAT_CD IN (${exam_prgr_stat_cds})
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="dateType != null and dateType != ''">
+            <if test="dateType == 'exam_stt_dttm'">
+                <if test="startd != null and startd != ''">
+                <![CDATA[
+                    AND TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+                ]]>
+                </if>
+                <if test="endd != null and endd != ''">
+                <![CDATA[
+                    AND TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+                ]]>
+                </if>
+            </if>
+            <if test="dateType == 'exam_end_dttm'">
+                <if test="startd != null and startd != ''">
+                <![CDATA[
+                    AND TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') >= RPAD(REPLACE(#{startd}, '-', ''), 14, '0')
+                ]]>
+                </if>
+                <if test="endd != null and endd != ''">
+                <![CDATA[
+                    AND TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') <= RPAD(REPLACE(#{endd}, '-', ''), 14, '9')
+                ]]>
+                </if>
+            </if>
+        </if>
+        <if test="exam_ym != null and exam_ym != ''">
+            AND (TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') BETWEEN #{exam_ym} || '010000' AND #{exam_ym} || '312359'
+             OR  TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') BETWEEN #{exam_ym} || '010000' AND #{exam_ym} || '312359'
+             OR  #{exam_ym} BETWEEN TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMM') AND TO_CHAR(A.EXAM_END_DTTM, 'YYYYMM'))
+        </if>
+    </sql>
+
+    <sql id="ExamBasiMap.selectConditionUser_fragment">
+        <choose>
+            <when test="exam_trpr_id != null and exam_trpr_id != ''">
+                AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+            </when>
+            <when test="team_cd != null and team_cd != ''">
+                AND B.TEAM_CD = #{team_cd})
+            </when>
+        </choose>
+    </sql>
+
+    <select id="ExamBasiMap.getExamBasiCount" parameterType="map" resultType="int">
+        SELECT /* ExamBasiMap.getExamBasiCount */
+               COUNT(*)
+          FROM TB_EXAM_BASI A
+         WHERE 1=1
+         <if test="bzpt_div != null and bzpt_div != ''">
+           AND A.BZPT_DIV = #{bzpt_div}
+         </if>
+         <include refid="ExamBasiMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ExamBasiMap.getExamBasiList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamBasiMap.getExamBasiList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_ID, EMSH_ID, EXAM_NM, EXAM_EXPI
+                     , PRBM_ARNM_CD, EXAM_PRGR_STAT_CD, EXAM_STT_DTTM, EXAM_END_DTTM
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , PRBM_ARNM_NM, EXAM_PRGR_STAT_NM, EMSH_NM, EXAM_TRPR_CNT
+                     , RGSR_NM, AMND_NM
+                  FROM (SELECT EXAM_ID, EMSH_ID, EXAM_NM, EXAM_EXPI, PRBM_ARNM_CD
+                             , EXAM_PRGR_STAT_CD, TO_CHAR(EXAM_STT_DTTM, 'YYYYMMDDHH24MI') AS EXAM_STT_DTTM, TO_CHAR(EXAM_END_DTTM, 'YYYYMMDDHH24MI') AS EXAM_END_DTTM
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , GETCODENM('EXM050', PRBM_ARNM_CD, A.CNTR_CD) AS PRBM_ARNM_NM
+                             , GETCODENM('EXM060', EXAM_PRGR_STAT_CD, A.CNTR_CD) AS EXAM_PRGR_STAT_NM
+                             , (SELECT EMSH_NM
+                                  FROM TB_EMSH
+                                 WHERE EMSH_ID = A.EMSH_ID) AS EMSH_NM
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_TRPR
+                                 WHERE EXAM_ID = A.EXAM_ID) AS EXAM_TRPR_CNT
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_EXAM_BASI A
+                         WHERE 1=1
+                         <if test="bzpt_div != null and bzpt_div != ''">
+                           AND A.BZPT_DIV = #{bzpt_div}
+                         </if>
+                      <include refid="ExamBasiMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ExamBasiMap.insertExamBasi" parameterType="map">
+        <selectKey keyProperty="exam_id" resultType="String" order="BEFORE">
+            SELECT 'EXM' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* ExamBasiMap.insertExamBasi */
+          INTO TB_EXAM_BASI
+               (EXAM_ID, EMSH_ID, EXAM_NM, EXAM_EXPI, PRBM_ARNM_CD
+              , EXAM_PRGR_STAT_CD, EXAM_STT_DTTM, EXAM_END_DTTM, BZPT_DIV
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{exam_id}, #{emsh_id}, #{exam_nm}, #{exam_expi}, #{prbm_arnm_cd}
+              , '10', #{exam_stt_dttm}, #{exam_end_dttm}, #{bzpt_div}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="ExamBasiMap.updateExamBasi" parameterType="map">
+        UPDATE /* ExamBasiMap.updateExamBasi */
+               TB_EXAM_BASI A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            <if test="emsh_id != null and emsh_id != ''">
+             , A.EMSH_ID    = #{emsh_id}
+            </if>
+            <if test="exam_nm != null and exam_nm != ''">
+             , A.EXAM_NM         = #{exam_nm}
+            </if>
+            <if test="exam_expi != null and exam_expi != ''">
+             , A.EXAM_EXPI       = #{exam_expi}
+            </if>
+            <if test="prbm_arnm_cd != null and prbm_arnm_cd != ''">
+             , A.PRBM_ARNM_CD    = #{prbm_arnm_cd}
+            </if>
+            <if test="exam_prgr_stat_cd_change != null and exam_prgr_stat_cd_change != ''">
+             , A.EXAM_PRGR_STAT_CD   = #{exam_prgr_stat_cd_change}
+            </if>
+            <if test="exam_stt_dttm != null and exam_stt_dttm != ''">
+             , A.EXAM_STT_DTTM        = #{exam_stt_dttm}
+            </if>
+            <if test="exam_end_dttm != null and exam_end_dttm != ''">
+             , A.EXAM_END_DTTM          = #{exam_end_dttm}
+            </if>
+            <!-- <if test="exam_stt_dt != null and exam_stt_dt != ''">
+             , A.EXAM_STT_DTTM        = #{exam_stt_dt} || #{exam_stt_h} || #{exam_stt_m}
+            </if>
+            <if test="exam_end_dt != null and exam_end_dt != ''">
+             , A.EXAM_END_DTTM          = #{exam_end_dt} || #{exam_end_h} || #{exam_end_m}
+            </if> -->
+         WHERE A.EXAM_ID         = #{exam_id}
+    </update>
+
+    <delete id="ExamBasiMap.deleteExamBasi" parameterType="map">
+        DELETE /* ExamBasiMap.deleteExamBasi */
+          FROM TB_EXAM_BASI
+         WHERE EXAM_ID = #{exam_id}
+    </delete>
+
+    <select id="ExamBasiMap.getExamBasiMyPageCount" parameterType="map" resultType="int">
+        SELECT /* ExamBasiMap.getExamBasiMyPageCount */
+               COUNT(*)
+          FROM TB_EXAM_BASI A
+          JOIN TB_EXAM_TRPR B
+            ON A.EXAM_ID = B.EXAM_ID
+           AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+         WHERE 1=1
+         <include refid="ExamBasiMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ExamBasiMap.getExamBasiMyPageList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamBasiMap.getExamBasiMyPageList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_ID, EMSH_ID, EXAM_NM, EXAM_EXPI
+                     , PRBM_ARNM_CD, EXAM_PRGR_STAT_CD, EXAM_STT_DTTM, EXAM_END_DTTM, EXAM_TRPR_ID
+                     , LAST_SCR_VL, EXAM_RNKN_SQNO, EXAM_PRGR_STAT_NM, EMSH_NM, EXAM_TRPR_NM
+                     , ANSR_YN, EXAM_TRPR_CNT, EXAM_PRBM_CNT, EXAM_ANSR_CNT, TODAY
+                  FROM (SELECT A.EXAM_ID, A.EMSH_ID, A.EXAM_NM, A.EXAM_EXPI
+                             , A.PRBM_ARNM_CD, A.EXAM_PRGR_STAT_CD, TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') AS EXAM_STT_DTTM, TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') AS EXAM_END_DTTM
+                             , B.EXAM_TRPR_ID, B.LAST_SCR_VL, B.EXAM_RNKN_SQNO
+                             , GETCODENM('EXM050', PRBM_ARNM_CD, A.CNTR_CD) AS PRBM_ARNM_NM
+                             , GETCODENM('EXM060', EXAM_PRGR_STAT_CD, A.CNTR_CD) AS EXAM_PRGR_STAT_NM
+                             , (SELECT EMSH_NM
+                                  FROM TB_EMSH
+                                 WHERE EMSH_ID = A.EMSH_ID) AS EMSH_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.EXAM_TRPR_ID) AS EXAM_TRPR_NM
+                             , (CASE WHEN A.EXAM_PRGR_STAT_CD = '20'
+                                      AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') BETWEEN A.EXAM_STT_DTTM AND A.EXAM_END_DTTM
+                                          THEN 'Y'
+                                          ELSE 'N'
+                                END) AS ANSR_YN
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_TRPR
+                                 WHERE EXAM_ID = A.EXAM_ID) AS EXAM_TRPR_CNT
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_PRBM
+                                 WHERE EMSH_ID = A.EMSH_ID) AS EXAM_PRBM_CNT
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_PRBM_ANSR
+                                 WHERE EXAM_ID = A.EXAM_ID
+                                   AND EMSH_ID = A.EMSH_ID
+                                   AND EXAM_TRPR_ID = B.EXAM_TRPR_ID) AS EXAM_ANSR_CNT
+                             , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') AS TODAY
+                          FROM TB_EXAM_BASI A
+                          JOIN TB_EXAM_TRPR B
+                            ON A.EXAM_ID = B.EXAM_ID
+                           AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+                         WHERE 1=1
+                      <include refid="ExamBasiMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ExamBasiMap.getExamResultList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamBasiMap.getExamResultList */
+               PAGE_INDX, EXAM_ID, EMSH_ID, EXAM_NM, EXAM_EXPI
+             , PRBM_ARNM_CD, EXAM_PRGR_STAT_CD, EXAM_STT_DTTM, EXAM_END_DTTM
+             , PRBM_ARNM_NM, EXAM_PRGR_STAT_NM, EXAM_TRPR_CNT, EXAM_ANSR_TRPR_CNT, EXAM_PRBM_DTSC_VL
+             , LAST_SCR_VL, EXAM_PRBM_CNT, TODAY, EXAM_TRPR_AVG, EXAM_ANSR_TRPR_AVG
+             , EXAM_MARKING_TRPR_AVG, CHART_EXAM_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_ID, EMSH_ID, EXAM_NM, EXAM_EXPI
+                     , PRBM_ARNM_CD, EXAM_PRGR_STAT_CD, EXAM_STT_DTTM, EXAM_END_DTTM
+                     , PRBM_ARNM_NM, EXAM_PRGR_STAT_NM, EXAM_TRPR_CNT, EXAM_ANSR_TRPR_CNT, EXAM_PRBM_DTSC_VL
+                     , LAST_SCR_VL, EXAM_PRBM_CNT, TODAY
+                     , (CASE WHEN LAST_SCR_VL > 0 AND EXAM_ANSR_TRPR_CNT > 0
+                                  THEN ROUND(LAST_SCR_VL / EXAM_ANSR_TRPR_CNT, 1)
+                                  ELSE 0
+                        END) AS EXAM_TRPR_AVG
+                     , (CASE WHEN LAST_SCR_VL > 0 AND EXAM_ANSR_TRPR_CNT > 0
+                                  THEN ROUND(LAST_SCR_VL / EXAM_ANSR_TRPR_CNT, 1)
+                                  ELSE 0
+                        END) AS EXAM_ANSR_TRPR_AVG
+                     , (CASE WHEN LAST_SCR_VL > 0 AND EXAM_MARKING_TRPR_CNT > 0
+                                  THEN ROUND(LAST_SCR_VL / EXAM_MARKING_TRPR_CNT, 1)
+                                  ELSE 0
+                        END) AS EXAM_MARKING_TRPR_AVG
+                     , EXAM_NM || '(' || TO_CHAR(TO_DATE(EXAM_STT_DTTM, 'YYYYMMDDHH24MI'), 'MM') || '월)' AS CHART_EXAM_NM
+                  FROM (SELECT A.EXAM_ID, A.EMSH_ID, A.EXAM_NM, A.EXAM_EXPI
+                             , A.PRBM_ARNM_CD, A.EXAM_PRGR_STAT_CD, TO_CHAR(A.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') AS EXAM_STT_DTTM, TO_CHAR(A.EXAM_END_DTTM, 'YYYYMMDDHH24MI') AS EXAM_END_DTTM
+                             , GETCODENM('EXM050', PRBM_ARNM_CD, A.CNTR_CD) AS PRBM_ARNM_NM
+                             , GETCODENM('EXM060', EXAM_PRGR_STAT_CD, A.CNTR_CD) AS EXAM_PRGR_STAT_NM
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_TRPR B
+                                 WHERE B.EXAM_ID = A.EXAM_ID
+                                   <include refid="ExamBasiMap.selectConditionUser_fragment"/>
+                               ) AS EXAM_TRPR_CNT
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_TRPR B
+                                 WHERE B.EXAM_ID = A.EXAM_ID
+                                   <include refid="ExamBasiMap.selectConditionUser_fragment"/>
+                                   AND EXISTS (SELECT 'Y'
+                                                 FROM TB_EXAM_PRBM_ANSR C
+                                                WHERE C.EXAM_ID = B.EXAM_ID
+                                                  AND C.EXAM_TRPR_ID = B.EXAM_TRPR_ID
+                                                  AND C.PRBM_ANSR_CNTN IS NOT NULL)) AS EXAM_ANSR_TRPR_CNT
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_TRPR B
+                                 WHERE B.EXAM_ID = A.EXAM_ID
+                                   AND B.LAST_SCR_VL IS NOT NULL
+                                   <include refid="ExamBasiMap.selectConditionUser_fragment"/>
+                               ) AS EXAM_MARKING_TRPR_CNT
+                             , (SELECT NVL(SUM(B.EXAM_PRBM_DTSC_VL), 0)
+                                  FROM TB_EXAM_PRBM B
+                                 WHERE B.EMSH_ID = A.EMSH_ID) AS EXAM_PRBM_DTSC_VL
+                             , (SELECT SUM(LAST_SCR_VL)
+                                  FROM TB_EXAM_TRPR B
+                                 WHERE B.EXAM_ID = A.EXAM_ID
+                                   <include refid="ExamBasiMap.selectConditionUser_fragment"/>
+                               ) AS LAST_SCR_VL
+                             , (SELECT COUNT(*)
+                                  FROM TB_EXAM_PRBM B
+                                 WHERE B.EMSH_ID = A.EMSH_ID) AS EXAM_PRBM_CNT
+                             , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') AS TODAY
+                          FROM TB_EXAM_BASI A
+                         WHERE 1=1
+                         <if test="bzpt_div != null and bzpt_div != ''">
+                           AND A.BZPT_DIV = #{bzpt_div}
+                         </if>
+                      <include refid="ExamBasiMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ExamBasiMap.getExamResultScoreList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamBasiMap.getExamResultScoreList */
+               EXAM_ID, EXAM_NM, TRPR_CNT, EXAM_TRPR_NM, EXAM_TRPR_ID, DECODE(LAST_SCR_VL, '', 0, LAST_SCR_VL) AS LAST_SCR_VL
+             , EXAM_CNT, EXAM_RNKN_SQNO, AMNT_DTTM
+             , ROUND(EXAM_TOTL_SCR/EXAM_TRPR_CNT, 1) AS EXAM_AVG
+          FROM (SELECT A.EXAM_ID, A.EXAM_NM, A.EXAM_TRPR_NM, A.EXAM_TRPR_ID, A.TRPR_CNT, B.LAST_SCR_VL, A.AMNT_DTTM
+                     , B.EXAM_RNKN_SQNO
+                     , COUNT(B.EXAM_ID) OVER(PARTITION BY B.EXAM_TRPR_ID) AS EXAM_CNT
+                     , SUM(B.LAST_SCR_VL) OVER(PARTITION BY A.EXAM_ID) AS EXAM_TOTL_SCR
+                     , COUNT(B.EXAM_RNKN_SQNO) OVER(PARTITION BY A.EXAM_ID) AS EXAM_TRPR_CNT
+                  FROM (SELECT A.EXAM_ID, A.EXAM_NM, A.CNTR_CD, A.AMNT_DTTM, B.EXAM_TRPR_ID, B.EXAM_TRPR_NM
+                             , COUNT(B.EXAM_TRPR_ID) OVER(PARTITION BY A.EXAM_ID) TRPR_CNT
+                          FROM (SELECT EXAM_ID, EXAM_NM, EMSH_ID, CNTR_CD, AMNT_DTTM
+                                  FROM TB_EXAM_BASI A
+                                 WHERE 1=1
+                                 <if test="bzpt_div != null and bzpt_div != ''">
+                                   AND A.BZPT_DIV = #{bzpt_div}
+                                 </if>
+                                <include refid="ExamBasiMap.selectCondition_fragment"/>
+                                ) A
+                             , (SELECT EXAM_TRPR_ID
+                                    , (SELECT USER_NM
+                                         FROM TB_USER
+                                        WHERE USER_ID = A.EXAM_TRPR_ID) AS EXAM_TRPR_NM
+                                  FROM TB_EXAM_TRPR A
+                                 WHERE EXAM_ID IN (SELECT EXAM_ID
+                                                    FROM TB_EXAM_BASI A
+                                                   WHERE 1=1
+                                                <include refid="ExamBasiMap.selectCondition_fragment"/>
+                                                  )
+                              GROUP BY EXAM_TRPR_ID
+                                ) B
+                        ) A
+                      , TB_EXAM_TRPR B
+                 WHERE A.EXAM_ID = B.EXAM_ID(+)
+                   AND A.EXAM_TRPR_ID = B.EXAM_TRPR_ID(+)
+                   AND A.CNTR_CD = B.CNTR_CD(+)
+              ORDER BY A.AMNT_DTTM DESC
+                )
+    </select>
+
+    <sql id="ExamBasiMap.selectCondition_fragment_SearchExamId">
+        <if test="exam_prgr_stat_cds != null and exam_prgr_stat_cds != ''">
+            AND A.EXAM_PRGR_STAT_CD IN (${exam_prgr_stat_cds})
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="dateType != null and dateType != '' and period != '0101'">
+            <if test="dateType == 'exam_stt_dttm'">
+                <if test="startd != null and startd != ''">
+                AND A.EXAM_STT_DTTM BETWEEN TO_TIMESTAMP(REPLACE(#{startd}, '-', '') || '0000', 'YYYYMMDDHH24MI') AND TO_TIMESTAMP(REPLACE(#{endd}, '-', '') || '2359', 'YYYYMMDDHH24MI')
+                </if>
+            </if>
+            <if test="dateType == 'exam_end_dttm'">
+                <if test="startd != null and startd != ''">
+                AND A.EXAM_END_DTTM BETWEEN TO_TIMESTAMP(REPLACE(#{startd}, '-', '') || '0000', 'YYYYMMDDHH24MI') AND TO_TIMESTAMP(REPLACE(#{endd}, '-', '') || '2359', 'YYYYMMDDHH24MI')
+                </if>
+            </if>
+        </if>
+        <if test="exam_trpr_id != null and exam_trpr_id != ''">
+            AND B.EXAM_TRPR_ID = #{exam_trpr_id}
+        </if>
+    </sql>
+
+    <select id="ExamBasiMap.getSearchExamBasiCount" parameterType="map" resultType="int">
+        SELECT /* ExamBasiMap.getSearchExamBasiCount */
+               COUNT(DISTINCT(A.EXAM_ID))
+          FROM TB_EXAM_BASI A
+             , TB_EXAM_TRPR B
+         WHERE A.EXAM_ID = B.EXAM_ID
+           AND A.CNTR_CD = B.CNTR_CD
+        <include refid="ExamBasiMap.selectCondition_fragment_SearchExamId"/>
+    </select>
+
+    <select id="ExamBasiMap.getSearchExamBasiList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamBasiMap.getSearchExamBasiList */
+               A.EXAM_ID, A.EXAM_NM
+          FROM TB_EXAM_BASI A
+             , TB_EXAM_TRPR B
+         WHERE A.EXAM_ID = B.EXAM_ID
+           AND A.CNTR_CD = B.CNTR_CD
+        <include refid="ExamBasiMap.selectCondition_fragment_SearchExamId"/>
+      GROUP BY A.EXAM_ID, A.EXAM_NM
+    </select>
+
+</mapper>

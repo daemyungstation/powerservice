@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace = "EdctTrprMap">
+
+    <sql id="EdctTrprMap.selectCondition_fragment">
+        <where>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND BZPT_DIV = #{bzpt_div}
+            </if>
+            <if test="edct_crs_id != null and edct_crs_id != ''">
+                AND A.EDCT_CRS_ID = #{edct_crs_id}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND A.USER_ID = #{user_id}
+            </if>
+            <if test="edct_trpr_id != null and edct_trpr_id != ''">
+                AND A.EDCT_TRPR_ID = #{scdl_chpr_id}
+            </if>
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+                AND A.RGSN_DTTM BETWEEN REPLACE(#{startd}, '-', '') || '000000' AND REPLACE(#{endd}, '-', '') || '999999'
+            </if>
+            <if test="assign_yn != null and assign_yn.equalsIgnoreCase('N')">
+                AND (A.EDCT_ATNC_DT IS NULL
+                 OR EDCT_ATNC_STT_HR_CD IS NULL
+                 OR EDCT_ATNC_END_HR_CD IS NULL)
+            </if>
+        </where>
+    </sql>
+
+    <sql id="EdctTrprMap.selectConditionUser_fragment">
+        <where>
+                AND USER_STAT_CD = '10'
+                AND NOT EXISTS (SELECT 'Y'
+                                  FROM TB_EDCT_TRPR B
+                                 WHERE B.EDCT_CRS_ID = #{edct_crs_id}
+                                   AND B.EDCT_TRPR_ID = A.USER_ID)
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                    AND USER_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                    AND TEAM_CD = #{team2_cd}
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                    AND TEAM_CD IN (SELECT TEAM_CD
+                                      FROM TB_CONS_TEAM
+                                     WHERE HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+            <if test="bzpt_div2 != null and bzpt_div2 != ''">
+                <choose>
+                    <when test="bzpt_div2 == '999999'">
+                        AND NOT EXISTS (SELECT 'Y'
+                                          FROM TB_CONS_TEAM
+                                         WHERE TEAM_CD = A.TEAM_CD
+                                           AND CNTR_CD = A.CNTR_CD
+                                           AND BZPT_DIV = #{bzpt_div2})
+                    </when>
+                    <otherwise>
+                        AND EXISTS (SELECT 'Y'
+                                      FROM TB_CONS_TEAM
+                                     WHERE TEAM_CD = A.TEAM_CD
+                                       AND CNTR_CD = A.CNTR_CD
+                                       AND BZPT_DIV = #{bzpt_div2})
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+    </sql>
+
+    <select id = "EdctTrprMap.getEdctTrprcount" parameterType="map" resultType="int">
+        SELECT /* EdctTrprMap.getEdctTrprcount */
+               COUNT(*)
+          FROM TB_EDCT_TRPR A
+        <include refid="EdctTrprMap.selectCondition_fragment"/>
+    </select>
+
+    <select id = "EdctTrprMap.searchEdctTrprList" parameterType="map" resultType ="resultMap">
+        SELECT /* EdctTrprMap.searchEdctTrprList */
+             *
+        FROM (SELECT <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                        </when>
+                        <otherwise>
+                          ROW_NUMBER() OVER (ORDER BY AMNT_DTTM DESC) AS PAGE_INDX
+                        </otherwise>
+                     </choose>
+                   , EDCT_CRS_ID, EDCT_TRPR_ID, EDCT_ATNC_YN, EDCT_CMCR_SCR, CNTR_CD
+                   , RGSR_ID, rgsn_dttm, AMND_ID, AMNT_DTTM, TEAM_NM
+                   , ENCO_DT, USER_NM, RGSR_NM, CNTR_NM, EMPL_NO
+                   , EDCT_ATNC_HR, EDCT_ATNC_STT_HR_CD, EDCT_ATNC_END_HR_CD, EDUT, EDCT_DT
+                   , EDCT_ATNC_DT, ATTENDNM
+                FROM (SELECT A.EDCT_CRS_ID, A.EDCT_TRPR_ID, A.EDCT_ATNC_YN, A.EDCT_CMCR_SCR, A.CNTR_CD
+                           , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM, A.EDCT_ATNC_HR
+                           , A.EDCT_ATNC_STT_HR_CD, A.EDCT_ATNC_END_HR_CD
+                           , (SELECT C.TEAM_NM
+                               FROM TB_USER B
+                                  , TB_CONS_TEAM C
+                              WHERE B.USER_ID = A.EDCT_TRPR_ID
+                                AND B.cntr_cd = A.cntr_cd
+                                AND C.cntr_cd = B.cntr_cd
+                                AND C.TEAM_CD = B.TEAM_CD) AS TEAM_NM
+                           , (SELECT ENCO_DT
+                                FROM TB_USER
+                               WHERE USER_ID = A.EDCT_TRPR_ID) AS ENCO_DT
+                           , (SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.EDCT_TRPR_ID) AS USER_NM
+                           , (SELECT USER_NM
+                                FROM TB_USER
+                               WHERE USER_ID = A.EDCT_TRPR_ID) AS RGSR_NM
+                           , (SELECT CNTR_NM
+                                FROM TB_CNTR
+                               WHERE TB_CNTR.cntr_cd = A.cntr_cd) AS CNTR_NM
+                           , (SELECT EMPL_NO
+                                FROM TB_USER
+                               WHERE user_id = A.EDCT_TRPR_ID) AS EMPL_NO
+                           , (SELECT EDCT_STT_DT
+                                FROM TB_EDCT_CRS_DTL
+                               WHERE EDCT_CRS_ID = A.EDCT_CRS_ID) AS EDCT_DT
+                           , CASE WHEN A.EDCT_ATNC_STT_HR_CD IS NULL THEN '미지정'
+                                                       ELSE SUBSTR(A.EDCT_ATNC_STT_HR_CD, 1, 2) || ':' || SUBSTR(A.EDCT_ATNC_STT_HR_CD, 3,4) || '~' || SUBSTR(A.EDCT_ATNC_END_HR_CD, 1, 2) || ':' || SUBSTR(A.EDCT_ATNC_END_HR_CD, 3,4)
+                                                       END AS EDUT
+                           , A.EDCT_ATNC_DT
+                           , CASE WHEN A.EDCT_ATNC_YN = 'Y' THEN '참여'
+                                                        ELSE '미참여' END AS ATTENDNM
+                        FROM TB_EDCT_TRPR A
+                     <include refid="EdctTrprMap.selectCondition_fragment"/>
+                    )
+                )B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="EdctTrprMap.getUserCount" parameterType="map" resultType="int">
+        SELECT /* EdctTrprMap.getUserCount */
+               COUNT(*)
+          FROM TB_USER A
+        <include refid="EdctTrprMap.selectConditionUser_fragment"/>
+    </select>
+
+    <select id="EdctTrprMap.searchUserList" parameterType="map" resultType="resultMap">
+        SELECT /* EdctTrprMap.searchUserList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY TEAM_NM ASC, USER_NM ASC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                  FROM (SELECT USER_ID, USER_NM, TEAM_CD, ATHR_CD, CNTR_CD
+                             , ENCO_DT, EMPL_NO
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                          FROM TB_USER A
+                      <include refid="EdctTrprMap.selectConditionUser_fragment"/>
+                       ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="EdctTrprMap.insertEdctTrpr" parameterType="map">
+        INSERT /* EdctTrprMap.insertEdctTrpr */
+          INTO TB_EDCT_TRPR (
+               EDCT_CRS_ID, EDCT_TRPR_ID, EDCT_ATNC_DT, EDCT_ATNC_YN, CNTR_CD, BZPT_DIV
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{edct_crs_id}, #{edct_trpr_id}, #{edct_atnc_dt}, #{edct_atnc_yn}, #{cntr_cd}, #{bzpt_div}
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+
+    <delete id="EdctTrprMap.deleteEdctTrpr" parameterType="map">
+        DELETE /* EdctTrprMap.deleteEdctTrpr */
+          FROM TB_EDCT_TRPR
+         WHERE EDCT_CRS_ID = #{edct_crs_id}
+        <if test="selectcheck != null and selectcheck != ''">
+           AND EDCT_TRPR_ID
+        <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+            #{item}
+        </foreach>
+    </if>
+    </delete>
+
+    <update id ="EdctTrprMap.updateEdctTrpr" parameterType="map">
+        UPDATE /* EdctTrprMap.updateEdctTrpr */
+               TB_EDCT_TRPR
+           SET AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , AMND_ID = #{amnd_id}
+            <if test="edct_atnc_dt != null and edct_atnc_dt != ''">
+             , EDCT_ATNC_DT = #{edct_atnc_dt}
+            </if>
+            <if test="edct_atnc_stt_hr_cd != null and edct_atnc_stt_hr_cd != ''">
+             , EDCT_ATNC_STT_HR_CD = #{edct_atnc_stt_hr_cd}
+            </if>
+            <if test="edct_atnc_end_hr_cd != null and edct_atnc_end_hr_cd != ''">
+             , EDCT_ATNC_END_HR_CD = #{edct_atnc_end_hr_cd}
+            </if>
+            <if test="edct_atnc_hr != null and edct_atnc_hr != ''">
+             , EDCT_ATNC_HR = #{edct_atnc_hr}
+            </if>
+            <if test="edct_atnc_yn != null and edct_atnc_yn != ''">
+             , EDCT_ATNC_YN = #{edct_atnc_yn}
+            </if>
+            <if test="edct_cmcr_scr != null and edct_cmcr_scr != ''">
+             , EDCT_CMCR_SCR = #{edct_cmcr_scr}
+            </if>
+            <if test="bzpt_div != null and bzpt_div != ''">
+             , BZPT_DIV = #{bzpt_div}
+            </if>
+        WHERE EDCT_CRS_ID = #{edct_crs_id}
+            <if test="selectcheck != null and selectcheck != ''">
+          AND EDCT_TRPR_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                #{item}
+                </foreach>
+            </if>
+            <if test="edct_trpr_id != null and edct_trpr_id != ''">
+          AND EDCT_TRPR_ID = #{edct_trpr_id}
+            </if>
+    </update>
+
+
+    <select id ="EdctTrprMap.searchEdctTrprCardCount" parameterType="map" resultType="int">
+        SELECT /* EdctTrprMap.myEdctCardCount */
+               COUNT(*)
+          FROM TB_EDCT_CRS_DTL A, TB_EDCT_TRPR B
+         WHERE A.CNTR_CD = B.CNTR_CD
+           AND A.EDCT_CRS_ID = B.EDCT_CRS_ID
+           AND A.EDCT_PRGR_STAT_CD = '30'
+           AND A.CNTR_CD = #{cntr_cd}
+           AND B.EDCT_TRPR_ID = #{user_id}
+        <if test="srch_yrmn != null and srch_yrmn != ''">
+           AND B.EDCT_ATNC_DT BETWEEN #{srch_yrmn} || '00' AND #{srch_yrmn} || '99'
+        </if>
+    </select>
+
+    <select id = "EdctTrprMap.searchEdctTrprCardList" parameterType="map" resultType="resultMap">
+        SELECT /* EdctTrprMap.searchEdctTrprCardList */
+               A.*
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY EDCT_ATNC_DT DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                       , A.*
+                    FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM, A.EDCT_LCTR_NM, A.EDCT_STT_DT, A.EDCT_SCR
+                             , A.EDCT_TRGT_NM, A.EDCT_PLC_NM, A.EDCT_PRGR_STAT_CD, A.EDCT_CNTN, A.EDCT_PRGR_HR
+                             , B.EDCT_TRPR_ID, B.EDCT_ATNC_YN, B.EDCT_CMCR_SCR, B.EDCT_ATNC_HR, B.EDCT_ATNC_END_HR_CD
+                             , B.EDCT_ATNC_STT_HR_CD, B.EDCT_ATNC_DT
+                             , GETCODENM('EDC020', A.EDCT_TYP_CD, A.CNTR_CD) AS EDCT_TYP_NM
+                             , (SELECT CNTR_NM
+                                  FROM TB_CNTR
+                                 WHERE CNTR_CD = A.CNTR_CD) AS CNTR_NM
+                             , (SELECT EMPL_NO
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.EDCT_TRPR_ID) AS EMPL_NO
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = B.EDCT_TRPR_ID) AS USER_NM
+                             , (CASE WHEN B.EDCT_ATNC_HR IS NOT NULL AND LENGTH(B.EDCT_ATNC_HR) = 4
+                                     THEN TO_NUMBER(SUBSTR(B.EDCT_ATNC_HR, 1, 2)) * 60 + TO_NUMBER(SUBSTR(B.EDCT_ATNC_HR, 3, 2))
+                                     ELSE 0
+                                END) AS EDCT_ATNC_TM
+                             , SUBSTR(B.EDCT_ATNC_DT, 1, 4) || '-' || SUBSTR(B.EDCT_ATNC_DT, 5, 2) || '-' || SUBSTR(B.EDCT_ATNC_DT, 7,2) AS EDCT_ATNC_DT_NEW
+                             , SUBSTR(B.EDCT_ATNC_HR, 1, 2) || '시간 ' || SUBSTR(B.EDCT_ATNC_HR, 3, 2) || '분' AS EDCT_ATNC_HR_NEW
+                          FROM TB_EDCT_CRS_DTL A, TB_EDCT_TRPR B
+                         WHERE A.CNTR_CD = B.CNTR_CD
+                           AND A.EDCT_CRS_ID = B.EDCT_CRS_ID
+                           AND A.EDCT_PRGR_STAT_CD = '30'
+                           AND A.CNTR_CD = #{cntr_cd}
+                           AND B.EDCT_TRPR_ID = #{user_id}
+                        <if test="srch_yrmn != null and srch_yrmn != ''">
+                           AND B.EDCT_ATNC_DT BETWEEN #{srch_yrmn} || '00' AND #{srch_yrmn} || '99'
+                        </if>
+                        ) A
+                 ) A
+    </select>
+
+    <select id ="EdctTrprMap.edctTrprCount"  parameterType="map" resultType="int">
+        SELECT /* EdctTrprMap.edctTrprCount */
+                COUNT(*)
+          FROM TB_EDCT_CRS_DTL A, TB_EDCT_TRPR B, TB_USER C
+         WHERE A.EDCT_CRS_ID = B.EDCT_CRS_ID
+           AND A.CNTR_CD = B.CNTR_CD
+           AND B.EDCT_TRPR_ID = C.USER_ID
+           AND B.CNTR_CD = C.CNTR_CD
+           AND A.EDCT_PRGR_STAT_CD = '30'
+        <if test="bzpt_div != null and bzpt_div != ''">
+           AND (A.BZPT_DIV = #{bzpt_div} OR EXISTS (SELECT 'Y' FROM TB_CONS_TEAM WHERE BZPT_DIV = #{bzpt_div} AND TEAM_CD = C.TEAM_CD AND CNTR_CD = C.CNTR_CD))
+        </if>
+        <if test="startd != null and startd != ''">
+           AND A.EDCT_STT_DT BETWEEN #{startd} || '00'  AND #{startd} || '99'
+        </if>
+        <choose>
+           <when test="team2_cd != null and team2_cd != ''">
+           AND TEAM_CD = #{team2_cd}
+           </when>
+           <when test="team1_cd != null and team1_cd != ''">
+           AND TEAM_CD IN (SELECT TEAM_CD
+                             FROM TB_CONS_TEAM
+                            WHERE HGRN_TEAM_CD = #{team1_cd})
+           </when>
+        </choose>
+    </select>
+    <select id = "EdctTrprMap.edctTrprResult" parameterType="map" resultType="resultMap">
+        SELECT /* EdctTrprMap.edctTrprResult */
+               EDCT_CRS_ID, EDCT_CRS_NM, EDCT_STT_DT, TEAM_NM, USER_NM, EDCT_TYP_NM
+             , EDCT_PRGR_STAT_CD, EDCT_CMCR_SCR, EDCT_ATNC_HR, EMPL_NO, USER_ID
+             , TEAMCOUNT, USERCOUNT, TEAM_CD, EDCT_ATNC_DT, NEWEDCT_STT_DT
+             , EDCT_ATNC_TM, EDCT_ATNC_HR_NEW
+          FROM (SELECT A.EDCT_CRS_ID, A.EDCT_CRS_NM
+                     , A.EDCT_PRGR_STAT_CD, B.EDCT_ATNC_DT
+                     , GETCODENM('EDC020', A.EDCT_TYP_CD, A.CNTR_CD) AS EDCT_TYP_NM
+                     , C.USER_NM, C.USER_ID, B.EDCT_ATNC_HR, C.EMPL_NO
+                     , (CASE WHEN B.EDCT_CMCR_SCR IS NOT NULL THEN B.EDCT_CMCR_SCR ELSE 0 END) AS EDCT_CMCR_SCR
+                     , (SELECT TEAM_NM
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = C.TEAM_CD) AS TEAM_NM
+                     , (SELECT TEAM_CD
+                          FROM TB_CONS_TEAM
+                         WHERE TEAM_CD = C.TEAM_CD) AS TEAM_CD
+                    , (SELECT EDCT_STT_DT
+                         FROM TB_EDCT_TRPR
+                        WHERE EDCT_TRPR_ID = C.USER_ID
+                          AND EDCT_CRS_ID = A.EDCT_CRS_ID) AS EDCT_STT_DT
+                    , COUNT(C.TEAM_CD) OVER(PARTITION BY TEAM_CD) AS TEAMCOUNT
+                    , COUNT(B.EDCT_TRPR_ID) OVER(PARTITION BY B.EDCT_TRPR_ID) AS USERCOUNT
+                    , SUBSTR(A.EDCT_STT_DT, 0,4) || '-'|| SUBSTR(A.EDCT_STT_DT, 5,2) ||'-'|| SUBSTR(A.EDCT_STT_DT, 7,2) AS NEWEDCT_STT_DT
+                    , (CASE WHEN SUBSTR(B.EDCT_ATNC_HR, 1, 2) IS NOT NULL
+                            THEN SUBSTR(B.EDCT_ATNC_HR, 1, 2)
+                            ELSE '0' END) || '시간 ' ||
+                      (CASE WHEN SUBSTR(B.EDCT_ATNC_HR, 3, 2) IS NOT NULL
+                            THEN SUBSTR(B.EDCT_ATNC_HR, 3, 2)
+                            ELSE '0' END) || '분' AS EDCT_ATNC_HR_NEW
+                    , (CASE WHEN B.EDCT_ATNC_HR IS NOT NULL AND LENGTH(B.EDCT_ATNC_HR) = 4
+                             THEN TO_NUMBER(SUBSTR(B.EDCT_ATNC_HR, 1, 2)) * 60 + TO_NUMBER(SUBSTR(B.EDCT_ATNC_HR, 3, 2))
+                             ELSE 0
+                        END) AS EDCT_ATNC_TM
+                 FROM TB_EDCT_CRS_DTL A, TB_EDCT_TRPR B, TB_USER C
+                WHERE A.EDCT_CRS_ID = B.EDCT_CRS_ID
+                  AND A.CNTR_CD = B.CNTR_CD
+                  AND B.EDCT_TRPR_ID = C.USER_ID
+                  AND B.CNTR_CD = C.CNTR_CD
+                  AND A.EDCT_PRGR_STAT_CD = '30'
+               <if test="bzpt_div != null and bzpt_div != ''">
+                  AND (A.BZPT_DIV = #{bzpt_div} OR EXISTS (SELECT 'Y' FROM TB_CONS_TEAM WHERE BZPT_DIV = #{bzpt_div} AND TEAM_CD = C.TEAM_CD AND CNTR_CD = C.CNTR_CD))
+               </if>
+               <if test="startd != null and startd != ''">
+                  AND A.EDCT_STT_DT BETWEEN #{startd} || '00'  AND #{startd} || '99'
+               </if>
+               <choose>
+                  <when test="team2_cd != null and team2_cd != ''">
+                  AND TEAM_CD = #{team2_cd}
+                  </when>
+                  <when test="team1_cd != null and team1_cd != ''">
+                  AND TEAM_CD IN (SELECT TEAM_CD
+                                    FROM TB_CONS_TEAM
+                                   WHERE HGRN_TEAM_CD = #{team1_cd})
+                  </when>
+               </choose>
+             ORDER BY TEAM_CD, USER_NM
+            )
+    </select>
+
+    <select id = "EdctTrprMap.searchEdust" parameterType="map" resultType="resultMap">
+        SELECT /* EdctTrprMap.searchEdust */
+               *
+          FROM tb_edct_trpr
+         WHERE edct_crs_id = #{edct_crs_id}
+          AND user_id = #{user_id}
+    </select>
+</mapper>

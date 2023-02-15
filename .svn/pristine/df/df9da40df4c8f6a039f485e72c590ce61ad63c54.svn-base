@@ -1,0 +1,1011 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[
+
+// ========================================================================================
+// Dataset 관련 공통함수
+// function 명은 gfn_ 을 Prefix로 사용함.
+// ========================================================================================
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_initCommCol
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : 데이타셋 시스템 공통칼럼("_chk", "xRowStatusType") 생성
+ *****************************************************************************************/
+function gfn_initCommCol(dsObj)
+{
+    if(dsObj.getColCount() <= 0) return;
+
+    dsObj.enableevent = false;
+
+    if(gfn_getColExist(dsObj, gfn_getColNmChk())) {
+        for(var i=0;i<dsObj.rowcount;i++)
+        {
+            dsObj.setColumn(i, gfn_getColNmChk(), dsObj.getOrgColumn(i, gfn_getColNmChk()));
+        }
+    }
+
+    dsObj.enableevent = true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_addCommCol
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : 데이타셋 시스템 공통칼럼("_chk", "xRowStatusType") 생성
+ *****************************************************************************************/
+function gfn_addCommCol(dsObj)
+{
+    if(dsObj.getColCount() <= 0) return;
+
+    gfn_addColumn(dsObj, gfn_getColNmChk(), "string", 1);
+    gfn_addColumn(dsObj, gfn_getColNmStatus(), "string", 1);
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_initDs
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : 데이타셋 초기화 처리 함수
+ *****************************************************************************************/
+function gfn_initDs(dsObj)
+{
+    if(gfn_isUpdateDs(dsObj)) {
+        if(!confirm("현재 수정중인 데이타가 있습니다. 삭제를 하시면 현재 수정 중인 데이타는 전체 초기화됩니다. \n\n진체 초기화 하시겠습니까?")) {
+            return;
+        } else {
+            dsObj.reset();
+        }
+    } else {
+        alert("초기화 할 데이타가 없습니다.");
+        return;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_preSearchDs
+ * 입      력 : dsObj     : 처리대상 데이타셋 오브젝트
+                sType     : 호출구분 ("INIT", "APPEND", "SAVE", "DELETE", "NONE" 중 택일)
+ * 반      환 :
+ * 기      능 : 조회 전 데이타셋 변경 유무 확인 함수
+ *****************************************************************************************/
+function gfn_preSearchDs(dsObj, sType)
+{
+    if(sType == gfn_getCommTypeSave() || sType == gfn_getCommTypeDelete()) {
+        dsObj.enableevent = false;
+        dsObj.clearData();
+        dsObj.enableevent = true;
+        return true;
+    }
+    
+    if(gfn_isUpdateDs(dsObj) && sType == gfn_getCommTypeInit()) {
+		if(!confirm("현재 수정중인 데이타가 있습니다. 조회를 하시면 현재 수정 중인 데이타는 전체 초기화됩니다. \n\n조회 하시겠습니까?")) {
+			return false;
+		}
+    }
+    
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_preSaveDs
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : 저장 전 Validation 함수
+ *****************************************************************************************/
+function gfn_preSaveDs(dsObj)
+{
+    if(dsObj.rowcount == 0 || !gfn_isUpdateDs(dsObj)) {
+        alert("저장할 데이타가 없습니다.");
+        return false;
+    } else {
+        if(!confirm("저장하시겠습니까?")) return false;
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_preDeleteDs
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : 삭제 전 Validation 함수
+ *****************************************************************************************/
+function gfn_preDeleteDs(dsObj, sType)
+{
+    if(dsObj.findRow(gfn_getColNmChk(), 1) == -1) {
+        alert("선택된 삭제대상이 없습니다. 삭제대상을 선택해주세요.");
+        return false;
+    }
+
+    if(gfn_isUpdateDs(dsObj)) {
+        if(!confirm("현재 수정중인 데이타가 있습니다. 삭제를 하시면 현재 수정 중인 데이타는 전체 초기화됩니다. \n\n삭제하시겠습니까?")) {
+            return false;
+        }
+
+    } else {
+        if(!confirm("삭제하시겠습니까?")) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_insertDs
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+                nRow  : 데이타셋 row position
+ * 반      환 : 삽입된 행 row position
+ * 기      능 : 데이타셋 행 삽입 처리 함수
+ *****************************************************************************************/
+function gfn_insertDs(dsObj, nRow)
+{
+    dsObj.enableevent = false;
+
+    var nRow = dsObj.insertRow(nRow);
+    dsObj.setColumn(nRow, gfn_getColNmStatus(), gfn_getRowTypeInsert());
+
+    dsObj.enableevent = true;
+
+    return nRow;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_addDs
+ * 입      력 : dsObj    : 처리대상 데이타셋 오브젝트
+                bLastAdd : 맨마지막에 AddRow 여부
+                bSetInit : 칼럼 Type에 맞게 초기화처리
+ * 반      환 : 추가된 행 row position
+ * 기      능 : 데이타셋 행 추가 처리 함수
+ *****************************************************************************************/
+function gfn_addDs(dsObj, bLastAdd, bSetInit, bSetRowType)
+{
+    if(bLastAdd == null) bLastAdd = false;
+    if(bSetInit == null) bSetInit = false;
+    if(bSetRowType == null) bSetRowType = gfn_getRowTypeInsert();
+
+    dsObj.enableevent = false;
+
+    // 칼럼추가
+    gfn_addCommCol(dsObj);
+
+    var nRow = dsObj.rowposition;
+
+    if(bLastAdd == false) {
+        if(nRow == -1) {
+            nRow = dsObj.addRow();
+        } else if(nRow == 0){
+            nRow = dsObj.insertRow(nRow);
+        } else {
+            nRow = dsObj.insertRow(nRow+1);
+        }
+    } else {
+        nRow = dsObj.addRow();
+    }
+
+    // 공백처리
+    if(bSetInit == true) {
+        for(var i=0;i<dsObj.getColCount();i++)
+        {
+            var objCinfo = dsObj.getColumnInfo(i);
+
+            if(objCinfo.type == "STRING") {
+                dsObj.setColumn(nRow, i, "");
+            } else if(objCinfo.type == "INT" || objCinfo.type == "FLOAT") {
+                dsObj.setColumn(nRow, i, 0);
+            }
+        }
+    }
+
+    dsObj.setColumn(nRow, gfn_getColNmStatus(), bSetRowType);
+    dsObj.enableevent = true;
+    return nRow;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_delDs
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 : true/false
+ * 기      능 : (공통버튼)데이타셋 행 삭제 처리 함수
+ *****************************************************************************************/
+function gfn_delDs(dsObj)
+{
+    dsObj.enableevent = false;
+
+    for(var i=dsObj.rowcount-1;i>=0;i--)
+    {
+        if(dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeInsert())
+            dsObj.deleteRow(i);
+
+        if(dsObj.getColumn(i, gfn_getColNmChk()) == 1)
+            dsObj.setColumn(i, gfn_getColNmStatus(), gfn_getRowTypeDelete());
+    }
+
+    dsObj.enableevent = true;
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_delGrid
+ * 입      력 : dsObj      : 처리대상 데이타셋 오브젝트
+                bChkColUse : 삭제선택 체크칼럼 사용유무(Default:true)
+                bChkInitYn : 체크박스도 원래값으로 처리할지 여부(Default:true)
+ * 반      환 : true/false
+ * 기      능 : (그리드 공통버튼)데이타셋 행 삭제 처리 함수
+ *****************************************************************************************/
+function gfn_delGrid(dsObj, bChkColUse, bChkInitYn)
+{
+    dsObj.enableevent = false;
+
+    if(bChkColUse == null) bChkColUse = true;
+    if(bChkInitYn == null) bChkInitYn = true;
+
+    for(var i=dsObj.rowcount-1;i>=0;i--)
+    {
+        if(bChkColUse) {
+            if(dsObj.getColumn(i, gfn_getColNmChk()) == 1) {
+                if(dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeInsert()) {
+                    dsObj.deleteRow(i);
+                } else {
+
+                    for(var j=0;j<dsObj.getColCount();j++)
+                    {
+                        if(bChkInitYn && dsObj.getColID(j) != gfn_getColNmChk()) {
+                            dsObj.setColumn(i, dsObj.getColID(j), dsObj.getOrgColumn(i, dsObj.getColID(j)));
+                        }
+                    }
+
+                    dsObj.setColumn(i, gfn_getColNmStatus(), gfn_getRowTypeDelete());
+                }
+            }
+        } else {
+            if(dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeInsert()) {
+                dsObj.deleteRow(i);
+            } else {
+
+                for(var j=0;j<dsObj.getColCount();j++)
+                {
+                    if(bChkInitYn && dsObj.getColID(j) != gfn_getColNmChk()) {
+                        dsObj.setColumn(i, dsObj.getColID(j), dsObj.getOrgColumn(i, dsObj.getColID(j)));
+                    }
+                }
+
+                dsObj.setColumn(i, gfn_getColNmStatus(), gfn_getRowTypeDelete());
+            }
+        }
+    }
+
+    dsObj.enableevent = true;
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_delGridRow
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+                nRow  : 삭제대상 row
+ * 반      환 : true/false
+ * 기      능 : (그리드 공통버튼)데이타셋 행 삭제 처리 함수
+ *****************************************************************************************/
+function gfn_delGridRow(dsObj, nRow)
+{
+    dsObj.enableevent = false;
+
+    if(dsObj.getColumn(nRow, gfn_getColNmStatus()) == gfn_getRowTypeInsert()) {
+        dsObj.deleteRow(nRow);
+    } else {
+
+        for(var j=0;j<dsObj.getColCount();j++)
+        {
+            dsObj.setColumn(nRow, dsObj.getColID(j), dsObj.getOrgColumn(nRow, dsObj.getColID(j)));
+        }
+
+        dsObj.setColumn(nRow, gfn_getColNmStatus(), gfn_getRowTypeDelete());
+    }
+
+    dsObj.enableevent = true;
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_modify
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+                e     : 데이타셋 이벤트
+ * 반      환 :
+ * 기      능 : 데이타셋 수정 처리 함수
+ *****************************************************************************************/
+function gfn_modify(dsObj, e)
+{
+    dsObj.enableevent = false;
+
+    var sRowType = dsObj.getColumn(e.row, gfn_getColNmStatus());
+
+    if(sRowType != gfn_getRowTypeInsert()) {
+        dsObj.setColumn(e.row, gfn_getColNmStatus(), gfn_getRowTypeUpdate());
+    }
+
+    dsObj.enableevent = true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_initDsRowState
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 :
+ *****************************************************************************************/
+function gfn_initDsRowState(objDs)
+{
+    objDs.enableevent = false;
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        if(objDs.getColumn(i, gfn_getColNmChk()) != 1) {
+            if(!_gfn_getRowUpdateYn(objDs, i)) {
+                objDs.setColumn(i, gfn_getColNmChk(), objDs.getOrgColumn(i, gfn_getColNmChk()));
+                objDs.setColumn(i, gfn_getColNmStatus(), objDs.getOrgColumn(i, gfn_getColNmStatus()));
+            }
+        }
+    }
+    objDs.enableevent = true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_getRowUpdateYn
+ * 입      력 : objDs : 처리대상 데이타셋 오브젝트
+                nRow  : 삭제대상 row
+ * 반      환 :
+ * 기      능 :
+ *****************************************************************************************/
+function _gfn_getRowUpdateYn(objDs, nRow)
+{
+    for(var i=0;i<objDs.getColCount();i++)
+    {
+        var colID = objDs.getColID(i);
+
+        if(colID != gfn_getColNmChk() && colID != gfn_getColNmStatus()) {
+            if(objDs.getColumn(nRow, colID) != objDs.getOrgColumn(nRow, colID)) return true;
+        }
+    }
+
+    return false;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_isUpdateDs
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 : true/false
+ * 기      능 : 데이타셋 수정여부 반환 함수
+ *****************************************************************************************/
+function gfn_isUpdateDs(dsObj)
+{
+    gfn_addCommCol(dsObj);
+
+    for(var i=0;i<dsObj.rowcount;i++)
+    {
+        if(dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeInsert()
+            || dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeUpdate()
+            || dsObj.getColumn(i, gfn_getColNmStatus()) == gfn_getRowTypeDelete())
+            return true;
+    }
+
+    return false;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setRowState
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+                nRow  : 데이타셋 row position
+ * 반      환 : 상태아이콘 Url
+ * 기      능 : 데이타셋 RowType에 해당하는 상태아이콘 Url 반환 함수
+ *****************************************************************************************/
+function gfn_setRowState(dsObj, nRow)
+{
+    var sRowType = dsObj.getColumn(nRow, gfn_getColNmStatus());
+
+    if(sRowType == gfn_getRowTypeInsert()) {
+        return "IMG::ico_grd_add.png";
+    } if(sRowType == gfn_getRowTypeUpdate()) {
+        return "IMG::ico_grd_modify.png";
+    } if(sRowType == gfn_getRowTypeDelete()) {
+        return "IMG::ico_grd_del.png";
+    } else {
+        return "";
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_rollbackRowDs
+ * 입      력 : dsObj   : 처리대상 데이타셋 오브젝트
+                gridObj : 처리대상 그리드 오브젝트
+                e       : 데이타셋 이벤트
+ * 반      환 : 상태아이콘 Url
+ * 기      능 : 선택한 행 데이타셋 초기화 함수
+ *****************************************************************************************/
+function gfn_rollbackRowDs(dsObj, gridObj, e)
+{
+    var nRow = e.row;
+    var sRowType = dsObj.getColumn(nRow, gfn_getColNmStatus());
+
+    if(e.col == 0) {
+        if(sRowType == gfn_getRowTypeInsert()
+            || sRowType == gfn_getRowTypeUpdate()
+            || sRowType == gfn_getRowTypeDelete()) {
+            if(!confirm("선택한 행을 초기화 하시겠습니까?"))
+                return;
+        }
+    } else {
+        return;
+    }
+
+    if(sRowType == gfn_getRowTypeInsert()) {
+        dsObj.deleteRow(nRow);
+    } else if(sRowType == gfn_getRowTypeUpdate()
+                || sRowType == gfn_getRowTypeDelete()) {
+
+        dsObj.enableevent = false;
+
+        for(var i=0;i<dsObj.getColCount();i++)
+        {
+            dsObj.setColumn(nRow, dsObj.getColID(i), dsObj.getOrgColumn(nRow, dsObj.getColID(i)));
+        }
+
+        dsObj.enableevent = true;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_delCommCol
+ * 입      력 : dsObj : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 : 데이타셋 시스템 공통칼럼("_chk", "xRowStatusType") 삭제 -> Excel Import시에 사용
+ *****************************************************************************************/
+function gfn_delCommCol(dsObj)
+{
+    dsObj.enableevent = false;
+    dsObj.updatecontrol = false;
+
+    if(gfn_getColExist(dsObj, gfn_getColNmChk())) {
+        var bRtn = dsObj.deleteColumn(gfn_getColNmChk());
+    }
+
+    if(gfn_getColExist(dsObj, gfn_getColNmStatus())) {
+        var bRtn = dsObj.deleteColumn(gfn_getColNmStatus());
+    }
+
+    dsObj.updatecontrol = true;
+    dsObj.enableevent = true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_pageSearch
+ * 입      력 : sType            : 호출구분 ("INIT", "APPEND", "SAVE", "DELETE", "NONE" 중 택일)
+                objDs            : 대상 데이타셋
+                objStaCnt        : 총건수를 표시할 Static 컴포넌트
+                nReqCnt          : 한번에 가져올 로우 카운트
+                nPagingTotalCnt  : 총건수
+                nNotCntColNm     : RowCount 계산시 RowCount에서 제외하기 위한 칼럼명(제외대상Row는 '1'로 쿼리에서 처리)
+                                 ("소계", "합계"등을 쿼리로 조회한경우 RowCount에서 제외)
+ * 반      환 :
+ * 기      능 : 그리드 페이지기능 처리를 위한 설정값 처리하는 함수
+ *****************************************************************************************/
+function gfn_pageSearch(sType, objDs, objStaCnt, nReqCnt, nPagingTotalCnt, nNotCntColNm)
+{
+    if(objStaCnt.position.width <= 400) objStaCnt.position.width = 400;
+    if(gfn_getLength(nReqCnt) <= 0) nReqCnt = gfn_getRequestPagingCnt(); // 한번에 호출할 레코드 갯수
+
+    var objRequestCompDs = gds_RequestCompVariable;
+	
+    if(sType == gfn_getCommTypeInit() || sType == gfn_getCommTypeSave() || sType == gfn_getCommTypeDelete()) {
+
+        // 그리드 SortMark제거를 위한 예외처리
+        var componetlist = objStaCnt.parent.components;
+        for(var i=0;i<componetlist.length;i++)
+        {
+            if(componetlist[i] instanceof Grid) {
+                if(componetlist[i].binddataset == objDs.name) {
+                    gfn_clearSortMark(componetlist[i])
+                }
+            }
+        }
+
+        objDs.enableevent = false;
+        objDs.clearData();
+        objDs.enableevent = true;
+
+        objRequestCompDs.clearData();
+
+		var nRow = objRequestCompDs.addRow();
+        objRequestCompDs.setColumn(nRow, gfn_getPagingPageNo(), 1);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingRequestCnt(), nReqCnt);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingStartNum(), 1);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingEndNum(), parseInt(nReqCnt) + 1);
+
+    } else if(sType == gfn_getCommTypeAppend()) {
+        if(gfn_isNull(nPagingTotalCnt)) nPagingTotalCnt = 0;
+
+        // Group키 적용시 소계,총계 등 Row 카운트 제외위한  예외처리(KeyString 등)
+        var nRowCnt = 0;
+        for(var i=0;i<objDs.rowcount;i++)
+        {
+            if(nNotCntColNm == null) {
+                if(objDs.getRowLevel(i) == 0) nRowCnt++;
+            } else {
+                if(objDs.getColumn(i, nNotCntColNm) == 0) nRowCnt++;
+            }
+        }
+
+        if(nPagingTotalCnt <= toNumber(nRowCnt)) return false;
+
+        if(objRequestCompDs.rowcount <= 0) {
+            var nRow = objRequestCompDs.addRow();
+        } else {
+            var nRow = 0;
+        }
+
+        var nPageNo = gfn_transNullToEmpty(objRequestCompDs.getColumn(nRow, gfn_getPagingPageNo()), 0);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingPageNo(), parseInt(nPageNo) + 1);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingRequestCnt(), nReqCnt);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingStartNum(), (parseInt(nReqCnt) * nPageNo) + 1);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingEndNum(), parseInt(nReqCnt) * (nPageNo+1) + 1);
+    } else if(sType == gfn_getCommTypeNone()) {
+
+        if(objRequestCompDs.rowcount <= 0) {
+            var nRow = objRequestCompDs.addRow();
+        } else {
+            var nRow = 0;
+        }
+
+        objRequestCompDs.setColumn(nRow, gfn_getPagingPageNo(), 0);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingRequestCnt(), 0);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingStartNum(), 0);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingEndNum(), 0);
+    } else if (sType == gfn_getCommTypeOrderBy()) {
+        objRequestCompDs.clearData();
+
+		var nRow = objRequestCompDs.addRow();
+        objRequestCompDs.setColumn(nRow, gfn_getPagingPageNo(), 1);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingRequestCnt(), nReqCnt);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingStartNum(), 1);
+        objRequestCompDs.setColumn(nRow, gfn_getPagingEndNum(), parseInt(nReqCnt) + 1);
+    }
+
+    return true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : _gfn_getDsRealRowCount
+ * 입      력 : objDs : 처리대상 데이타셋 오브젝트
+ * 반      환 :
+ * 기      능 :
+ *****************************************************************************************/
+function _gfn_getDsRealRowCount(objDs)
+{
+    var nRowCnt = 0;
+
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        if(objDs.getColumn(i, gfn_getColNmStatus()) != gfn_getRowTypeInsert())
+            nRowCnt++;
+    }
+
+    return nRowCnt;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_appendSearchDs
+ * 입      력 :
+ * 반      환 :
+ * 기      능 : 조회된 결과를 실제보여줄 데이타셋으로 Append처리하는 함수
+ *****************************************************************************************/
+function gfn_appendSearchDs(objDs, objDsTemp)
+{
+    objDs.enableevent = false;
+
+    objDs.appendData(objDsTemp, true);
+    objDsTemp.clearData();
+
+    objDs.enableevent = true;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setTotalRowCount
+ * 입      력 : objDs            : Dataset 오브젝트
+                objSta           : static 오브젝트
+                nTotCnt          : 총건수
+                strPagingDataset : Paging Dataset Name(RequestDataset:ResponseDataset)
+                bDecoreate       : 데코레이트 여부
+                nNotCntColNm     : RowCount 계산시 RowCount에서 제외하기 위한 칼럼명(제외대상Row는 '1'로 쿼리에서 처리)
+                                   ("소계", "합계"등을 쿼리로 조회한경우 RowCount에서 제외)
+ * 반      환 :
+ * 기      능 : 조회된 결과 TotalCount를 그리드의 우측상단에 나탸내는 함수
+ *****************************************************************************************/
+function gfn_setTotalRowCount(objDs, objSta, nTotCnt, strPagingDataset, bDecoreate, nNotCntColNm)
+{
+    var ret = arguments;
+
+    if(bDecoreate == null) bDecoreate = true;
+
+    if ( strPagingDataset == null ) {
+        var objRequestCompDs = gds_RequestCompVariable;
+    } else {
+        var arrPagingDataset = strPagingDataset.split(":");
+
+        var objRequestCompDs = objects[arrPagingDataset[0]];
+    }
+
+    if(objDs.rowcount <=0 ) nTotCnt = 0;
+
+    if(nTotCnt == null) nTotCnt = 0;
+
+    // Group키 적용시 소계,총계 등 Row 카운트 제외위한  예외처리(KeyString 등)
+    var nRowCnt = 0;
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        if(nNotCntColNm == null) {
+            if(objDs.getRowLevel(i) == 0) nRowCnt++;
+        } else {
+            if(objDs.getColumn(i, nNotCntColNm) == 0) nRowCnt++;
+        }
+    }
+
+    if(bDecoreate) {
+        var strTotCnt = "검색결과  <fs v='9'><fc v='#f0850c'><b v='true'>";
+            strTotCnt += "<fs v='9'><fc v='#f0850c'><b v='true'>" + gfn_appendComma(nRowCnt, 0) + "</b></fc></fs><fc v='#a1a1a1'> 건</fc>";
+            strTotCnt += "<fc v='#a1a1a1'> / </fc>";
+            strTotCnt += "<fc v='#a1a1a1'>전체 </fc><fs v='9'><fc v='#a1a1a1'><b v='true'>" + gfn_appendComma(nTotCnt, 0) + "</b></fc></fs><fc v='#a1a1a1'> 건</fc>";
+    } else {
+        var strTotCnt = gfn_appendComma(objDs.rowcount, 0) + " 건 / 총 " + gfn_appendComma(nTotCnt, 0) + " 건";
+    }
+
+    if(objSta instanceof Edit) {
+        objSta.value = strTotCnt;
+    } else {
+        objSta.text = strTotCnt;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setTotalRowCountOfNotPaging
+ * 입      력 : objSta       : static 오브젝트
+                 nTotCnt      : 총건수
+ * 반      환 :
+ * 기      능 : 조회된 결과 TotalCount를 그리드의 우측상단에 나탸내는 함수
+ *****************************************************************************************/
+function gfn_setTotalRowCountOfNotPaging(objSta, nTotCnt)
+{
+	var strTotCnt = "검색결과  <fs v='9'><fc v='#f0850c'><b v='true'>";
+		strTotCnt += "<fs v='9'><fc v='#f0850c'><b v='true'>" + nTotCnt + "</b></fc></fs><fc v='#a1a1a1'> 건</fc>";
+	
+	if(objSta instanceof Edit) {
+        objSta.value = strTotCnt;
+    } else {
+        objSta.text = strTotCnt;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setTabScrollNotPaging
+ * 입      력 : nReqCnt          : 가져올 로우 카운트
+ * 반      환 :
+ * 기      능 : 페이징해서 가져올 로우 카운트 설정
+ *****************************************************************************************/
+function gfn_setTabScrollNotPaging(nReqCnt)
+{
+	var objRequestCompDs = gds_RequestCompVariable;
+	objRequestCompDs.clearData();
+	var nRow = objRequestCompDs.addRow();
+    objRequestCompDs.setColumn(nRow, gfn_getPagingPageNo(), 1);
+    objRequestCompDs.setColumn(nRow, gfn_getPagingRequestCnt(), nReqCnt);
+    objRequestCompDs.setColumn(nRow, gfn_getPagingStartNum(), 1);
+	objRequestCompDs.setColumn(nRow, gfn_getPagingEndNum(), parseInt(nReqCnt) + 1);
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setRowCountOfNotPaging
+ * 입      력 : objDs        : Dataset 오브젝트
+                objSta       : static 오브젝트
+                nNotCntColNm : RowCount 계산시 RowCount에서 제외하기 위한 칼럼명(제외대상Row는 '1'로 쿼리에서 처리)
+                              ("소계", "합계"등을 쿼리로 조회한경우 RowCount에서 제외)
+ * 반      환 :
+ * 기      능 : 조회된 결과 RowCount를 그리드의 좌측상단에 나탸내는 함수
+ *****************************************************************************************/
+function gfn_setRowCountOfNotPaging(objDs, objSta, nNotCntColNm)
+{
+    // Group키 적용시 소계,총계 등 Row 카운트 제외위한  예외처리(KeyString 등)
+    var nRowCnt = 0;
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        if(nNotCntColNm == null) {
+            if(objDs.getRowLevel(i) == 0) nRowCnt++;
+        } else {
+            if(objDs.getColumn(i, nNotCntColNm) == 0) nRowCnt++;
+        }
+    }
+
+    var strTotCnt = "검색결과  <fs v='9'><fc v='#f0850c'><b v='true'>";
+        strTotCnt += "<fs v='9'><fc v='#f0850c'><b v='true'>" + gfn_appendComma(nRowCnt, 0) + "</b></fc></fs><fc v='#a1a1a1'> 건</fc>";
+
+    if(objSta instanceof Edit) {
+        objSta.value = strTotCnt;
+    } else {
+        objSta.text = strTotCnt;
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_setDuplTotalRowCount
+ * 입      력 : objDs    : 중복제거대상 Dataset 오브젝트
+                sColList : 중복제거대상 Key칼럼 리스트(구분자:",")
+                objSta   : static 오브젝트
+ * 반      환 :
+ * 기      능 : 중복되는 행을 제외한 전체 RowCount를 조회건수 영역에 설정하는 함수
+ *****************************************************************************************/
+function gfn_setDuplTotalRowCount(objDs, sColList, objSta)
+{
+    var objDuplDs = gfn_getDuplExclusionDs(objDs, sColList);
+    objSta.text = "검색결과   <fs v='9'><fc v='#f0850c'><b v='true'>" + gfn_appendComma(objDuplDs.rowcount, 0) + "</b></fc></fs> <fc v='#a1a1a1'>건</fc>";
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_createDataset
+ * 입      력 : objForm     : 생성할 위치(Form)
+                sDsId       : Dataset ID
+                sColumnList : 칼럼정보리스트(예:"ColNm1:Type:Length,ColNm2:Type,Length")
+                bAddRow     : AddRow 처리 여부(default:false)
+ * 반      환 : Dataset
+ * 기      능 : Dataset을 동적으로 생성 함수
+ *****************************************************************************************/
+function gfn_createDataset(objForm, sDsId, sColumnList, bAddRow)
+{
+    if(bAddRow == null) bAddRow = false;
+
+    var objDs = objForm.objects[sDsId];
+
+    if (gfn_isNull(objDs) == true) {
+        objDs         = new Dataset;
+        objDs.name     = sDsId;
+        objForm.addChild(sDsId, objDs);
+
+        if(sColumnList != null) {
+            var arrColList = String(sColumnList).split(",");
+            for(var i=0;i<arrColList.length;i++)
+            {
+                var arrColInfo = String(arrColList[i]).split(":");
+                objDs.addColumn(arrColInfo[0], arrColInfo[1], arrColInfo[2]);
+            }
+        }
+
+        if(bAddRow) objDs.addRow();
+    } else {
+        objDs.enableevent = false;
+        objDs.clearData();
+        objDs.enableevent = true;
+    }
+
+    return objDs;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getDsBindComp
+ * 입      력 : objDs  : Dataset Object
+                sColid : 칼럼 ID명
+ * 반      환 : string (Component ID명)
+ * 기      능 : Dataset의 칼럼과 바인딩 되어있는 Components ID명을 얻는 함수
+ *****************************************************************************************/
+function gfn_getDsBindComp(objDs, sColid)
+{
+    var objBinds = this.binds;
+    for (var i=0; i<objBinds.length; i++) {
+
+        //같은 Dataset
+        if (objBinds[i].datasetid == objDs.name) {
+            if (objBinds[i].columnid == sColid) {
+                return objBinds[i].compid;
+            }
+        }
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_isExistCol
+ * 입      력 : objDs : Dataset Object
+                sCol  : 체크할 칼럼 ID명
+ * 반      환 : true(존재함)
+ * 기      능 : 칼럼의 존재유무를 체크하는 함수
+ *****************************************************************************************/
+function gfn_isExistCol(objDs, sCol)
+{
+    for (var i=0; i<objDs.colcount; i++) {
+        if (objDs.getColID(i) == sCol) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getDuplExclusionDs
+ * 입      력 : objDs    : Dataset Object
+                sColList : 중복제거대상 Key칼럼 리스트(구분자:",")
+ * 반      환 : Dataset
+ * 기      능 : 중복되는 칼럼을 제거한 데이타셋을 반환하는 함수
+ *****************************************************************************************/
+function gfn_getDuplExclusionDs(objDs, sColList)
+{
+    var arrColList = sColList.split(",");
+    var sFindStr;
+
+    var objDsTemp = gfn_createDataset(this, objDs.name+"_Dupl");
+    objDsTemp.clear();
+
+    for(var i=0;i<objDs.getColCount();i++)
+    {
+        var objColumnInfo = objDs.getColumnInfo(i);
+        var nIndex = objDsTemp.addColumnInfo(objColumnInfo.name,objColumnInfo);
+    }
+
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        // Find 대상 Key String 생성
+        for(var j=0;j<arrColList.length;j++)
+        {
+            if(j == 0)
+                sFindStr = arrColList[j] + "=='"+objDs.getColumn(i, arrColList[j])+"'";
+            else
+                sFindStr += "&&"+arrColList[j] + "=='"+objDs.getColumn(i, arrColList[j])+"'";
+        }
+
+        //trace("sFindStr::"+sFindStr);
+
+        var nFRow = objDsTemp.findRowExpr(sFindStr);
+
+        if(nFRow == -1) {
+            var nRow = objDsTemp.addRow();
+            objDsTemp.copyRow(nRow, objDs, i);
+        }
+    }
+
+    return objDsTemp;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getMaxValOfDs
+ * 입      력 : objDs  : Dataset Object
+                sColNm : 최대값 산출 대상 칼럼명
+ * 반      환 : Max Value
+ * 기      능 : 데이타셋의 요청칼럼에서 최대값 찾아서 리턴하는 함수
+ *****************************************************************************************/
+function gfn_getMaxValOfDs(objDs, sColNm)
+{
+    var nTmpVal = 0;
+
+    for(var i=0;i<objDs.rowcount;i++)
+    {
+        var nVal = toNumber(objDs.getColumn(i, sColNm));
+
+        if(nTmpVal < nVal) {
+            nTmpVal = nVal;
+        }
+    }
+
+    return nTmpVal;
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_addColumn
+ * 입      력 : objDs      : Dataset Object
+                strColNm   : Column Name
+                strColType : Column Type
+                iColLength : Column Length
+ * 반      환 :
+ * 기      능 : 데이타셋 칼럼생성
+ *****************************************************************************************/
+function gfn_addColumn(objDs, strColNm, strColType, iColLength)
+{
+    if(strColType == null) strColType = "String";
+    if(iColLength == null) iColLength = 255;
+
+    if(!gfn_getColExist(objDs, strColNm)) {
+        objDs.addColumn(strColNm, strColType, iColLength);
+    }
+}
+
+/*****************************************************************************************
+ * 함  수  명 : gfn_getColExist
+ * 입      력 : objDs    : Dataset Object
+                strColNm : Column Name
+ * 반      환 : 존재여부(true/false)
+ * 기      능 : 데이타셋 해당칼럼 존재여부 반환
+ *****************************************************************************************/
+function gfn_getColExist(objDs, strColNm)
+{
+    var objColumnInfo;
+    objColumnInfo = objDs.getColumnInfo(strColNm);
+
+    if(objColumnInfo == null)
+        return false;
+    else
+        return true;
+}
+
+/**---------------------------------------------------------------------
+* 기능 :  Dataset 갱신여부 확인
+* 인수 :  oDs			: Dataset
+* Return : return Boolean
+* 주의 : 체크박스가 있는 그리드와 바인드된 데이터셋은 사용하면 안됨
+*           (그리드의 체크박스를 클릭하면 데이터셋의 레코드가 변경상태로 바뀌기 때문)
+----------------------------------------------------------------------*/
+function gfn_isUpdate (oDs) {
+	var nCudCnt = 0;
+	for(var i=0;i<oDs.getRowCount();i++) {
+		if(oDs.getRowType(i) == 2 || oDs.getRowType(i) == 4 || oDs.getRowType(i) == 8) {
+			nCudCnt++;
+			break;
+		}
+	}
+	nCudCnt = nCudCnt + oDs.getDeletedRowCount();
+	if (nCudCnt > 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+/**---------------------------------------------------------------------
+* 기능 :  Dataset 에서 그리드에 체크박스로 표시되는 컬럼의 값을 변경한다.
+* 인수 :  grid			: Grid
+* 인수 :  sCol			: 체크박스 컬럼명
+* 인수 :  isCheck		: 체크여부
+* Return : void
+----------------------------------------------------------------------*/
+function gfn_checkDs(grid:Grid, sCol, isCheck) {
+	var i,
+		oldRowType,
+		chkVal,
+		ds;
+	
+	ds = this[grid.binddataset];	
+	if (true === isCheck) {
+		chkVal = "1";
+	} else {
+		chkVal = "";
+	}
+	
+	ds.enableevent = false;
+	ds.updatecontrol = false;
+	for (i=0; i<ds.rowcount; ++i) {
+		oldRowType = ds.getRowType(i);
+		ds.setColumn(i, sCol, isCheck);
+		ds.setRowType(i, oldRowType);
+	}
+	ds.updatecontrol = true;
+	ds.enableevent = true;
+	
+	grid.setCellProperty( "Head", 0, "expr", isCheck); 
+}
+
+// 데이터셋의 모든 데이터를 삭제한다.
+// 모든 서버에서 데이터를 삭제처리할 때 사용
+function gfn_clearDs(obj:Dataset) {
+	for (var i=obj.rowcount-1; i>=0; i--) {
+		obj.deleteRow(i);
+	}
+}
+
+// 체크박스를 가진 그리드에 바인드된 데이터셋에서 체크된 행을 삭제한다.
+function gfn_deleteDs(obj:Dataset, chkCol, chkVal) {
+
+	if (undefined == chkCol || "" == chkCol) {
+		chkCol = "chk";
+	}
+	if (undefined == chkVal || "" == chkVal) {
+		chkVal = "1";
+	}
+	
+	for (var i=obj.rowcount-1; i>=0; i--) {
+		if (chkVal == obj.getColumn(i, chkCol)) {
+			obj.deleteRow(i);
+		}
+	}
+}
+
+]]></Script>

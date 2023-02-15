@@ -1,0 +1,110 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_OpenPage" classname="Comm_OpenPage" inheritanceid="" position="absolute 0 0 256 356" titletext="열린화면리스트" onload="Comm_OpenPage_onload" style="background:transparent;">
+    <Layouts>
+      <Layout>
+        <Static id="stc_23" class="sta_popupBg1" enable="false" position="absolute 0 0 246 346"/>
+        <Static id="stc_24" text="오픈페이지리스트" class="sta_popupTitle" position="absolute 10 8 185 28" transparenthittest="true"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 222 8 242 27"/>
+        <Button id="btn_CloseAll" taborder="1" text="모두닫기" class="Btn_crud" position="absolute 170 45 235 65" onclick="btn_CloseAll_onclick"/>
+        <Grid id="grd_OpenPage" class="grd_Openpage" taborder="1" binddataset="gds_OpenList" useinputpanel="false" cellsizingtype="col" autofittype="col" treeuseline="false" treeusecheckbox="false" treeinitstatus="expand,all" position="absolute 11 68 235 335" oncellclick="grd_OpenPage_oncellclick" oncelldblclick="grd_OpenPage_oncelldblclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="222"/>
+                <Column size="30"/>
+              </Columns>
+              <Rows>
+                <Row size="25" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell colspan="2" text="업무화면명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="tree" edittype="tree" style="line:1 solid #d6d6d6ff,0 none #808080,1 solid #d6d6d6ff,1 solid #d6d6d6ff;selectline:1 solid #d6d6d6ff,0 none #808080,1 solid #d6d6d6ff,1 solid #d6d6d6ff;" text="bind:FormTitle" treelevel="0"/>
+                <Cell col="1" displaytype="expr:String(WINKEY).indexOf(&quot;init_&quot;)&gt;=0?'normal':'image'" style="cursor:hand;" text="expr:String(WINKEY).indexOf(&quot;init_&quot;)&gt;=0?'':'IMG::btn_del.png'"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[/**
+ * Program ID  		: Comm_OpenPage
+ * Program Name    	: 열린화면 목록
+ * Author          	: hyeonsuk.Ryu
+ * Created On      	: 2016-02-18
+ * Description      : 열린화면 목록관리
+ */
+ 
+/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function Comm_OpenPage_onload(obj:Form, e:LoadEventInfo)
+{
+
+}
+
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+//열린화면으로 이동(focus)
+function grd_OpenPage_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	if (e.cell==0) {
+		var sWinID = gds_OpenList.getColumn(e.row, "WINKEY");
+		ap_MDITabFrame.form.lfn_activeTabpage(sWinID);
+	}
+}
+
+//열린화면 닫기
+function grd_OpenPage_oncellclick(obj:Grid, e:GridClickEventInfo)
+{
+	if(e.cell == 1) {
+		var sWinID = gds_OpenList.getColumn(e.row, "WINKEY");
+	
+		gfn_tabOnClose(sWinID);	
+		ap_MDITabFrame.form.lfn_activeTabpage(sWinID);
+		//ap_WorkFrame.frames[sWinID].form.f_close(true);
+	}
+}
+
+//열린화면 모두닫기
+function btn_CloseAll_onclick(obj:Button,  e:ClickEventInfo)
+{
+ 	if(gds_OpenList.rowcount <= 2) return;
+
+ 	if(!application.confirm("열린화면을 모두 닫으시겠습니까?")) return;
+ 	
+ 	for(var i=gds_OpenList.rowcount-1;i>=0;i--)
+ 	{
+ 		var sWinID = gds_OpenList.getColumn(i, "WINKEY");
+ 		
+ 		if (sWinID.indexOf("init_")<0 ) {			
+			gfn_tabOnClose(sWinID);	
+			ap_MDITabFrame.form.lfn_activeTabpage(sWinID);
+			//gfn_tabOnClose(sWinID);	
+		}
+	}
+
+	ap_MDITabFrame.form.lfn_activeTabpage(gds_OpenList.getColumn(0, "WINKEY"));
+	ap_WorkMainFrame.form.fn_init();
+
+	close();
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}]]></Script>
+  </Form>
+</FDL>

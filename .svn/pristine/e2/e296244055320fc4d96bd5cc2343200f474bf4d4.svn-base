@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ExamTrprMap">
+
+    <sql id="ExamTrprMap.selectCondition_fragment">
+        <where>
+            <if test="exam_id != null and exam_id != ''">
+                AND EXAM_ID = #{exam_id}
+            </if>
+            <if test="exam_trpr_id != null and exam_trpr_id != ''">
+                AND EXAM_TRPR_ID = #{exam_trpr_id}
+            </if>
+            <if test="no_marking_yn != null and no_marking_yn != ''">
+                AND EXAM_RNKN_SQNO IS NULL
+            </if>
+        </where>
+    </sql>
+
+    <sql id="ExamTrprMap.selectConditionUser_fragment">
+        <where>
+                    USER_STAT_CD = '10'
+                AND NOT EXISTS (SELECT 'Y'
+                                  FROM TB_EXAM_TRPR B
+                                 WHERE B.EXAM_ID = #{exam_id}
+                                   AND B.EXAM_TRPR_ID = A.USER_ID)
+            <if test="athr_cd != null and athr_cd != ''">
+                AND ATHR_CD = #{athr_cd}
+            </if>
+
+            <if test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND (TEAM_CD = #{hgrn_team_cd}
+                     OR TEAM_CD IN (SELECT T1.TEAM_CD FROM TB_CONS_TEAM T1 WHERE T1.HGRN_TEAM_CD = #{hgrn_team_cd})
+                    )
+            </if>
+            <if test="team_cd != null and team_cd != ''">
+                AND TEAM_CD = #{team_cd}
+            </if>
+            <if test="user_nm != null and user_nm != ''">
+                AND USER_NM LIKE '%' || #{user_nm} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <sql id="ExamTrprMap.selectConditionMarking_fragment">
+        <where>
+            <if test="bzpt_div != null and bzpt_div != ''">
+                AND B.BZPT_DIV = #{bzpt_div}
+            </if>
+            <if test="exam_prgr_stat_cd != null and exam_prgr_stat_cd != ''">
+                AND B.EXAM_PRGR_STAT_CD = #{exam_prgr_stat_cd}
+            </if>
+            <if test="exam_id != null and exam_id != ''">
+                AND B.EXAM_ID = #{exam_id}
+            </if>
+            <if test="exam_ym != null and exam_ym != ''">
+                AND ( TO_CHAR(B.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') BETWEEN #{exam_ym} || '010000' AND #{exam_ym} || '312359'
+                  OR TO_CHAR(B.EXAM_END_DTTM, 'YYYYMMDDHH24MI') BETWEEN #{exam_ym} || '010000' AND #{exam_ym} || '312359')
+            </if>
+            <choose>
+                <when test="exam_trpr_id != null and exam_trpr_id != ''">
+                    AND A.EXAM_TRPR_ID = #{exam_trpr_id}
+                </when>
+                <when test="team_cd != null and team_cd != ''">
+                    AND EXISTS (SELECT 'Y'
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.EXAM_TRPR_ID
+                                   AND C.TEAM_CD = #{team_cd})
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                    AND (A.TEAM_CD  = #{hgrn_team_cd}
+                         OR A.TEAM_CD IN (SELECT T1.TEAM_CD FROM TB_CONS_TEAM T1 WHERE T1.HGRN_TEAM_CD = #{hgrn_team_cd})
+                         )
+                </when>
+            </choose>
+        </where>
+    </sql>
+
+    <select id="ExamTrprMap.getExamTrprCount" parameterType="map" resultType="int">
+        SELECT /* ExamTrprMap.getExamTrprCount */
+               COUNT(*)
+          FROM TB_EXAM_TRPR A
+         <include refid="ExamTrprMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="ExamTrprMap.getExamTrprList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamTrprMap.getExamTrprList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_TRPR_ID, EXAM_ID, LAST_SCR_VL, EXAM_RNKN_SQNO
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , EXAM_TRPR_NM, RGSR_NM, AMND_NM , TEAM_CD, TEAM_NM
+                     , ANSR_YN
+                  FROM (SELECT EXAM_TRPR_ID, EXAM_ID, LAST_SCR_VL, EXAM_RNKN_SQNO, TEAM_CD
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.EXAM_TRPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EXAM_TRPR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT B.TEAM_NM
+                                  FROM TB_CONS_TEAM  B
+                                 WHERE B.TEAM_CD = A.TEAM_CD
+                                   AND B.CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                             , (CASE WHEN EXISTS (SELECT 'Y'
+                                                    FROM TB_EXAM_PRBM_ANSR B
+                                                   WHERE B.EXAM_TRPR_ID = A.EXAM_TRPR_ID
+                                                     AND B.EXAM_ID = A.EXAM_ID
+                                                     AND B.PRBM_ANSR_CNTN IS NOT NULL
+                                                  )
+                                          THEN 'O'
+                                     ELSE 'X'
+                                 END) AS ANSR_YN
+                          FROM TB_EXAM_TRPR A
+                      <include refid="ExamTrprMap.selectCondition_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      ) B
+                ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ExamTrprMap.insertExamTrpr" parameterType="map">
+        INSERT /* ExamTrprMap.insertExamTrpr */
+          INTO TB_EXAM_TRPR
+               (EXAM_TRPR_ID, EXAM_ID, LAST_SCR_VL
+         <if test="exam_rnkn_sqno != null and exam_rnkn_sqno != ''">
+              , EXAM_RNKN_SQNO
+         </if>
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+              , TEAM_CD)
+        VALUES (#{exam_trpr_id}, #{exam_id}, NULL
+         <if test="exam_rnkn_sqno != null and exam_rnkn_sqno != ''">
+              , #{exam_rnkn_sqno}
+         </if>
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+              , (SELECT TEAM_CD FROM TB_USER WHERE USER_ID = #{exam_trpr_id}))
+    </insert>
+
+    <update id="ExamTrprMap.updateExamTrpr" parameterType="map">
+        UPDATE /* ExamTrprMap.updateExamTrpr */
+               TB_EXAM_TRPR A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            <if test="last_scr_vl != null and last_scr_vl != ''">
+             , A.LAST_SCR_VL     = #{last_scr_vl}
+            </if>
+            <if test="exam_rnkn_sqno != null and exam_rnkn_sqno != ''">
+             , A.EXAM_RNKN_SQNO    = #{exam_rnkn_sqno}
+            </if>
+         WHERE A.EXAM_TRPR_ID     = #{exam_trpr_id}
+           AND A.EXAM_ID         = #{exam_id}
+    </update>
+
+    <delete id="ExamTrprMap.deleteExamTrpr" parameterType="map">
+        DELETE /* ExamTrprMap.deleteExamTrpr */
+          FROM TB_EXAM_TRPR
+         WHERE EXAM_ID = #{exam_id}
+       <if test="exam_trpr_id != null and exam_trpr_id != ''">
+           AND EXAM_TRPR_ID = #{exam_trpr_id}
+       </if>
+       <if test="selectcheck != null and selectcheck != ''">
+           AND EXAM_TRPR_ID
+           <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+               #{item}
+           </foreach>
+       </if>
+    </delete>
+
+    <select id="ExamTrprMap.getUserCount" parameterType="map" resultType="int">
+        SELECT /* ExamTrprMap.getUserCount */
+               COUNT(*)
+          FROM TB_USER A
+         <include refid="ExamTrprMap.selectConditionUser_fragment"/>
+    </select>
+
+    <select id="ExamTrprMap.getUserList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamTrprMap.getUserList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, USER_ID, USER_NM, TEAM_CD, ATHR_CD
+                     , CNTR_CD, TEAM_NM, ATHR_NM
+                  FROM (SELECT USER_ID, USER_NM, TEAM_CD, ATHR_CD, CNTR_CD
+                             , (SELECT TEAM_NM
+                                  FROM TB_CONS_TEAM
+                                 WHERE TEAM_CD = A.TEAM_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                             , (SELECT ATHR_NM
+                                  FROM TB_ATHR
+                                 WHERE ATHR_CD = A.ATHR_CD
+                                   AND CNTR_CD = A.CNTR_CD) AS ATHR_NM
+                          FROM TB_USER A
+                      <include refid="ExamTrprMap.selectConditionUser_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ExamTrprMap.getExamTrprMarkingCount" parameterType="map" resultType="int">
+        SELECT /* ExamTrprMap.getExamTrprMarkingCount */
+               COUNT(*)
+          FROM TB_EXAM_TRPR A
+          JOIN TB_EXAM_BASI B
+            ON A.EXAM_ID = B.EXAM_ID
+         <include refid="ExamTrprMap.selectConditionMarking_fragment"/>
+    </select>
+
+    <select id="ExamTrprMap.getExamTrprMarkingList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamTrprMap.getExamTrprMarkingList */
+               B.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, EXAM_TRPR_ID, EXAM_ID, LAST_SCR_VL, EXAM_RNKN_SQNO
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , EXAM_TRPR_NM, DUTY_NM, TEAM_CD, TEAM_NM
+                  FROM (SELECT A.EXAM_TRPR_ID, A.EXAM_ID, A.LAST_SCR_VL, A.EXAM_RNKN_SQNO
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.TEAM_CD
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.EXAM_TRPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EXAM_TRPR_NM
+                             , (SELECT GETCODENM('USR030', DUTY_CD, A.CNTR_CD)
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.EXAM_TRPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS DUTY_NM
+                             , (SELECT C.TEAM_NM
+                                  FROM TB_CONS_TEAM C
+                                 WHERE C.TEAM_CD = A.TEAM_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                          FROM TB_EXAM_TRPR A
+                          JOIN TB_EXAM_BASI B
+                            ON A.EXAM_ID = B.EXAM_ID
+                      <include refid="ExamTrprMap.selectConditionMarking_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      )
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id="ExamTrprMap.updateExamTrprTotalScore" parameterType="map">
+        UPDATE /* ExamTrprMap.updateExamTrprTotalScore */
+               TB_EXAM_TRPR A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , A.LAST_SCR_VL     = (SELECT SUM(B.ANSR_ACQR_SCR_VL)
+                                     FROM TB_EXAM_PRBM_ANSR B
+                                    WHERE B.EXAM_ID = A.EXAM_ID
+                                      AND B.EXAM_TRPR_ID = A.EXAM_TRPR_ID)
+         WHERE A.EXAM_TRPR_ID     = #{exam_trpr_id}
+           AND A.EXAM_ID         = #{exam_id}
+    </update>
+
+    <update id="ExamTrprMap.updateExamTrprExamRanking" parameterType="map">
+        UPDATE /* ExamTrprMap.updateExamTrprExamRanking */
+               TB_EXAM_TRPR A
+           SET A.AMND_ID      = #{amnd_id}
+             , A.AMNT_DTTM          = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , A.EXAM_RNKN_SQNO    = (SELECT SUM(CASE WHEN B.LAST_SCR_VL > A.LAST_SCR_VL THEN 1 ELSE 0 END) + 1
+                                     FROM TB_EXAM_TRPR B
+                                    WHERE B.EXAM_ID = A.EXAM_ID)
+         WHERE A.EXAM_ID         = #{exam_id}
+           <if test="mode != null and mode == 'marking'">
+           AND A.LAST_SCR_VL IS NOT NULL
+           </if>
+    </update>
+
+    <select id="ExamTrprMap.getExamTrprResultCount" parameterType="map" resultType="int">
+        SELECT /* ExamTrprMap.getExamTrprResultCount */
+               COUNT(*)
+          FROM TB_EXAM_TRPR A
+          JOIN TB_EXAM_BASI B
+            ON A.EXAM_ID = B.EXAM_ID
+         <include refid="ExamTrprMap.selectConditionMarking_fragment"/>
+    </select>
+
+    <select id="ExamTrprMap.getExamTrprResultList" parameterType="map" resultType="resultMap">
+        SELECT /* ExamTrprMap.getExamTrprResultList */
+               PAGE_INDX, EXAM_TRPR_ID, EXAM_ID, LAST_SCR_VL, EXAM_RNKN_SQNO
+             , EXAM_TRPR_NM, DUTY_NM, TEAM_CD, TEAM_NM, ENCO_DT
+             , TEAM_AVG, EXAM_AVG, EXAM_NM, EXAM_STT_DTTM, EXAM_END_DTTM
+             , EXAM_PRGR_STAT_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, A.EXAM_TRPR_ID, A.EXAM_ID, A.LAST_SCR_VL, A.EXAM_RNKN_SQNO
+                     , A.EXAM_TRPR_NM, A.DUTY_NM, A.TEAM_CD, A.TEAM_NM, A.ENCO_DT
+                     , B.TEAM_AVG, C.EXAM_AVG, A.EXAM_NM, A.EXAM_STT_DTTM, A.EXAM_END_DTTM
+                     , GETCODENM('EXM060', A.EXAM_PRGR_STAT_CD, A.CNTR_CD) AS EXAM_PRGR_STAT_NM
+                  FROM (SELECT A.EXAM_TRPR_ID, A.EXAM_ID, A.LAST_SCR_VL, A.EXAM_RNKN_SQNO
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , B.EXAM_NM, TO_CHAR(B.EXAM_STT_DTTM, 'YYYYMMDDHH24MI') AS EXAM_STT_DTTM, TO_CHAR(B.EXAM_END_DTTM, 'YYYYMMDDHH24MI') AS EXAM_END_DTTM, B.EXAM_PRGR_STAT_CD, A.TEAM_CD
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.EXAM_TRPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EXAM_TRPR_NM
+                             , (SELECT GETCODENM('USR030', DUTY_CD, A.CNTR_CD)
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.EXAM_TRPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS DUTY_NM
+                             , (SELECT C.TEAM_NM
+                                  FROM TB_CONS_TEAM C
+                                 WHERE C.TEAM_CD = A.TEAM_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                             , (SELECT ENCO_DT
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.EXAM_TRPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS ENCO_DT
+                          FROM TB_EXAM_TRPR A
+                          JOIN TB_EXAM_BASI B
+                            ON A.EXAM_ID = B.EXAM_ID
+                      <include refid="ExamTrprMap.selectConditionMarking_fragment"/>
+                      <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                      </if>
+                      ) A
+                    , (SELECT A.TEAM_CD, ROUND(AVG(A.LAST_SCR_VL), 1) AS TEAM_AVG
+                         FROM TB_EXAM_TRPR A
+                        WHERE A.EXAM_ID = #{exam_id}
+                          AND A.CNTR_CD = #{cntr_cd}
+                          AND A.LAST_SCR_VL IS NOT NULL
+                        GROUP BY A.TEAM_CD
+                      ) B
+                    , (SELECT A.EXAM_ID, ROUND(AVG(A.LAST_SCR_VL), 1) AS EXAM_AVG
+                         FROM TB_EXAM_TRPR A
+                        WHERE A.EXAM_ID = #{exam_id}
+                          AND A.LAST_SCR_VL IS NOT NULL
+                        GROUP BY A.EXAM_ID
+                      ) C
+                  WHERE A.TEAM_CD = B.TEAM_CD(+)
+                    AND A.EXAM_ID = C.EXAM_ID(+)
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+</mapper>

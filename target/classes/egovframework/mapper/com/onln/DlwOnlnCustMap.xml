@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOnlnCustMap">
+
+    <sql id="DlwOnlnCustMap.selectCondition_fragment">
+        <where>
+            <!--
+            <if test="cell != null and cell != ''">
+                AND CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+            </if>
+             -->
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND JOIN_DT BETWEEN #{stt_dt} and #{end_dt}
+            </if>
+            <if test="cell != null and cell != ''">
+                AND CELL = REPLACE(#{cell}, '-', '')
+            </if>
+            <if test="prod_cd != null and prod_cd != ''">
+                AND PROD_CD = #{prod_cd}
+            </if>
+            <if test="prcs_cd != null and prcs_cd != ''">
+                AND PRCS_CD = #{prcs_cd}
+            </if>
+            <if test="ch_yn != null and ch_yn != ''">
+                AND CH_YN = #{ch_yn}
+            </if>
+            <if test="prdct_cs_gb != null and prdct_cs_gb != ''">
+                AND PRDCT_CS_GB = #{prdct_cs_gb}
+            </if>
+        </where>
+    </sql>
+
+    <select id="DlwOnlnCustMap.getDlwOnlnCustJnerCount" parameterType="map" resultType="int">
+        SELECT /* DlwOnlnCustMap.getDlwOnlnCustJnerCount */
+               COUNT(*)
+          FROM (SELECT A.ONLINE_PRDCT_CS_SEQ, A.PRCS_CD, TO_CHAR(A.REG_DTM, 'YYYYMMDD') AS JOIN_DT, A.REG_ID AS ONLN_ID
+                     , DECODE(A.PRCS_CD, '03', 'Y', 'N') AS CH_YN
+                     , A.PRDCT_CS_GB, A.MARKETING_YN AS MARKT_AGR_YN
+                     , A.NAME AS MEM_NM, A.BIRTH AS BRTH_MON_DAY, A.EMAIL, A.HP AS CELL, A.TEL AS HOME_TEL
+                     , B.UNQ_NO AS MEM_NO
+                     , REPLACE(B.ZIPCD, '-', '') AS HOME_ZIP, B.ADR AS HOME_ADDR, B.ADR_DTL AS HOME_ADDR2, B.SMS_RCV_YN AS CHAT_PCUS_CNSN_YN
+                     , B.TEL_RCV_YN AS TEL_PCUS_CNSN_YN, B.CTLG_RCV_YN AS DM_PCUS_CNSN_YN, B.EMAIL_RCV_YN AS EMIL_PCUS_CNSN_YN, B.CI AS CI_VAL
+                     , DECODE(C.PMT_GB, 'cms', 'CMS', 'cdt', 'CARD') AS PAY_MTHD_NM, C.ACNTHD AS DEPR, C.ACNT_BIRTH, C.ACNT_HP, C.PMT_CO_GB AS BANK_CD
+                     , C.PMT_NO AS BANK_ACCNT_NO, C.EXP_YR, C.EXP_MM, C.PMT_DAY_GB AS TRAN_DT
+                     , D.PRDCT_CD AS PROD_CD, D.PRDCT_NM AS PROD_NM, D.PRDCT_DTL_CD, D.PRDCT_DTL_NM, D.PAY_MTD
+                     , D.ASGN_CD AS EMPLE_NO, D.ASGN_NM AS EMPLE_NM
+                  FROM CM_ONLINE_PRDCT_CS_MST A
+                     , MB_MEM_MST B
+                     , CM_ONLINE_PRDCT_ACNT_INF C
+                     , CM_ONLINE_PRDCT_INF D
+                 WHERE A.REG_ID = B.ID(+)
+                   <!-- AND A.PRDCT_CS_GB = 'normal' -->
+                   AND A.ONLINE_PRDCT_CS_SEQ = C.ONLINE_PRDCT_CS_SEQ
+                   AND A.ONLINE_PRDCT_CS_SEQ = D.ONLINE_PRDCT_CS_SEQ
+                ) A
+        <include refid="DlwOnlnCustMap.selectCondition_fragment" />
+    </select>
+
+    <!-- 온라인회원 가입자 조회 -->
+    <select id="DlwOnlnCustMap.getDlwOnlnCustJnerList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOnlnCustMap.getDlwOnlnCustJnerList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT A.*
+                          FROM (SELECT A.ONLINE_PRDCT_CS_SEQ, A.PRCS_CD, TO_CHAR(A.REG_DTM, 'YYYYMMDD') AS JOIN_DT, A.REG_ID AS ONLN_ID, A.NAME AS MEM_NM
+                                     , A.BIRTH AS BRTH_MON_DAY, A.EMAIL, A.HP AS CELL, A.TEL AS HOME_TEL, DECODE(A.SEX, 'm', '0001', 'f', '0002', '') AS SEX
+                                     , A.PRDCT_CS_GB, DECODE(A.PRDCT_CS_GB, 'b2b', '03', '02') AS JOIN_CL, DECODE(A.PRCS_CD, '03', 'Y', 'N') AS CH_YN
+                                     , B.UNQ_NO AS MEM_NO, B.MARKETING_YN AS MARKT_AGR_YN
+                                     , REPLACE(B.ZIPCD, '-', '') AS HOME_ZIP, B.ADR AS HOME_ADDR, B.ADR_DTL AS HOME_ADDR2, B.SMS_RCV_YN AS CHAT_PCUS_CNSN_YN
+                                     , REPLACE(A.ZIPCD2, '-', '') AS INSPL_ZIP, A.ADR2 AS INSPL_ADDR, A.ADR_DTL2 AS INSPL_ADDR2
+                                     , B.TEL_RCV_YN AS TEL_PCUS_CNSN_YN, B.CTLG_RCV_YN AS DM_PCUS_CNSN_YN, B.EMAIL_RCV_YN AS EMIL_PCUS_CNSN_YN, B.CI AS CI_VAL
+                                     , DECODE(C.PMT_GB, 'cms', '04', 'cdt', '06') AS PAY_MTHD, DECODE(C.PMT_GB, 'cms', 'CMS', 'cdt', 'CARD') AS PAY_MTHD_NM, C.PMT_CO_GB AS BANK_CD
+                                     , C.PMT_CO_GRP_GB AS GRP_CD , C.ACNTHD AS DEPR, C.ACNT_BIRTH, C.ACNT_HP, C.PMT_NO AS BANK_ACCNT_NO
+                                     , C.EXP_YR, C.EXP_MM, C.PMT_DAY_GB AS TRAN_DT
+                                     , D.PRDCT_CD AS PROD_CD, D.PRDCT_NM AS PROD_NM, D.PRDCT_DTL_CD AS PROD_MODEL_KIND, D.PRDCT_DTL_NM, D.PRDCT_DTL_MODEL AS PROD_MODEL_NM, D.PAY_MTD
+                                     , D.ASGN_CD AS EMPLE_NO
+                                     , D.ASGN_NM AS EMPLE_NM
+                                     , D.PRDCT_ACNT
+                                     , (SELECT DI
+                                          FROM MB_IDNT_INF MII
+                                         WHERE MII.ID = B.ID) AS DI
+                                  FROM CM_ONLINE_PRDCT_CS_MST A
+                                     , MB_MEM_MST B
+                                     , CM_ONLINE_PRDCT_ACNT_INF C
+                                     , CM_ONLINE_PRDCT_INF D
+                                 WHERE A.REG_ID = B.ID(+)
+                                   <!-- AND A.PRDCT_CS_GB = 'normal' -->
+                                   AND A.ONLINE_PRDCT_CS_SEQ = C.ONLINE_PRDCT_CS_SEQ
+                                   AND A.ONLINE_PRDCT_CS_SEQ = D.ONLINE_PRDCT_CS_SEQ
+                                ) A
+                                <include refid="DlwOnlnCustMap.selectCondition_fragment" />
+                                <if test="orderBy != null and orderBy != ''">
+                                    ORDER BY ${orderBy} ${orderDirection}
+                                </if>
+                        ) B
+                ) C
+            <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX < #{endLine}
+            ]]>
+            </if>
+    </select>
+
+    <!-- 회원변호 생성 전 변환 중복 체크 -->
+    <select id="DlwOnlnCustMap.getOnlnMemNo" parameterType="map" resultType="String">
+    <!-- sql-life.xml selectGetMemNo -->
+        SELECT /* DlwOnlnCustMap.getOnlnMemNo */
+               UNQ_NO AS MEM_NO
+          FROM MB_MEM_MST
+         WHERE ID = #{onln_id}
+    </select>
+
+    <!-- 회원 고유번호 업데이트 -->
+    <update id="DlwOnlnCustMap.updateMemMstUnqNo" parameterType="map">
+        UPDATE /* DlwOnlnCustMap.updateMemMstUnqNo */
+               MB_MEM_MST
+           SET UNQ_NO = #{mem_no}
+             , MOD_ID = #{amnd_id}
+             , MOD_IP = #{ip_addr}
+             , MOD_DTM = SYSDATE
+         WHERE ID = #{onln_id}
+    </update>
+
+    <!-- 변환 상태값 변경 -->
+    <update id="DlwOnlnCustMap.updateMemChngPtcYn" parameterType="map">
+        UPDATE /* DlwOnlnCustMap.updateMemChngPtcYn */
+               MB_MEM_CHNG_PTC
+           SET PRCS_YN = 'Y'
+             , MOD_ID = #{amnd_id}
+             , MOD_IP = #{ip_addr}
+             , MOD_DTM = SYSDATE
+         WHERE ID = #{onln_id}
+    </update>
+
+    <!-- 변환 상태값 변경 -->
+    <update id="DlwOnlnCustMap.updateOnlnProdMst" parameterType="map">
+        UPDATE /* DlwOnlnCustMap.updateOnlnProdMst */
+               CM_ONLINE_PRDCT_CS_MST
+           SET PRCS_CD = '03'
+             , MOD_ID = #{amnd_id}
+             , MOD_IP = #{ip_addr}
+             , MOD_DTM = SYSDATE
+             , MOD_NM = #{amnd_nm}
+         WHERE ONLINE_PRDCT_CS_SEQ = #{online_prdct_cs_seq}
+    </update>
+
+    <!-- 변환 상태값 변경 -->
+    <insert id="DlwOnlnCustMap.insertOnlnProdLog" parameterType="map">
+        INSERT /* DlwOnlnCustMap.insertOnlnProdLog */
+          INTO CM_ONLINE_PRDCT_CS_LOG
+               (ONLINE_PRDCT_CS_SEQ, PRCS_CD, ANSW, MOD_ID, MOD_IP
+              , MOD_DTM, MOD_NM)
+        VALUES (#{online_prdct_cs_seq}, '03', '', #{amnd_id}, #{ip_addr}
+              , SYSDATE, #{amnd_nm})
+    </insert>
+
+    <!-- 온라인 변경고객 조회 -->
+    <!-- <select id="DlwOnlnCustMap.getScdlOnlnCustList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOnlnCustMap.getScdlOnlnCustList */
+               *
+          FROM (SELECT B.UNQ_NO, A.CHNG_SEQ, A.ID, A.BFR_NAME, A.BFR_EMAIL, A.BFR_HP
+                     , A.BFR_TEL, A.BFR_ZIPCD, A.BFR_ADR, A.BFR_ADR_DTL, A.AFT_NAME
+                     , A.AFT_EMAIL, A.AFT_HP, A.AFT_TEL, A.AFT_ZIPCD, A.AFT_ADR
+                     , A.AFT_ADR_DTL, A.PRCS_YN, A.REG_ID, A.REG_IP, A.REG_DTM
+                     , A.MOD_ID, A.MOD_IP, A.MOD_DTM
+                     , ROW_NUMBER() OVER(PARTITION BY A.ID ORDER BY A.ID, A.CHNG_SEQ DESC) AS CHNG_IDX
+                  FROM MB_MEM_CHNG_PTC A
+                     , MB_MEM_MST B
+                 WHERE A.ID = B.ID
+                   AND B.UNQ_NO IS NOT NULL
+                   AND A.PRCS_YN = 'N'
+                   AND A.REG_DTM BETWEEN SYSDATE-2 AND SYSDATE
+                )
+         WHERE CHNG_IDX = 1
+    </select> -->
+
+    <!-- 온라인 고객 수정에 따른 상태값 변경 -->
+    <!-- <update id="DlwOnlnCustMap.updateOnlnCustYn" parameterType="map">
+        UPDATE /* DlwOnlnCustMap.updateOnlnCustYn */
+               MB_MEM_CHNG_PTC
+           SET PRCS_YN = 'Y'
+             , MOD_ID = #{amnd_id}
+             , MOD_DTM = SYSDATE
+         WHERE CHNG_SEQ <![CDATA[<=]]> #{chng_seq}
+           AND ID = #{id}
+           AND PRCS_YN = 'N'
+    </update> -->
+
+    <!-- 온라인 변경고객 조회 -->
+    <select id="DlwOnlnCustMap.getScdlOnlnCustList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOnlnCustMap.getScdlOnlnCustList */
+               B.UNQ_NO, A.CHNG_SEQ, A.ID, A.BFR_NAME, A.BFR_EMAIL, A.BFR_HP
+             , A.BFR_TEL, A.BFR_ZIPCD, A.BFR_ADR, A.BFR_ADR_DTL, A.AFT_NAME
+             , A.AFT_EMAIL, A.AFT_HP, A.AFT_TEL, A.AFT_ZIPCD, A.AFT_ADR
+             , A.AFT_ADR_DTL, B.MARKETING_YN, B.SMS_RCV_YN AS CHAT_PCUS_CNSN_YN
+             , B.TEL_RCV_YN AS TEL_PCUS_CNSN_YN, B.CTLG_RCV_YN AS DM_PCUS_CNSN_YN, B.EMAIL_RCV_YN AS EMIL_PCUS_CNSN_YN
+          FROM MB_MEM_CHNG_PTC A
+             , MB_MEM_MST B
+         WHERE A.ID = B.ID
+           AND B.UNQ_NO IS NOT NULL
+           AND A.PRCS_YN = 'N'
+           AND A.REG_DTM BETWEEN SYSDATE-2 AND SYSDATE
+      ORDER BY A.ID, A.CHNG_SEQ ASC
+    </select>
+
+    <!-- 온라인 고객 수정에 따른 상태값 변경 -->
+    <update id="DlwOnlnCustMap.updateOnlnCustYn" parameterType="map">
+        UPDATE /* DlwOnlnCustMap.updateOnlnCustYn */
+               MB_MEM_CHNG_PTC
+           SET PRCS_YN = 'Y'
+             , MOD_ID = 'ADMIN'
+             , MOD_DTM = SYSDATE
+             , MOD_IP = #{mod_ip}
+         WHERE CHNG_SEQ = #{chng_seq}
+           AND ID = #{id}
+           AND PRCS_YN = 'N'
+    </update>
+
+</mapper>

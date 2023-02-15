@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="SYS0000400203" classname="Comm_LogOut" inheritanceid="" position="absolute 0 0 325 153" titletext="게시글카테고리이동" onload="SYS0000400203_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_114" class="sta_popupBg1" enable="false" position="absolute 0 0 315 143"/>
+        <Static id="stc_113" text="카테고리 변경" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="2" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 290 8 310 27"/>
+        <Static id="stc_00" text="카테고리 선택" class="sta_workTitle2" position="absolute 12 48 196 68"/>
+        <Static id="Static00" text="※ 이동할 카테고리를 선택해주세요." position="absolute 9 113 300 132" style="linespace:5;"/>
+        <Static id="stc_33" class="sta_workSrcBg" position="absolute 11 69 304 111"/>
+        <Static id="stc_32" text="카테고리" class="sta_workSrcLabel1" position="absolute 23 80 81 100"/>
+        <Button id="btn_Commit" taborder="1" text="확인" onclick="btn_Commit_onclick" position="absolute 235 45 304 65"/>
+        <Combo id="cbo_category" taborder="1" position="absolute 86 80 293 100" innerdataset="@ds_cmm_category" codecolumn="blbrClsfId" datacolumn="blbrClsfNm" displaynulltext="[선택]"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_input" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_input_oncolumnchanged">
+        <ColumnInfo>
+          <Column id="blbrGropAdmnNo" type="STRING" size="256"/>
+          <Column id="blbrClsfId" type="STRING" size="256"/>
+          <Column id="orgzCd" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_list_oncolumnchanged">
+        <ColumnInfo>
+          <Column id="xRowStatusType" type="STRING" size="256"/>
+          <Column id="blbrClsfId" type="STRING" size="256"/>
+          <Column id="ntmtId" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_pList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_pList_oncolumnchanged"/>
+      <Dataset id="ds_cmm_category" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="_chk" type="INT" size="10"/>
+          <Column id="xRowStatusType" type="STRING" size="1"/>
+          <Column id="blbrClsfId" type="STRING" size="256"/>
+          <Column id="blbrClsfNm" type="STRING" size="256"/>
+          <Column id="blbrMkpbRngCd" type="STRING" size="256"/>
+          <Column id="ancmBlbrClsfYn" type="STRING" size="256"/>
+          <Column id="dltnYn" type="STRING" size="256"/>
+          <Column id="lnpSqnc" type="STRING" size="256"/>
+          <Column id="blbrDivInfoYn" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item0" compid="cbo_category" propid="value" datasetid="ds_input" columnid="blbrClsfId"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[
+include "LIB::lib_All.xjs";
+
+function SYS0000400203_onload(obj:Form, e:LoadEventInfo)
+{
+	// 시스템 공통함수 호출
+	gfn_commPopInit(obj);
+	
+	trace("pv_blbrGropAdmnNo::"+pv_blbrGropAdmnNo);
+	
+	this.ds_input.setColumn(0, "blbrGropAdmnNo", pv_blbrGropAdmnNo);	
+	
+	fn_init();
+}
+
+function fn_init()
+{
+	// 부모창으로부터 전달받은 게시글 정보에서 
+	// 선택된 글만 서버전송대상 데이타셋에 설정
+	ds_pList.assign(pv_objDs);
+	
+	trace(ds_pList.saveXML());
+	
+	gfn_addColumn(ds_pList, "blbrEditYn", 	"string", 1);
+	
+	ds_pList.filter("_chk=='1'");
+
+	//trace(ds_pList.saveXML());
+
+	// TO-DO : 카테고리 정보조회
+	//ds_input.clearData();
+	//var nRow = ds_input.addRow();
+	ds_input.setColumn(0, "orgzCd", gds_UserInfo.getColumn(0,"blngBrncCd"));
+	
+	fn_categorySearch(gfn_getCommTypeAppend());
+}
+
+
+/***************************************************************************
+ * 함  수  명		: fn_categorySearch()
+ * 기      능		: (카테고리)조회 프로세스
+
+ ***************************************************************************/
+function fn_categorySearch(sType)
+{
+	//if (!fn_preSearch(sType)) return false;
+
+	// 페이지 처리 기본설정
+	//if(!gfn_pageSearch(gfn_getTranTypeDIS(), sType, ds_list, div_body.sta_TotalCnt, 100)) return;
+
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.generaladmnistrationdc.DCGnrlAdmnSqlMap");
+	gfn_setKwData_trscCode("SYS00001R16");
+	gfn_setKwData_sqlId("getBlbrList");
+	gfn_tranDIS(sType
+					, "ds_input=ds_input"
+					, "ds_cmm_category=datas"
+					, "fn_categorySearch_callBack");
+
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_categorySearch_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+// 카테고리 정보 변경
+function btn_Commit_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(!confirm("카테고리를 변경하시겠습니까?")) return false;
+	
+	for(var i=0;i<ds_pList.rowcount;i++){
+		ds_pList.setColumn(i,"blbrClsfId",	ds_input.getColumn(0,"blbrClsfId"));
+		ds_pList.setColumn(i,"blbrEditYn",	"Y");
+	}
+	
+	fn_categoryChange();
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_categoryChange()
+ * 기      능		: (공통버튼)저장 프로세스
+ ***************************************************************************/
+function fn_categoryChange()
+{
+	//var indatasetList = "ds_input=ds_input";		// 변경할 카테고리 정보
+	//	indatasetList += " ds_list=ds_list";		// 카테고리 변경대상 게시글 정보
+
+// 	trace(ds_list.saveXML());
+// 	return;
+
+	var indatasetList = " ds_input=ds_pList:U";		// 카테고리 변경대상 게시글 정보
+
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_trscCode("SYS00002C29");	
+
+	gfn_tranMCI("ChangeCatetgory"
+				, indatasetList
+				, ""
+				, "fn_categoryChange_callBack");
+			
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_categoryChange_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_categoryChange_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	if(nErrorCode != 0) {
+		return;
+	}
+	
+	alert("정상적으로 변경되었습니다.");
+	
+	close("OK");
+}	
+function ds_input_oncolumnchanged(obj:Dataset, e:DSColChangeEventInfo)
+{
+	
+}
+
+function ds_list_oncolumnchanged(obj:Dataset, e:DSColChangeEventInfo)
+{
+// 	if(e.columnid != gfn_getColNmChk() && e.columnid != gfn_getColNmStatus()) {
+// 		gfn_modify(obj, e);
+// 	}
+}
+
+function ds_pList_oncolumnchanged(obj:Dataset, e:DSColChangeEventInfo)
+{
+	if(e.columnid != gfn_getColNmChk() && e.columnid != gfn_getColNmStatus()) {
+		gfn_modify(obj, e);
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

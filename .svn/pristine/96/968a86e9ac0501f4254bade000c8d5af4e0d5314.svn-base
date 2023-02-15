@@ -1,0 +1,1739 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwNewTypePayMngMap">
+    <!-- ================================================================
+     * 날짜 : 20181022
+     * 이름 : 송준빈
+     * 추가내용 : 특정회원의 청구 여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * -->
+    <select id="DlwNewTypePayMngMap.getWdrwReqAccntConfirm" parameterType="String" resultType="int">
+        SELECT /* DlwNewTypePayMngMap.getWdrwReqAccntConfirm */
+               COUNT(*) AS ACCNT_CNT
+          FROM ( SELECT ACCNT_NO          /* 회원번호                                                                 */
+                       ,PROD_CD           /* 상품코드                                                                 */
+                       ,PAY_MTHD          /* 산출구분(CMS:04, CARD:06)                                                */
+                       ,REQ_BIT           /* 산출상세구분(01:정기, 02:미출금, 03:임의 ,04:연체, 05:임시, 06:고객센터) */
+                       ,STAT              /* 상태                                                                     */
+                       ,KSTBIT            /* 회원상태(01:대기, 02:가입, 03:해약, 04:행사, 09:만기)                    */
+                       ,TRUE_CNT          /* 실납입회수                                                               */
+                       ,REQ_PAY_NO        /* 산출청구회차                                                             */
+                       ,PAY_BIT           /* 산출비트                                                                 */
+                       ,ICHAE_NO          /* 이체번호(계좌 혹은 BID)                                                  */
+                       ,ICHAE_CD          /* 이체코드(은행, 카드사)                                                   */
+                       ,REQ_DAY           /* 청구일                                                                   */
+                       ,BANK_FILIN_BRKDN  /* 통장기재내역                                                             */
+                       ,PAY_AMT           /* 청구금액                                                                 */
+                       ,REG_DM            /* 등록일                                                                   */
+                       ,REG_MAN           /* 등록자                                                                   */
+                       ,ICHAE_DT          /* 정기건 및 연체건 이체일                                                  */
+                       ,REQ_PAY_GUNSU     /* 산출청구건수                                                             */
+                       ,UPD_DM            /* 수정일                                                                   */
+                       ,UPD_MAN           /* 수정자                                                                   */
+                       ,DEL_FG            /* 청구여부(N:청구전 Y:삭제 R:청구 C:완료(변환/입금) F:완료(실패))          */
+                       ,BIRTH             /* 생년월일(CMS용)                                                          */
+                       ,BILL_GUBUN        /* 36회 카드사 전달 구분값                                                  */
+                       ,RESULT_KEY        /* 카드/CMS결과KEY(실시간포함)                                              */
+                       ,RESULT_KIND       /* 01:파일, 02:실시간, 03:자유,04:기타                                      */
+                       ,MONTH_CNT         /* 당월회차                                                                 */
+                   FROM LF_DMUSER.TB_MEMBER_WDRW_REQ
+                  WHERE 1=1
+                    AND DEL_FG IN ('N', 'R')
+                    AND ACCNT_NO = #{accnt_no}
+               ) A
+         WHERE 1=1
+    </select>
+    
+    <!-- 입금전표 등록 -->
+    <insert id="DlwNewTypePayMngMap.insertPayMng" parameterType="map">
+    <!-- DM sql-id : sql-life.insertPayMng -->
+        <!--
+        INSERT INTO PAY_MNG (
+                  seq
+                , accnt_no
+                , no
+                , pay_amt
+                , pay_day
+                , pay_mthd
+                , stat
+                , dc_amt_seq
+                , rc_stat
+                , reg_dm
+                , reg_man
+                , upd_dm
+                , upd_man
+                , del_fg
+                , new_yn)
+          SELECT
+                    a.seq
+                  , #{accnt_no}
+                  , cast(#{no}#{no} as int)
+                  , cast(#vo.payAmt# as int)
+                  , #{pay_day}
+                  , #{pay_mthd}
+                  , cast(#vo.stat# as int)
+                  , cast(#vo.dcAmtSeq# as int)
+                  , '01'        /*상조보증공제조합 default 미전송.*/
+                  , getdate()
+                  ,  #{emple_no}
+                  , getdate()
+                  , #{emple_no}
+                  , 'N'
+                  , 'Y'
+          FROM
+              ( SELECT ISNULL(MAX(seq) + 1, '1') as seq
+                FROM  PAY_MNG
+                WHERE accnt_no = #{accnt_no} ) a
+          -->
+
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+            FROM PAY_MNG
+            WHERE ACCNT_NO = #{accnt_no}
+        </selectKey>
+
+          INSERT /* DlwNewTypePayMngMap.insertPayMng */
+            INTO PAY_MNG
+               ( SEQ
+               , ACCNT_NO
+               , NO
+               , PAY_AMT
+               , PAY_DAY
+               , PAY_MTHD
+               , STAT
+               , DC_AMT_SEQ
+               , RC_STAT
+               , REG_DM
+               , REG_MAN
+               , UPD_DM
+               , UPD_MAN
+               , DEL_FG
+               , NEW_YN
+               <if test="evt_rpt_cl != null and evt_rpt_cl != ''">
+               , EVT_RPT_CL
+               </if>
+               )
+          SELECT #{seq}
+               , #{accnt_no}
+               , #{no}
+               , FN_PAY_AMT_BY_CNT(1, TO_NUMBER(#{no})-1, #{accnt_no}) <!-- 월납입금 조회 -->
+               , TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD')
+               , #{pay_mthd}
+               , #{stat}
+               , #{dc_amt_seq}
+               , '01'  <!-- 상조보증공제조합 DEFAULT 미전송 -->
+               , SYSDATE
+               , #{emple_no}
+               , SYSDATE
+               , #{emple_no}
+               , 'N'
+               , 'Y'
+               <if test="evt_rpt_cl != null and evt_rpt_cl != ''">
+               , #{evt_rpt_cl}
+               </if>
+            FROM DUAL
+    </insert>
+    
+    <!-- 입금전표 수정 -->
+    <update id="DlwNewTypePayMngMap.updatePayMng" parameterType="map">
+    <!-- DM sql-id : sql-life.updatePayMng -->
+        UPDATE /* DlwNewTypePayMngMap.updatePayMng */
+               PAY_MNG
+           SET PAY_DAY   = REPLACE(#{pay_day}, '/','')
+             , PAY_MTHD  = #{pay_mthd}
+             , STAT      = ( SELECT
+                               CASE WHEN MONTHS_BETWEEN( SUBSTR(#{pay_day},1,7)||'/01',
+                                                ADD_MONTHS(
+                                                          CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                                          ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                                          END, TO_NUMBER(#{no})-1)
+                                                  ) = 0
+                               THEN 0
+                               ELSE (CASE WHEN MONTHS_BETWEEN(  SUBSTR(#{pay_day},1,7)||'/01' ,
+                                                 ADD_MONTHS(
+                                                           CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                                           ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                                           END, TO_NUMBER(#{no})-1)
+                                                  ) <![CDATA[>]]> 0
+                                     THEN 1
+                                     ELSE 2
+                                     END)
+                               END AS STAT  FROM DUAL  )
+             , UPD_DM    = SYSDATE
+             , UPD_MAN   = #{emple_no}
+             , DEL_FG    = #{del_fg}
+             <if test="del_fg.equalsIgnoreCase('Y')">
+             , PAY_CANCEL_CD = #{pay_cancel_cd}
+             , PAY_CANCEL_NOTE = #{pay_cancel_note}
+             , PAY_CANCEL_DAY = REPLACE(#{pay_cancel_day},'/','')
+             </if>
+         WHERE ACCNT_NO = #{accnt_no}
+           AND SEQ = CAST(#{seq} AS INT)
+    </update>
+    
+        <!-- 할부원금  등록 -->
+    <update id="DlwNewTypePayMngMap.insertPayMngDtl" parameterType="map">
+    <!-- DM sql-id : sql-life.insertPayMngDtl -->
+
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+            FROM PAY_MNG_DTL
+            WHERE ACCNT_NO = #{accnt_no}
+        </selectKey>
+
+        INSERT /* DlwNewTypePayMngMap.insertPayMngDtl */
+          INTO PAY_MNG_DTL
+             ( SEQ
+             , ACCNT_NO
+             , NO
+             , PAY_AMT
+             , PAY_DAY
+             , PAY_MTHD
+             , STAT
+             , REG_DM
+             , REG_MAN
+             , UPD_DM
+             , UPD_MAN
+             , DEL_FG
+             <if test="evt_rpt_cl != null and evt_rpt_cl != ''">
+             , EVT_RPT_CL
+             </if>
+             )
+        SELECT #{seq}
+             , #{accnt_no}
+             , #{no}
+             , FN_ALLT_AMT_BY_CNT(1, #{no}-1, #{accnt_no})/* 월납입금 조회 */
+             , TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD')
+             , #{pay_mthd}
+             , #{stat}
+             , SYSDATE
+             ,  #{emple_no}
+             , SYSDATE
+             , #{emple_no}
+             , 'N'
+             <if test="evt_rpt_cl != null and evt_rpt_cl != ''">
+             , #{evt_rpt_cl}
+             </if>
+          FROM MEM_PROD_ACCNT MPA left outer join (select prod_cd , max(end_no) mcnt
+                                                     from product_dtl where allt_amt > 0 group by prod_cd ) pd on mpa.prod_cd = pd.prod_cd
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+           AND NVL(MPA.KSTBIT,' ') !='09'
+           AND pd.mcnt >= #{no}
+    </update>
+    
+    <!-- 입금전표 수정 -->
+    <update id="DlwNewTypePayMngMap.updatePayMngDtl" parameterType="map">
+    <!-- DM sql-id : sql-life.updatePayMngDtl -->
+        UPDATE /* DlwNewTypePayMngMap.updatePayMngDtl */
+               PAY_MNG_DTL
+           SET PAY_DAY   = TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD')
+             , PAY_MTHD  = #{pay_mthd}
+             , STAT      = ( SELECT
+                               CASE WHEN MONTHS_BETWEEN(
+                                                ADD_MONTHS(
+                                                          CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                                          ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                                          END, TO_NUMBER(#{no})-1),SUBSTR(#{pay_day},1,7)||'/01'
+                                                  ) = 0
+                               THEN 0
+                               ELSE (CASE WHEN MONTHS_BETWEEN(
+                                                 ADD_MONTHS(
+                                                           CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                                           ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                                           END, TO_NUMBER(#{no})-1), SUBSTR(#{pay_day},1,7)||'/01'
+                                                  ) <![CDATA[>]]> 0
+                                     THEN 1
+                                     ELSE 2
+                                     END)
+                               END AS STAT  FROM DUAL  )
+            , UPD_DM    = SYSDATE
+            , UPD_MAN   = #{emple_no}
+            , DEL_FG    = #{del_fg}
+             <if test="del_fg.equalsIgnoreCase('Y')">
+             , PAY_CANCEL_CD = #{pay_cancel_cd}
+             , PAY_CANCEL_NOTE = #{pay_cancel_note}
+             , PAY_CANCEL_DAY = REPLACE(#{pay_cancel_day},'/','')
+             </if>
+        WHERE ACCNT_NO  = #{accnt_no}
+          AND SEQ       = CAST(#{seq} AS INT)
+    </update>
+    
+    <!-- 할부원금  등록 -->
+    <update id="DlwNewTypePayMngMap.insertPayMngDtl1" parameterType="map">
+    <!-- DM sql-id : sql-life.insertPayMngDtl1 -->
+
+        <selectKey keyProperty="seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(SEQ) + 1, '1') AS SEQ
+            FROM PAY_MNG_DTL1
+            WHERE ACCNT_NO = #{accnt_no}
+        </selectKey>
+
+           INSERT INTO PAY_MNG_DTL1 (
+                  seq
+                , accnt_no
+                , no
+                , pay_amt
+                , pay_day
+                , pay_mthd
+                , stat
+                , reg_dm
+                , reg_man
+                , upd_dm
+                , upd_man
+                , del_fg
+                <if test="evt_rpt_cl != null and evt_rpt_cl != ''">
+                , EVT_RPT_CL
+                </if>
+                )
+          SELECT
+                    #{seq}
+                  , #{accnt_no}
+                  , #{no}
+                  , FN_ADD_AMT_BY_CNT(1, #{no}-1, #{accnt_no}) <!-- 월납입금 조회 -->
+                  , TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD')
+                  , #{pay_mthd}
+                  , #{stat}
+                  , SYSDATE
+                  , #{emple_no}
+                  , SYSDATE
+                  , #{emple_no}
+                  , 'N'
+               <if test="evt_rpt_cl != null and evt_rpt_cl != ''">
+                  , #{evt_rpt_cl}
+               </if>
+          FROM MEM_PROD_ACCNT MPA
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+           AND NVL(MPA.KSTBIT,' ') !='09'
+           AND (SELECT RPOD_DTL.ADD_AMT
+                  FROM MEM_PROD_ACCNT MPA
+                       INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                       INNER JOIN PRODUCT_DTL RPOD_DTL ON PROD.PROD_CD = RPOD_DTL.PROD_CD
+                 WHERE #{no} BETWEEN RPOD_DTL.ST_NO AND RPOD_DTL.END_NO
+                   AND MPA.ACCNT_NO = #{accnt_no}) > 0
+    </update>
+    
+    <!-- 입금전표 수정 -->
+    <update id="DlwNewTypePayMngMap.updatePayMngDtl1" parameterType="map">
+    <!-- DM sql-id : sql-life.updatePayMngDtl1 -->
+        UPDATE
+               PAY_MNG_DTL1
+           SET PAY_DAY   = TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD')
+             , PAY_MTHD  = #{pay_mthd}
+             , STAT      = ( SELECT
+                               CASE WHEN MONTHS_BETWEEN(
+                                                ADD_MONTHS(
+                                                          CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                                          ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                                          END, TO_NUMBER(#{no})-1) ,SUBSTR(#{pay_day},1,7)||'/01'
+                                                  ) = 0
+                               THEN 0
+                               ELSE (CASE WHEN MONTHS_BETWEEN(
+                                                 ADD_MONTHS(
+                                                           CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                                           ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                                           END, TO_NUMBER(#{no})-1) , SUBSTR(#{pay_day},1,7)||'/01'
+                                                  ) <![CDATA[>]]> 0
+                                     THEN 1
+                                     ELSE 2
+                                     END)
+                               END AS STAT  FROM DUAL  )
+            , UPD_DM    = SYSDATE
+            , UPD_MAN   = #{emple_no}
+            , DEL_FG    = #{del_fg}
+             <if test="del_fg.equalsIgnoreCase('Y')">
+             , PAY_CANCEL_CD = #{pay_cancel_cd}
+             , PAY_CANCEL_NOTE = #{pay_cancel_note}
+             , PAY_CANCEL_DAY = REPLACE(#{pay_cancel_day},'/','')
+             </if>
+        WHERE ACCNT_NO  = #{accnt_no}
+          AND SEQ       = CAST(#{seq} AS INT)
+    </update>
+    
+    <!--납입일자가 같은 전표 갯수 조회           -->
+    <select id="DlwNewTypePayMngMap.getDCAmtCnt" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectDCAmtCnt -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getDCAmtCnt */
+               COUNT(DC_AMT_SEQ) AS DC_AMT_CNT
+          FROM PAY_MNG
+         WHERE DEL_FG = 'N'
+           AND ACCNT_NO = #{accnt_no}
+           AND SUBSTR(PAY_DAY,1,6) = SUBSTR(TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD'),1,6)
+           AND STAT NOT IN('2')
+    </select>
+    
+    <!-- DC금 seq 삭제 -->
+    <delete id="DlwNewTypePayMngMap.deleteDCAmt" parameterType="map">
+    <!-- DM sql-id : sql-life.deleteDCAmt -->
+        DELETE /* DlwNewTypePayMngMap.deleteDCAmt */
+          FROM DC_AMT_REG
+         WHERE SEQ = nvl((SELECT MAX(DC_AMT_SEQ)
+                        FROM PAY_MNG
+                       WHERE ACCNT_NO = #{accnt_no}
+                         AND SUBSTR(PAY_DAY,1,6) = SUBSTR(TO_CHAR(TO_DATE(#{pay_day},'YYYY-MM-DD'), 'YYYYMMDD'),1,6)
+           AND ACCNT_NO = #{accnt_no}),0)
+    </delete>
+
+    <!-- 가입일자 - 1회입금일자로  수정 -->
+    <update id="DlwNewTypePayMngMap.updateJoinDt" parameterType="map" >
+    <!-- DM sql-id : sql-life.updateJoinDt -->
+        UPDATE /* DlwNewTypePayMngMap.updateJoinDt */
+               MEM_PROD_ACCNT
+           SET JOIN_DT = TO_CHAR(TO_DATE(#{join_dt},'YYYY-MM-DD'), 'YYYYMMDD')
+             , KSTBIT = '02'
+             , UPD_DM  = SYSDATE
+             , UPD_MAN = #{emple_no}
+         WHERE ACCNT_NO = #{accnt_no}
+    </update>
+    
+    <!-- DC금 seq 수정 -->
+    <update id="DlwNewTypePayMngMap.updateDCAmtSeq" parameterType="map">
+    <!-- DM sql-id : sql-life.updateDCAmtSeq -->
+        UPDATE /* DlwNewTypePayMngMap.updateDCAmtSeq */
+               PAY_MNG
+           SET DC_AMT_SEQ = #{dc_amt_seq}
+             , UPD_DM  = SYSDATE
+             , UPD_MAN = #{emple_no}
+        WHERE accnt_no = #{accnt_no}
+          AND PAY_DAY = TO_CHAR(TO_DATE(#{pay_day}),'YYYYMMDD')
+    </update>
+    
+    <!-- 변경삭제내역 등록 -->
+    <insert id="DlwNewTypePayMngMap.insertReqUpdDelInf" parameterType="map">
+    <!-- DM sql-id : sql-life.insertReqUpdDelInf -->
+        INSERT /* DlwNewTypePayMngMap.insertReqUpdDelInf */
+          INTO REG_UPD_DEL_INF
+             ( SEQ, EMPLE_NO, MEM_NO, ACCNT_NO, WORK_DM
+             , DAT1, DAT2, DAT3, CL1, CL2
+             , OCC_RESON, NEW_YN, REG_DM, REG_MAN, UPD_DM
+             , UPD_MAN
+             )
+        SELECT A.SEQ, #{emple_no}, #{mem_no}, #{accnt_no}, TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , #{dat1}, #{dat2}, #{dat3}, #{cl1}, ''
+             , '', 'Y', SYSDATE, #{emple_no}, SYSDATE
+             , #{emple_no}
+          FROM (SELECT NVL(MAX(SEQ), 0)+1 AS SEQ
+                  FROM REG_UPD_DEL_INF
+               ) A
+    </insert>
+    
+      <!-- 입금전표 상태 조회 -->
+    <select id="DlwNewTypePayMngMap.getPayMngStat" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectPayMngStat -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getPayMngStat */
+               CASE WHEN MONTHS_BETWEEN(
+                                ADD_MONTHS(
+                                          CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                          ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                          END, TO_NUMBER(#{no})-1) ,SUBSTR(#{pay_day},1,7)||'/01'
+                                  ) = 0
+               THEN 0
+               ELSE (CASE WHEN MONTHS_BETWEEN(
+                                 ADD_MONTHS(
+                                           CASE WHEN #{no} = '1' THEN TO_DATE(SUBSTR(#{pay_day},1,7)||'/01')
+                                           ELSE TO_DATE((SELECT SUBSTR(JOIN_DT,1,6)||'01' FROM MEM_PROD_ACCNT WHERE ACCNT_NO = #{accnt_no}),'YYYY/MM/DD')
+                                           END, TO_NUMBER(#{no})-1), SUBSTR(#{pay_day},1,7)||'/01'
+                                  ) <![CDATA[>]]> 0
+                     THEN 1
+                     ELSE 2
+                     END)
+               END AS STAT
+             , #{no} AS NO
+        FROM DUAL
+    </select>
+    
+    <!--입금 newYn 체크 -->
+    <select id="DlwNewTypePayMngMap.getpayNewYnChk" parameterType="map" resultType="string">
+        <!-- DM sql-id : sql-task.payNewYnChk -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getpayNewYnChk */
+               CASE WHEN
+                        (
+                         (SELECT NEW_YN FROM RESCISSION R WHERE R.DEL_FG = 'N' AND PM.ACCNT_NO = R.ACCNT_NO) IS NOT NULL
+                         AND
+                         (SELECT NEW_YN FROM RESCISSION R WHERE R.DEL_FG = 'N' AND PM.ACCNT_NO = R.ACCNT_NO) = 'N'
+                        )
+                        OR
+                        (
+                         (SELECT NEW_YN FROM EVENT E WHERE E.DEL_FG = 'N' AND PM.ACCNT_NO = E.ACCNT_NO) IS NOT NULL
+                         AND
+                         (SELECT NEW_YN FROM EVENT E WHERE E.DEL_FG = 'N' AND PM.ACCNT_NO = E.ACCNT_NO) = 'N'
+                        )
+                    THEN 'Y'
+                    ELSE NEW_YN
+               END
+          FROM PAY_MNG PM
+         WHERE ACCNT_NO = #{accnt_no}
+           AND NO = #{no}
+           AND DEL_FG = 'N'
+    </select>
+    
+    <!--부가정보 조회 -->
+    <select id="DlwNewTypePayMngMap.getBugaInfo" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectBugaInfo -->
+       SELECT  
+    		/* DlwCardMap.getBugaInfo */
+    		CASE WHEN RS_ACCNT != 'N' AND MRR_ACCNT = 'N' THEN 'Y' ELSE 'N' END RESN_YN
+		FROM
+		(
+		    SELECT 
+		        MPA.ACCNT_NO,
+		        NVL(RS.ACCNT_NO,'N') AS RS_ACCNT,
+		        NVL(MRR.ACCNT_NO,'N') AS MRR_ACCNT
+		    FROM MEM_PROD_ACCNT_DAMO MPA LEFT OUTER JOIN
+		        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG= 'N' LEFT OUTER JOIN
+		        TB_MEMBER_REQ_REFUND MRR ON MPA.ACCNT_NO = MRR.ACCNT_NO AND MRR.DEL_FG = 'N'
+		    WHERE MPA.ACCNT_NO = #{accnt_no}
+		    GROUP BY MPA.ACCNT_NO,RS.ACCNT_NO, MRR.ACCNT_NO
+		)
+    
+    <!-- 
+      SELECT /* DlwCardMap.getBugaInfo */
+	               THIS_MON_NO
+	             , LAST_PAY
+	             , NEW_CHAN_GUNSU_NO
+	             , NO
+	             , PAY_AMT
+	             , CASE WHEN EVENT_NM = ''
+	                    THEN FN_YEN_CHE(ACCNT_NO)
+	                    ELSE ''
+	                END AS YUNCHE
+	             , APP_CL_NM
+	             , WDRW_STAT_NM
+	             , EVENT_NM
+	             , EVENT_DAY
+	             , RESN_YN
+	             , PAY.MONTH_PAY_AMT
+	             , PAY.ALLT_AMT
+	             , PAY.ADD_AMT
+	             , CARD_APP_CL_NM
+	             , CARD_WDRW_STAT_NM
+          	FROM (SELECT TO_CHAR(AA.THIS_MON_NO) || '회' AS THIS_MON_NO
+                     , TO_CHAR(AA.NO) || '회 '|| TO_CHAR(ADD_MONTHS(TO_DATE(JOIN_DT), AA.NO-1), 'YYYY-MM') || '월분 ' AS LAST_PAY
+                     , (AA.NO + NEW_CHAN_GUNSU) AS NEW_CHAN_GUNSU_NO
+                     , AA.NO
+                     , AA.PAY_AMT
+                     , AA.ACCNT_NO
+                     , '' AS APP_CL_NM
+                     , '' AS WDRW_STAT_NM
+                     , '' AS CARD_WDRW_STAT_NM
+                     , CASE WHEN R.ACCNT_NO IS NOT NULL AND R.RESN_CL!='02' AND  NVL(R.RESN_PROC_YN,'N') = 'N' THEN '해약미처리'
+                            ELSE FN_EVENT(AA.ACCNT_NO)
+                       END AS EVENT_NM
+
+                     , FN_EVENT_DAY(AA.ACCNT_NO) AS EVENT_DAY
+
+                     , CASE WHEN R.ACCNT_NO IS NOT NULL AND MRR.ACCNT_NO IS NULL
+                            THEN 'Y'
+                            ELSE 'N'
+                        END AS RESN_YN
+                     , NVL(AA.PAY_AMT, 0) MONTH_PAY_AMT
+                     , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = AA.ACCNT_NO AND DEL_FG = 'N'), 0) ALLT_AMT
+                     , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = AA.ACCNT_NO AND DEL_FG = 'N'), 0) ADD_AMT
+                     , '' AS CARD_APP_CL_NM
+
+                  FROM (SELECT (FN_DIFF_MONTH(SYSDATE, TO_DATE(MPA.JOIN_DT)) + 1) AS THIS_MON_NO
+                             , MPA.ACCNT_NO
+                             , MPA.JOIN_DT
+                             , P.PAY_NO NO
+                             , P.PAY_AMT AS PAY_AMT
+                             , MPA.JOIN_CL JOIN_CL
+                             , MPA.PROD_CD
+                             , MPA.NEW_CHAN_GUNSU
+                             , PD.PAY_TYPE
+                          FROM MEM_PROD_ACCNT MPA
+                                JOIN PRODUCT PD ON MPA.PROD_CD=PD.PROD_CD
+                                LEFT JOIN (SELECT ACCNT_NO
+                                                , COUNT(NO) PAY_NO
+                                                , SUM(PAY_AMT) AS PAY_AMT
+                                             FROM PAY_MNG
+                                            WHERE DEL_FG='N'
+                                            GROUP BY ACCNT_NO
+                                        ) P ON MPA.ACCNT_NO=P.ACCNT_NO
+                    WHERE MPA.ACCNT_NO =  #{accnt_no}
+                ) AA
+                LEFT JOIN RESCISSION R ON AA.ACCNT_NO=R.ACCNT_NO AND R.DEL_FG='N'
+                LEFT JOIN TB_MEMBER_REQ_REFUND MRR ON AA.ACCNT_NO = MRR.ACCNT_NO AND AA.NO = MRR.REQ_PAY_NO AND MRR.DEL_FG='N'
+            ) PAY
+ 	-->            
+    <!-- 
+        SELECT /* DlwNewTypePayMngMap.getBugaInfo */
+               THIS_MON_NO
+             , LAST_PAY
+             , NEW_CHAN_GUNSU_NO
+             , NO
+             , PAY_AMT
+             , CASE WHEN EVENT_NM = ''
+                    THEN FN_YEN_CHE(ACCNT_NO)
+                    ELSE ''
+                END AS YUNCHE
+             , APP_CL_NM
+             , WDRW_STAT_NM
+             , EVENT_NM
+             , EVENT_DAY
+             , RESN_YN
+             , PAY.MONTH_PAY_AMT
+             , PAY.ALLT_AMT
+             , PAY.ADD_AMT
+             , CARD_APP_CL_NM
+             , CARD_WDRW_STAT_NM
+          FROM (SELECT TO_CHAR(AA.THIS_MON_NO) || '회' AS THIS_MON_NO
+                     , TO_CHAR(AA.NO) || '회 '
+                           || TO_CHAR(ADD_MONTHS(TO_DATE(JOIN_DT), AA.NO-1), 'YYYY-MM') || '월분 '
+                           || TO_CHAR(PAY_DAY) AS LAST_PAY
+                     , (AA.NO + NEW_CHAN_GUNSU) AS NEW_CHAN_GUNSU_NO
+                     , AA.NO
+                     , AA.PAY_AMT
+                     , AA.ACCNT_NO
+                     , (SELECT FN_COM_NM('17', APP_CL)
+                        FROM NEW_CANCL_APP
+                        WHERE ACCNT_NO = AA.ACCNT_NO
+                        AND STAT = '04'
+                        AND SEQ = (SELECT MAX(SEQ)
+                                    FROM NEW_CANCL_APP
+                                   WHERE ACCNT_NO = AA.ACCNT_NO)) AS APP_CL_NM
+                     , (SELECT /*+INDEX(NEW_CANCL_APP INDEX1_NEW_CANCL_APP_ACCNT) */ FN_COM_NM('18', STAT) FROM WDRW_REQ WHERE ACCNT_NO = AA.ACCNT_NO
+                               AND SEQ = (SELECT /*+INDEX(NEW_CANCL_APP INDEX1_NEW_CANCL_APP_ACCNT) */ MAX(SEQ) FROM WDRW_REQ WHERE ACCNT_NO = AA.ACCNT_NO)) AS WDRW_STAT_NM
+                     , (SELECT FN_COM_NM('18', STAT) FROM CARD_WDRW_REQ WHERE ACCNT_NO = AA.ACCNT_NO
+                               AND SEQ = (SELECT MAX(SEQ) FROM CARD_WDRW_REQ WHERE ACCNT_NO = AA.ACCNT_NO)) AS CARD_WDRW_STAT_NM
+                     , CASE WHEN R.ACCNT_NO IS NOT NULL AND R.RESN_CL!='02' AND  NVL(R.RESN_PROC_YN,'N') = 'N' THEN '해약미처리'
+                            ELSE FN_EVENT(AA.ACCNT_NO)
+                       END AS EVENT_NM
+
+                     , FN_EVENT_DAY(AA.ACCNT_NO) AS EVENT_DAY
+                     
+                     , CASE WHEN R.ACCNT_NO IS NOT NULL AND MRR.ACCNT_NO IS NULL
+                            THEN 'Y'
+                            ELSE 'N'
+                        END AS RESN_YN
+                     , NVL(AA.PAY_AMT, 0) MONTH_PAY_AMT
+                     , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = AA.ACCNT_NO AND DEL_FG = 'N'), 0) ALLT_AMT
+                     , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = AA.ACCNT_NO AND DEL_FG = 'N'), 0) ADD_AMT
+                     , (SELECT /*+INDEX(CARD_NEW_CANCL_APP INDEX_CARD_NEW_CANCL_APP_ACCNT) */ FN_COM_NM('17', APP_CL)
+                        FROM CARD_NEW_CANCL_APP
+                        WHERE ACCNT_NO = AA.ACCNT_NO
+                        AND SEQ = (SELECT  /*+INDEX(CARD_NEW_CANCL_APP INDEX_CARD_NEW_CANCL_APP_ACCNT) */ MAX(SEQ)
+                                   FROM CARD_NEW_CANCL_APP
+                                   WHERE ACCNT_NO = AA.ACCNT_NO)) AS CARD_APP_CL_NM
+
+                  FROM (SELECT (FN_DIFF_MONTH(SYSDATE, TO_DATE(MPA.JOIN_DT)) + 1) AS THIS_MON_NO
+                             , MPA.ACCNT_NO
+                             , MPA.JOIN_DT
+                             , P.PAY_NO NO
+                             , P.PAY_AMT AS PAY_AMT
+                             , P.PAY_DAY
+                             , MPA.JOIN_CL JOIN_CL
+                             , MPA.PROD_CD
+                             , MPA.NEW_CHAN_GUNSU
+                             , PD.PAY_TYPE
+                          FROM MEM_PROD_ACCNT MPA
+                                JOIN PRODUCT PD ON MPA.PROD_CD=PD.PROD_CD
+                                LEFT JOIN (SELECT ACCNT_NO
+                                                , COUNT(NO) PAY_NO
+                                                , MAX(PAY_DAY) PAY_DAY
+                                                , SUM(PAY_AMT) PAY_AMT
+                                             FROM PAY_MNG
+                                            WHERE ACCNT_NO= #{accnt_no}
+                                              AND DEL_FG='N'
+                                            GROUP BY ACCNT_NO  
+                                        ) P ON MPA.ACCNT_NO=P.ACCNT_NO
+                    WHERE MPA.ACCNT_NO = #{accnt_no}
+                ) AA
+                LEFT JOIN RESCISSION R ON AA.ACCNT_NO=R.ACCNT_NO AND R.DEL_FG='N'
+                LEFT JOIN TB_MEMBER_REQ_REFUND MRR ON AA.ACCNT_NO = MRR.ACCNT_NO AND AA.NO = MRR.REQ_PAY_NO AND MRR.DEL_FG='N'
+            ) PAY
+ 	-->
+    </select>
+    
+    <!-- 납입건수에 따른 납입금액 계산 - 결합상품 추가 부담금 -->
+    <select id="DlwNewTypePayMngMap.getPayAmtDtl1ByPayCnt" parameterType="map" resultType="int">
+    <!-- sql-life.xml  : selectPayAmtDtl1ByPayCnt -->
+        SELECT /* DlwNewTypePayMngMap.getPayAmtDtl1ByPayCnt */
+               FN_ADD_AMT_BY_CNT(${mon_cnt}, ${no}, #{accnt_no}) from dual 
+    </select>
+    
+    <!-- 납입건수에 따른 납입금액 계산 - 결합상품 할부원금 -->
+    <select id="DlwNewTypePayMngMap.getPayAmtDtlByPayCnt" parameterType="map" resultType="int">
+    <!-- sql-life.xml  : selectPayAmtDtlByPayCnt -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getPayAmtDtlByPayCnt */
+               FN_ALLT_AMT_BY_CNT(${mon_cnt}, ${no}, #{accnt_no})  from dual
+    </select>
+    
+    <!-- 납입건수에 따른 납입금액 계산 -->
+    <select id="DlwNewTypePayMngMap.getPayAmtByPayCnt" parameterType="map" resultType="int">
+    <!-- sql-life.xml  : selectPayAmtByPayCnt -->
+        SELECT /* DlwNewTypePayMngMap.getPayAmtByPayCnt */
+               FN_PAY_AMT_BY_CNT(${mon_cnt}, ${no}, #{accnt_no})  from dual
+    </select>
+    
+    <select id="DlwNewTypePayMngMap.getDlwCustAcntCount" parameterType="map" resultType="int">
+
+        SELECT /* DlwNewTypePayMngMap.getDlwCustAcntCount */
+               COUNT(*)
+          FROM MEM_PROD_ACCNT A JOIN MEMBER B
+                                  ON A.MEM_NO = B.MEM_NO
+                                 AND B.DEL_FG = 'N'
+                                JOIN PRODUCT C
+                                  ON A.PROD_CD = C.PROD_CD
+                                JOIN EMPLOYEE EMP
+                                  ON EMP.EMPLE_NO = A.EMPLE_NO
+                     LEFT OUTER JOIN CMS_MEM D
+                                  ON A.ACCNT_NO = D.ACCNT_NO
+                                 AND D.DEL_FG = 'N'
+                     LEFT OUTER JOIN CARD_MEM E
+                                  ON A.ACCNT_NO = E.ACCNT_NO
+                                 AND E.DEL_FG = 'N'
+         WHERE A.DEL_FG = 'N'
+        <if test="dataAthrQury != null and dataAthrQury != '' and user_athrCd != 'TM40'">	 <!-- 2018.03.20 TM40이면 제외  -->
+             ${dataAthrQury}
+         </if>
+         <if test="ns_yn != null and ns_yn.equalsIgnoreCase('Y')">
+             AND EMP.DEPT_CD = '1602'
+         </if>
+         <if test="srch_vl != null and srch_vl != ''">
+             <if test="srch_typ == 'all'">
+                 AND (A.ACCNT_NO = #{srch_vl}
+                      OR  A.MEM_NO = #{srch_vl}
+                      OR  B.MEM_NM LIKE '%' || #{srch_vl} || '%'
+                      OR  B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+                      OR  D.BANK_ACCNT_NO = #{srch_vl}
+                      )
+             </if>
+             <if test="srch_typ == 'mem_nm'">
+                 AND B.MEM_NM LIKE #{srch_vl} || '%'
+             </if>
+             <if test="srch_typ == 'accnt_no'">
+                 AND A.ACCNT_NO = #{srch_vl}
+             </if>
+             <if test="srch_typ == 'mem_no'">
+                 AND A.MEM_NO = #{srch_vl}
+             </if>
+             <if test="srch_typ == 'birth'">
+                 AND B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+             </if>
+             <if test="srch_typ == 'bank_accnt_no'">
+                 AND  D.BANK_ACCNT_NO LIKE '%' || #{srch_vl} || '%'
+             </if>
+             <if test="srch_typ == 'pre_accnt_no'">
+                 AND A.OLD_MID LIKE '%' || #{srch_vl} || '%'
+             </if>
+         </if>
+         <if test="srch_typ == 'ichae_dt'">
+             <if test="ichae_stt_dt != null and ichae_stt_dt != '' and ichae_end_dt != null and ichae_end_dt != ''">
+                 AND  TO_NUMBER(A.ICHAE_DT) <![CDATA[>=]]> #{ichae_stt_dt}
+                 AND  TO_NUMBER(A.ICHAE_DT) <![CDATA[<=]]> #{ichae_end_dt}
+             </if>
+         </if>
+
+         <if test="option == 'cms_non'">
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM NEW_CANCL_APP
+                                     WHERE stat IN ('01', '02'))
+         </if>
+         <if test="option == 'cms'">
+             AND a.accnt_no IN (SELECT accnt_no
+                                  FROM CMS_MEM
+                                 WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM wdrw_req
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM card_wdrw_req
+                                     WHERE stat IN ('01', '02'))
+         </if>
+
+         <if test="option == 'card_non'">
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CARD_MEM
+                                     WHERE del_fg = 'N')
+         </if>
+         <if test="option == 'card'">
+             AND a.accnt_no IN (SELECT accnt_no
+                                  FROM CARD_MEM
+                                 WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM card_wdrw_req
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM card_wdrw_req
+                                     WHERE stat IN ('01', '02'))
+         </if>
+         <if test="option == 'call'">
+             <!-- 수정 : 고객만족센터 파일 산출에 카드산출 포함 by lbk_2013_06_19  -->
+             AND
+             (
+                 (
+                 a.PAY_MTHD = '04'
+                 AND a.accnt_no IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+                 AND a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM wdrw_req
+                                         WHERE stat IN ('01', '02'))
+                 and a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM wdrw_req_call_center
+                                         WHERE WDRW_REQ_YN = 'N'
+                                           AND DEL_FG IS NULL)
+                 )
+                 OR
+                 (
+                 a.PAY_MTHD = '06'
+                 AND a.accnt_no IN (SELECT accnt_no
+                                      FROM CARD_MEM
+                                     WHERE del_fg = 'N')
+                 AND a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM card_wdrw_req
+                                         WHERE stat IN ('01', '02'))
+                 and a.accnt_no NOT IN (SELECT accnt_no
+                                          FROM wdrw_req_call_center
+                                         WHERE WDRW_REQ_YN = 'N'
+                                           AND DEL_FG IS NULL)
+                 )
+             )
+
+         </if>
+         <if test="option == 'pay_able'">
+             <!-- AND FN_ACCNT_STAT(a.accnt_no) in ('Y','E') //청약철회가 아니면 조회되도록 수정 by lbk_2012_07_31 -->
+             AND FN_EVENT(a.accnt_no) != '청약철회'
+         </if>
+         <if test="option == 'cms_card_non'">
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM NEW_CANCL_APP
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CARD_MEM
+                                     WHERE del_fg = 'N')
+         </if>
+         <if test="option == 'event'">
+             AND a.accnt_no IN (SELECT accnt_no
+                                      FROM EVENT
+                                     WHERE del_fg = 'N')
+         </if>
+         <if test="option == 'prod_trans'">
+             <!-- 상품변경은 정상 구좌이면서 출금이체 신청전,중이 아니면서 양도양수 공제 신고된건만 조회  -->
+             AND FN_ACCNT_STAT(a.accnt_no) = 'Y'
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM CMS_MEM
+                                     WHERE del_fg = 'N')
+             AND a.accnt_no NOT IN (SELECT accnt_no
+                                      FROM NEW_CANCL_APP
+                                     WHERE stat IN ('01', '02'))
+             AND a.accnt_no NOT IN (SELECT ACCNT_NO FROM TRANSFER_BRKDN WHERE NEW_YN IN ('Y', 'S', 'E'))
+         </if>
+         <!-- ORDER BY b.mem_nm -->
+    </select>
+    
+    <select id="DlwNewTypePayMngMap.getDlwCustAcntList" parameterType="map" resultType="resultMap">
+        <!-- sql-common.xml selectAccntInfo -->
+
+        SELECT /* DlwNewTypePayMngMap.getDlwCustAcntList */
+               B.*
+          FROM (SELECT A.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY UPD_DM DESC) AS PAGE_INDX
+                        </otherwise>
+                    </choose>
+                 FROM (SELECT A.ACCNT_NO
+                            , A.MEM_NO
+                            , A.RESORT_NO
+                            , B.MEM_NM
+                            , B.HOME_TEL
+                            , B.CELL AS CELL
+                            , B.WRPL_TEL
+                            , CASE WHEN LENGTH(NVL(TO_CHAR(B.IDN_NO), '')) = 10
+                                   THEN B.IDN_NO
+                                   ELSE SUBSTR(B.BRTH_MON_DAY, -6)
+                               END IDN_NO
+                            , A.PROD_CD
+                            , C.PROD_NM
+                            , C.PROD_AMT
+                            , C.MON_PAY_AMT
+                            , C.EXPR_NO
+                            , A.EMPLE_NO
+                            , EMP.EMPLE_NM
+                            , A.APPFM_NO
+                            , JOIN_DT
+                            , COMPT_DT
+                            , A.BEF_EMPLE_CD
+                            , A.PAY_PERD
+                            , A.PAY_MTHD
+                            , A.JOIN_PROD
+                            , A.NEW_CHAN_GUNSU
+                            , A.CERTF_RCV_CHK
+                            , A.PAY_STAT_1NO
+                            , D.ICHAE_DT
+                            , A.BANK_ACCNT_NO AS BANK_ACCNT_NO
+                            , A.OLD_MID
+                            , A.REG_DM
+                            , A.REG_MAN
+                            , A.UPD_DM
+                            , A.UPD_MAN
+                              , FN_ACCNT_STAT(A.ACCNT_NO) AS ACCNT_STAT
+                            , (SELECT NVL(MAX (NO),1)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') * C.MON_PAY_AMT AS TOTAL_PAY
+                            , (SELECT NVL(MAX (NO),1)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') LAST_NO
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') REAL_PAY_NO
+                            , A.DED_NO
+                            , NVL(A.JOIN_CL,'01') AS JOIN_CL
+                            , CASE WHEN (SELECT COUNT(ACCNT_NO) FROM TRANSFER_BRKDN WHERE ACCNT_NO = A.ACCNT_NO) > 0
+                                   THEN 'Y'
+                                   ELSE 'N'
+                               END AS TRANS_GUBUN
+                            , B.BRTH_MON_DAY
+                            , NVL((SELECT CELL
+                                        FROM EMPLOYEE
+                                       WHERE EMPLE_NO = A.EMPLE_NO), '') AS EMP_CELL
+                            , FN_EVENT(A.ACCNT_NO) AS JOIN_STAT
+                            , FN_EVENT(A.ACCNT_NO) AS STAT
+                            , FN_YEN_CHE(A.ACCNT_NO) AS PAY_STAT
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_NO
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG_DTL
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ALLT_NO
+                            , (SELECT NVL(MAX (NO),0)
+                                 FROM PAY_MNG_DTL1
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ADD_NO
+                            , (SELECT NVL(SUM (PAY_AMT),0)
+                                 FROM PAY_MNG
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_AMT
+                            , (SELECT NVL(SUM (PAY_AMT),0)
+                                 FROM PAY_MNG_DTL
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ALLT_AMT
+                            , (SELECT NVL(SUM (PAY_AMT),0)
+                                 FROM PAY_MNG_DTL1
+                                WHERE ACCNT_NO = A.ACCNT_NO
+                                  AND DEL_FG = 'N') AS PAY_ADD_AMT
+                            , NVL((SELECT MODEL_CL_NM
+                                        FROM PRODUCT_MODEL_CL_CD
+                                       WHERE MODEL_CL_CD = A.PROD_MODEL_KIND), '') AS MODEL_CL_NM
+                             , CASE WHEN A.KSTBIT = '01' THEN '대기'
+                                    WHEN A.KSTBIT = '02' THEN '가입'
+                                    WHEN A.KSTBIT = '03' THEN '해약'
+                                    WHEN A.KSTBIT = '04' THEN '행사'
+                                    WHEN A.KSTBIT = '09' THEN '만기' ELSE A.KSTBIT END KSTBIT
+                              , FN_CMS_CARD_MEM(A.ACCNT_NO) YN
+                         FROM MEM_PROD_ACCNT A
+                         JOIN MEMBER B
+                              ON A.MEM_NO = B.MEM_NO
+                             AND B.DEL_FG = 'N'
+                         JOIN PRODUCT C
+                              ON A.PROD_CD = C.PROD_CD
+                         JOIN EMPLOYEE EMP
+                              ON EMP.EMPLE_NO = A.EMPLE_NO
+              LEFT OUTER JOIN CMS_MEM D
+                              ON A.ACCNT_NO = D.ACCNT_NO
+                              AND D.DEL_FG = 'N'
+              LEFT OUTER JOIN CARD_MEM E
+                              ON A.ACCNT_NO = E.ACCNT_NO
+                              AND E.DEL_FG = 'N'
+                         <!-- 2018.02.08 임의 등록시 고객 선택 할 때 해피콜 상태가 01,011 인것만 조회 -->
+                         <!-- 2018.02.13 임의 등록시 고객 선택 할 때만 해피콜 조인 / hp_join_gb 구분자 추가 -->
+                        <if test="hp_join_gb != null and hp_join_gb != ''">
+                         INNER JOIN HP_CALL HP
+                              ON A.ACCNT_NO = HP.ACCNT_NO AND HP.STAT IN ('01', '011')
+                        </if>
+
+                         <!-- 2018.03.20 TM40:MG권한 일 경우 -->
+                         <if test="user_athrCd != null and user_athrCd == 'TM40'">
+                                  INNER JOIN LF_DMUSER.RESN_CREDIT_LIST K
+                                  ON K.ACCNT_NO = A.ACCNT_NO
+                                  AND K.DEL_FG = 'N'
+                                  AND K.TARGET_YM = TO_CHAR(SYSDATE, 'YYYYMM')
+                         </if>
+
+                        WHERE A.DEL_FG = 'N'
+                        <if test="dataAthrQury != null and dataAthrQury != '' and user_athrCd != 'TM40'">	 <!-- 2018.03.20 TM40이면 제외  -->
+
+                            ${dataAthrQury}
+                        </if>
+                        <if test="ns_yn != null and ns_yn.equalsIgnoreCase('Y')">
+                            AND EMP.DEPT_CD = '1602'
+                        </if>
+                        <if test="srch_vl != null and srch_vl != ''">
+                            <if test="srch_typ == 'all'">
+                                AND (A.ACCNT_NO = #{srch_vl}
+                                     OR  A.MEM_NO = #{srch_vl}
+                                     OR  B.MEM_NM LIKE '%' || #{srch_vl} || '%'
+                                     OR  B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+                                     OR  D.BANK_ACCNT_NO = #{srch_vl}
+                                     )
+                            </if>
+                            <if test="srch_typ == 'mem_nm'">
+                                AND B.MEM_NM LIKE #{srch_vl} || '%'
+                            </if>
+                            <if test="srch_typ == 'accnt_no'">
+                                AND A.ACCNT_NO = #{srch_vl}
+                            </if>
+                            <if test="srch_typ == 'mem_no'">
+                                AND A.MEM_NO = #{srch_vl}
+                            </if>
+                            <if test="srch_typ == 'birth'">
+                                AND B.IDN_NO LIKE '%' || #{srch_vl} || '%'
+                            </if>
+                            <if test="srch_typ == 'bank_accnt_no'">
+                                AND D.BANK_ACCNT_NO LIKE '%' || #{srch_vl} || '%'
+                            </if>
+                            <if test="srch_typ == 'pre_accnt_no'">
+                                AND A.OLD_MID LIKE '%' || #{srch_vl} || '%'
+                            </if>
+                        </if>
+                        <if test="srch_typ == 'ichae_dt'">
+                            <if test="ichae_stt_dt != null and ichae_stt_dt != '' and ichae_end_dt != null and ichae_end_dt != ''">
+                                AND TO_NUMBER(A.ICHAE_DT) <![CDATA[>=]]> #{ichae_stt_dt}
+                                AND TO_NUMBER(A.ICHAE_DT) <![CDATA[<=]]> #{ichae_end_dt}
+                            </if>
+                        </if>
+
+
+                        <if test="option == 'cms_non'">
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM NEW_CANCL_APP
+                                                    WHERE stat IN ('01', '02'))
+                        </if>
+                        <if test="option == 'cms'">
+                            AND a.accnt_no IN (SELECT accnt_no
+                                                 FROM CMS_MEM
+                                                WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM card_wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                        </if>
+
+                        <if test="option == 'card_non'">
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CARD_MEM
+                                                    WHERE del_fg = 'N')
+                        </if>
+                        <if test="option == 'card'">
+                            AND a.accnt_no IN (SELECT accnt_no
+                                                 FROM CARD_MEM
+                                                WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM card_wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM card_wdrw_req
+                                                    WHERE stat IN ('01', '02'))
+                        </if>
+                        <if test="option == 'call'">
+                            <!-- 수정 : 고객만족센터 파일 산출에 카드산출 포함 by lbk_2013_06_19  -->
+                            AND
+                            (
+                                (
+                                a.PAY_MTHD = '04'
+                                AND a.accnt_no IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                                AND a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM wdrw_req
+                                                        WHERE stat IN ('01', '02'))
+                                and a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM wdrw_req_call_center
+                                                        WHERE WDRW_REQ_YN = 'N'
+                                                          AND DEL_FG IS NULL)
+                                )
+                                OR
+                                (
+                                a.PAY_MTHD = '06'
+                                AND a.accnt_no IN (SELECT accnt_no
+                                                     FROM CARD_MEM
+                                                    WHERE del_fg = 'N')
+                                AND a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM card_wdrw_req
+                                                        WHERE stat IN ('01', '02'))
+                                and a.accnt_no NOT IN (SELECT accnt_no
+                                                         FROM wdrw_req_call_center
+                                                        WHERE WDRW_REQ_YN = 'N'
+                                                          AND DEL_FG IS NULL)
+                                )
+                            )
+
+                        </if>
+                        <if test="option == 'pay_able'">
+                            <!-- AND FN_ACCNT_STAT(a.accnt_no) in ('Y','E') //청약철회가 아니면 조회되도록 수정 by lbk_2012_07_31 -->
+                            AND FN_EVENT(a.accnt_no) != '청약철회'
+                        </if>
+                        <if test="option == 'cms_card_non'">
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM NEW_CANCL_APP
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CARD_MEM
+                                                    WHERE del_fg = 'N')
+                        </if>
+                        <if test="option == 'event'">
+                            AND a.accnt_no IN (SELECT accnt_no
+                                                     FROM EVENT
+                                                    WHERE del_fg = 'N')
+                        </if>
+                        <if test="option == 'prod_trans'">
+                            <!-- 상품변경은 정상 구좌이면서 출금이체 신청전,중이 아니면서 양도양수 공제 신고된건만 조회  -->
+                            AND FN_ACCNT_STAT(a.accnt_no) = 'Y'
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM CMS_MEM
+                                                    WHERE del_fg = 'N')
+                            AND a.accnt_no NOT IN (SELECT accnt_no
+                                                     FROM NEW_CANCL_APP
+                                                    WHERE stat IN ('01', '02'))
+                            AND a.accnt_no NOT IN (SELECT ACCNT_NO FROM TRANSFER_BRKDN WHERE NEW_YN IN ('Y', 'S', 'E'))
+                        </if>
+                        <!-- ORDER BY b.mem_nm -->
+                       ) A
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <!-- 입금등록/조회 - 입금/상품/부가정보 조회 - 결합상품 할부금액 -->
+    <select id="DlwNewTypePayMngMap.getPayMngDtlBugaInfo" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectPayMngDtlBugaInfo -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getPayMngDtlBugaInfo */
+               NVL((SELECT MAX(NO) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)+ 1 AS LAST_NO
+             , FN_ALLT_AMT_BY_CNT(1, NVL((SELECT MAX(NO) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0), MPA.ACCNT_NO) AS MON_PAY_AMT
+             , TO_CHAR(NVL((SELECT SUM(END_NO - ST_NO + 1) FROM PRODUCT_DTL WHERE PROD_CD = MPA.PROD_CD AND ALLT_AMT <![CDATA[>]]> 0), 0) -
+                          NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) ) AS REMAIN_CNT
+          FROM MEM_PROD_ACCNT MPA
+         INNER JOIN PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+           AND PROD.PROD_CL = '03'
+         GROUP BY MPA.PROD_CD, MPA.ACCNT_NO
+    </select>
+    
+    <!-- 입금등록/조회 - 입금/상품/부가정보 조회 - 결합상품 추가금액 -->
+    <select id="DlwNewTypePayMngMap.getPayMngDtl1BugaInfo" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml : selectPayMngDtl1BugaInfo -->
+
+
+        SELECT /* DlwNewTypePayMngMap.selectPayMngDtl1BugaInfo */
+               NVL((SELECT MAX(NO) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) + 1 AS LAST_NO
+             , FN_ADD_AMT_BY_CNT(1, NVL((SELECT MAX(NO) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0), MPA.ACCNT_NO) AS MON_PAY_AMT
+             , TO_CHAR(NVL((SELECT SUM(END_NO - ST_NO + 1) FROM PRODUCT_DTL WHERE PROD_CD = MPA.PROD_CD AND ADD_AMT <![CDATA[>]]> 0), 0) -
+               NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) ) AS REMAIN_CNT
+          FROM MEM_PROD_ACCNT MPA
+         INNER JOIN PRODUCT PROD
+            ON MPA.PROD_CD = PROD.PROD_CD
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+           AND PROD.PROD_CL = '03'
+         GROUP BY MPA.PROD_CD, MPA.ACCNT_NO
+    </select>
+    
+    <!-- 환불정보 -->
+    <select id="DlwNewTypePayMngMap.getRefundList" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectRefundList -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getRefundList */
+               M.MEM_NO
+             , MPA.ACCNT_NO
+             , M.MEM_NM
+             , FN_PROD_NM(MPA.PROD_CD) PROD_NM
+             , TBL.NO PAY_NO
+             , TBL.PAY_DAY PAY_DAY
+             , TBL.PAY_AMT
+             , TBL.REFUND_DM REFUND_DM
+             , TBL.PAY_CANCEL_NOTE
+             , FN_COM_NM('0115', TBL.PAY_CANCEL_CD) PAY_CANCEL_NM
+             , FN_COM_NM('01', TBL.PAY_MTHD) PAY_MTHD
+          FROM (SELECT ACCNT_NO
+                     , NO
+                     , PAY_DAY
+                     , PAY_AMT
+                     , PAY_CANCEL_DAY AS REFUND_DM
+                     , PAY_CANCEL_NOTE
+                     , PAY_CANCEL_CD
+                     , PAY_MTHD
+                  FROM PAY_MNG
+                 WHERE 1=1
+                   <if test="cancl_cl == '01'">
+                   AND (PAY_CANCEL_CD = '0001' OR PAY_CANCEL_CD = '0004')
+                   </if>
+                   <if test="cancl_cl == '02'">
+                   AND (PAY_CANCEL_CD = '0002' OR PAY_CANCEL_CD = '0003')
+                   </if>
+                   AND DEL_FG = 'Y'
+                ) TBL
+         INNER JOIN MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO
+         INNER JOIN MEMBER M ON MPA.MEM_NO = M.MEM_NO
+         WHERE 1=1
+           <if test="accnt_no != null and accnt_no != ''">
+           AND MPA.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="mem_nm != null and mem_nm != ''">
+           AND M.MEM_NM LIKE '%' || #{mem_nm} || '%'
+           </if>
+           <if test="pay_dm_start != null and pay_dm_start != ''">
+               <if test="search_sep == '01'">
+               AND TBL.PAY_DAY  BETWEEN #{pay_dm_start} AND #{pay_dm_end}
+               </if>
+               <if test="search_sep == '02'">
+               AND TBL.REFUND_DM  BETWEEN #{pay_dm_start} AND #{pay_dm_end}
+               </if>
+           </if>
+        ORDER BY TBL.pay_day, MPA.ACCNT_NO
+    </select>
+
+    <!-- 할부원금 환불정보 -->
+    <select id="DlwNewTypePayMngMap.getRefundDtlList" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectRefundDtlList -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getRefundDtlList */
+               M.MEM_NO
+             , MPA.ACCNT_NO
+             , M.MEM_NM
+             , FN_PROD_NM(MPA.PROD_CD) PROD_NM
+             , TBL.NO PAY_NO
+             , TBL.PAY_DAY PAY_DAY
+             , TBL.PAY_AMT
+             , TBL.REFUND_DM REFUND_DM
+             , TBL.PAY_CANCEL_NOTE
+             , FN_COM_NM('0115', TBL.PAY_CANCEL_CD) PAY_CANCEL_NM
+             , FN_COM_NM('01', TBL.PAY_MTHD) PAY_MTHD
+          FROM (
+                SELECT ACCNT_NO
+                     , NO
+                     , PAY_DAY
+                     , PAY_AMT
+                     , PAY_CANCEL_DAY as REFUND_DM
+                     , PAY_CANCEL_NOTE
+                     , PAY_CANCEL_CD
+                     , PAY_MTHD
+                  FROM PAY_MNG_DTL
+                 WHERE 1=1
+                   <if test="cancl_cl == '01'">
+                   AND (PAY_CANCEL_CD = '0001' OR PAY_CANCEL_CD = '0004')
+                   </if>
+                   <if test="cancl_cl == '02'">
+                   AND (PAY_CANCEL_CD = '0002' OR PAY_CANCEL_CD = '0003')
+                   </if>
+                   AND DEL_FG = 'Y'
+               ) TBL
+         INNER JOIN MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO
+         INNER JOIN MEMBER M ON MPA.MEM_NO = M.MEM_NO
+         WHERE 1=1
+           <if test="accnt_no != null and accnt_no != ''">
+           AND MPA.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="mem_nm != null and mem_nm != ''">
+           AND M.MEM_NM LIKE '%' || #{mem_nm} || '%'
+           </if>
+           <if test="pay_dm_start != null and pay_dm_start != ''">
+               <if test="search_sep == '01'">
+               AND TBL.PAY_DAY  BETWEEN #{pay_dm_start} AND #{pay_dm_end}
+               </if>
+               <if test="search_sep == '02'">
+               AND TBL.REFUND_DM BETWEEN #{pay_dm_start} AND #{pay_dm_end}
+               </if>
+           </if>
+        ORDER BY TBL.pay_day, MPA.ACCNT_NO
+    </select>
+    
+    <!-- 추가부담금 환불정보 -->
+    <select id="DlwNewTypePayMngMap.getRefundDtl1List" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectRefundDtl1List -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getRefundDtl1List */
+               M.MEM_NO
+             , MPA.ACCNT_NO
+             , M.MEM_NM
+             , FN_PROD_NM(MPA.PROD_CD) PROD_NM
+             , TBL.NO PAY_NO
+             , TBL.PAY_DAY PAY_DAY
+             , TBL.PAY_AMT
+             , TBL.REFUND_DM REFUND_DM
+             , TBL.PAY_CANCEL_NOTE
+             , FN_COM_NM('0115', TBL.PAY_CANCEL_CD) PAY_CANCEL_NM
+             , FN_COM_NM('01', TBL.PAY_MTHD) PAY_MTHD
+          FROM (
+                SELECT ACCNT_NO
+                     , NO
+                     , PAY_DAY
+                     , PAY_AMT
+                     , PAY_CANCEL_DAY as REFUND_DM
+                     , PAY_CANCEL_NOTE
+                     , PAY_CANCEL_CD
+                     , PAY_MTHD
+                  FROM PAY_MNG_DTL1
+                 WHERE 1=1
+                   <if test="cancl_cl == '01'">
+                   AND (PAY_CANCEL_CD = '0001' OR PAY_CANCEL_CD = '0004')
+                   </if>
+                   <if test="cancl_cl == '02'">
+                   AND (PAY_CANCEL_CD = '0002' OR PAY_CANCEL_CD = '0003')
+                   </if>
+                   AND DEL_FG = 'Y'
+               ) TBL
+           INNER JOIN MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO
+           INNER JOIN MEMBER M ON MPA.MEM_NO = M.MEM_NO
+           WHERE 1=1
+           <if test="accnt_no != null and accnt_no != ''">
+           AND MPA.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="mem_nm != null and mem_nm != ''">
+           AND M.MEM_NM LIKE '%' + #{mem_nm} + '%'
+           </if>
+           <if test="pay_dm_start != null and pay_dm_start != ''">
+               <if test="search_sep == '01'">
+               AND TBL.PAY_DAY BETWEEN #{pay_dm_start} AND #{pay_dm_end}
+               </if>
+               <if test="search_sep == '02'">
+               AND TBL.REFUND_DM BETWEEN #{pay_dm_start} AND #{pay_dm_end}
+               </if>
+           </if>
+        ORDER BY TBL.pay_day, MPA.ACCNT_NO
+    </select>
+    
+    <!-- 입금전표조회 -->
+    <select id="DlwNewTypePayMngMap.getPayMngList" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectPayMngList -->
+
+        SELECT /* DlwNewTypePayMngMap.getPayMngList */
+               A.ACCNT_NO
+             , A.SEQ
+             , A.NO
+             , A.PAY_AMT
+             , A.PAY_DAY AS PAY_DAY
+             , A.PAY_MTHD
+             , FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+             , A.STAT
+             , A.DC_AMT_SEQ
+             , CASE WHEN A.STAT = 0 THEN '정상'
+                    ELSE (CASE WHEN A.STAT = '1' THEN '선납' ELSE '연체' END)
+                END AS STAT_NM
+             , TO_CHAR(ADD_MONTHS(TO_DATE(B.JOIN_DT, 'YYYYMMDD'), A.NO-1),'YYYYMM') AS MON_NO
+             , C.DC_AMT
+             , A.RC_STAT
+             , CASE WHEN A.PAY_MTHD ='04' THEN CASE WHEN A.WDRW_INV_DT IS NULL THEN WR.APP_DT ELSE A.WDRW_INV_DT END
+                    WHEN A.PAY_MTHD ='06' THEN CASE WHEN A.WDRW_INV_DT IS NULL THEN CWR.APP_DT ELSE A.WDRW_INV_DT END
+                    ELSE ''
+                END AS APP_DT
+             , CASE WHEN (SUBSTR(A.PAY_DAY,1,6) = NVL((SELECT REPLACE(CM.CLOSE_DT,'/','')
+                                                                                FROM CLOSE_MNG CM
+                                                                               WHERE CM.DEL_FG = 'N'
+                                                                                 AND SUBSTR(A.PAY_DAY,1,6) =  REPLACE(CM.CLOSE_DT,'/','')
+                                                                                 AND ROWNUM=1), ' ')
+                         )
+                         AND
+                         (SUBSTR(A.PAY_DAY,1,6)  NOT IN (SELECT REPLACE(CER.CLOSE_DT,'/','')
+                                                                              FROM CLOSE_EDT_REQ CER
+                                                                             WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                               AND CER.CLOSE_CL = '0001'
+                                                                                AND CER.EDT_YN = 'Y'
+                                                                               AND CER.DEL_FG = 'N'
+                                                                             GROUP BY CER.CLOSE_DT)
+                        )
+                    THEN 'N'
+                    ELSE 'Y'
+                END EDT_YN
+              , (SELECT COUNT(*) FROM GONGJE_HIST WHERE GBIT <![CDATA[<]]> '03' AND CL IN('P','P_C') AND ACCNT_NO = #{accnt_no}) GCNT
+              ,LF_DMUSER.FN_EMPLE_NM(A.REG_MAN) AS REG_MAN
+          FROM PAY_MNG A
+            INNER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT OUTER JOIN (SELECT * FROM (SELECT DC_AMT_REG.*,ROW_NUMBER() OVER(PARTITION BY ACCNT_NO ORDER BY SEQ DESC) CNT
+                                            FROM DC_AMT_REG
+                                            WHERE DEL_FG = 'N')
+                             WHERE CNT = 1) C ON C.ACCNT_NO = A.ACCNT_NO AND A.DC_AMT_SEQ = C.SEQ AND A.NO = C.CNT
+            LEFT JOIN (SELECT A.ACCNT_NO , A.INV_NO , A.APP_DT , B.INV_NO PREV_INV_NO
+                       FROM
+                          (SELECT /*+INDEX(A IDX_WDRW_REQ_ACCNT_STAT) */ ACCNT_NO, INV_NO, INV_DT AS APP_DT , ROW_NUMBER() OVER(ORDER BY INV_NO ) CNT
+                           FROM WDRW_REQ A
+                           WHERE ACCNT_NO = #{accnt_no}
+                             AND STAT ='04' ) A LEFT OUTER JOIN
+                          (SELECT /*+INDEX(A IDX_WDRW_REQ_ACCNT_STAT) */ ACCNT_NO, INV_NO, INV_DT AS APP_DT , ROW_NUMBER() OVER(ORDER BY INV_NO) CNT
+                                       FROM WDRW_REQ A
+                                      WHERE ACCNT_NO = #{accnt_no}
+                                        AND STAT ='04' ) B ON A.ACCNT_NO = B.ACCNT_NO AND A.CNT = B.CNT -1
+                                     )WR
+              ON WR.ACCNT_NO=B.ACCNT_NO AND (A.NO <![CDATA[<=]]>   WR.INV_NO AND A.NO <![CDATA[>]]>  WR.PREV_INV_NO) AND A.DEL_FG = 'N'
+          LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(INV_DT) AS APP_DT
+                          , NVL((SELECT MAX(B.INV_NO) FROM CARD_WDRW_REQ B WHERE B.ACCNT_NO = A.ACCNT_NO AND B.INV_NO <![CDATA[<]]> A.INV_NO AND STAT ='04'), 0) PREV_INV_NO
+                       FROM CARD_WDRW_REQ A
+                      WHERE ACCNT_NO = #{accnt_no}
+                        AND STAT ='04'
+                      GROUP BY ACCNT_NO, INV_NO
+                    )CWR
+            ON CWR.ACCNT_NO=B.ACCNT_NO AND (A.NO  <![CDATA[<=]]>  CWR.INV_NO AND A.NO <![CDATA[>]]> CWR.PREV_INV_NO)
+         WHERE A.DEL_FG = 'N'
+           AND A.ACCNT_NO = #{accnt_no}
+         ORDER BY A.NO
+    </select>
+
+    <!-- 입금전표조회-결합상품할부원금 -->
+    <select id="DlwNewTypePayMngMap.getPayMngDtlList" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectPayMngDtlList -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getPayMngDtlList */
+               <!-- 추가 : 중복건 제거 2018.01.16 정승철-->
+               DISTINCT
+               A.ACCNT_NO
+             , A.SEQ
+             , A.NO
+             , A.PAY_AMT
+             , A.PAY_DAY AS PAY_DAY
+             , A.PAY_MTHD
+             , FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+             , A.STAT
+             , CASE WHEN A.STAT = 0 THEN '정상'
+                    ELSE (CASE WHEN A.STAT = '1' THEN '선납' ELSE '연체' END)
+                END AS STAT_NM
+             , TO_CHAR(ADD_MONTHS(TO_DATE(B.JOIN_DT, 'YYYYMMDD'), A.NO-1),'YYYYMM') AS MON_NO
+             , CASE WHEN A.PAY_MTHD ='04' THEN CASE WHEN A.WDRW_INV_DT IS NULL THEN WR.APP_DT ELSE A.WDRW_INV_DT END
+                    WHEN A.PAY_MTHD ='06' THEN CASE WHEN A.WDRW_INV_DT IS NULL THEN CWR.APP_DT ELSE A.WDRW_INV_DT END
+                    ELSE ''
+                END AS APP_DT
+             <!-- 추가 : 마감기능 추가로 인해 수정 가능한지 판단하기 위한 항목 추가 BY LBK_2013_06_15 -->
+             , CASE WHEN (SUBSTR(A.PAY_DAY,1,6) = NVL((SELECT REPLACE(CM.CLOSE_DT,'/','')
+                                                                                FROM CLOSE_MNG CM
+                                                                               WHERE CM.DEL_FG = 'N'
+                                                                                 AND SUBSTR(A.PAY_DAY,1,6) = REPLACE(CM.CLOSE_DT,'/','')
+                                                                                 AND ROWNUM=1), '')
+                         )
+                         AND
+                         (SUBSTR(A.PAY_DAY, 1,6) NOT IN (SELECT REPLACE(CER.CLOSE_DT,'/','')
+                                                                              FROM CLOSE_EDT_REQ CER
+                                                                             WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                               AND CER.CLOSE_CL = '0001'
+                                                                               AND CER.EDT_YN = 'Y'
+                                                                               AND CER.DEL_FG = 'N'
+                                                                             GROUP BY CER.CLOSE_DT)
+                         )
+                    THEN 'N'
+                    ELSE 'Y'
+                END EDT_YN
+          FROM PAY_MNG_DTL A
+         INNER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT JOIN (SELECT A.ACCNT_NO , A.INV_NO , A.APP_DT , B.INV_NO PREV_INV_NO
+                       FROM
+                          (SELECT /*+INDEX(A IDX_WDRW_REQ_ACCNT_STAT) */ ACCNT_NO, INV_NO, INV_DT AS APP_DT , ROW_NUMBER() OVER(ORDER BY ACCNT_NO ) CNT
+                           FROM WDRW_REQ A
+                           WHERE ACCNT_NO = #{accnt_no}
+                             AND STAT ='04' ) A LEFT OUTER JOIN
+                          (SELECT /*+INDEX(A IDX_WDRW_REQ_ACCNT_STAT) */ ACCNT_NO, INV_NO, INV_DT AS APP_DT , ROW_NUMBER() OVER(ORDER BY INV_NO) CNT
+                                       FROM WDRW_REQ A
+                                      WHERE ACCNT_NO = #{accnt_no}
+                                        AND STAT ='04' ) B ON A.ACCNT_NO = B.ACCNT_NO AND A.CNT = B.CNT -1
+                                     )WR
+              ON WR.ACCNT_NO=B.ACCNT_NO AND (A.NO <![CDATA[<=]]>   WR.INV_NO AND A.NO <![CDATA[>]]>  WR.PREV_INV_NO) AND A.DEL_FG = 'N'
+          LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(INV_DT) AS APP_DT
+                          , NVL((SELECT MAX(B.INV_NO) FROM CARD_WDRW_REQ B WHERE B.ACCNT_NO = A.ACCNT_NO AND B.INV_NO <![CDATA[<]]> A.INV_NO AND STAT ='04'), 0) PREV_INV_NO
+                       FROM CARD_WDRW_REQ A
+                      WHERE ACCNT_NO = #{accnt_no}
+                        AND STAT ='04'
+                      GROUP BY ACCNT_NO, INV_NO
+                    )CWR
+            ON CWR.ACCNT_NO=B.ACCNT_NO AND (A.NO  <![CDATA[<=]]>  CWR.INV_NO AND A.NO <![CDATA[>]]> CWR.PREV_INV_NO)
+         WHERE A.DEL_FG = 'N'
+           AND A.ACCNT_NO = #{accnt_no}
+         ORDER BY A.NO
+    </select>
+
+    <!-- 입금전표조회-결합상품추가부담금 -->
+    <select id="DlwNewTypePayMngMap.getPayMngDtl1List" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectPayMngDtl1List -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getPayMngDtl1List */
+               A.ACCNT_NO
+             , A.SEQ
+             , A.NO
+             , A.PAY_AMT
+             , A.PAY_DAY AS PAY_DAY
+             , A.PAY_MTHD
+             , FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+             , A.STAT
+             , CASE WHEN A.STAT = 0 THEN '정상'
+               ELSE (CASE WHEN A.STAT = '1' THEN '선납' ELSE '연체' END)
+               END AS STAT_NM
+             , TO_CHAR(ADD_MONTHS(TO_DATE(B.JOIN_DT, 'YYYYMMDD'), A.NO-1),'YYYYMM') AS MON_NO
+             , CASE WHEN A.PAY_MTHD ='04' THEN CASE WHEN A.WDRW_INV_DT IS NULL THEN WR.APP_DT ELSE A.WDRW_INV_DT END
+                    WHEN A.PAY_MTHD ='06' THEN CASE WHEN A.WDRW_INV_DT IS NULL THEN CWR.APP_DT ELSE A.WDRW_INV_DT END
+                    ELSE ''
+                END AS APP_DT
+             <!-- 추가 : 마감기능 추가로 인해 수정 가능한지 판단하기 위한 항목 추가 BY LBK_2013_06_15 -->
+             , CASE WHEN (SUBSTR(A.PAY_DAY,1,6) = NVL((SELECT REPLACE(CM.CLOSE_DT,'/','')
+                                                                                FROM CLOSE_MNG CM
+                                                                               WHERE CM.DEL_FG = 'N'
+                                                                                 AND SUBSTR(A.PAY_DAY,1,6) = REPLACE(CM.CLOSE_DT,'/','')
+                                                                                 AND ROWNUM = 1), ' ')
+                         )
+                         AND
+                         (SUBSTR(A.PAY_DAY,1,6) NOT IN (SELECT REPLACE(CER.CLOSE_DT,1,6)
+                                                                              FROM CLOSE_EDT_REQ CER
+                                                                             WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                               AND CER.CLOSE_CL = '0001'
+                                                                                AND CER.EDT_YN = 'Y'
+                                                                               AND CER.DEL_FG = 'N'
+                                                                             GROUP BY CER.CLOSE_DT)
+                        )
+                    THEN 'N'
+                    ELSE 'Y'
+                END EDT_YN
+          FROM PAY_MNG_DTL1 A
+         INNER JOIN MEM_PROD_ACCNT B ON A.ACCNT_NO = B.ACCNT_NO
+            LEFT JOIN (SELECT A.ACCNT_NO , A.INV_NO , A.APP_DT , B.INV_NO PREV_INV_NO
+                       FROM
+                          (SELECT /*+INDEX(A IDX_WDRW_REQ_ACCNT_STAT) */ ACCNT_NO, INV_NO, INV_DT AS APP_DT , ROW_NUMBER() OVER(ORDER BY ACCNT_NO ) CNT
+                           FROM WDRW_REQ A
+                           WHERE ACCNT_NO = #{accnt_no}
+                             AND STAT ='04' ) A LEFT OUTER JOIN
+                          (SELECT /*+INDEX(A IDX_WDRW_REQ_ACCNT_STAT) */ ACCNT_NO, INV_NO, INV_DT AS APP_DT , ROW_NUMBER() OVER(ORDER BY INV_NO) CNT
+                                       FROM WDRW_REQ A
+                                      WHERE ACCNT_NO = #{accnt_no}
+                                        AND STAT ='04' ) B ON A.ACCNT_NO = B.ACCNT_NO AND A.CNT = B.CNT -1
+                                     )WR
+              ON WR.ACCNT_NO=B.ACCNT_NO AND (A.NO <![CDATA[<=]]>   WR.INV_NO AND A.NO <![CDATA[>]]>  WR.PREV_INV_NO) AND A.DEL_FG = 'N'
+          LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(INV_DT) AS APP_DT
+                          , NVL((SELECT MAX(B.INV_NO) FROM CARD_WDRW_REQ B WHERE B.ACCNT_NO = A.ACCNT_NO AND B.INV_NO <![CDATA[<]]> A.INV_NO AND STAT ='04'), 0) PREV_INV_NO
+                       FROM CARD_WDRW_REQ A
+                      WHERE ACCNT_NO = #{accnt_no}
+                        AND STAT ='04'
+                      GROUP BY ACCNT_NO, INV_NO
+                    )CWR
+            ON CWR.ACCNT_NO=B.ACCNT_NO AND (A.NO  <![CDATA[<=]]>  CWR.INV_NO AND A.NO <![CDATA[>]]> CWR.PREV_INV_NO)
+         WHERE A.DEL_FG = 'N'
+           AND A.ACCNT_NO = #{accnt_no}
+         ORDER BY A.NO
+    </select>
+    
+    <!-- 입금전표조회-총금액 -->
+    <select id="DlwNewTypePayMngMap.getPayTotalList" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectPayTotalList -->
+
+
+        /* DlwNewTypePayMngMap.getPayTotalList */
+
+        SELECT '총납입회차' AS SECTION
+             , NVL((SELECT COUNT(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY
+             , NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY_DTL
+             , NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY_DTL1
+             , 0 TOTAL
+          FROM MEM_PROD_ACCNT MPA
+               INNER JOIN PRODUCT P ON MPA.PROD_CD = P.PROD_CD
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+
+        UNION ALL
+
+        SELECT '잔여회차' AS SECTION
+             , NVL(P.EXPR_NO,0) - NVL(MPA.NEW_CHAN_GUNSU,0) - NVL((SELECT COUNT(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY
+             , NVL((SELECT SUM(END_NO - ST_NO + 1) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD AND ALLT_AMT > 0), 0) -
+                  NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY_DTL
+             , NVL((SELECT SUM(END_NO - ST_NO + 1) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD AND ADD_AMT > 0), 0) -
+                  NVL((SELECT COUNT(NO) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY_DTL
+             , 0 TOTAL
+          FROM MEM_PROD_ACCNT MPA
+               INNER JOIN PRODUCT P ON MPA.PROD_CD = P.PROD_CD
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+
+        UNION ALL
+
+        SELECT '총납입금액' AS SECTION
+             , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY
+             , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY_DTL
+             , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL_PAY_DTL1
+             , NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+                + NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+                + NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0) TOTAL
+          FROM MEM_PROD_ACCNT MPA
+               INNER JOIN PRODUCT P ON MPA.PROD_CD = P.PROD_CD
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+
+        UNION ALL
+
+        SELECT '잔여금액' AS SECTION
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN (P.EXPR_NO - MPA.NEW_CHAN_GUNSU - NVL((SELECT COUNT(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)) * P.MON_PAY_AMT
+                    ELSE NVL((SELECT SUM((END_NO - ST_NO + 1) * MONTH_PAY_AMT) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD), 0)
+                            - NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+               END TOTAL_PAY
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN 0
+                    ELSE (SELECT SUM((END_NO - ST_NO + 1) * (ALLT_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD)
+                            - NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+               END TOTAL_PAY_DTL
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN 0
+                    ELSE (SELECT SUM((END_NO - ST_NO + 1) * (ADD_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD)
+                            - NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+               END TOTAL_PAY_DTL1
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN (P.EXPR_NO - MPA.NEW_CHAN_GUNSU - NVL((SELECT COUNT(NO) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0))*P.MON_PAY_AMT
+                    ELSE NVL((SELECT SUM((END_NO - ST_NO + 1) * MONTH_PAY_AMT) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD), 0)
+                            - NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+               END +
+               CASE WHEN P.PAY_TYPE = '001'
+                    THEN 0
+                    ELSE (SELECT SUM((END_NO - ST_NO + 1) * (ALLT_AMT + ADD_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD)
+                            - NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+                            - NVL((SELECT SUM(PAY_AMT) FROM PAY_MNG_DTL1 WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N'), 0)
+               END TOTAL
+          FROM MEM_PROD_ACCNT MPA
+               INNER JOIN PRODUCT P ON MPA.PROD_CD = P.PROD_CD
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+
+        UNION ALL
+
+        SELECT '합계' AS SECTION
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN (P.EXPR_NO - MPA.NEW_CHAN_GUNSU) * P.MON_PAY_AMT
+                    ELSE NVL((SELECT SUM((END_NO - ST_NO + 1) * MONTH_PAY_AMT) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD), 0)
+               END TOTAL_PAY
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN 0
+                    ELSE (SELECT SUM((END_NO - ST_NO + 1) * (ALLT_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD)
+               END TOTAL_PAY_DTL
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN 0
+                    ELSE (SELECT SUM((END_NO - ST_NO + 1) * (ADD_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD)
+               END TOTAL_PAY_DTL1
+             , CASE WHEN P.PAY_TYPE = '001'
+                    THEN (P.EXPR_NO - MPA.NEW_CHAN_GUNSU) * P.MON_PAY_AMT
+                    ELSE NVL((SELECT SUM((END_NO - ST_NO + 1) * MONTH_PAY_AMT) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD), 0)
+               END +
+               CASE WHEN P.PAY_TYPE = '001'
+                    THEN 0
+                    ELSE (SELECT SUM((END_NO - ST_NO + 1) * (ALLT_AMT + ADD_AMT)) FROM PRODUCT_DTL WHERE PROD_CD = P.PROD_CD)
+               END TOTAL
+          FROM MEM_PROD_ACCNT MPA
+               INNER JOIN PRODUCT P ON MPA.PROD_CD = P.PROD_CD
+
+         WHERE MPA.ACCNT_NO = #{accnt_no}
+    </select>
+
+
+    <!-- 입금전표조회-상품정보 -->
+    <select id="DlwNewTypePayMngMap.getProductDtl" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectProductDtl -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getProductDtl */
+               PROD_CD
+             , SEQ
+             , ST_NO
+             , END_NO
+             , MONTH_PAY_AMT
+             , ALLT_AMT
+             , ADD_AMT
+             , (NVL(MONTH_PAY_AMT,0)+ NVL(ALLT_AMT,0)+NVL(ADD_AMT,0)) AS TOTAL_AMT
+          FROM PRODUCT_DTL
+         WHERE 1=1
+           AND PROD_CD = #{prod_cd}
+         ORDER BY SEQ
+    </select>
+    
+    <!-- 회원번호로 상품코드조회 -->
+    <select id="DlwNewTypePayMngMap.getProdCdByAccntNo" parameterType="map" resultType="string">
+    <!-- sql-life.xml  : selectProdCdByAccntNo -->
+
+
+        SELECT /* DlwNewTypePayMngMap.getProdCdByAccntNo */
+               PROD_CD
+          FROM MEM_PROD_ACCNT
+         WHERE ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- 입금등록/조회 - 입금/상품/부가정보 조회 -->
+    <select id="DlwNewTypePayMngMap.getPayMngBugaInfo" parameterType="map" resultType="resultMap">
+    <!-- sql-life.xml  : selectPayMngBugaInfo -->
+
+SELECT /* DlwNewTypePayMngMap.getPayMngBugaInfo */
+               ACCNT_NO
+             , PROD_NM
+             , PROD_AMT
+             , FN_PAY_AMT_BY_CNT(1, LAST_NO, ACCNT_NO) AS MON_PAY_AMT
+             , EMPLE_NO
+             , EMPLE_NM
+             , DEPT_NM
+             , EXPR_NO
+             , EXPR_NO - NO - NEW_CHAN_GUNSU AS REMAIN_CNT
+             , PROD_AMT - PAY_AMT - NEW_CHAN_GUNSU_AMT AS REMAIN_AMT
+             , GASU_AMT_TOTAL
+             , DC_AMT_TOTAL
+             , NEW_CHAN_GUNSU
+             , NEW_CHAN_GUNSU_AMT
+             , TO_CHAR(THIS_MON_NO) || '회' AS THIS_MON_NO
+             , LAST_NO  AS LAST_NO
+             , NO + NEW_CHAN_GUNSU AS NEW_CHAN_GUNSU_NO
+             , NO AS NO_CNT
+             , PAY_AMT
+             , FN_YEN_CHE(ACCNT_NO) AS STAT
+          FROM (SELECT A.ACCNT_NO
+                     , C.PROD_NM
+                     , C.PROD_AMT
+                     , C.MON_PAY_AMT
+                     , C.EXPR_NO
+                     , D.EMPLE_NO
+                     , D.EMPLE_NM
+                     , (FN_DIFF_MONTH(SYSDATE, JOIN_DT) + 1) AS THIS_MON_NO
+                     , FN_DEPT_NM(D.DEPT_CD) AS DEPT_NM
+                     , A.NEW_CHAN_GUNSU
+                     , (A.NEW_CHAN_GUNSU * CAST(C.MON_PAY_AMT AS INT)) AS NEW_CHAN_GUNSU_AMT
+                     , COUNT(B.NO) AS NO
+                     , NVL(MAX(B.NO), 0) + 1 AS LAST_NO
+                     , NVL(SUM(B.PAY_AMT), 0) AS PAY_AMT
+                  FROM MEM_PROD_ACCNT A
+                  LEFT OUTER JOIN PAY_MNG B
+                    ON A.ACCNT_NO = B.ACCNT_NO AND B.DEL_FG = 'N'
+                  LEFT OUTER JOIN PRODUCT C
+                    ON A.PROD_CD = C.PROD_CD
+                  LEFT OUTER JOIN EMPLOYEE D
+                    ON A.EMPLE_NO = D.EMPLE_NO
+                 WHERE A.ACCNT_NO = #{accnt_no}
+                 GROUP BY A.ACCNT_NO, C.PROD_NM, C.PROD_AMT, C.MON_PAY_AMT, C.EXPR_NO, D.EMPLE_NO, D.EMPLE_NM
+                        , (FN_DIFF_MONTH(SYSDATE, JOIN_DT) + 1)
+                        , FN_DEPT_NM(D.DEPT_CD), A.NEW_CHAN_GUNSU
+                        , (A.NEW_CHAN_GUNSU * CAST(C.MON_PAY_AMT AS INT))
+               ) A,
+             ( SELECT NVL(SUM(NVL(GASU_AMT, 0) + NVL(GASU_ALLT_AMT, 0) + NVL(GASU_ADD_AMT, 0)), 0) AS GASU_AMT_TOTAL FROM GASU_AMT_REG WHERE ACCNT_NO = #{accnt_no} AND DEL_FG = 'N' ) B,
+             ( SELECT NVL(SUM(DC_AMT),0) AS DC_AMT_TOTAL   FROM DC_AMT_REG   WHERE ACCNT_NO = #{accnt_no} AND DEL_FG = 'N' ) C
+    </select>
+</mapper>

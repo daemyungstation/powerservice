@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TblChkMap">
+    <!-- 테이블 체크 건수조회 (15.07.22) -->
+    <select id="TblChkMap.getTblChkCount" parameterType="map" resultType="int">
+        SELECT /* TblChkMap.getTblChkCount */
+            COUNT(*)
+          FROM (SELECT A.TABLE_NAME, B.COMMENTS
+                  FROM USER_TABLES A
+                  JOIN USER_TAB_COMMENTS B
+                    ON A.TABLE_NAME = B.TABLE_NAME
+                ) C
+          FULL OUTER JOIN TB_TBL_DTL D
+            ON C.TABLE_NAME = D.TBL_ENLT_NM
+    </select>
+    <!-- // 테이블 체크 건수조회 -->
+
+    <!-- 테이블 체크 목록조회 (15.07.22, 15.08.06) -->
+    <select id="TblChkMap.getTblChkList" parameterType="map" resultType="resultMap">
+        <!-- SELECT /* TblChkMap.getTblChkList */
+              (CASE WHEN D.TBL_ENLT_NM IS NULL OR C.TABLE_NAME IS NULL THEN 'N' ELSE 'Y' END) AS TABLE_CREATE_YN
+             , TBL_ENLT_NM, TBL_HNGL_NM, TABLE_NAME, COMMENTS
+          FROM (SELECT A.TABLE_NAME, B.COMMENTS
+                  FROM USER_TABLES A
+                  JOIN USER_TAB_COMMENTS B
+                    ON A.TABLE_NAME = B.TABLE_NAME
+                ) C
+          FULL OUTER JOIN TB_TBL_DTL D
+            ON C.TABLE_NAME = D.TBL_ENLT_NM -->
+        SELECT /* TblChkMap.getTblChkList */
+               *
+          FROM (
+                 ( SELECT J.TBL_ENLT_NM, J.TBL_HNGL_NM, I.TABLE_NAME, I.COMMENTS
+                        , (CASE WHEN J.TBL_ENLT_NM IS NULL OR I.TABLE_NAME IS NULL THEN 'N' ELSE 'Y' END) AS TABLE_CREATE_YN
+                     FROM (SELECT G.TABLE_NAME, H.COMMENTS
+                             FROM USER_TABLES G
+                             JOIN USER_TAB_COMMENTS H
+                               ON G.TABLE_NAME = H.TABLE_NAME ) I
+                  FULL OUTER JOIN TB_TBL_DTL J
+                               ON I.TABLE_NAME = J.TBL_ENLT_NM ) K
+          JOIN
+                 ( SELECT Y.MERGE_TABLE_NAME
+                        , (CASE WHEN SUM(CASE WHEN Y.COLUMN_CHK_YN = 'N' THEN 1 ELSE 0 END) = 0 THEN 'Y' ELSE 'N' END) AS TABLE_COLUMN_CHK_YN
+                        , (CASE WHEN SUM(CASE WHEN Y.DATATYPE_CHK_YN = 'N' THEN 1 ELSE 0 END) = 0 THEN 'Y' ELSE 'N' END) AS TABLE_DATATYPE_CHK_YN
+                     FROM ( SELECT D.*, E.*
+                                 , NVL(D.TABLE_NAME, E.TBL_ENLT_NM) AS MERGE_TABLE_NAME
+                                 , NVL(D.COLUMN_NAME, E.TERM_ENLT_NM) AS MERGE_COLUMN_NAME
+                                 , (CASE WHEN COLUMN_NAME IS NOT NULL AND TERM_ENLT_NM IS NOT NULL THEN 'Y' ELSE 'N' END) AS COLUMN_CHK_YN
+                                 , (CASE DATA_TYPE_CD WHEN NULL   THEN 'N'
+                                                      WHEN 'TMST' THEN (CASE WHEN DATA_TYPE = 'TIMESTAMP(6)' AND DATA_TYPE IS NOT NULL THEN 'Y' ELSE 'N' END)
+                                                      WHEN 'CLOB' THEN (CASE WHEN DATA_TYPE = 'CLOB' AND DATA_TYPE IS NOT NULL THEN 'Y' ELSE 'N' END)
+                                                      WHEN 'CHAR' THEN (CASE WHEN DATA_TYPE = 'CHAR' AND DATA_LENGTH = DATA_TYPE1_LNGT THEN 'Y' ELSE 'N' END)
+                                                      WHEN 'BLOB' THEN (CASE WHEN DATA_TYPE = 'BLOB' AND DATA_TYPE IS NOT NULL THEN 'Y' ELSE 'N' END)
+                                                      WHEN 'VCHR' THEN (CASE WHEN DATA_TYPE = 'VARCHAR2' AND DATA_LENGTH = DATA_TYPE1_LNGT THEN 'Y' ELSE 'N' END)
+                                                      WHEN 'NUMB' THEN (CASE WHEN DATA_TYPE = 'NUMBER' AND DATA_PRECISION = DATA_TYPE1_LNGT THEN 'Y' ELSE 'N' END)
+                                                      WHEN 'NUMD' THEN (CASE WHEN DATA_TYPE = 'NUMBER' AND (DATA_PRECISION||'.'||DATA_SCALE) = (DATA_TYPE1_LNGT||'.'||DATA_TYPE2_LNGT) THEN 'Y' ELSE 'N' END)
+                                                      ELSE 'N'    END) AS DATATYPE_CHK_YN
+                              FROM ( SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, COLUMN_ID
+                                       FROM USER_TAB_COLUMNS ) D
+                   FULL OUTER JOIN
+                                   ( SELECT A.TBL_ENLT_NM, B.TERM_ENLT_NM, A.COLM_SQNC, C.DATA_TYPE_CD, C.DATA_TYPE1_LNGT, C.DATA_TYPE2_LNGT
+                                       FROM TB_TBL_COLM_DTL A, TB_TERM_DTL B, TB_DOMN_INFO C
+                                      WHERE A.TERM_ID = B.TERM_ID
+                                        AND A.DOMN_CD = C.DOMN_CD ) E
+                                ON D.TABLE_NAME = E.TBL_ENLT_NM AND D.COLUMN_NAME = E.TERM_ENLT_NM
+                          ORDER BY D.TABLE_NAME, D.COLUMN_ID, E.TBL_ENLT_NM, E.COLM_SQNC ) Y
+                          GROUP BY MERGE_TABLE_NAME
+                          ORDER BY MERGE_TABLE_NAME ) H
+            ON K.TBL_ENLT_NM = H.MERGE_TABLE_NAME OR K.TABLE_NAME = H.MERGE_TABLE_NAME
+                  )
+        <if test="orderBy != null and orderBy != ''">
+            ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+    <!-- // 테이블 체크 목록조회 -->
+
+    <!-- 테이블 체크 상세 건수조회 (15.08.05) -->
+    <select id="TblChkMap.getTblDtailCount" parameterType="map" resultType="int">
+        SELECT /* TblChkMap.getTblDtailCount */
+               COUNT(*)
+          FROM (SELECT C.TBL_ENLT_NM, C.COLM_SQNC, D.TERM_ENLT_NM, D.TERM_NM,  E.DATA_TYPE_CNTN
+                  FROM TB_TBL_COLM_DTL C, TB_TERM_DTL D, TB_DOMN_INFO E
+                 WHERE C.TERM_ID = D.TERM_ID(+)
+                   AND C.DOMN_CD = E.DOMN_CD(+)
+                <choose>
+                  <when test="tbl_enlt_nm != null and tbl_enlt_nm != ''">
+                   AND C.TBL_ENLT_NM = #{tbl_enlt_nm}
+                  </when>
+                  <otherwise>
+                   AND C.TBL_ENLT_NM = #{table_name}
+                  </otherwise>
+                </choose>
+                )J
+          FULL OUTER JOIN
+               (SELECT COLUMN_ID, COLUMN_NAME, COMMENTS, T.FULL_DATA_TYPE, T.TABLE_NAME
+                  FROM ( SELECT A.COLUMN_ID, A.TABLE_NAME, A.COLUMN_NAME, B.COMMENTS
+                              , DECODE(A.DATA_TYPE,'TIMESTAMP(6)', SUBSTR(A.DATA_TYPE, 0, 9)
+                                                  ,'CLOB'        , A.DATA_TYPE
+                                                  ,'CHAR'        ,(A.DATA_TYPE||'('||A.DATA_LENGTH||')')
+                                                  ,'BLOB'        , A.DATA_TYPE
+                                                  ,'VARCHAR2'    ,(SUBSTR(A.DATA_TYPE, 0, 7)||'('||A.DATA_LENGTH||')')
+                                                  ,'NUMBER'      ,DECODE(A.DATA_SCALE, 0, (A.DATA_TYPE||'('||A.DATA_PRECISION||')'), NULL, '', (A.DATA_TYPE||'('||A.DATA_PRECISION||','||A.DATA_SCALE||')'))
+                                                  ,'') AS FULL_DATA_TYPE
+                           FROM USER_TAB_COLUMNS A,  USER_COL_COMMENTS B
+                          WHERE 1=1
+                            AND A.TABLE_NAME = B.TABLE_NAME(+)
+                            AND A.COLUMN_NAME = B.COLUMN_NAME(+)
+                      ) T
+                 WHERE
+                 <choose>
+                     <when test="tbl_enlt_nm != null and tbl_enlt_nm != ''">
+                       T.TABLE_NAME = #{tbl_enlt_nm}
+                    </when>
+                    <otherwise>
+                       T.TABLE_NAME = #{table_name}
+                    </otherwise>
+                 </choose>
+                )I
+            ON J.TBL_ENLT_NM = I.TABLE_NAME
+           AND J.TERM_ENLT_NM = I.COLUMN_NAME
+      ORDER BY J.COLM_SQNC, I.COLUMN_ID
+    </select>
+    <!-- // 테이블 체크 상세 건수조회 -->
+
+    <!-- 테이블 체크 상세 목록조회 (15.08.05) -->
+    <select id="TblChkMap.getTblDetailList" parameterType="map" resultType="resultMap">
+        SELECT /* TblChkMap.getTblDetailList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX, K.*
+                  FROM (SELECT J.TBL_ENLT_NM, J.COLM_SQNC, J.TERM_ENLT_NM, J.TERM_NM,  J.DATA_TYPE_CNTN
+                             , I.COLUMN_ID, I.COLUMN_NAME, I.COMMENTS, I.FULL_DATA_TYPE, I.TABLE_NAME
+                             , (CASE WHEN J.TERM_ENLT_NM IS NULL OR I.COLUMN_NAME IS NULL THEN 'N' ELSE 'Y' END) AS COLM_CK
+                             , (CASE WHEN J.DATA_TYPE_CNTN IS NULL OR I.FULL_DATA_TYPE IS NULL OR J.DATA_TYPE_CNTN != I.FULL_DATA_TYPE THEN 'N' ELSE 'Y' END ) AS TYPE_CK
+                          FROM (SELECT C.TBL_ENLT_NM, C.COLM_SQNC, D.TERM_ENLT_NM, D.TERM_NM,  E.DATA_TYPE_CNTN
+                                  FROM TB_TBL_COLM_DTL C, TB_TERM_DTL D, TB_DOMN_INFO E
+                                 WHERE C.TERM_ID = D.TERM_ID(+)
+                                   AND C.DOMN_CD = E.DOMN_CD(+)
+                                <choose>
+                                  <when test="tbl_enlt_nm != null and tbl_enlt_nm != ''">
+                                   AND C.TBL_ENLT_NM = #{tbl_enlt_nm}
+                                  </when>
+                                  <otherwise>
+                                   AND C.TBL_ENLT_NM = #{table_name}
+                                  </otherwise>
+                                </choose>
+                               )J
+                          FULL OUTER JOIN
+                               (SELECT COLUMN_ID, COLUMN_NAME, COMMENTS, T.FULL_DATA_TYPE, T.TABLE_NAME
+                                  FROM ( SELECT A.COLUMN_ID, A.TABLE_NAME, A.COLUMN_NAME, B.COMMENTS
+                                              , DECODE(A.DATA_TYPE,'TIMESTAMP(6)', SUBSTR(A.DATA_TYPE, 0, 9)
+                                                                  ,'CLOB'        , A.DATA_TYPE
+                                                                  ,'CHAR'        ,(A.DATA_TYPE||'('||A.DATA_LENGTH||')')
+                                                                  ,'BLOB'        , A.DATA_TYPE
+                                                                  ,'VARCHAR2'    ,(SUBSTR(A.DATA_TYPE, 0, 7)||'('||A.DATA_LENGTH||')')
+                                                                  ,'NUMBER'      ,DECODE(A.DATA_SCALE, 0, (A.DATA_TYPE||'('||A.DATA_PRECISION||')'), NULL, '', (A.DATA_TYPE||'('||A.DATA_PRECISION||','||A.DATA_SCALE||')'))
+                                                                  ,'') AS FULL_DATA_TYPE
+                                           FROM USER_TAB_COLUMNS A,  USER_COL_COMMENTS B
+                                          WHERE 1=1
+                                            AND A.TABLE_NAME = B.TABLE_NAME(+)
+                                            AND A.COLUMN_NAME = B.COLUMN_NAME(+)
+                                       ) T
+                                 WHERE
+                                 <choose>
+                                     <when test="tbl_enlt_nm != null and tbl_enlt_nm != ''">
+                                       T.TABLE_NAME = #{tbl_enlt_nm}
+                                    </when>
+                                    <otherwise>
+                                       T.TABLE_NAME = #{table_name}
+                                    </otherwise>
+                                 </choose>
+                              )I
+                        ON J.TBL_ENLT_NM = I.TABLE_NAME
+                       AND J.TERM_ENLT_NM = I.COLUMN_NAME
+                  <choose>
+                    <when test="tbl_enlt_nm != null and tbl_enlt_nm != ''">
+                     ORDER BY J.COLM_SQNC ASC
+                    </when>
+                    <otherwise>
+                     ORDER BY I.COLUMN_ID ASC
+                    </otherwise>
+                  </choose>
+              )K
+       )
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+       <![CDATA[
+        WHERE PAGE_INDX >= #{startLine}
+          AND PAGE_INDX < #{endLine}
+       ]]>
+      </if>
+    </select>
+    <!-- // 테이블 체크 상세 목록조회 -->
+
+    <!-- 컬럼 체크 건수조회 (15.07.22) -->
+    <select id="TblChkMap.getColmChkCount" parameterType="map" resultType="int">
+        SELECT /* TblChkMap.getColmChkCount */
+            COUNT(*)
+          FROM (SELECT C.COLUMN_NAME AS COLUMN_NAME, C.COMMENTS AS COMMENTS, C.CNT AS CNT
+                     , T.COLUMN_NAME AS TBL_COLUMN_NAME, T.CNT AS TBL_CNT
+                  FROM (SELECT A.COLUMN_NAME, B.COMMENTS, SUM(1) CNT
+                          FROM USER_TAB_COLUMNS A, USER_COL_COMMENTS B, ALL_TAB_COMMENTS T
+                         WHERE A.TABLE_NAME = T.TABLE_NAME
+                           AND B.TABLE_NAME  = T.TABLE_NAME
+                           AND A.COLUMN_NAME = B.COLUMN_NAME
+                           AND T.OWNER = 'PS_INWOO'
+                           AND T.TABLE_TYPE = 'TABLE'
+                         GROUP BY A.COLUMN_NAME, B.COMMENTS
+                        )C
+       LEFT OUTER JOIN (SELECT A.COLUMN_NAME, SUM(1) CNT
+                          FROM USER_TAB_COLUMNS A, USER_COL_COMMENTS B, ALL_TAB_COMMENTS T
+                         WHERE A.TABLE_NAME = T.TABLE_NAME
+                           AND B.TABLE_NAME  = T.TABLE_NAME
+                           AND A.COLUMN_NAME = B.COLUMN_NAME
+                           AND T.OWNER = 'PS_INWOO'
+                           AND T.TABLE_TYPE = 'TABLE'
+                      GROUP BY A.COLUMN_NAME
+                        )T
+                    ON C.COLUMN_NAME = T.COLUMN_NAME
+                   AND C.CNT = T.CNT
+                )A
+            <where>
+               <if test="column_name != null and column_name != ''">
+                 AND UPPER(COLUMN_NAME) LIKE '%' || UPPER(#{column_name}) || '%'
+               </if>
+               <if test="comments != null and comments != ''">
+                 AND COMMENTS LIKE '%' || UPPER(#{comments}) || '%'
+               </if>
+               <if test="yn_bool != null and yn_bool != ''">
+                 AND TBL_COLUMN_NAME IS NULL
+               </if>
+            </where>
+    </select>
+    <!-- // 컬럼 체크 건수조회 -->
+
+    <!-- 컬럼 체크 목록조회 (15.07.22) -->
+    <select id="TblChkMap.getColmChkList" parameterType="map" resultType="resultMap">
+         SELECT /* TblChkMap.getColmChkList */
+              D.*
+           FROM (SELECT ROWNUM AS PAGE_INDX, E.*
+                   FROM (SELECT A.COLUMN_NAME, A.COMMENTS, A.CNT, A.TBL_COLUMN_NAME
+                           FROM (SELECT C.COLUMN_NAME AS COLUMN_NAME, C.COMMENTS AS COMMENTS
+                                      , C.CNT AS CNT, T.COLUMN_NAME AS TBL_COLUMN_NAME, T.CNT AS TBL_CNT
+                                   FROM (SELECT A.COLUMN_NAME, B.COMMENTS, SUM(1) CNT
+                                           FROM USER_TAB_COLUMNS A, USER_COL_COMMENTS B, ALL_TAB_COMMENTS T
+                                          WHERE A.TABLE_NAME = T.TABLE_NAME
+                                            AND B.TABLE_NAME  = T.TABLE_NAME
+                                            AND A.COLUMN_NAME = B.COLUMN_NAME
+                                            AND T.OWNER = 'PS_INWOO'
+                                            AND T.TABLE_TYPE = 'TABLE'
+                                          GROUP BY A.COLUMN_NAME, B.COMMENTS
+                                         ) C
+                        LEFT OUTER JOIN (SELECT A.COLUMN_NAME, SUM(1) CNT
+                                           FROM USER_TAB_COLUMNS A, USER_COL_COMMENTS B, ALL_TAB_COMMENTS T
+                                          WHERE A.TABLE_NAME = T.TABLE_NAME
+                                            AND B.TABLE_NAME  = T.TABLE_NAME
+                                            AND A.COLUMN_NAME = B.COLUMN_NAME
+                                            AND T.OWNER = 'PS_INWOO'
+                                            AND T.TABLE_TYPE = 'TABLE'
+                                       GROUP BY A.COLUMN_NAME
+                                         ) T
+                                     ON C.COLUMN_NAME = T.COLUMN_NAME
+                                    AND C.CNT = T.CNT
+                                ) A
+                     <where>
+                        <if test="column_name != null and column_name != ''">
+                          AND UPPER(COLUMN_NAME) LIKE '%' || UPPER(#{column_name}) || '%'
+                        </if>
+                        <if test="comments != null and comments != ''">
+                          AND COMMENTS LIKE '%' || UPPER(#{comments}) || '%'
+                        </if>
+                        <if test="yn_bool != null and yn_bool != ''">
+                          AND TBL_COLUMN_NAME IS NULL
+                        </if>
+                     </where>
+                        <if test="orderBy != null and orderBy != ''">
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                        )E
+                )D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+         ]]>
+         </if>
+    </select>
+    <!-- // 컬럼 체크 목록조회 -->
+
+    <!-- 컬럼 체크 상세 건수조회 (15.07.22) -->
+    <select id="TblChkMap.getColmDtailCount" parameterType="map" resultType="int">
+        SELECT	/* TblChkMap.getColmDtailCount */
+           COUNT(*)
+          FROM USER_TAB_COLUMNS A, USER_COL_COMMENTS B, ALL_TAB_COMMENTS T
+         WHERE A.TABLE_NAME = T.TABLE_NAME
+           AND B.TABLE_NAME  = T.TABLE_NAME
+           AND A.COLUMN_NAME = B.COLUMN_NAME
+           AND T.OWNER = 'PS_INWOO'
+           AND T.TABLE_TYPE = 'TABLE'
+           AND A.COLUMN_NAME = #{column_name}
+           AND B.COMMENTS = #{comments}
+         <if test="data_length != null and data_length != ''">
+           AND DATA_LENGTH = #{data_length}
+         </if>
+    </select>
+    <!-- // 컬럼 체크 상세 건수조회 -->
+
+    <!-- 컬럼 체크 상세 목록조회 (15.07.22) -->
+    <select id="TblChkMap.getColmDetailList" parameterType="map" resultType="resultMap">
+         SELECT	/* TblChkMap.getColmDetailList */
+              D.*
+           FROM (SELECT ROWNUM AS PAGE_INDX, C.*
+                   FROM (SELECT T.TABLE_NAME, T.COMMENTS
+                           FROM USER_TAB_COLUMNS A, USER_COL_COMMENTS B, ALL_TAB_COMMENTS T
+                          WHERE A.TABLE_NAME = T.TABLE_NAME
+                            AND B.TABLE_NAME  = T.TABLE_NAME
+                            AND A.COLUMN_NAME = B.COLUMN_NAME
+                            AND T.OWNER = 'PS_INWOO'
+                            AND T.TABLE_TYPE = 'TABLE'
+                            AND A.COLUMN_NAME = #{column_name}
+                            AND B.COMMENTS = #{comments}
+                          <if test="data_length != null and data_length != ''">
+                            AND DATA_LENGTH = #{data_length}
+                          </if>
+                         <if test="orderBy != null and orderBy != ''">
+                          ORDER BY ${orderBy} ${orderDirection}
+                         </if>
+                        )C
+                 )D
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+         ]]>
+        </if>
+    </select>
+    <!-- // 컬럼 체크 상세 목록조회 -->
+
+    <!-- 도메인 체크 건수조회 (15.08.06) -->
+    <select id="TblChkMap.getDonChkCount" parameterType="map" resultType="int">
+        SELECT /* TblChkMap.getDonChkCount */
+               COUNT(*)
+          FROM ( SELECT *
+                   FROM ( SELECT A.COLUMN_NAME, B.COMMENTS, A.DATA_TYPE, A.DATA_LENGTH
+                               , A.DATA_PRECISION, A.DATA_SCALE, SUM(1) CNT
+                            FROM  USER_TABLES C, USER_TAB_COLUMNS A, USER_COL_COMMENTS B
+                           WHERE C.TABLE_NAME = A.TABLE_NAME
+                             AND A.TABLE_NAME = B.TABLE_NAME
+                             AND A.COLUMN_NAME = B.COLUMN_NAME
+                        GROUP BY A.COLUMN_NAME, B.COMMENTS, A.DATA_TYPE, A.DATA_LENGTH, A.DATA_PRECISION, A.DATA_SCALE
+                        ) T1
+                       ,( SELECT COLUMN_NAME AS B_COLUMN_NAME, SUM(1) AS B_CNT
+                            FROM ( SELECT A.COLUMN_NAME
+                                     FROM USER_TABLES C, USER_TAB_COLUMNS A, USER_COL_COMMENTS B
+                                    WHERE C.TABLE_NAME = A.TABLE_NAME
+                                      AND A.TABLE_NAME = B.TABLE_NAME
+                                      AND A.COLUMN_NAME = B.COLUMN_NAME
+                                  ) T
+                        GROUP BY COLUMN_NAME
+                        ) T2
+                  WHERE T1.COLUMN_NAME = T2.B_COLUMN_NAME(+)
+                    AND T1.CNT = T2.B_CNT(+)
+               <if test="column_name != null and column_name != ''">
+                    AND UPPER(COLUMN_NAME) LIKE '%' || UPPER(#{column_name}) || '%'
+               </if>
+               <if test="comments != null and comments != ''">
+                    AND COMMENTS LIKE '%' || UPPER(#{comments}) || '%'
+               </if>
+               <if test="yn_bool != null and yn_bool != ''">
+                    AND B_COLUMN_NAME IS NULL
+               </if>
+               <if test="orderBy != null and orderBy != ''">
+               ORDER BY ${orderBy} ${orderDirection}
+               </if>
+               )
+    </select>
+    <!-- // 도메인 체크 건수조회 -->
+
+    <!-- 도메인 체크 목록조회 (15.08.06) -->
+    <select id="TblChkMap.getDonChkList" parameterType="map" resultType="resultMap">
+         SELECT /* TblChkMap.getDonChkList */
+                *
+           FROM ( SELECT ROWNUM AS PAGE_INDX, K.*
+                    FROM ( SELECT COLUMN_NAME, COMMENTS, DATA_TYPE, DATA_LENGTH
+                                , DATA_PRECISION, DATA_SCALE, CNT, B_COLUMN_NAME, B_CNT
+                                , (SELECT DOMN_CD FROM TB_DOMN_INFO WHERE DOMN_NM = FULL_DOMAIN) AS DOMN_CD
+                                , (SELECT DOMN_NM FROM TB_DOMN_INFO WHERE DOMN_NM = FULL_DOMAIN) AS DOMN_NM
+                                , FULL_DOMAIN AS CONC_DOMN
+                             FROM ( SELECT T1.COLUMN_NAME, T1.COMMENTS, T1.DATA_TYPE, T1.DATA_LENGTH, T1.DATA_PRECISION
+                                         , T1.DATA_SCALE, T1.CNT, T2.B_COLUMN_NAME, T2.B_CNT
+                                         , SUBSTR(T1.COMMENTS,INSTR(T1.COMMENTS,' ', -1)+1,100)|| ' '
+                                               ||DECODE(T1.DATA_TYPE,'TIMESTAMP(6)','TS'
+                                                                    ,'CLOB'        ,'CLOB'
+                                                                    ,'CHAR'        ,'CH'
+                                                                    ,'BLOB'        ,'BLOB'
+                                                                    ,'VARCHAR2'    ,'VC'
+                                                                    ,'NUMBER'      ,'NM','')
+                                               ||DECODE(T1.DATA_TYPE,'TIMESTAMP(6)',''
+                                                                    ,'CLOB'        ,''
+                                                                    ,'CHAR'        ,T1.DATA_LENGTH
+                                                                    ,'BLOB'        ,''
+                                                                    ,'VARCHAR2'    ,T1.DATA_LENGTH
+                                                                    ,'NUMBER'      ,DECODE(T1.DATA_SCALE, 0, (T1.DATA_TYPE||'('||T1.DATA_PRECISION||')'), NULL, '', (T1.DATA_TYPE||'('||T1.DATA_PRECISION||','||T1.DATA_SCALE||')'))
+                                                                    ,'') AS FULL_DOMAIN
+                                      FROM ( SELECT A.COLUMN_NAME, B.COMMENTS, A.DATA_TYPE, A.DATA_LENGTH
+                                                  , A.DATA_PRECISION, A.DATA_SCALE, SUM(1) CNT
+                                               FROM USER_TABLES C, USER_TAB_COLUMNS A, USER_COL_COMMENTS B
+                                              WHERE C.TABLE_NAME = A.TABLE_NAME
+                                                AND A.TABLE_NAME = B.TABLE_NAME
+                                                AND A.COLUMN_NAME = B.COLUMN_NAME
+                                           GROUP BY A.COLUMN_NAME, B.COMMENTS, A.DATA_TYPE, A.DATA_LENGTH, A.DATA_PRECISION, A.DATA_SCALE
+                                           ORDER BY A.COLUMN_NAME ) T1
+                                          ,( SELECT COLUMN_NAME AS B_COLUMN_NAME
+                                                  , SUM(1) AS B_CNT
+                                               FROM ( SELECT A.COLUMN_NAME
+                                                        FROM USER_TABLES C, USER_TAB_COLUMNS A, USER_COL_COMMENTS B
+                                                       WHERE C.TABLE_NAME = A.TABLE_NAME
+                                                         AND A.TABLE_NAME = B.TABLE_NAME
+                                                         AND A.COLUMN_NAME = B.COLUMN_NAME
+                                                    ) T
+                                           GROUP BY COLUMN_NAME
+                                           ORDER BY COLUMN_NAME ) T2
+                                     WHERE T1.COLUMN_NAME = T2.B_COLUMN_NAME(+)
+                                       AND T1.CNT = T2.B_CNT(+)
+                                <if test="column_name != null and column_name != ''">
+                                       AND UPPER(COLUMN_NAME) LIKE '%' || UPPER(#{column_name}) || '%'
+                                </if>
+                                <if test="comments != null and comments != ''">
+                                       AND COMMENTS LIKE '%' || UPPER(#{comments}) || '%'
+                                </if>
+                                <if test="yn_bool != null and yn_bool != ''">
+                                       AND B_COLUMN_NAME IS NULL
+                                </if>
+                                <if test="orderBy != null and orderBy != ''">
+                                  ORDER BY ${orderBy} ${orderDirection}
+                                </if>
+                                  ) TT
+                         ) K
+                )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+         ]]>
+         </if>
+    </select>
+    <!-- // 도메인 체크 목록조회 -->
+</mapper>
+

@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwFullConsHistMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 기본정보 조회수
+     * 대상 테이블 : LF_DMUSER.TB_CTI_MAIN_INFO
+     * ================================================================
+     * -->
+    <select id="DlwFullConsHistMap.getFullConsHistCount" parameterType="map" resultType="int">
+        SELECT /* DlwFullConsHistMap.getFullConsHistCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                'NO' AS NO,
+                '녹취버튼' AS REC,
+                ACPG_DTTM,              --상담이력등록일
+                ACPG_CHNL_NM,           --접수채널
+                CONS_MEMO_CNTN,         --상담내용
+                TEAM.TEAM_NM,           --등록자팀
+                TU.USER_NM AS ACTP_NM,  --등록자명
+                CONSNO,                 --상담번호
+                MEM_NO,                 --고유번호
+                ACCNT_NO,               --회원번호
+                CONS_TYP1_NM,           --상담유형1
+                CONS_TYP2_NM,           --상담유형2
+                CONS_TYP3_NM            --상담유형3
+            FROM
+            (
+                SELECT 
+                    MST.CONSNO,
+                    MST.MEM_NO,
+                    TO_CHAR(MST.ACCNT_NO) AS ACCNT_NO,   
+                    REPLACE(PS_WILLVI.GETCODENM('CNS010', MST.ACPG_CHNL_CD, 'CCA'), CHR(0), '') AS ACPG_CHNL_NM,
+                    PS_WILLVI.FN_GETCONSTYPNM(MST.CONS_TYP1_CD,'CCA') AS CONS_TYP1_NM,
+                    PS_WILLVI.FN_GETCONSTYPNM(MST.CONS_TYP2_CD,'CCA') AS CONS_TYP2_NM,
+                    PS_WILLVI.FN_GETCONSTYPNM(MST.CONS_TYP3_CD,'CCA') AS CONS_TYP3_NM,
+                    DTL.ACTP_ID,
+                    TO_CHAR(DTL.CHNG_DTTM,'YYYYMMDDHH24MIss')  AS ACPG_DTTM,
+                    DTL.CONS_MEMO_CNTN 
+                FROM PS_WILLVI.TB_CONS MST INNER JOIN 
+                    PS_WILLVI.TB_CONS_HSTR DTL ON MST.CNTR_CD = DTL.CNTR_CD AND MST.CONSNO = DTL.CONSNO 
+                WHERE 1=1
+                AND MST.MEM_NO = #{mem_no}
+            
+                UNION ALL 
+            
+                SELECT     
+                    MST.VOC_ID AS CONSNO,
+                    MST.MEM_NO, 
+                    '' AS ACCNT_NO, 
+                    'VOC(과거)' AS ACPG_CHNL_NM,
+                    'VOC' AS CONS_TYP1_NM,
+                    'VOC' AS CONS_TYP2_NM,
+                    'VOC' AS CONS_TYP3_NM,
+                    MST.VOC_ACTP_ID,
+                    MST.VOC_ACPG_DTTM  AS ACPG_DTTM,
+                    MST.VOC_DSPS_CNTN AS CONS_MEMO_CNTN
+                FROM PS_WILLVI.TB_VOC_DTL MST 
+                WHERE 1=1
+                AND MST.MEM_NO = #{mem_no}
+                
+                UNION ALL
+                
+                SELECT 
+                    MST.CHAT_SNDG_HSTR_ID AS CONSNO,
+                    MST.MEM_NO,
+                    '' AS ACCNT_NO,
+                    CASE WHEN CHAT_SNDG_DIV_CD = '0' THEN 'SMS'
+                        WHEN CHAT_SNDG_DIV_CD = '2' THEN 'MMS'
+                        WHEN CHAT_SNDG_DIV_CD = '3' THEN 'LMS'
+                        WHEN CHAT_SNDG_DIV_CD = '4' THEN '알림톡'
+                    ELSE ''
+                    END AS ACPG_CHNL_NM,
+                    '' AS CONS_TYP1_NM,
+                    '' AS CONS_TYP2_NM,
+                    '' AS CONS_TYP3_NM,
+                    MST.SNDG_CHPR_ID AS VOC_ACTP_ID,
+                    TO_CHAR(MST.SNDG_DTTM,'YYYYMMDDHH24MIss') AS ACPG_DTTM,
+                    MST.CHAT_MSG_CNTN AS CONS_MEMO_CNTN
+                FROM PS_WILLVI.TB_CHAT_SNDG_HSTR MST
+                WHERE MST.MEM_NO = #{mem_no}
+                
+                UNION ALL
+            
+                SELECT 
+                    MST.CHAT_SNDG_HSTR_ID AS CONSNO,
+                    MST.MEM_NO,
+                    '' AS ACCNT_NO,
+                    CASE WHEN CHAT_SNDG_DIV_CD = '0' THEN 'SMS'
+                        WHEN CHAT_SNDG_DIV_CD = '2' THEN 'MMS'
+                        WHEN CHAT_SNDG_DIV_CD = '3' THEN 'LMS'
+                        WHEN CHAT_SNDG_DIV_CD = '4' THEN '알림톡'
+                    ELSE ''
+                    END AS ACPG_CHNL_NM,
+                    '' AS CONS_TYP1_NM,
+                    '' AS CONS_TYP2_NM,
+                    '' AS CONS_TYP3_NM,
+                    MST.SNDG_CHPR_ID AS VOC_ACTP_ID,
+                    TO_CHAR(MST.SNDG_DTTM,'YYYYMMDDHH24MIss') AS ACPG_DTTM,
+                    MST.CHAT_MSG_CNTN AS CONS_MEMO_CNTN
+                FROM PS_WILLVI.TB_CHAT_SNDG_HSTR_NEW MST
+                WHERE MST.MEM_NO = #{mem_no}
+                
+                UNION
+                
+                SELECT 
+                    TO_CHAR(MST.SEQ) AS CONSNO,                         --상담번호
+                    MST.MEM_NO,                                         --고유번호
+                    MST.ACCNT_NO,                                       --회원번호
+                    NVL(MST.CNSL_CON,'과거상담(엔컴)') AS ACPG_CHNL_NM, --접수채널
+                    '' AS CONS_TYP1_NM,                                 --상담유형1
+                    '' AS CONS_TYP2_NM,                                 --상담유형2
+                    '' AS CONS_TYP3_NM,                                 --상담유형3
+                    --TEAM.TEAM_NM,                                     --등록자팀
+                    --TU.USER_NM AS ACTP_NM,                            --등록자명
+                    MST.CNSL_MAN AS VOC_ACTP_ID,
+                    MST.CNSL_DT  AS ACPG_DTTM,                          --상담이력등록일
+                    DTL.CNSL_CON AS CONS_MEMO_CNTN  
+                FROM LF_DMUSER.CNSL_MNG MST LEFT OUTER JOIN
+                    LF_DMUSER.CNSL_DTL DTL ON DTL.MEM_NO = MST.MEM_NO  AND DTL.SEQ = MST.SEQ AND DTL.CNSL_SEQ = MST.CNSL_SEQ
+                WHERE MST.MEM_NO = #{mem_no}
+                
+                UNION ALL
+                
+                /* 캠페인 정보 */
+                SELECT 
+                    TO_CHAR(MST.TRGT_CUST_DTPT_ID) AS CONSNO,
+                    MST.MEM_NO,
+                    MST.ACCNT_NO,
+                    '(캠페인)아웃콜' AS ACPG_CHNL_NM,
+                    (SELECT CMPG_NM FROM PS_WILLVI.TB_CMPG_BASI WHERE CMPG_ID = DTL.CMPG_ID) AS CONS_TYP1_NM,
+                    (SELECT SUB_TRGT_LIST_NM FROM PS_WILLVI.TB_SUB_TRGT_LIST_DTL WHERE SUB_TRGT_LIST_ID = DTL.SUB_TRGT_LIST_ID) AS CONS_TYP2_NM,
+                    '' AS CONS_TYP3_NM,
+                    DTL.RGSR_ID,
+                    TO_CHAR(DTL.DPMS_DTTM,'YYYYMMDDHH24MIss') AS ACPG_DTTM,
+                    DTL.DPMS_RESL_CNTN AS CONS_MEMO_CNTN  
+                FROM PS_WILLVI.TB_TRGT_CUST_DTPT MST INNER JOIN
+                    PS_WILLVI.TB_DPMS_RESL_HSTR DTL ON MST.TRGT_CUST_DTPT_ID = DTL.TRGT_CUST_DTPT_ID
+                WHERE 1=1
+                AND MST.CLPH_TLNO = REPLACE(#{clph_tlno}, '-', '')
+            ) MAIN LEFT OUTER JOIN
+                PS_WILLVI.TB_USER TU ON TU.USER_ID = MAIN.ACTP_ID LEFT OUTER JOIN
+                PS_WILLVI.TB_CONS_TEAM TEAM ON TU.TEAM_CD = TEAM.TEAM_CD
+            ORDER BY ACPG_DTTM DESC
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="acpg_dttm_stt != null and acpg_dttm_stt != '' and acpg_dttm_end != null and acpg_dttm_end != ''">
+            AND MAIN_TBL.ACPG_DTTM BETWEEN REPLACE(#{acpg_dttm_stt}, '-', '') || '000000' AND REPLACE(#{acpg_dttm_end}, '-', '') || '235959'
+        </if>
+        <if test="cons_typ1 != null and cons_typ1 != ''">
+            AND MAIN_TBL.CONS_TYP1_NM = #{cons_typ1}
+        </if>
+        <if test="cons_typ2 != null and cons_typ2 != ''">
+            AND MAIN_TBL.CONS_TYP2_NM = #{cons_typ2}
+        </if>
+        <if test="cons_typ3 != null and cons_typ3 != ''">
+            AND MAIN_TBL.CONS_TYP3_NM = #{cons_typ3}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 기본정보 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CTI_MAIN_INFO
+     * ================================================================
+     * -->
+    <select id="DlwFullConsHistMap.getFullConsHistList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwFullConsHistMap.getFullConsHistList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                'NO' AS NO,
+                (SELECT CCD.REC_ID FROM PS_WILLVI.TB_CTI_CRNC_DTL CCD INNER JOIN PS_WILLVI.TB_REC_CONS_DTL RCD ON CCD.CTI_CRNC_DTL_ID = RCD.CTI_CRNC_DTL_ID WHERE 1=1 AND CCD.CNTR_CD = 'CCA' AND RCD.CONSNO  = MAIN.CONSNO) AS REC,
+                ACPG_DTTM,              --상담이력등록일
+                ACPG_CHNL_NM,           --접수채널
+                CONS_MEMO_CNTN,         --상담내용
+                TEAM.TEAM_NM,           --등록자팀
+                TU.USER_NM AS ACTP_NM,  --등록자명
+                CONSNO,                 --상담번호
+                MEM_NO,                 --고유번호
+                ACCNT_NO,               --회원번호
+                CONS_TYP1_NM,           --상담유형1
+                CONS_TYP2_NM,           --상담유형2
+                CONS_TYP3_NM            --상담유형3
+            FROM
+            (
+                SELECT 
+                    MST.CONSNO,
+                    MST.MEM_NO,
+                    TO_CHAR(MST.ACCNT_NO) AS ACCNT_NO,   
+                    REPLACE(PS_WILLVI.GETCODENM('CNS010', MST.ACPG_CHNL_CD, 'CCA'), CHR(0), '') AS ACPG_CHNL_NM,
+                    PS_WILLVI.FN_GETCONSTYPNM(MST.CONS_TYP1_CD,'CCA') AS CONS_TYP1_NM,
+                    PS_WILLVI.FN_GETCONSTYPNM(MST.CONS_TYP2_CD,'CCA') AS CONS_TYP2_NM,
+                    PS_WILLVI.FN_GETCONSTYPNM(MST.CONS_TYP3_CD,'CCA') AS CONS_TYP3_NM,
+                    DTL.ACTP_ID,
+                    TO_CHAR(DTL.CHNG_DTTM,'YYYYMMDDHH24MIss')  AS ACPG_DTTM,
+                    DTL.CONS_MEMO_CNTN 
+                FROM PS_WILLVI.TB_CONS MST INNER JOIN 
+                    PS_WILLVI.TB_CONS_HSTR DTL ON MST.CNTR_CD = DTL.CNTR_CD AND MST.CONSNO = DTL.CONSNO 
+                WHERE 1=1
+                AND MST.MEM_NO = #{mem_no}
+            
+                UNION ALL 
+            
+                SELECT     
+                    MST.VOC_ID AS CONSNO,
+                    MST.MEM_NO, 
+                    '' AS ACCNT_NO, 
+                    'VOC(과거)' AS ACPG_CHNL_NM,
+                    'VOC' AS CONS_TYP1_NM,
+                    'VOC' AS CONS_TYP2_NM,
+                    'VOC' AS CONS_TYP3_NM,
+                    MST.VOC_ACTP_ID,
+                    MST.VOC_ACPG_DTTM  AS ACPG_DTTM,
+                    MST.VOC_DSPS_CNTN AS CONS_MEMO_CNTN
+                FROM PS_WILLVI.TB_VOC_DTL MST 
+                WHERE 1=1
+                AND MST.MEM_NO = #{mem_no}
+                
+                UNION ALL
+                
+                SELECT 
+                    MST.CHAT_SNDG_HSTR_ID AS CONSNO,
+                    MST.MEM_NO,
+                    '' AS ACCNT_NO,
+                    CASE WHEN CHAT_SNDG_DIV_CD = '0' THEN 'SMS'
+                        WHEN CHAT_SNDG_DIV_CD = '2' THEN 'MMS'
+                        WHEN CHAT_SNDG_DIV_CD = '3' THEN 'LMS'
+                        WHEN CHAT_SNDG_DIV_CD = '4' THEN '알림톡'
+                    ELSE ''
+                    END AS ACPG_CHNL_NM,
+                    '' AS CONS_TYP1_NM,
+                    '' AS CONS_TYP2_NM,
+                    '' AS CONS_TYP3_NM,
+                    MST.SNDG_CHPR_ID AS VOC_ACTP_ID,
+                    TO_CHAR(MST.SNDG_DTTM,'YYYYMMDDHH24MIss') AS ACPG_DTTM,
+                    MST.CHAT_MSG_CNTN AS CONS_MEMO_CNTN
+                FROM PS_WILLVI.TB_CHAT_SNDG_HSTR MST
+                WHERE MST.MEM_NO = #{mem_no}
+                
+                UNION ALL
+            
+                SELECT 
+                    MST.CHAT_SNDG_HSTR_ID AS CONSNO,
+                    MST.MEM_NO,
+                    '' AS ACCNT_NO,
+                    CASE WHEN CHAT_SNDG_DIV_CD = '0' THEN 'SMS'
+                        WHEN CHAT_SNDG_DIV_CD = '2' THEN 'MMS'
+                        WHEN CHAT_SNDG_DIV_CD = '3' THEN 'LMS'
+                        WHEN CHAT_SNDG_DIV_CD = '4' THEN '알림톡'
+                    ELSE ''
+                    END AS ACPG_CHNL_NM,
+                    '' AS CONS_TYP1_NM,
+                    '' AS CONS_TYP2_NM,
+                    '' AS CONS_TYP3_NM,
+                    MST.SNDG_CHPR_ID AS VOC_ACTP_ID,
+                    TO_CHAR(MST.SNDG_DTTM,'YYYYMMDDHH24MIss') AS ACPG_DTTM,
+                    MST.CHAT_MSG_CNTN AS CONS_MEMO_CNTN
+                FROM PS_WILLVI.TB_CHAT_SNDG_HSTR_NEW MST
+                WHERE MST.MEM_NO = #{mem_no}
+                
+                UNION
+                
+                SELECT 
+                    TO_CHAR(MST.SEQ) AS CONSNO,                         --상담번호
+                    MST.MEM_NO,                                         --고유번호
+                    MST.ACCNT_NO,                                       --회원번호
+                    NVL(MST.CNSL_CON,'과거상담(엔컴)') AS ACPG_CHNL_NM, --접수채널
+                    '' AS CONS_TYP1_NM,                                 --상담유형1
+                    '' AS CONS_TYP2_NM,                                 --상담유형2
+                    '' AS CONS_TYP3_NM,                                 --상담유형3
+                    --TEAM.TEAM_NM,                                     --등록자팀
+                    --TU.USER_NM AS ACTP_NM,                            --등록자명
+                    MST.CNSL_MAN AS VOC_ACTP_ID,
+                    MST.CNSL_DT  AS ACPG_DTTM,                          --상담이력등록일
+                    DTL.CNSL_CON AS CONS_MEMO_CNTN  
+                FROM LF_DMUSER.CNSL_MNG MST LEFT OUTER JOIN
+                    LF_DMUSER.CNSL_DTL DTL ON DTL.MEM_NO = MST.MEM_NO  AND DTL.SEQ = MST.SEQ AND DTL.CNSL_SEQ = MST.CNSL_SEQ
+                WHERE MST.MEM_NO = #{mem_no}
+                
+                UNION ALL
+                
+                /* 캠페인 정보 */
+                SELECT 
+                    TO_CHAR(MST.TRGT_CUST_DTPT_ID) AS CONSNO,
+                    MST.MEM_NO,
+                    MST.ACCNT_NO,
+                    '(캠페인)아웃콜' AS ACPG_CHNL_NM,
+                    (SELECT CMPG_NM FROM PS_WILLVI.TB_CMPG_BASI WHERE CMPG_ID = DTL.CMPG_ID) AS CONS_TYP1_NM,
+                    (SELECT SUB_TRGT_LIST_NM FROM PS_WILLVI.TB_SUB_TRGT_LIST_DTL WHERE SUB_TRGT_LIST_ID = DTL.SUB_TRGT_LIST_ID) AS CONS_TYP2_NM,
+                    '' AS CONS_TYP3_NM,
+                    DTL.RGSR_ID,
+                    TO_CHAR(DTL.DPMS_DTTM,'YYYYMMDDHH24MIss') AS ACPG_DTTM,
+                    DTL.DPMS_RESL_CNTN AS CONS_MEMO_CNTN  
+                FROM PS_WILLVI.TB_TRGT_CUST_DTPT MST INNER JOIN
+                    PS_WILLVI.TB_DPMS_RESL_HSTR DTL ON MST.TRGT_CUST_DTPT_ID = DTL.TRGT_CUST_DTPT_ID
+                WHERE 1=1
+                AND MST.CLPH_TLNO = REPLACE(#{clph_tlno}, '-', '')
+            ) MAIN LEFT OUTER JOIN
+                PS_WILLVI.TB_USER TU ON TU.USER_ID = MAIN.ACTP_ID LEFT OUTER JOIN
+                PS_WILLVI.TB_CONS_TEAM TEAM ON TU.TEAM_CD = TEAM.TEAM_CD
+            ORDER BY ACPG_DTTM DESC
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="acpg_dttm_stt != null and acpg_dttm_stt != '' and acpg_dttm_end != null and acpg_dttm_end != ''">
+            AND MAIN_TBL.ACPG_DTTM BETWEEN REPLACE(#{acpg_dttm_stt}, '-', '') || '000000' AND REPLACE(#{acpg_dttm_end}, '-', '') || '235959'
+        </if>
+        <if test="cons_typ1 != null and cons_typ1 != ''">
+            AND MAIN_TBL.CONS_TYP1_NM = #{cons_typ1}
+        </if>
+        <if test="cons_typ2 != null and cons_typ2 != ''">
+            AND MAIN_TBL.CONS_TYP2_NM = #{cons_typ2}
+        </if>
+        <if test="cons_typ3 != null and cons_typ3 != ''">
+            AND MAIN_TBL.CONS_TYP3_NM = #{cons_typ3}
+        </if>
+    </select>
+</mapper>

@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SmartLifeMap">
+	
+	<select id="SmartLifeMap.getMainCount" parameterType="map" resultType="int">
+        SELECT /* SmartLifeMap.getMainCount */
+               COUNT(*)
+          FROM (SELECT NAME
+		             , TEL
+		             , HP
+		             , OSC_CNSL_SEQ
+		             , PRDCT_NM
+		             , PRDCT_NM2
+		             , AGENT_CD
+		             , AGENT_EMP_NM
+		             , MAIN_CONT_TYPE
+		             , FUNNEL
+		             , MEMO
+		             , SLLR_CTEL
+		             , CALL_STTS
+		             , CNSLR
+		             , REG_DTM
+		        FROM OM_OSC_CNSL_MST OCM
+		             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT@DMLIFE TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                     LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT@DMLIFE TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+		        WHERE B2B_STTS = 'SMART'
+		        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+	            </if>
+	            <if test="cnslr != null and cnslr != ''">
+	                AND CNSLR = #{cnslr}
+	            </if>
+	            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+	                AND AGENT_EMP_NM = #{agent_emp_nm}
+	            </if>
+	            <if test="name != null and name != ''">
+	                AND NAME = #{name}
+	            </if>
+	            <if test="hp != null and hp != ''">
+	                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+	            </if>
+	            <if test="memo != null and memo != ''">
+	                AND MEMO LIKE #{memo} || '%'
+	            </if>
+	            <if test="call_stts == '01'">
+	                AND CALL_STTS IS NULL
+	            </if>
+	            <if test="call_stts == '02'">
+	                AND CALL_STTS = '할당대기'
+	            </if>
+	            <if test="call_stts == '03'">
+	                AND CALL_STTS = '가입완료'
+	            </if>
+	            <if test="call_stts == '04'">
+	                AND CALL_STTS NOT IN ('할당대기', '가입완료')
+	            </if>
+	            ) A
+        
+    </select>
+
+    <!-- 온라인회원 가입자 조회 -->
+    <select id="SmartLifeMap.getMainList" parameterType="map" resultType="resultMap">
+        SELECT /* SmartLifeMap.getMainList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY REG_DTM DESC) AS PAGE_INDX
+	             , NAME
+	             , TEL
+	             , HP
+	             , OSC_CNSL_SEQ
+	             , PRDCT_NM
+	             , PRDCT_NM2
+	             , AGENT_CD
+	             , AGENT_EMP_NM
+	             , MAIN_CONT_TYPE
+	             , CASE WHEN FUNNEL = '1' THEN '온라인'
+				        WHEN FUNNEL = '2' THEN '홈쇼핑'
+				        WHEN FUNNEL = '3' THEN '가전'
+				        WHEN FUNNEL = '4' THEN '모바일'
+				        ELSE FUNNEL END AS FUNNEL
+	             , MEMO
+	             , SLLR_CTEL
+	             , CALL_STTS
+	             , CNSLR
+	             , TO_CHAR(REG_DTM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DTM
+	             , TCA.DPMS_RESL_CNTN
+	             , CASE WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD@DMLIFE
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(OCM.HP, -1)) = 'T20100' AND SUBSTR(TCD.RGSN_DTTM, 0, 8) >= '20220303' THEN '윌앤비전'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD@DMLIFE
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(OCM.HP, -1)) = 'T20300' AND SUBSTR(TCD.RGSN_DTTM, 0, 8) >= '20220303' THEN '효성ITX'
+                        WHEN (SELECT CD_NM
+                              FROM LF_DMUSER.COM_CD@DMLIFE
+                              WHERE GRP_CD = '0231'
+                              AND COM_CD = SUBSTR(OCM.HP, -1)) = 'T20900' AND SUBSTR(TCD.RGSN_DTTM, 0, 8) >= '20220303' THEN '리딩아이'
+                   ELSE '' END CNTR_NM
+                 , AGENT_CODE1
+	        FROM OM_OSC_CNSL_MST OCM
+	             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT@DMLIFE TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                 LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT@DMLIFE TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+	        WHERE B2B_STTS = 'SMART'
+	        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+            </if>
+            <if test="cnslr != null and cnslr != ''">
+                AND CNSLR = #{cnslr}
+            </if>
+            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+                AND AGENT_EMP_NM = #{agent_emp_nm}
+            </if>
+            <if test="name != null and name != ''">
+                AND NAME = #{name}
+            </if>
+            <if test="hp != null and hp != ''">
+                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+            </if>
+            <if test="memo != null and memo != ''">
+                AND MEMO LIKE #{memo} || '%'
+            </if>
+            
+            <if test="call_stts == '01'">
+                AND CALL_STTS IS NULL
+            </if>
+            <if test="call_stts == '02'">
+                AND CALL_STTS = '할당대기'
+            </if>
+            <if test="call_stts == '03'">
+                AND CALL_STTS = '가입완료'
+            </if>
+            <if test="call_stts == '04'">
+                AND CALL_STTS NOT IN ('할당대기', '가입완료')
+            </if>
+            
+		) MAIN_TBL
+		WHERE 1=1
+		
+		<if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <select id="SmartLifeMap.existsSmartLifeListData" parameterType="map" resultType="int">
+        SELECT /* SmartLifeMap.existsSmartLifeListData */
+             COUNT(*) AS ICNT
+		FROM OM_OSC_CNSL_MST
+		WHERE B2B_STTS = 'SMART'
+		AND CNSLR IS NULL 
+		AND CALL_STTS IS NULL
+    </select>
+    
+    <insert id="SmartLifeMap.insertSmartLifeList" parameterType="map">
+        BEGIN
+        	UPDATE TB_LGUPLUS_CNSL_MAIN@DMWEB
+        	SET SEND_YN = 'P'
+        	WHERE NVL(SEND_YN, 'N') = 'N';
+        	
+	        INSERT INTO /* DlwUplusMap.insertUplusList */
+	            PS_WILLVI.TB_LGUPLUS_TARGET
+				(
+				    ID_NO, CMPG_ID,	TRGT_LIST_ID, SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, HOME_PRD_NUM,
+				    U_DLR_CD, U_DLR_NM, U_INDC_EMPNO, U_INTG_USER_ID, WH_POS_CD, WH_STORE_NM,
+				    MAIN_CONT_TYPE, U_CMMN_CD_NM, SALES_TYPE, PRDCT_NM, PRDCT_NM2, PRDCT_NM3, NAME,
+				    HP, DISCOUNT_CTN, U_PROD_NO, U_PROD_NM, REG_DTM, CALL_STTS, MEMO, AGENT_EMP_NM,
+				    PRDCT_CD, PRDCT_CD2, PRDCT_CD3, AGENT_EMP_TEL, CNSLR, JOIN_METHOD, 
+				    CALL_TYPE, CALL_DATE, CALL_TIME, CONTRACT_TYPE
+				)
+	        SELECT ID_NO,
+				    '' AS CMPG_ID,
+				    '' AS TRGT_LIST_ID,
+				    '' AS SUB_TRGT_LIST_ID,
+				    '' AS TRGT_CUST_DTPT_ID,
+				    HOME_PRD_NUM,
+				    U_DLR_CD,
+				    U_DLR_NM,
+				    U_INDC_EMPNO,
+				    U_INTG_USER_ID,
+				    WH_POS_CD,
+				    WH_STORE_NM,
+				    MAIN_CONT_TYPE,
+				    U_CMMN_CD_NM,
+				    SALES_TYPE,
+				    PRDCT_NM,
+				    PRDCT_NM2,
+				    PRDCT_NM3,
+				    NAME,
+				    HP,
+				    DISCOUNT_CTN,
+				    U_PROD_NO,
+				    U_PROD_NM,
+				    REG_DTM,
+				    CALL_STTS,
+				    MEMO,
+				    AGENT_EMP_NM,
+				    PRDCT_CD,
+				    PRDCT_CD2,
+				    PRDCT_CD3,
+				    AGENT_EMP_TEL,
+				    CNSLR,
+				    JOIN_METHOD,
+				    CALL_TYPE,
+				    CALL_DATE,
+				    CALL_TIME,
+				    CONTRACT_TYPE
+				FROM TB_LGUPLUS_CNSL_MAIN@DMWEB
+				WHERE 1=1
+				AND SEND_YN = 'P';
+				--AND ID_NO NOT IN (SELECT ID_NO FROM PS_WILLVI.TB_LGUPLUS_TARGET@DMLIFE)
+			
+			UPDATE TB_LGUPLUS_CNSL_MAIN@DMWEB
+			SET SEND_YN = 'Y'
+			WHERE SEND_YN = 'P';
+		
+		END;
+    </insert>
+    
+    <update id="SmartLifeMap.updateOnlineStatAlct" parameterType="map" >
+        UPDATE /* SmartLifeMap.updateOnlineStatAlct */
+               OM_OSC_CNSL_MST
+           SET CNSLR = #{user_nm}
+                 <if test="call_stts != null and call_stts != ''">
+                 ,CALL_STTS = #{call_stts}
+                 </if>
+        WHERE B2B_STTS  = #{b2b_stts} AND OSC_CNSL_SEQ =#{osc_cnsl_seq}
+    </update>
+    
+    <select id="SmartLifeMap.getDliveMainCount" parameterType="map" resultType="int">
+        SELECT /* SmartLifeMap.getDliveMainCount */
+               COUNT(*)
+          FROM (SELECT NAME
+		             , TEL
+		             , HP
+		             , OSC_CNSL_SEQ
+		             , PRDCT_NM
+		             , PRDCT_NM2
+		             , AGENT_CD
+		             , AGENT_EMP_NM
+		             , MAIN_CONT_TYPE
+		             , FUNNEL
+		             , MEMO
+		             , SLLR_CTEL
+		             , CALL_STTS
+		             , CNSLR
+		             , REG_DTM
+		        FROM OM_OSC_CNSL_MST OCM
+		             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT@DMLIFE TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                     LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT@DMLIFE TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+		        WHERE B2B_STTS = 'DLIVE'
+		        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+	                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+	            </if>
+	            <if test="cnslr != null and cnslr != ''">
+	                AND CNSLR = #{cnslr}
+	            </if>
+	            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+	                AND AGENT_EMP_NM = #{agent_emp_nm}
+	            </if>
+	            <if test="name != null and name != ''">
+	                AND NAME = #{name}
+	            </if>
+	            <if test="hp != null and hp != ''">
+	                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+	            </if>
+	            <if test="memo != null and memo != ''">
+	                AND MEMO LIKE #{memo} || '%'
+	            </if>
+	            <if test="call_stts == '01'">
+	                AND CALL_STTS IS NULL
+	            </if>
+	            <if test="call_stts == '02'">
+	                AND CALL_STTS = '할당대기'
+	            </if>
+	            <if test="call_stts == '03'">
+	                AND CALL_STTS = '가입완료'
+	            </if>
+	            <if test="call_stts == '04'">
+	                AND CALL_STTS NOT IN ('할당대기', '가입완료')
+	            </if>
+	            ) A
+        
+    </select>
+
+    <!-- 온라인회원 가입자 조회 -->
+    <select id="SmartLifeMap.getDliveMainList" parameterType="map" resultType="resultMap">
+        SELECT /* SmartLifeMap.getDliveMainList */
+        	MAIN_TBL.*
+        FROM
+        (
+        	SELECT ROW_NUMBER() OVER(ORDER BY REG_DTM DESC) AS PAGE_INDX
+	             , OCM.NAME
+	             , OCM.HP
+	             , OCM.OSC_CNSL_SEQ
+	             , OCM.PRDCT_NM
+	             , OCM.AGENT_EMP_NM
+	             , OCM.MAIN_CONT_TYPE
+	             , OCM.MEMO
+	             , OCM.SLLR_NUM
+                 , OCM.SLLR_PART
+                 , OCM.SLLR_CTEL
+	             , OCM.CALL_STTS
+	             , OCM.CNSLR
+	             , TO_CHAR(REG_DTM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DTM
+	             , TCA.DPMS_RESL_CNTN
+	             , OCM.AGENT_NM
+                 , OCM.CALLTIME
+                 , OCM.CSTMR_UNQ_NUM
+                 , OCM.JOIN_PROD
+	        FROM OM_OSC_CNSL_MST OCM
+	             LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_DTPT@DMLIFE TCD ON TO_CHAR(OCM.OSC_CNSL_SEQ) = TCD.PRMV_ID
+                 LEFT OUTER JOIN PS_WILLVI.TB_TRGT_CUST_ALCT@DMLIFE TCA ON TCD.SUB_TRGT_LIST_ID = TCA.SUB_TRGT_LIST_ID AND TCD.TRGT_CUST_DTPT_ID = TCA.TRGT_CUST_DTPT_ID
+	        WHERE B2B_STTS = 'DLIVE'
+	        <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(REG_DTM, 'YYYYMMDD') BETWEEN #{stt_dt} and #{end_dt}
+            </if>
+            <if test="cnslr != null and cnslr != ''">
+                AND CNSLR = #{cnslr}
+            </if>
+            <if test="agent_emp_nm != null and agent_emp_nm != ''">
+                AND AGENT_EMP_NM = #{agent_emp_nm}
+            </if>
+            <if test="name != null and name != ''">
+                AND NAME = #{name}
+            </if>
+            <if test="hp != null and hp != ''">
+                AND REPLACE(HP,'-','') = REPLACE(#{hp},'-','')
+            </if>
+            <if test="memo != null and memo != ''">
+                AND MEMO LIKE #{memo} || '%'
+            </if>
+            
+            <if test="call_stts == '01'">
+                AND CALL_STTS IS NULL
+            </if>
+            <if test="call_stts == '02'">
+                AND CALL_STTS = '할당대기'
+            </if>
+            <if test="call_stts == '03'">
+                AND CALL_STTS = '가입완료'
+            </if>
+            <if test="call_stts == '04'">
+                AND CALL_STTS NOT IN ('할당대기', '가입완료')
+            </if>
+            
+		) MAIN_TBL
+		WHERE 1=1
+		
+		<if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+</mapper>

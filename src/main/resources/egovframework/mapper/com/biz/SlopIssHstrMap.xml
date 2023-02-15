@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SlopIssHstrMap">
+    <!-- 사업원장관리  -> 영업 이슈정보 이력 검색 조건 -->
+    <sql id="SlopIssHstrMap.selectCondition_fragment">
+     <where>
+          <if test="slop_iss_id != null and slop_iss_id != ''">
+                AND SLOP_ISS_ID = #{slop_iss_id}
+          </if>
+     </where>
+    </sql>
+    <!-- //사업원장관리  -> 영업 이슈정보 이력 검색조건 -->
+
+
+    <!-- 사업원장관리  -> 영업 이슈정보 이력 건수 조회 -->
+    <select id="SlopIssHstrMap.getSlopIssHstrCount" parameterType="map" resultType="int">
+        SELECT /* SlopIssHstrMap.getSlopIssHstrCount */
+               COUNT(*)
+          FROM TB_SLOP_ISS_HSTR
+         <include refid="SlopIssHstrMap.selectCondition_fragment" />
+    </select>
+    <!-- //사업원장관리  -> 영업 이슈정보 이력 건수 조회 -->
+
+    <!-- 사업원장관리  -> 영업 이슈정보 이력 목록 조회 -->
+    <select id="SlopIssHstrMap.getSlopIssHstrList" parameterType="map" resultType="resultMap">
+      SELECT /* SlopIssHstrMap.getSlopIssHstrList */
+            C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT SLOP_ISS_ID
+                               ,TO_CHAR(A.CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM
+                              ,A.BIZ_ID
+                              ,A.SLOP_ISS_TITL
+                              ,A.SLOP_ISS_CNTN
+                              ,A.SLOP_ISS_STAT_CD
+                              ,A.ISS_OCCR_DT
+                              ,A.RGSR_ID
+                              ,A.RGSN_DTTM
+                              ,A.AMND_ID
+                              ,A.AMNT_DTTM
+                              ,(SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                              ,(SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                              ,GETCODENM('PMS220', A.SLOP_ISS_STAT_CD, D.CNTR_CD) AS SLOP_ISS_STAT_NM
+                              ,D.CNTR_CD
+                          FROM TB_SLOP_ISS_HSTR A JOIN TB_BIZ_BASI D ON A.BIZ_ID = D.BIZ_ID
+        <include refid="SlopIssHstrMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                         ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                    ) B
+                   )C
+                <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+              <![CDATA[
+                WHERE PAGE_INDX >= #{startLine}
+                  AND PAGE_INDX < #{endLine}
+              ]]>
+           </if>
+    </select>
+    <!-- //사업원장관리  -> 영업 이슈정보 이력 목록 조회 -->
+
+    <!-- 사업원장관리 -> 영업이슈정보이력 등록 -->
+    <insert id="SlopIssHstrMap.insertSlopIssHstr" parameterType="map">
+            INSERT /* lopIssHstrMap.insertSlopIssHstr */
+              INTO TB_SLOP_ISS_HSTR
+                 ( CHNG_DTTM
+                    ,SLOP_ISS_ID
+                    ,BIZ_ID
+                    ,SLOP_ISS_TITL
+                    ,SLOP_ISS_CNTN
+                    ,SLOP_ISS_STAT_CD
+                    ,ISS_OCCR_DT
+                    ,RGSR_ID
+                    ,RGSN_DTTM
+                    ,AMND_ID
+                    ,AMNT_DTTM)
+            SELECT SYSTIMESTAMP
+                    , SLOP_ISS_ID
+                    , BIZ_ID
+                    , SLOP_ISS_TITL
+                    , SLOP_ISS_CNTN
+                    , SLOP_ISS_STAT_CD
+                    , ISS_OCCR_DT
+                    , RGSR_ID
+                    , RGSN_DTTM
+                    , #{amnd_id}
+                    , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+              FROM TB_SLOP_ISS_DTL
+             WHERE BIZ_ID = #{biz_id}
+               AND SLOP_ISS_ID = #{slop_iss_id}
+     </insert>
+    <!-- // 사업원장관리 -> 영업이슈정보이력 등록 -->
+
+    <!-- //사업원장관리  -> 영업 이슈정보이력 삭제 -->
+    <delete id="SlopIssHstrMap.deleteSlopIssHstr" parameterType="map">
+      DELETE /* SlopIssHstrMap.deleteSlopIssHstr */
+        FROM TB_SLOP_ISS_HSTR
+       WHERE SLOP_ISS_ID = #{slop_iss_id}
+    </delete>
+    <!-- //사업원장관리  -> 영업 이슈정보이력 삭제 -->
+</mapper>

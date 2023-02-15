@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS994900" classname="PS993700" inheritanceid="" position="absolute 0 0 569 136" titletext="애큐온reject회원" onload="PS994900_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_popup" class="sta_popupBg1" enable="false" position="absolute 0 0 569 131"/>
+        <Button id="btn_close" taborder="0" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 541 8 561 27"/>
+        <Static id="stc_30" text="애큐온REJECT 회원" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 248 28"/>
+        <Static id="sta_GrayLine" class="sta_WF_Line1" position="absolute 11 65 557 66"/>
+        <Static id="stc_01" onclick="div_Work_tab_02_tabpage1_stc_01_onclick" class="sta_workData" position="absolute 104 66 558 92"/>
+        <Static id="stc_04" class="sta_workData" position="absolute 104 91 558 117" enable="false"/>
+        <Static id="stc_09" text="회원명" class="sta_workLabel1" position="absolute 279 66 373 92" style="font:Dotum,8;" validate=""/>
+        <Edit id="edt_mem_nm" taborder="6" inputtype="number" position="absolute 374 69 540 89" maxlength="16" enable="true" readonly="true"/>
+        <Button id="btn_cancel" taborder="15" text="닫기" onclick="btn_close_onclick" position="absolute 485 42 557 62" tooltiptext="닫기" style="border:0 none #000000ff ;padding:0 0 0 0;"/>
+        <Button id="btn_save" taborder="18" text="저장" position="absolute 410 42 484 62" style="border:0 none #000000ff ;padding:0 0 0 0;" onclick="btn_onclick"/>
+        <Static id="stc_text_card" text="신청구분" class="sta_workLabel1" position="absolute 11 91 105 117" style="font:Dotum,8;" validate=""/>
+        <Static id="stc_03" text="회원번호" class="sta_workLabel1" position="absolute 11 66 105 92" style="font:Dotum,8;" validate=""/>
+        <Static id="stc_alert2" visible="true" position2="absolute r:274 w:68 t:69 h:23" positiontype="position2" style="color:red;font:arial,8;"/>
+        <Edit id="edt_accnt_no" taborder="39" inputtype="number" readonly="true" maxlength="16" position="absolute 107 69 273 89"/>
+        <Edit id="i_accnt_no" taborder="40" inputtype="number" maxlength="4" ontextchanged="fn_ontextchanged" position="absolute 107 69 269 89" style="align:center middle;"/>
+        <Edit id="i_mem_nm" taborder="41" inputtype="number" maxlength="4" ontextchanged="fn_ontextchanged" position="absolute 377 69 539 89" style="align:center middle;"/>
+        <Combo id="i_rebit" taborder="42" position="absolute 109 94 267 114" index="-1" onitemchanged="i_rebit_onitemchanged" displayrowcount="3" codecolumn="codecolumn" datacolumn="datacolumn">
+          <Dataset id="innerdataset">
+            <ColumnInfo>
+              <Column id="codecolumn" size="256"/>
+              <Column id="datacolumn" size="256"/>
+            </ColumnInfo>
+            <Rows>
+              <Row>
+                <Col id="codecolumn">1</Col>
+                <Col id="datacolumn">오류</Col>
+              </Row>
+              <Row>
+                <Col id="codecolumn">0</Col>
+                <Col id="datacolumn">신청보류</Col>
+              </Row>
+              <Row>
+                <Col id="codecolumn">2</Col>
+                <Col id="datacolumn">재발행</Col>
+              </Row>
+              <Row>
+                <Col id="codecolumn">3</Col>
+                <Col id="datacolumn">완료</Col>
+              </Row>
+            </Rows>
+          </Dataset>
+        </Combo>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_in" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="i_accnt_no" type="STRING" size="256"/>
+          <Column id="i_rebit" type="STRING" size="256"/>
+          <Column id="i_mem_no" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+var gv_rslMsg = "";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS994900_onload(obj:Form, e:LoadEventInfo)
+{
+		 
+	   i_accnt_no.value=p_accnt_no;
+	   i_mem_nm.value =p_smem_nm;
+	   i_rebit.value =p_saco_rebit;
+	 } 
+
+function fn_callBack(svcid, errcd, errmsg) 
+{   
+     
+	if (errcd != 0) {
+		return;
+	}
+     
+	switch (svcid) {
+		
+		case "acuonupdate":	//메인산출 조회
+			fn_postSearch();
+			break;
+			
+	
+	}
+}
+
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	 
+    var szSvcid = ""
+    var szController = ""
+    var szInDs = ""
+    var szOutDs = ""
+    var szParam = ""
+    var szRetCallback = ""
+    
+			ds_in.clearData();
+    		ds_in.addRow();
+
+			ds_in.setColumn(0, "i_accnt_no"	, i_accnt_no.value);
+			ds_in.setColumn(0, "i_rebit"	, i_rebit.value);
+		
+    
+	
+		szSvcid       = "acuonupdate";
+		szController  = "/acuo/trans/acuonupdate";
+		szInDs        = "ds_input=ds_in";
+		szOutDs       = "ds_list_tmp=ds_output";
+		szParam       = "";
+		szRetCallback = "fn_callBack";
+		
+		
+		// 트랜젝션 공통함수 호출
+	gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+
+
+//조회 결과
+function fn_postSearch()
+{
+	
+		if(ds_in.rowcount < 1) {
+			ds_in.clearData();
+		}
+}	
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

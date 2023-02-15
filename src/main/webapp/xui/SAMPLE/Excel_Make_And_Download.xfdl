@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Excel_Make_And_Download" classname="Excel_Make_And_Download" inheritanceid="" position="absolute 0 0 999 795" titletext="엑셀_생성_및_다운로드" onload="frm_download">
+    <Layouts>
+      <Layout>
+        <GroupBox id="GroupBox00" text="엑셀파일 생성하고 다운로드" position="absolute 26 73 950 254"/>
+        <Button id="btn_http" taborder="0" text="엑셀다운로드테스트" onclick="btn_http_onclick" position="absolute 45 128 189 158"/>
+        <ProgressBar id="pgb_download" taborder="1" max="100" min="0" visible="false" position="absolute 45 95 189 120"/>
+        <Static id="stc_04" class="sta_workSrcBg" position="absolute 0 7 989 49" anchor="left top right">
+          <Layouts>
+            <Layout width="989" height="42"/>
+          </Layouts>
+        </Static>
+        <ImageViewer id="img_loading" taborder="2" position="absolute 195 95 350 233" image="URL('IMG::loading_gray.gif')" visible="false"/>
+        <Static id="Static00" position="absolute 385 92 900 233" style="border:1 solid #000000ff ;" text="로딩 이미지 IMG::loading_gray.gif, IMG::loading_transparent.gif 중 하나로 사용하면 됨"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <HttpObject id="HttpObject00" onload="HttpObject00_onload" onstatus="HttpObject00_onstatus" timeout="180"/>
+      <VirtualFile id="VirtualFile00"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "LIB::lib_All.xjs";
+
+/*******************************************************************************/
+/* 엑셀파일 생성하고 다운로드 - 시작 */
+/*******************************************************************************/
+function btn_http_onclick(obj:Button,  e:ClickEventInfo)
+{
+
+	obj.enable = false;
+	var sUrl = application.services["SVC"].url;
+    sUrl = sUrl + "/sample/getProductList?prod_cd=1234";
+    img_loading.visible = true;
+    
+    /*
+    pgb_download.visible = true;
+	pgb_download.pos = 10;
+	*/
+	
+	VirtualFile00.open("C:\\http.xls", VirtualFile.openWrite );	//내문서로 다운로드 받음. 파일명 지정함.
+	var bSucc = HttpObject00.download(sUrl, VirtualFile00 ,true);
+}
+
+function HttpObject00_onload(obj:HttpObject, e:HttpObjLoadEventInfo)
+{
+	if( e.errormsg == "Success" ) {
+		alert("다운로드가 완료되었습니다."); 
+		btn_http.enable =  true;
+		img_loading.visible = false;
+	}
+	if( e.errormsg == "Fail" ) {
+		alert("다운로드 중 오류가 발생하였습니다."); 
+		btn_http.enable =  true;
+		/* pgb_download.pos = 0; 
+			pgb_download.visible = false;
+		*/
+		
+		img_loading.visible = false;
+	}
+}
+
+function HttpObject00_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo)
+{
+	/*
+	pgb_download.pos = e.status;
+	*/
+	if (e.status >= 100) {
+		// pgb_download.visible = false;
+		img_loading.visible = false;
+	}
+}
+/*******************************************************************************/
+/* 엑셀파일 생성하고 다운로드 - 끝 */
+/*******************************************************************************/]]></Script>
+  </Form>
+</FDL>

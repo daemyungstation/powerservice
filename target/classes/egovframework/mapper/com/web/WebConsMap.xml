@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WebConsMap">
+
+    <sql id="WebConsMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+
+            <if test="cons_stat_cd != null and cons_stat_cd != ''">
+                AND CONS_STAT_CD = #{cons_stat_cd}
+            </if>
+
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+
+            <if test="consno_grop_no != null and consno_grop_no != ''">
+                AND CONSNO_GROP_NO = #{consno_grop_no}
+            </if>
+
+            <if test="chpr_id != null and chpr_id != '' and pagetype == 'usr'">
+                AND (CHPR_ID = #{chpr_id} OR CHPR_ID IS NULL)
+            </if>
+
+            <if test="web_consno != null and web_consno != ''">
+                AND WEB_CONSNO = #{web_consno}
+            </if>
+
+            <if test="dsps_stat_cd != null and dsps_stat_cd != ''">
+               <choose>
+                   <when test="dsps_stat_cd.equalsIgnoreCase('10')">
+                       AND DSPS_STAT_CD = #{dsps_stat_cd} AND CHPR_ID IS NOT NULL
+                   </when>
+                   <otherwise>
+                       AND DSPS_STAT_CD = #{dsps_stat_cd}
+                   </otherwise>
+               </choose>
+            </if>
+
+            <if test="startd != null and startd != '' and endd != null and endd != ''">
+                AND ACPG_DTTM BETWEEN REPLACE(#{startd}, '-', '') || '000000' AND REPLACE(#{endd}, '-', '') || '235959'
+            </if>
+
+            <if test="searchChprType != null and searchChprType != ''">
+                <if test="searchChprType.equalsIgnoreCase('Y') ">
+                    AND CHPR_ID IS NOT NULL
+                </if>
+                <if test="searchChprType.equalsIgnoreCase('N') ">
+                    AND CHPR_ID IS NULL
+                </if>
+            </if>
+
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'web_acpgno'">
+                    AND WEB_ACPGNO LIKE '%' || #{searchValue} || '%'
+                </if>
+
+                <if test="searchType == 'web_custnm'">
+                    AND WEB_CUSTNM LIKE '%' || #{searchValue} || '%'
+                </if>
+
+                <if test="searchType == 'chpr_nm'">
+                    AND CHPR_NM LIKE '%' || #{searchValue} || '%'
+                </if>
+           </if>
+        </where>
+    </sql>
+
+    <select id="WebConsMap.getConsList" parameterType="map" resultType="resultMap">
+        SELECT /* WebConsMap.getConsList */
+               C.*
+             , DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAY_FLAG
+             , GETCODENM('CNS060', ARS_SRVC_ADDR, CNTR_CD) AS ARS_SRVC_ADDR_NM
+             , GETCODENM('CNS010', ACPG_CHNL_CD, CNTR_CD) AS ACPG_CHNL_NM
+             , GETCODENM('CNS130', ACPG_CHNL_DTPT_CD, CNTR_CD) AS ACPG_CHNL_DTPT_NM
+             , GETCODENM('CNS140', ACPG_TRGT_CD, CNTR_CD) AS ACPG_TRGT_NM
+             , GETCODENM('CNS150', CLNT_CUST_RLTN_CD, CNTR_CD) AS CLNT_CUST_RLTN_NM
+             , GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD) AS CONS_STAT_NM
+             , GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, CNTR_CD) AS CONS_DSPSMDDL_DTPT_NM
+             , GETCODENM('CUS010', CUST_TEND_CD, CNTR_CD) AS CUST_TEND_NM
+             , GETCODENM('CUS020', CUST_DIV_CD, CNTR_CD) AS CUST_DIV_NM
+             , GETCODENM('CUS030', CUST_TYP_CD, CNTR_CD) AS CUST_TYP_NM
+             , GETCODENM('CUS090', GNDR_CD, CNTR_CD) AS GNDR_NM
+             , GETCODENM('CUS120', NTFR_DIV_CD, CNTR_CD) AS NTFR_DIV_NM
+             , GETCODENM('CUS130', SLCN_LUNR_DIV_CD, CNTR_CD) AS SLCN_LUNR_DIV_NM
+             , GETCODENM('CUS140', BZTP_CD, CNTR_CD) AS BZTP_NM
+             , GETCODENM('CUS150', BIZ_ITMS_CD, CNTR_CD) AS BIZ_ITMS_NM
+             , GETCODENM('CUS160', BZST_CD, CNTR_CD) AS BZST_NM
+             , FN_GETHRCHCDNM('CNS010', FIST_CONS_CD, CNTR_CD) AS FIST_CONS_NM
+             , FN_GETHRCHCDNM('CNS010', FIST_CONS_DTLS_CD, CNTR_CD) AS FIST_CONS_DTLS_NM
+             , (TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60 AS RECRNC_LEFT_TM
+             , (CASE WHEN TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') > SYSDATE
+                          THEN TRUNC(TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) || '일 ' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE), 1) * 24), 2, 0) || ':' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24, 1) * 60), 2, 0) || ':' ||
+                          LPAD(TRUNC(ROUND(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60, 1) * 60)), 2, 0)
+                     ELSE TRUNC(SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || ':' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || ':' ||
+                          LPAD(TRUNC(ROUND(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24 * 60, 1) * 60)), 2, 0)
+                END) AS RECRNC_TERM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.ACTP_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS ACTP_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.ACTP_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS ACTP_TEAM2_NM
+             , (SUBSTR(C.ZPCD, 1, 3) || '-' || SUBSTR(C.ZPCD, 4, 6)) AS ZPCD2
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.RECRNC_DT || C.RECRNC_HRMN || '00'
+                          FROM TB_RECRNC_RESR_DTL C
+                         WHERE C.CONSNO = B.CONSNO) AS RECRNC_DTTM
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.ACTP_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS ACTP_TEAM1_CD
+                  FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO, A.ARS_SRVC_ADDR, A.INCO_TLNO
+                             , A.CALL_ID, A.CUST_ID, A.ACPG_CHNL_CD, A.ACPG_CHNL_DTPT_CD, A.ACPG_DTTM
+                             , A.ACTP_ID, A.TOTL_CONS_HR, A.ACPG_TRGT_CD, A.CLNT_NM, A.CLNT_CNTC_TLNO
+                             , A.CLNT_CUST_RLTN_CD, A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD, A.CONS_QUST_CNTN
+                             , A.CONS_ANSR_CNTN, A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD, A.CONS_DSPS_DTTM, A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.TRCT_BOX_ID, A.TRCT_SQNO, A.ADMR_AMNT_YN, A.ADMR_ID
+                             , A.ADMR_AMNT_DTTM, A.CONS_DSPSMDDL_DTPT_CD AS OLD_CONS_DSPSMDDL_DTPT_CD
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+
+                             , B.CUST_NM, B.CUST_TYP_CD, B.CUST_DIV_CD, B.CUST_TEND_CD, B.ZPCD
+                             , B.ADDR_OLNW_YN, B.BASI_ADDR, B.DTPT_ADDR, B.TLNO, B.CLPH_NO
+                             , B.FAX_NO, B.EMIL_ADDR, B.UNFC_CSNO, B.HMPG_ID, B.CUST_IDNT_NO
+                             , B.SNS_ID, B.FIST_CONS_CD, B.FIST_CONS_DTLS_CD, B.CUST_BRDT, B.SLCN_LUNR_DIV_CD
+                             , B.GNDR_CD, B.NTFR_DIV_CD, B.ATWR_NM, B.ATWR_TLNO, B.ATWR_ADDR_OLNW_YN
+                             , B.ATWR_BASI_ADDR, B.ATWR_DTPT_ADDR, B.ATWR_ZPCD, B.RPPR_NM, B.BZTP_CD
+                             , B.BIZ_ITMS_CD, B.BZST_CD
+
+                             , (SELECT C.CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT C.CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT C.CONS_TYP_NM
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_NM
+                             , (SELECT C.TEAM_CD
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_TEAM2_CD
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.CHPR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CHPR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_CONS A
+                             , TB_CUST_BASI B
+                         WHERE A.CUST_ID = B.CUST_ID(+)
+                            <if test="cntr_cd != null and cntr_cd != ''">
+                                AND A.CNTR_CD = #{cntr_cd}
+                            </if>
+                            <if test="consno != null and consno != ''">
+                                AND CONSNO = #{consno}
+                            </if>
+                            <if test="web_consno != null and web_consno != ''">
+                                AND CONSNO = (SELECT CONSNO FROM TB_WEB_CONS WHERE WEB_CONSNO = #{web_consno})
+                            </if>
+        <choose>
+            <when test="orderBy == null or orderBy == ''">
+                         ORDER BY ACPG_DTTM ASC
+            </when>
+            <otherwise>
+                         ORDER BY ${orderBy} ${orderDirection}
+            </otherwise>
+        </choose>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <update id ="WebConsMap.updateWebConsChpr" parameterType="map">
+       UPDATE /* WebConsMap.updateWebConsChpr */
+              TB_WEB_CONS
+          SET
+             <choose>
+                <when test="save_flag.equalsIgnoreCase('Z')">
+                    DSSR_ID =#{dssr_id}
+                  , DSPS_DTTM=TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                  , ANSR_CNTN = #{ansr_cntn}
+                  , DSPS_STAT_CD =#{dsps_stat_cd}
+                </when>
+                <when test="save_flag.equalsIgnoreCase('C')">
+                    CONSNO =#{consno}
+                  , CUST_ID = #{cust_id}
+                </when>
+                <otherwise>
+                    CHPR_ID =#{chpr_id}
+                  , DSSR_ID =#{dssr_id}
+                  , DSPS_DTTM=TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                </otherwise>
+             </choose>
+        WHERE WEB_CONSNO = #{web_consno}
+    </update>
+
+    <select id="WebConsMap.getWebConsCount" parameterType="map" resultType="int">
+        SELECT /* WebConsMap.getWebConsCount */
+               COUNT(*)
+          FROM (SELECT A.*
+                    , (SELECT USER_NM FROM TB_USER WHERE USER_ID = A.CHPR_ID) CHPR_NM
+                    , (SELECT CONS_STAT_CD FROM TB_CONS TC WHERE TC.CONSNO = A.CONSNO) CONS_STAT_CD
+                 FROM TB_WEB_CONS A )
+       <include refid="WebConsMap.selectCondition_fragment" />
+    </select>
+
+    <select id="WebConsMap.getWebConsList" parameterType="map" resultType="resultMap">
+        SELECT /* WebConsMap.getWebConsList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                     , GETCODENM('CNS030', CONS_STAT_CD , CNTR_CD ) AS CONS_STAT_NM
+                         FROM (SELECT A.*
+                                    , (SELECT USER_NM FROM TB_USER WHERE USER_ID = A.CHPR_ID ) CHPR_NM
+                                    , (SELECT USER_NM FROM TB_USER WHERE USER_ID = A.DSSR_ID ) DSSR_NM
+                                    , (SELECT CONS_STAT_CD FROM TB_CONS WHERE CONSNO = A.CONSNO) CONS_STAT_CD
+                                    , (SELECT CONS_DSPSMDDL_DTPT_CD FROM TB_CONS WHERE CONSNO = A.CONSNO) CONS_DSPSMDDL_DTPT_CD
+                                    , GETCODENM('WEB100', A.DSPS_STAT_CD , A.CNTR_CD) AS DSPS_STAT_NM
+                                    , GETCODENM('WEB110', A.WEB_ANSRMNS , A.CNTR_CD) AS WEB_ANSRMNS_NM
+                                 FROM TB_WEB_CONS A
+                             <choose>
+                                 <when test="orderBy != null and orderBy != ''">
+                             ORDER BY ${orderBy} ${orderDirection}
+                                 </when>
+                                 <otherwise>
+                             ORDER BY ACPG_DTTM DESC
+                                 </otherwise>
+                             </choose>
+                              ) B
+        <include refid="WebConsMap.selectCondition_fragment" />
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+    <select id="WebConsMap.getDspsPsct" parameterType="map" resultType="resultMap">
+        SELECT /* WebConsMap.getDspsPsct */
+               NVL(ROUND(CMPL_CNT/DECODE(TOTAL_CNT,0,1,TOTAL_CNT)*100,1), 0) AS DSPS_PRCG
+             , NVL(ROUND((ACPG_CNT+DSPS_CNT)/DECODE(TOTAL_CNT,0,1,TOTAL_CNT)*100,1), 0) AS YTUN_PRCG
+             , NVL(ACPG_CNT, 0)AS ACPG_CNT
+             , NVL(DSPS_CNT, 0)AS DSPS_CNT
+             , NVL(CMPL_CNT, 0)AS CMPL_CNT
+             , NVL(TOTAL_CNT, 0)AS TOTAL_CNT
+          FROM (SELECT SUM(CASE WHEN DSPS_STAT_CD='10' OR DSPS_STAT_CD IS NULL
+                           THEN CNT ELSE 0 END) AS ACPG_CNT
+                     , SUM(CASE
+                           WHEN DSPS_STAT_CD='20'
+                           THEN CNT ELSE 0 END) AS DSPS_CNT
+                     , SUM(CASE WHEN DSPS_STAT_CD='30'
+                           THEN CNT ELSE 0 END) AS CMPL_CNT
+                     , SUM(CNT) AS TOTAL_CNT
+                 FROM (SELECT DSPS_STAT_CD
+                            , COUNT(*) AS CNT
+                         FROM TB_WEB_CONS
+                        WHERE DSSR_ID = #{dssr_id}
+                   <if test="srch_typ == 'today'">
+                          AND DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000'
+                          AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+                   </if>
+                   <if test="srch_typ == 'yesterday'">
+                          AND DSPS_DTTM BETWEEN TO_CHAR(SYSDATE - 1, 'YYYYMMDD') || '000000'
+                          AND TO_CHAR(SYSDATE - 1, 'YYYYMMDD') || '235959'
+                   </if>
+                   <if test="srch_typ == 'week'">
+                          AND DSPS_DTTM BETWEEN TO_CHAR(TRUNC(SYSDATE, 'D'), 'YYYYMMDD') || '000000'
+                          AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+                   </if>
+                   <if test="srch_typ == 'month'">
+                          AND DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01000000'
+                          AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+                   </if>
+                     GROUP BY DSPS_STAT_CD ) A
+              ) B
+    </select>
+
+    <select id="WebConsMap.getWebConsChartWeeksList" parameterType="map" resultType="resultMap">
+        SELECT /* WebConsMap.getWebConsChartWeeksList */
+               TO_CHAR(TO_DATE(DT, 'YYYYMMDD'), 'DD') || '(' || DECODE(TO_CHAR(TO_DATE(DT, 'YYYYMMDD'), 'D'), 1, '일', 2, '월', 3, '화', 4, '수', 5, '목', 6, '금', 7, '토') || ')' AS X
+             , NVL(ING_CNT, 0) AS ING_CNT
+             , NVL(COM_CNT, 0) AS COM_CNT
+          FROM (SELECT SUBSTR(${dt_typ}, 1, 8) AS ACPG_DT
+                     , SUM(CASE WHEN (DSPS_STAT_CD = '10' OR DSPS_STAT_CD = '20') THEN 1 ELSE 0 END) AS ING_CNT
+                     , SUM(CASE WHEN (DSPS_STAT_CD = '30') THEN 1 ELSE 0 END) AS COM_CNT
+                  FROM TB_WEB_CONS A
+                 WHERE A.CNTR_CD = #{cntr_cd}
+                   AND A.DSSR_ID = #{dssr_id}
+        <![CDATA[
+                 GROUP BY SUBSTR(${dt_typ}, 1, 8)
+               ) A
+             , (SELECT TO_CHAR(TRUNC(SYSDATE, 'D') + LEVEL - 1, 'YYYYMMDD') AS DT
+                  FROM DUAL
+               CONNECT BY LEVEL <= (TRUNC(SYSDATE, 'D') + 6) - TRUNC(SYSDATE, 'D') + 1
+               ) B
+         WHERE A.ACPG_DT(+) = B.DT
+      ORDER BY B.DT ASC
+        ]]>
+    </select>
+
+</mapper>

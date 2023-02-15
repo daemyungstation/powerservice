@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS230201" classname="팝업가이드" inheritanceid="" position="absolute 0 0 650 206" titletext="평가지등록" onload="PS230201_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 0 650 206"/>
+        <Static id="stc_30" text="평가지 등록" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Static id="stc_25" text="평가지 등록" class="sta_workTitle2" position="absolute 10 52 107 72"/>
+        <Static id="sta_GrayLine01" class="sta_WF_Line1" position="absolute 10 72 638 73"/>
+        <Static id="stc_37" text="평가지명" class="sta_workLabel1_P" position="absolute 10 73 108 99" style="font:Dotum,8;" validate=""/>
+        <Static id="stc_39" text="내용" class="sta_workLabel1" position="absolute 10 98 108 195" style="align:left middle;font:Dotum,8;" validate=""/>
+        <Static id="stc_40" class="sta_workData" position="absolute 107 73 638 99"/>
+        <Static id="stc_42" class="sta_workData" position="absolute 107 98 638 195"/>
+        <Button id="btn_close" taborder="1" text="닫기" onclick="btn_close_onclick" class="btn_WF_Common" position="absolute 566 49 638 69" tooltiptext="행추가" style="padding:0 0 0 0;"/>
+        <Button id="btn_Save" taborder="1" text="저장" onclick="btn_Save_onclick" class="btn_WF_Common" position="absolute 492 49 564 69" tooltiptext="저장" style="padding:0 0 0 0;"/>
+        <Button id="btn_Close" taborder="4" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 619 8 639 27"/>
+        <Edit id="edt_evst_nm" taborder="14" position="absolute 110 76 635 96" maxlength="100" lengthunit="utf8"/>
+        <TextArea id="TextArea_evst_expi" taborder="15" position="absolute 110 101 635 192" lengthunit="utf8" maxlength="500"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="evst_nm" type="STRING" size="256"/>
+          <Column id="evst_expi" type="STRING" size="256"/>
+          <Column id="evlt_qsit_cnt" type="STRING" size="256"/>
+          <Column id="evlt_totl_scr" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS230201_onload(obj:Form, e:LoadEventInfo)
+{
+
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {
+			case "saveEvstDtl":
+				opener.fn_commSearch(gfn_getCommTypeInit());
+				close();
+ 			break;	
+ 				
+		}	
+ 	}		
+}
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//조회
+function fn_save()
+{
+	ds_inqCndt.clearData();
+	ds_inqCndt.addRow();
+	ds_inqCndt.setColumn(0, "evst_nm", edt_evst_nm.value);//평가지명
+	ds_inqCndt.setColumn(0, "evst_expi", TextArea_evst_expi.value);//내용
+	ds_inqCndt.setColumn(0, "evlt_qsit_cnt", "0");//평가 문항 수
+	ds_inqCndt.setColumn(0, "evlt_totl_scr", "0");//평가 총 점수
+		
+	var szSvcid       = "saveEvstDtl";
+    var szController  = "/evst-dtl/save";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+	
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function btn_Save_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (gfn_isNull(edt_evst_nm.value)) {
+		alert("평가지명을 입력하세요");
+		edt_evst_nm.setFocus();
+		return false;
+	}
+	fn_save();
+}
+]]></Script>
+  </Form>
+</FDL>

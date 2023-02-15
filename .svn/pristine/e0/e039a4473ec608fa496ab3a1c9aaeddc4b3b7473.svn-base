@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ConsNewTypeMap">
+
+    <sql id="ConsNewTypeMap.selectCondition_fragment">
+        <if test="cell != null and cell != ''">
+            <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... AND CELL = REPLACE(#{cell}, '-', '') -->
+                AND REPLACE(MEM.CELL, '-', '') = REPLACE(#{cell}, '-', '')
+        </if>
+        <if test="consno != null and consno != ''">
+            AND A.CONSNO = #{consno}
+        </if>
+        <if test="(mem_no != null and mem_no != '') or path_typ == 'history'">
+            AND A.MEM_NO = #{mem_no}
+        </if>
+        <if test="dt_typ != null and dt_typ != ''">
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                <if test="dt_typ == 'acpg_dttm'">
+                    AND A.ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+                </if>
+                <if test="dt_typ == 'cons_dsps_dttm'">
+                    AND A.CONS_DSPS_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+                </if>
+            </if>
+            <if test="dt_typ == 'today'">
+                AND A.CONS_DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+            </if>
+        </if>
+        <if test="cons_dspsmddl_dtpt_cd != null and cons_dspsmddl_dtpt_cd != ''">
+            AND A.CONS_DSPSMDDL_DTPT_CD = #{cons_dspsmddl_dtpt_cd}
+        </if>
+        <if test="cons_dspsmddl_dtpt_cd_list != null and cons_dspsmddl_dtpt_cd_list != ''">
+            AND A.CONS_DSPSMDDL_DTPT_CD IN (${cons_dspsmddl_dtpt_cd_list})
+        </if>
+        <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+            AND A.ACPG_CHNL_CD = #{acpg_chnl_cd}
+        </if>
+        <if test="cons_stat_cd != null and cons_stat_cd != ''">
+            AND A.CONS_STAT_CD = #{cons_stat_cd}
+        </if>
+        <if test="cons_stat_cd_list != null and cons_stat_cd_list != ''">
+            AND A.CONS_STAT_CD IN (${cons_stat_cd_list})
+        </if>
+        <if test="user_typ == 'actp_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.ACTP_ID IN(${user_id})
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="user_typ == 'chpr_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.CHPR_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="user_typ == 'amnd_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.AMND_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+            AND A.CONS_TYP1_CD = #{cons_typ1_cd}
+        </if>
+        <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+            AND A.CONS_TYP2_CD = #{cons_typ2_cd}
+        </if>
+        <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+            AND A.CONS_TYP3_CD = #{cons_typ3_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="srch_vl != null and srch_vl != ''">
+            <if test="srch_typ == 'cust_nm'">
+                <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... AND A.MEM_NM LIKE '%' || #{srch_vl} || '%' -->
+                AND MEM.MEM_NM LIKE '%' || #{srch_vl} || '%'
+            </if>
+            <if test="srch_typ == 'cons_memo_cntn'">
+                AND A.CONS_MEMO_CNTN LIKE '%' || #{srch_vl} || '%'
+            </if>
+            <if test="srch_typ == 'all'">
+                AND (A.CONS_MEMO_CNTN LIKE '%' || #{srch_vl} || '%'
+                     OR MEM.MEM_NM LIKE '%' || #{srch_vl} || '%')  <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... OR A.MEM_NM LIKE '%' || #{srch_vl} || '%') -->
+            </if>
+        </if>
+        <if test='dept_yn == "Y"'>
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+        </if>
+    </sql>
+
+    <select id="ConsNewTypeMap.getConsCount" parameterType="map" resultType="int">
+        SELECT /* ConsNewTypeMap.getConsCount */
+               COUNT(*)
+          FROM TB_CONS A
+          LEFT OUTER JOIN			<!--  2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... -->
+
+               LF_DMUSER.MEMBER MEM
+            ON A.MEM_NO = MEM.MEM_NO
+         WHERE 1 = 1
+        <include refid="ConsNewTypeMap.selectCondition_fragment"/>
+        <if test="cons_memo_cntn != null and cons_memo_cntn != ''">
+            AND A.CONS_MEMO_CNTN LIKE '%' || #{cons_memo_cntn} || '%'
+        </if>
+    </select>
+
+    <select id="ConsNewTypeMap.getConsList" parameterType="map" resultType="resultMap">
+        SELECT /* ConsNewTypeMap.getConsList */
+               C.*
+             , (SELECT LF_DMUSER.FN_COM_NM('S014',KSTBIT) FROM LF_DMUSER.MEM_PROD_ACCNT WHERE ACCNT_NO = C.ACCNT_NO) KSTBIT
+             , DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAY_FLAG
+             , GETCODENM('CNS060', ARS_SRVC_ADDR, CNTR_CD) AS ARS_SRVC_ADDR_NM
+             , replace(GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD), chr(0), '') AS CONS_STAT_NM
+             , replace(GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, CNTR_CD), chr(0), '') AS CONS_DSPSMDDL_DTPT_NM
+             , (TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60 AS RECRNC_LEFT_TM
+             , (CASE WHEN TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') > SYSDATE
+                          THEN TRUNC(TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) || '일 ' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE), 1) * 24), 2, 0) || ':' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24, 1) * 60), 2, 0) || ':' ||
+                          LPAD(TRUNC(ROUND(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60, 1) * 60)), 2, 0)
+                     ELSE TRUNC(SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || ':' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || ':' ||
+                          LPAD(TRUNC(ROUND(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24 * 60, 1) * 60)), 2, 0)
+                END) AS RECRNC_TERM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.ACTP_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS ACTP_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.ACTP_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS ACTP_TEAM2_NM
+             , DECODE(LENGTH(C.IDN_NO), 10, 'Y', 'N') AS BUSINESS_YN
+             ,C.CHCNT
+             ,TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') SYS_DATE
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.RECRNC_DT || C.RECRNC_HRMN || '00'
+                          FROM TB_RECRNC_RESR_DTL C
+                         WHERE C.CONSNO = B.CONSNO) AS RECRNC_DTTM
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.ACTP_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS ACTP_TEAM1_CD
+<!--
+    2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서...
+                  FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO
+                               , replace(A.ARS_SRVC_ADDR,chr(0),'') ARS_SRVC_ADDR
+                               , replace(A.INCO_TLNO,chr(0),'') INCO_TLNO
+                             , replace(A.CALL_ID,chr(0),'') CALL_ID
+                             , A.MEM_NO, A.ACPG_CHNL_CD, A.ACPG_DTTM, A.ACTP_ID
+                             , A.TOTL_CONS_HR
+                             , replace(A.CLNT_NM,chr(0),'') CLNT_NM
+                             , A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD
+                             , replace(A.CONS_MEMO_CNTN, chr(0), '') CONS_MEMO_CNTN
+                             , A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD
+                             , replace(trim(A.CONS_DSPS_DTTM), chr(0), '') CONS_DSPS_DTTM
+                             , A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.ADMR_AMNT_YN
+                             , replace(A.ADMR_ID,chr(0),'') ADMR_ID
+                             , replace(A.ADMR_AMNT_DTTM,chr(0),'') ADMR_AMNT_DTTM
+                             , A.CONS_DSPSMDDL_DTPT_CD AS OLD_CONS_DSPSMDDL_DTPT_CD
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.CONC_YN, A.EMPLE_NO, A.EMPLE_NM, A.JOIN_DT, A.CTI_CRNC_DTL_ID
+                             , replace(A.MST_KEY,chr(0),'') MST_KEY
+                             , replace(A.DTPT_KEY, chr(0),'') DTPT_KEY
+                             , A.ACCNT_NO, A.DEPT_CD
+                             , REPLACE(A.MEM_NM, chr(0),'') MEM_NM
+                             , replace(A.SEX, chr(0), '') SEX
+                             , replace(A.BRTH_MON_DAY, chr(0), '') BRTH_MON_DAY
+                             , A.CI_VAL
+                             , replace(A.IDN_NO, chr(0),'') IDN_NO
+                             , replace(A.HOME_TEL,chr(0),'') HOME_TEL
+                             , replace(A.CELL,chr(0),'') CELL
+                             , replace(A.WRPL_TEL,chr(0),'') WRPL_TEL
+                             , A.HOME_ZIP, A.HOME_ADDR, A.HOME_ADDR2
+                             , A.CREDIT_RATING, A.CRDT_MNG_NO, A.EMAIL, A.NOTE
+                             , replace(GETCODENM('CNS010', A.ACPG_CHNL_CD, A.CNTR_CD), chr(0), '') AS ACPG_CHNL_NM
+
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_NM
+                             , (SELECT C.TEAM_CD
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_TEAM2_CD
+                             , (SELECT replace(C.USER_NM, chr(0), '')
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.CHPR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CHPR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , ( SELECT COUNT(*) FROM TB_CONS_HSTR CH WHERE  CH.CNTR_CD = A.CNTR_CD AND CH.CONSNO = A.CONSNO )   CHCNT
+                          FROM TB_CONS A
+-->
+
+                    FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO
+                               , replace(A.ARS_SRVC_ADDR,chr(0),'') ARS_SRVC_ADDR
+                               , replace(A.INCO_TLNO,chr(0),'') INCO_TLNO
+                             , replace(A.CALL_ID,chr(0),'') CALL_ID
+                             , A.MEM_NO, A.ACPG_CHNL_CD, A.ACPG_DTTM, A.ACTP_ID
+                             , A.TOTL_CONS_HR
+                             , replace(A.CLNT_NM,chr(0),'') CLNT_NM
+                             , A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD
+                             , replace(A.CONS_MEMO_CNTN, chr(0), '') CONS_MEMO_CNTN
+                             , A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD
+                             , replace(trim(A.CONS_DSPS_DTTM), chr(0), '') CONS_DSPS_DTTM
+                             , A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.ADMR_AMNT_YN
+                             , replace(A.ADMR_ID,chr(0),'') ADMR_ID
+                             , replace(A.ADMR_AMNT_DTTM,chr(0),'') ADMR_AMNT_DTTM
+                             , A.CONS_DSPSMDDL_DTPT_CD AS OLD_CONS_DSPSMDDL_DTPT_CD
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.CONC_YN, A.EMPLE_NO, A.EMPLE_NM, A.JOIN_DT, A.CTI_CRNC_DTL_ID
+                             , replace(A.MST_KEY,chr(0),'') MST_KEY
+                             , replace(A.DTPT_KEY, chr(0),'') DTPT_KEY
+                             , A.ACCNT_NO, A.DEPT_CD
+                             , replace(A.SEX, chr(0), '') SEX
+                             , replace(A.BRTH_MON_DAY, chr(0), '') BRTH_MON_DAY
+
+                             , REPLACE(MEM.MEM_NM, chr(0),'') MEM_NM
+                             , MEM.CI_VAL
+                             , replace(MEM.HOME_TEL,chr(0),'') HOME_TEL
+                             , replace(MEM.CELL,chr(0),'') CELL
+                             , replace(MEM.WRPL_TEL,chr(0),'') WRPL_TEL
+                             , MEM.HOME_ZIP, MEM.HOME_ADDR, MEM.HOME_ADDR2
+                             , MEM.EMAIL
+                             , A.NOTE
+                             , replace(A.IDN_NO, chr(0),'') IDN_NO
+                             , A.CREDIT_RATING, A.CRDT_MNG_NO
+                             , replace(GETCODENM('CNS010', A.ACPG_CHNL_CD, A.CNTR_CD), chr(0), '') AS ACPG_CHNL_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_NM
+                             , (SELECT C.TEAM_CD
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_TEAM2_CD
+                             , (SELECT replace(C.USER_NM, chr(0), '')
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.CHPR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CHPR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , ( SELECT COUNT(*) FROM TB_CONS_HSTR CH WHERE  CH.CNTR_CD = A.CNTR_CD AND CH.CONSNO = A.CONSNO )   CHCNT
+                          FROM TB_CONS A
+                               LEFT OUTER JOIN
+                               LF_DMUSER.MEMBER MEM
+                               ON A.MEM_NO = MEM.MEM_NO
+                         WHERE 1 = 1
+                    <include refid="ConsNewTypeMap.selectCondition_fragment"/>
+                    <if test="cons_memo_cntn != null and cons_memo_cntn != ''">
+                        AND A.CONS_MEMO_CNTN LIKE '%' || #{cons_memo_cntn} || '%'
+                    </if>
+                    <choose>
+                        <when test="orderBy == null or orderBy == ''">
+                            ORDER BY ACPG_DTTM ASC
+                        </when>
+                        <otherwise>
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </otherwise>
+                    </choose>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+</mapper>

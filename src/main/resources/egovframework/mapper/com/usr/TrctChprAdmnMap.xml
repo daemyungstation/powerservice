@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TrctChprAdmnMap">
+
+    <sql id="TrctChprAdmnMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trct_box_id != ''">
+                AND TRCT_BOX_ID = #{trct_box_id}
+            </if>
+            <if test="selectcheck == null and selectcheck == ''">
+                <if test="user_id != null and user_id != ''">
+                    AND USER_ID = #{user_id}
+                </if>
+            </if>
+            <if test="selectcheck != null and selectcheck != ''">
+                AND USER_ID
+                <foreach collection="selectcheck" item="item" separator="," close=")" open="IN (">
+                   #{item}
+                </foreach>
+            </if>
+            <if test="trct_recp_rfnc_div_cd != null and trct_recp_rfnc_div_cd != ''">
+                AND TRCT_RECP_RFNC_DIV_CD = #{trct_recp_rfnc_div_cd}
+            </if>
+            <if test="emil_noti_yn != null and emil_noti_yn != ''">
+                AND EMIL_NOTI_YN = #{emil_noti_yn}
+            </if>
+            <if test="sms_msg_noti_yn != null and sms_msg_noti_yn != ''">
+                AND SMS_MSG_NOTI_YN = #{sms_msg_noti_yn}
+            </if>
+        </where>
+    </sql>
+
+    <select id="TrctChprAdmnMap.getTrctChprAdmnCount" parameterType="map" resultType="int">
+        SELECT /* TrctChprAdmnMap.getTrctChprAdmnCount */
+               COUNT(*)
+          FROM TB_TRCT_CHPR_ADMN
+        <include refid="TrctChprAdmnMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="TrctChprAdmnMap.getTrctChprAdmnList" parameterType="map" resultType="resultMap">
+        SELECT /* TrctChprAdmnMap.getTrctChprAdmnList */
+               C.*
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT TRCT_BOX_ID, USER_ID, TRCT_RECP_RFNC_DIV_CD, EMIL_NOTI_YN, SMS_MSG_NOTI_YN
+                             , RGSN_DTTM, AMNT_DTTM, AMND_ID, RGSR_ID
+                             , GETCODENM('USR110', TRCT_RECP_RFNC_DIV_CD, CNTR_CD) AS TRCT_RECP_RFNC_DIV_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS USER_NM
+                             , (SELECT C.TEAM_NM
+                                  FROM TB_USER B
+                                     , TB_CONS_TEAM C
+                                 WHERE B.USER_ID = A.USER_ID
+                                   AND B.CNTR_CD = A.CNTR_CD
+                                   AND B.TEAM_CD = C.TEAM_CD
+                                   AND B.CNTR_CD = C.CNTR_CD) AS TEAM_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                        <if test = "trct_box_id != null and trct_box_id !=''">
+                             , (SELECT COUNT(*)
+                                  FROM TB_TRCT_CHPR_ADMN
+                                 WHERE TRCT_BOX_ID =#{trct_box_id}) AS USER_COUNT
+                        </if>
+                          FROM TB_TRCT_CHPR_ADMN A
+                        <include refid="TrctChprAdmnMap.selectCondition_fragment"/>
+                        <if test="orderBy == null or orderBy == ''">
+                              ORDER BY AMNT_DTTM DESC
+                        </if>
+                        <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <!-- <insert id="TrctChprAdmnMap.insertTrctChprAdmn" parameterType="map">
+        INSERT INTO /* TrctChprAdmnMap.insertTrctChprAdmn */
+                    TB_TRCT_CHPR_ADMN
+                    (TRCT_BOX_ID, USER_ID, TRCT_RECP_RFNC_DIV_CD, EMIL_NOTI_YN, SMS_MSG_NOTI_YN
+                   , TEAM_CD
+                   , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{trct_box_id}, #{user_id}, #{trct_recp_rfnc_div_cd}, #{emil_noti_yn}, #{sms_msg_noti_yn}
+                   , #{team_cd}
+                   , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+
+
+    </insert> -->
+
+    <insert id="TrctChprAdmnMap.insertTrctChprAdmn" parameterType="map">
+        MERGE INTO /* TrctChprAdmnMap.insertTrctChprAdmn */
+                  TB_TRCT_CHPR_ADMN A
+            USING (SELECT #{trct_box_id} AS TRCT_BOX_ID
+                        , #{user_id} AS USER_ID
+                     FROM DUAL) B
+               ON (A.TRCT_BOX_ID = B.TRCT_BOX_ID
+                   AND A.USER_ID = B.USER_ID)
+             WHEN MATCHED THEN
+                   UPDATE SET AMND_ID = #{amnd_id}
+                            , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             WHEN NOT MATCHED THEN
+                       INSERT (TRCT_BOX_ID, USER_ID, TRCT_RECP_RFNC_DIV_CD, EMIL_NOTI_YN, SMS_MSG_NOTI_YN
+                            , TEAM_CD
+                            , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+                       VALUES (#{trct_box_id}, #{user_id}, #{trct_recp_rfnc_div_cd}, #{emil_noti_yn}, #{sms_msg_noti_yn}
+                            , #{team_cd}
+                            , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="TrctChprAdmnMap.updateTrctChprAdmn" parameterType="map">
+        UPDATE /* TrctChprAdmnMap.updateTrctChprAdmn */
+               TB_TRCT_CHPR_ADMN
+           SET TRCT_RECP_RFNC_DIV_CD = #{trct_recp_rfnc_div_cd}
+             , EMIL_NOTI_YN = #{emil_noti_yn}
+             , SMS_MSG_NOTI_YN = #{sms_msg_noti_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+        WHERE TRCT_BOX_ID = #{trct_box_id}
+          AND USER_ID = #{user_id}
+    </update>
+
+    <delete id="TrctChprAdmnMap.deleteTrctChprAdmn" parameterType="map">
+        DELETE /* TrctChprAdmnMap.deleteTrctChprAdmn */
+          FROM TB_TRCT_CHPR_ADMN
+         <include refid="TrctChprAdmnMap.selectCondition_fragment"/>
+    </delete>
+
+
+    <select id="TrctChprAdmnMap.getTrnsUserForTrnsbox" parameterType="map" resultType="resultMap">
+        SELECT /* TrctChprAdmnMap.getTrnsUserForTrnsbox */
+               USER_ID
+             , (SELECT USER_NM
+                  FROM TB_USER
+                 WHERE USER_ID = A.USER_ID
+                   AND CNTR_CD = A.CNTR_CD) AS USER_NM
+         FROM TB_TRCT_CHPR_ADMN A
+        WHERE TRCT_BOX_ID = #{trct_box_id}
+    </select>
+
+</mapper>

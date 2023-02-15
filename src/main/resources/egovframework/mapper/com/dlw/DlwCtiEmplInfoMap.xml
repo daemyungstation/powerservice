@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCtiEmplInfoMap">
+    
+	<!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 기본정보 조회수
+     * 대상 테이블 : LF_DMUSER.TB_CTI_MAIN_INFO
+     * ================================================================
+     * -->
+    <select id="DlwCtiEmplInfoMap.getCtiMainInfoCount" parameterType="map" resultType="int">
+        SELECT 
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                CMI.AGDT,
+                CMI.AGGR,
+                CMI.AGPA,
+                CMI.AGEN,
+                CMI.AGNA,
+                SUM(NVL(CMI.TOCA, 0)) AS TOCA,
+                SUM(NVL(CMI.NOIC, 0)) AS NOIC,
+                SUM(NVL(CMI.NOOC, 0)) AS NOOC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TOTT, 0))) AS TOTT,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTIC, 0))) AS TTIC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTOC, 0))) AS TTOC,
+                SUM(NVL(CMI.RGCT, 0)) AS RGCT,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RGDT, 0))) AS RGDT,
+                SUM(NVL(CMI.NOBU, 0)) AS NOBU,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.BUST, 0))) AS BUST,
+                SUM(NVL(CMI.NOAC, 0)) AS NOAC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.ACWT, 0))) AS ACWT,
+                SUM(NVL(CMI.NONR, 0)) AS NONR,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.NRDT, 0))) AS NRDT,
+                SUM(NVL(CMI.NORE, 0)) AS NORE,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.REDT, 0))) AS REDT,
+                SUM(NVL(CMI.RSAA, 0)) AS RSAA,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSAB, 0))) AS RSAB,
+                SUM(NVL(CMI.RSBA, 0)) AS RSBA,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSBB, 0))) AS RSBB,
+                SUM(NVL(CMI.RSCA, 0)) AS RSCA,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSCB, 0))) AS RSCB
+            FROM LF_DMUSER.TB_CTI_MAIN_INFO CMI
+            WHERE 1=1 
+            <if test="agdt_stt != null and agdt_stt != '' and agdt_end != null and agdt_end != ''">
+                AND CMI.AGDT BETWEEN #{agdt_stt} AND #{agdt_end}
+            </if>
+            <if test="aggr != null and aggr != ''">
+                AND CMI.AGGR = #{aggr}
+            </if>
+            <if test="agpa != null and agpa != ''">
+                AND CMI.AGPA = #{agpa}
+            </if>
+            GROUP BY CMI.AGDT, CMI.AGGR, CMI.AGPA, CMI.AGEN, CMI.AGNA
+        ) TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 기본정보 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CTI_MAIN_INFO
+     * ================================================================
+     * -->
+    <select id="DlwCtiEmplInfoMap.getCtiMainInfoList" parameterType="map" resultType="resultMap">
+        SELECT
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+            	<choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY TBL.AGDT ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                TBL.*
+            FROM
+            (
+                SELECT
+                    CMI.AGDT,
+                    CMI.AGGR,
+                    CMI.AGPA,
+                    CMI.AGEN,
+                    CMI.AGNA,
+                    SUM(NVL(CMI.TOCA, 0)) AS TOCA,
+                    SUM(NVL(CMI.NOIC, 0)) AS NOIC,
+                    SUM(NVL(CMI.NOOC, 0)) AS NOOC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TOTT, 0))) AS TOTT,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTIC, 0))) AS TTIC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTOC, 0))) AS TTOC,
+                    SUM(NVL(CMI.RGCT, 0)) AS RGCT,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RGDT, 0))) AS RGDT,
+                    SUM(NVL(CMI.NOBU, 0)) AS NOBU,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.BUST, 0))) AS BUST,
+                    SUM(NVL(CMI.NOAC, 0)) AS NOAC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.ACWT, 0))) AS ACWT,
+                    SUM(NVL(CMI.NONR, 0)) AS NONR,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.NRDT, 0))) AS NRDT,
+                    SUM(NVL(CMI.NORE, 0)) AS NORE,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.REDT, 0))) AS REDT,
+                    SUM(NVL(CMI.RSAA, 0)) AS RSAA,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSAB, 0))) AS RSAB,
+                    SUM(NVL(CMI.RSBA, 0)) AS RSBA,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSBB, 0))) AS RSBB,
+                    SUM(NVL(CMI.RSCA, 0)) AS RSCA,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSCB, 0))) AS RSCB
+                FROM LF_DMUSER.TB_CTI_MAIN_INFO CMI
+                WHERE 1=1 
+                <if test="agdt_stt != null and agdt_stt != '' and agdt_end != null and agdt_end != ''">
+                    AND CMI.AGDT BETWEEN #{agdt_stt} AND #{agdt_end}
+                </if>
+                <if test="aggr != null and aggr != ''">
+                    AND CMI.AGGR = #{aggr}
+                </if>
+                <if test="agpa != null and agpa != ''">
+                    AND CMI.AGPA = #{agpa}
+                </if>
+                GROUP BY CMI.AGDT, CMI.AGGR, CMI.AGPA, CMI.AGEN, CMI.AGNA
+            ) TBL
+            WHERE 1=1
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+	<!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 Que정보 조회수
+     * 대상 테이블 : LF_DMUSER.TB_CTI_QUE_INFO
+     * ================================================================
+     * -->
+    <select id="DlwCtiEmplInfoMap.getCtiQueInfoCount" parameterType="map" resultType="int">
+        SELECT 
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT 
+                CQI.AGDT,
+                CQI.ROPO,
+                CQI.SERV,
+                SUM(NVL(CQI.TQIC, 0)) AS TQIC,
+                SUM(NVL(CQI.QOIC, 0)) AS QOIC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CQI.QOIT, 0))) AS QOIT,
+                SUM(NVL(CQI.QOAB, 0)) AS QOAB,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CQI.QOAT, 0))) AS QOAT,
+                SUM(NVL(CQI.QOAC, 0)) AS QOAC
+            FROM LF_DMUSER.TB_CTI_QUE_INFO CQI
+            WHERE 1=1 
+            <if test="agdt_stt != null and agdt_stt != '' and agdt_end != null and agdt_end != ''">
+                AND CQI.AGDT BETWEEN #{agdt_stt} AND #{agdt_end}
+            </if>
+            GROUP BY CQI.AGDT, CQI.ROPO, CQI.SERV
+        ) TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 Que정보 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CTI_QUE_INFO
+     * ================================================================
+     * -->
+    <select id="DlwCtiEmplInfoMap.getCtiQueInfoList" parameterType="map" resultType="resultMap">
+        SELECT
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY TBL.AGDT ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                TBL.*,
+                ROUND((TBL.QOIC / TBL.TQIC) * 100, 1) AS QAVG
+            FROM
+            (
+                SELECT 
+                    CQI.AGDT,
+                    CQI.ROPO,
+                    CQI.SERV,
+                    SUM(NVL(CQI.TQIC, 0)) AS TQIC,
+                    SUM(NVL(CQI.QOIC, 0)) AS QOIC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CQI.QOIT, 0))) AS QOIT,
+                    SUM(NVL(CQI.QOAB, 0)) AS QOAB,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CQI.QOAT, 0))) AS QOAT,
+                    SUM(NVL(CQI.QOAC, 0)) AS QOAC
+                FROM LF_DMUSER.TB_CTI_QUE_INFO CQI
+                WHERE 1=1 
+                <if test="agdt_stt != null and agdt_stt != '' and agdt_end != null and agdt_end != ''">
+                    AND CQI.AGDT BETWEEN #{agdt_stt} AND #{agdt_end}
+                </if>
+                GROUP BY CQI.AGDT, CQI.ROPO, CQI.SERV
+            ) TBL
+            WHERE 1=1
+        ) MAIN_TBL
+        WHERE 1=1 
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 기본정보 조회수
+     * 대상 테이블 : LF_DMUSER.TB_CTI_MAIN_INFO
+     * ================================================================
+     * -->
+    <select id="DlwCtiEmplInfoMap.getCtiInfoSumCount" parameterType="map" resultType="int">
+        SELECT 
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT
+                CMI.AGGR,
+                CMI.AGPA,
+                CMI.AGEN,
+                CMI.AGNA,
+                SUM(NVL(CMI.TOCA, 0)) AS TOCA,
+                SUM(NVL(CMI.NOIC, 0)) AS NOIC,
+                SUM(NVL(CMI.NOOC, 0)) AS NOOC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TOTT, 0))) AS TOTT,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTIC, 0))) AS TTIC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTOC, 0))) AS TTOC,
+                SUM(NVL(CMI.RGCT, 0)) AS RGCT,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RGDT, 0))) AS RGDT,
+                SUM(NVL(CMI.NOBU, 0)) AS NOBU,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.BUST, 0))) AS BUST,
+                SUM(NVL(CMI.NOAC, 0)) AS NOAC,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.ACWT, 0))) AS ACWT,
+                SUM(NVL(CMI.NONR, 0)) AS NONR,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.NRDT, 0))) AS NRDT,
+                SUM(NVL(CMI.NORE, 0)) AS NORE,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.REDT, 0))) AS REDT,
+                SUM(NVL(CMI.RSAA, 0)) AS RSAA,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSAB, 0))) AS RSAB,
+                SUM(NVL(CMI.RSBA, 0)) AS RSBA,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSBB, 0))) AS RSBB,
+                SUM(NVL(CMI.RSCA, 0)) AS RSCA,
+                LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSCB, 0))) AS RSCB
+            FROM LF_DMUSER.TB_CTI_MAIN_INFO CMI
+            WHERE 1=1 
+            <if test="agdt_stt != null and agdt_stt != '' and agdt_end != null and agdt_end != ''">
+                AND CMI.AGDT BETWEEN #{agdt_stt} AND #{agdt_end}
+            </if>
+            <if test="aggr != null and aggr != ''">
+                AND CMI.AGGR = #{aggr}
+            </if>
+            <if test="agpa != null and agpa != ''">
+                AND CMI.AGPA = #{agpa}
+            </if>
+            GROUP BY CMI.AGGR, CMI.AGPA, CMI.AGEN, CMI.AGNA
+        ) TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200619
+     * 이름 : 송준빈
+     * 추가내용 : CTI 사원 기본정보 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_CTI_MAIN_INFO
+     * ================================================================
+     * -->
+    <select id="DlwCtiEmplInfoMap.getCtiInfoSumList" parameterType="map" resultType="resultMap">
+        SELECT
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT 
+            	<choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY TBL.AGNA ASC) AS PAGE_INDX,
+                    </otherwise>
+                </choose>
+                TBL.*
+            FROM
+            (
+                SELECT
+                    CMI.AGGR,
+                    CMI.AGPA,
+                    CMI.AGEN,
+                    CMI.AGNA,
+                    SUM(NVL(CMI.TOCA, 0)) AS TOCA,
+                    SUM(NVL(CMI.NOIC, 0)) AS NOIC,
+                    SUM(NVL(CMI.NOOC, 0)) AS NOOC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TOTT, 0))) AS TOTT,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTIC, 0))) AS TTIC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.TTOC, 0))) AS TTOC,
+                    SUM(NVL(CMI.RGCT, 0)) AS RGCT,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RGDT, 0))) AS RGDT,
+                    SUM(NVL(CMI.NOBU, 0)) AS NOBU,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.BUST, 0))) AS BUST,
+                    SUM(NVL(CMI.NOAC, 0)) AS NOAC,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.ACWT, 0))) AS ACWT,
+                    SUM(NVL(CMI.NONR, 0)) AS NONR,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.NRDT, 0))) AS NRDT,
+                    SUM(NVL(CMI.NORE, 0)) AS NORE,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.REDT, 0))) AS REDT,
+                    SUM(NVL(CMI.RSAA, 0)) AS RSAA,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSAB, 0))) AS RSAB,
+                    SUM(NVL(CMI.RSBA, 0)) AS RSBA,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSBB, 0))) AS RSBB,
+                    SUM(NVL(CMI.RSCA, 0)) AS RSCA,
+                    LF_DMUSER.FN_SEC_TO_TIME(SUM(NVL(CMI.RSCB, 0))) AS RSCB
+                FROM LF_DMUSER.TB_CTI_MAIN_INFO CMI
+                WHERE 1=1 
+                <if test="agdt_stt != null and agdt_stt != '' and agdt_end != null and agdt_end != ''">
+                    AND CMI.AGDT BETWEEN #{agdt_stt} AND #{agdt_end}
+                </if>
+                <if test="aggr != null and aggr != ''">
+                    AND CMI.AGGR = #{aggr}
+                </if>
+                <if test="agpa != null and agpa != ''">
+                    AND CMI.AGPA = #{agpa}
+                </if>
+                GROUP BY CMI.AGGR, CMI.AGPA, CMI.AGEN, CMI.AGNA
+            ) TBL
+            WHERE 1=1
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[< ]]> #{endLine}
+        </if>
+    </select>
+</mapper>

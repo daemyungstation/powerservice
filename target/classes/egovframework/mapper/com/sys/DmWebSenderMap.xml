@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DmWebSenderMap">
+
+    <!--
+     * APP푸쉬알림시 메시지 정보 가져오기
+     * 임동진 20190327
+    -->
+    <select id="DmWebSenderMap.getSendPushInfo" parameterType="map" resultType="resultMap">
+            SELECT
+            	/* DmWebSenderMap.getSendPushInfo */
+			    REAL_EVT_MNGR_CD,
+			    NVL(MNG_BRANCH_CD,'0000000000') AS MNG_BRANCH_CD,
+			    ('■ 행사접수 : ' || MEM_NM || ' 회원 / ' || BRANCH_NM || '지부 / ' || EVT_MNGR_NM || 'CP / ' || FUNRL_NM) AS SEND_MSG
+			FROM
+			(
+			    SELECT
+			        REAL_EVT_MNGR_CD,
+			        (SELECT MAX(REAL_EVT_MNGR_CD) FROM LF_DMUSER.EVENT_MANAGER_MNG WHERE WH_CD = WM.WH_CD AND ADMIN_AUTH = '0004' AND DEL_FG = 'N') AS MNG_BRANCH_CD,
+			        --(SELECT FUNRL_NM FROM LF_DMUSER.FUNRL_HALL WHERE FUNRL_CD = TBL.FUNRL_HALL ) AS FUNRL_NM,
+			        BM.BRANCH_NM,
+			        MNG.EVT_MNGR_NM,
+			        (SELECT ACCNT_NO FROM LF_DMUSER.EVENT WHERE SEQ = ${evt_seq}) AS ACCNT_NO,
+			        (SELECT FUNRL_NM FROM LF_DMUSER.FUNRL_HALL WHERE FUNRL_CD = (SELECT MAX(FUNRL_HALL) FROM LF_DMUSER.EVENT WHERE SEQ = ${evt_seq})) AS FUNRL_NM
+			        --('■ 행사접수 : ' || MEM_NM || ' 회원 / ' || BRANCH_NM || '지부 / ' || EVT_MNGR_NM || 'CP / ' || FUNRL_NM) AS SEND_MSG
+			    FROM LF_DMUSER.EVENT_MANAGER_MNG MNG INNER JOIN
+			        LF_DMUSER.WAREHOUSE_MNG WM ON MNG.WH_CD = WM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+			        LF_DMUSER.BRANCH_MNG BM ON WM.BRANCH = BM.BRANCH_CD AND BM.DEL_FG = 'N'
+			    WHERE 1=1
+			    AND MNG.EVT_MNGR_CD = ${evt_mngr_cd}
+			    AND JOB_DUTY = '0001'
+			) TBL INNER JOIN
+			    LF_DMUSER.MEM_PROD_ACCNT MPA ON TBL.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+			    LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+
+       	<!--
+		SELECT
+			/* DmWebSenderMap.getSendPushInfo */
+		    REAL_EVT_MNGR_CD,
+		    NVL(MNG_BRANCH_CD,'0000000000') AS MNG_BRANCH_CD,
+		    ('■ 행사접수 : ' || MEM_NM || ' 회원 / ' || BRANCH_NM || '지부 / ' || EVT_MNGR_NM || 'CP / ' || FUNRL_NM) AS SEND_MSG
+
+		FROM
+		(
+		    SELECT
+		        EVT_SEQ,
+		        MB.MEM_NM,
+		        WORK_DM,
+		        REAL_EVT_MNGR_CD,
+		        EVT_MNGR_NM,
+		        EVT.ACCNT_NO,
+		        MNG.WH_CD,
+		        BM.BRANCH_NM,
+		        (SELECT REAL_EVT_MNGR_CD FROM LF_DMUSER.EVENT_MANAGER_MNG WHERE WH_CD = WM.WH_CD AND ADMIN_AUTH = '0004' AND DEL_FG = 'N') AS MNG_BRANCH_CD,
+		        (SELECT FUNRL_NM FROM LF_DMUSER.FUNRL_HALL WHERE FUNRL_CD = EVT.FUNRL_HALL ) AS FUNRL_NM
+		    FROM LF_DMUSER.EVENT_MNGR_REG REG INNER JOIN
+		        LF_DMUSER.EVENT_MANAGER_MNG MNG ON REG.EVT_MNGR_CD = MNG.EVT_MNGR_CD AND MNG.DEL_FG = 'N' INNER JOIN
+		        LF_DMUSER.EVENT EVT ON REG.EVT_SEQ = EVT.SEQ AND EVT.DEL_FG = 'N' LEFT OUTER JOIN
+		        LF_DMUSER.WAREHOUSE_MNG WM ON MNG.WH_CD = WM.WH_CD AND WM.DEL_FG = 'N' LEFT OUTER JOIN
+		        LF_DMUSER.BRANCH_MNG BM ON WM.BRANCH = BM.BRANCH_CD AND BM.DEL_FG = 'N' LEFT OUTER JOIN
+		        LF_DMUSER.MEM_PROD_ACCNT MPA ON EVT.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+		        LF_DMUSER.MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N'
+		    WHERE 1=1
+		    AND MNG.DEL_FG = 'N'
+		    AND EVT_SEQ = ${evt_seq}
+		    AND EVT_MNGR_GUBUN = '0001'
+		)
+
+		 -->
+    </select>
+
+</mapper>

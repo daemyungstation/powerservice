@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS999999" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 245 20" titletext="단일파일 다운로드" onload="prod_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <FileDownload id="fdl_btn_fixedFormDown" taborder="0" retry="0" onload="FileDownload00_onload" text="FileDownload00" wordwrap="none" position="absolute 10 72 120 93" visible="false"/>
+        <Edit id="edt_fileDown" taborder="1" readonly="true" class="edt_edit" position2="absolute l:0 r:0 t:0px h:20" positiontype="position2" style="font:Dotum,9,underline;cursor:hand;" oneditclick="edt_fileDown_oneditclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_File" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="filePath" type="STRING" size="256"/>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="file_size_vl" type="STRING" size="256"/>
+          <Column id="file_cntn" type="STRING" size="256"/>
+          <Column id="_chk" type="STRING" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+          <Column id="file_nm" type="STRING" size="256"/>
+          <Column id="atch_typ_cd" type="STRING" size="256"/>
+          <Column id="fileUploadYN" type="STRING" size="256"/>
+          <Column id="file_down" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt_file" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_deleteFile" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_file_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <FileDialog id="fd_file" filter="All(*.*)|*.*|" filterindex="0" defaultextention="false" onclose="fd_file_onclose"/>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[
+/***************************************************************************
+ * Program ID    : PS.xfdl
+ * Program Name  : 이메일 템플릿 선택
+ * Author        : 정 훈
+ * Created On    : 2016.02.
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자       내    용
+ * =========================================================================
+ * 2016.0    정   훈      최초작성
+ 
+ **************************************************************************/
+
+
+/********************************************************************************************/
+/* 1. Include Library include                                                               */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트,전역변수,초기화) 처리                         	*/
+/********************************************************************************************/
+var file_count = 0;
+var arrFiles = new Array();	// FileDialog 선택을 통한 File Array
+var fv_svcPath = gfn_getServiceUrl("fileUrl");
+var toMode ="R";
+//온로드
+
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) {
+     if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch(svcid){
+			case "srchFile"://파일조회콜백
+				ds_File.clearData();
+				gfn_appendSearchDs(ds_File, ds_file_tmp); // 조회된 결과를 실제보여줄 데이타셋으로 Append처리
+				edt_fileDown.value = ds_File.getColumn(ds_File.rowposition,'file_nm');
+				
+				if(edt_fileDown.value !=null && edt_fileDown.value != ""){
+					edt_fileDown.style.cursor = "hand";
+					edt_fileDown.style.color = "#53b5eb";
+					edt_fileDown.style.font ="Dotum,9,underline";
+				}else{
+					edt_fileDown.style.cursor = "";
+					edt_fileDown.style.color = "";
+					edt_fileDown.style.font ="";
+				}
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+//파일 조회전 처리
+function fn_preSearch_file(sType, rltn_item_id)
+{	
+	if(!gfn_preSearchDs(ds_File, sType)) return false;
+		
+	//TO-DO:조회조건 체크
+	ds_inqCndt_file.clearData();
+	ds_inqCndt_file.addRow();
+	ds_inqCndt_file.setColumn(0, "rltn_item_id", rltn_item_id);
+	ds_inqCndt_file.setColumn(0, "orderBy", "amnt_dttm");
+	ds_inqCndt_file.setColumn(0, "orderDirection", "desc");
+	
+	return true;
+}
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//파일조회
+function fn_commSearch_file(sType,rltn_item_id)
+{	
+    if (!fn_preSearch_file(sType,rltn_item_id)) return false;
+	
+	var szSvcid       = "srchFile";
+    var szController  = "/file/list";
+    var szInDs        = "ds_input=ds_inqCndt_file";
+    var szOutDs       = "ds_file_tmp=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback , false);
+}
+
+
+
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+//한칸 다운로드
+function fn_fileDownLoad(fileId,fileNm)
+{
+	fdl_btn_fixedFormDown.downloadfilename = fileNm		
+	fdl_btn_fixedFormDown.downloadurl = fv_svcPath +"file/download?file_id="+fileId;
+	var bSucc = fdl_btn_fixedFormDown.download();	
+}
+
+
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+
+function edt_fileDown_oneditclick(obj:Edit,  e:EditClickEventInfo)
+{
+	if(obj.value != null && obj.value != ""){
+		fn_fileDownLoad(ds_File.getColumn(ds_File.rowposition , 'file_id'),ds_File.getColumn(ds_File.rowposition , 'file_nm'));
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

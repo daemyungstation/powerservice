@@ -1,0 +1,338 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS993600" classname="PS993600" inheritanceid="" position="absolute 0 0 650 400" titletext="가입신청서 이미지" onload="PS993600_onload" onactivate="PS993600_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" enable="false" position2="absolute l:0 r:0 t:1 b:1" positiontype="position2"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 620 8 640 27"/>
+        <ImageViewer id="img_appfm_no" taborder="2" stretch="fit" position2="absolute l:8px r:8px t:16px b:36" positiontype="position2"/>
+        <Button id="btn_reg" taborder="3" onclick="btn_onclick" tooltiptext="저장" text="저장" position2="absolute r:162 w:72 b:8 h:20" positiontype="position2"/>
+        <Button id="btn_del" taborder="4" onclick="btn_onclick" tooltiptext="삭제" text="삭제" position2="absolute r:85 w:72 b:8 h:20" positiontype="position2"/>
+        <Button id="btn_add" taborder="5" text="파일추가" onclick="btn_onclick" tooltiptext="파일추가" position2="absolute l:274 w:72 b:8px h:20" positiontype="position2"/>
+        <Button id="btn_down" taborder="6" text="다운로드" onclick="btn_onclick" tooltiptext="다운로드" position2="absolute r:8px w:72 b:8px h:20" positiontype="position2"/>
+        <Edit id="edt_file_nm" taborder="7" class="edt_clssEnable" readonly="true" position2="absolute l:8 w:260 b:8px h:20" positiontype="position2"/>
+        <FileDownload id="fdl_btn_fixedFormDown" taborder="8" retry="0" onload="FileDownload00_onload" text="FileDownload" wordwrap="none" position="absolute 770 54 880 75" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_File" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="file_size_vl" type="STRING" size="256"/>
+          <Column id="file_cntn" type="BLOB" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+          <Column id="file_nm" type="STRING" size="256"/>
+          <Column id="atch_typ_cd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="rltn_item_id" type="STRING" size="256"/>
+          <Column id="rltn_tbl_nm" type="STRING" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+var gv_accnt_no = "";
+var gv_file_id = ""; // appfm_img_path
+var gv_rltn_tbl_nm = "APPFM";
+var gv_atch_typ_cd = "10";
+
+var arrFiles = new Array();	// FileDialog 선택을 통한 File Array
+var fv_svcPath = gfn_getServiceUrl("fileUrl");
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS993600_onload(obj:Form, e:LoadEventInfo)
+{	
+	// 파일 업로드 이미지만 가능하도록 처리 => 확장자 체크
+	// 저장시 mem_prod_accnt appfm_img_path update
+	// onactive
+	if (!gfn_isNull(p_accnt_no)) {
+		gv_accnt_no = p_accnt_no;
+		p_accnt_no = null;
+	}
+
+	fn_srchAccntNoFile(); // accnt_no 로 파일 정보 조회
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {
+			case "srchAccountNoFile":
+				gv_file_id = ds_File.getColumn(0, "file_id");
+				//fn_updateFileId(); // MEM_PROD_ACCNT File ID Update PS&DML
+				fn_imageLoad();
+			break;
+			
+			case "deleteFile":
+				gv_file_id = "";
+				edt_file_nm.value = "";
+				img_appfm_no.image = "";
+				alert("파일 정보를 삭제하였습니다.");
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+// 파일 로드 전
+function fn_preImageLoad()
+{
+	if (gfn_isNull(gv_file_id)) {
+		return false;
+	}
+	
+	return true;
+}
+
+// 파일 업로드 전
+function fn_preFileUpload()
+{
+	if (gfn_isNull(gv_accnt_no) || gv_accnt_no == "00000") { // 기타문의
+		alert("회원번호가 없습니다.");
+		return false;
+	}
+	
+	if (gfn_isNull(edt_file_nm.value)) {
+		alert("가입신청서를 추가하십시요.");
+		return false;
+	}
+	
+	return true;
+}
+
+// 파일 조회 전
+function fn_preSrchAccntNoFile()
+{
+	if (gfn_isNull(gv_accnt_no)) {
+		return false;
+	}
+
+	ds_inqCndt.clearData();
+	ds_inqCndt.addRow();
+	ds_inqCndt.setColumn(0, "rltn_item_id", gv_accnt_no);
+	ds_inqCndt.setColumn(0, "rltn_tbl_nm", gv_rltn_tbl_nm);
+	
+	return true;
+}
+
+// 파일 삭제 전
+function fn_preDelFile()
+{
+	if (gfn_isNull(gv_accnt_no)) {
+		alert("회원번호가 없습니다.");
+		return false;
+	}
+	
+	if (gfn_isNull(gv_file_id)) {
+		alert("파일 정보가 없습니다.");
+		return false;
+	}
+	
+	ds_inqCndt.clearData();
+	ds_inqCndt.addRow();
+	ds_inqCndt.setColumn(0, "file_id", gv_file_id);
+	
+	return true;
+}
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//삭제
+function fn_delFile(sType)
+{	
+	if(!fn_preDelFile()) return false;
+
+	var szSvcid       = "deleteFile";
+    var szController  = "/file/delete/real";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "";
+    var szParam       = "";
+    var szRetCallback = "";
+    if (sType == "btn") {
+		szRetCallback = "fn_callBack";
+    }
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback , false);
+}
+
+// 파일 조회
+function fn_srchAccntNoFile()
+{
+	if (!fn_preSrchAccntNoFile()) return false;
+	
+	var szSvcid       = "srchAccountNoFile";
+    var szController  = "/file/list";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_File=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback , false);
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+//첨부파일 선택추가
+function fn_fileAdd()
+{
+	var sFilterType, sFilePath, sFileName, nFileSize, objContents;
+	
+	//다이얼로그 타입 
+	sFilterType = "image files (*.jpg;*.jpeg;*.gif;*.png;)|*.jpg;*.jpeg;*.gif;*.png"; // 이미지 파일만 저장 가능
+	
+	//다이얼로그창 
+ 	fileDialog = objects["fileDialog"];
+ 	if (fileDialog == null) {
+		fileDialog = new FileDialog();
+	}
+	fileDialog.defaultextention = true;
+	fileDialog.filter = sFilterType;
+	
+	var vFile = fileDialog.open("파일 추가", FileDialog.LOAD);
+    if (!vFile) return;	//파일을 선택하지 않은 경우
+        
+    arrFiles[0] = vFile;	               // 파일 배열 생성
+    vFile.open(VirtualFile.openRead| VirtualFile.openBinary);
+    sFilePath = vFile.path;
+    sFileName = vFile.filename;
+    nFileSize = vFile.getFileSize();
+    vFile.close();
+            
+    ds_File.clearData();
+    ds_File.addRow();
+    ds_File.addColumn("file_size_vl", "string", 256);
+    ds_File.addColumn("file_cntn", "string", 256);
+    ds_File.addColumn("file_id", "string", 256);
+    ds_File.addColumn("file_nm", "string", 256);
+    ds_File.addColumn("atch_typ_cd", "string", 256);
+    ds_File.setColumn(0, "file_size_vl", nFileSize);
+    ds_File.setColumn(0, "file_nm", sFileName);
+	ds_File.setColumn(0, "atch_typ_cd", "10");
+
+    edt_file_nm.value = sFileName;
+}
+
+//파일업로드 
+function fn_fileUpload()
+{
+	if (!fn_preFileUpload()) return false;
+	
+	if (!gfn_isNull(gv_file_id)) {
+		if (confirm("이전 가입신청서 이미지를 삭제하시겠습니까?")) {
+			fn_delFile(); // 파일 삭제 호출
+		} else {
+			return;
+		}
+	}
+	
+	var bResult;
+	sWorkMode = "UPLOAD";
+ 	httpObjectInput = objects["httpObject"];
+
+ 	if (httpObjectInput == null) {
+		httpObjectInput = new HttpObject();
+	}
+	
+ 	//파일올릴때 파라미터같이 올릴때URL에 파라미터값 붙여서 넘기는방법 추후 좋은방법 있을시 변경
+	if (arrFiles.length == 1) {
+		var Url = fv_svcPath +"file/insert?";
+			Url += 'atch_typ_cd='+gv_atch_typ_cd;
+			Url += '&rltn_item_id='+gv_accnt_no;
+			Url += '&rltn_tbl_nm='+gv_rltn_tbl_nm;
+		bResult = httpObjectInput.upload(Url, FileDialog.LOAD, arrFiles[0], false);
+					
+		if(bResult == false) {
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+// 이미지 설정
+function fn_imageLoad()
+{
+	if (!fn_preImageLoad()) return false;
+	
+	img_appfm_no.image = "URL('fileUrl::/file/download?file_id="+gv_file_id+"')";
+	
+	edt_file_nm.value = ds_File.getColumn(0, "file_nm");
+}
+
+//파일다운로드
+function fn_fileDownload()
+{
+	if (!gfn_isNull(gv_file_id)) {
+		fdl_btn_fixedFormDown.downloadfilename = ds_File.getColumn(0, "file_nm");			
+		fdl_btn_fixedFormDown.downloadurl = fv_svcPath +"file/download?file_id="+ds_File.getColumn(0, "file_id");
+		var bSucc = fdl_btn_fixedFormDown.download();
+	} else {
+		alert("가입신청서 이미지가 없습니다.");
+	}
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+// 버튼 클릭
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (obj.name == "btn_add") {
+		fn_fileAdd();
+	} else if (obj.name == "btn_reg") {
+		var rVal = fn_fileUpload();
+		if (rVal) {
+			fn_srchAccntNoFile();
+		} else {
+			alert("가입신청서 이미지 업로드에 실패하였습니다.");
+		}
+	} else if (obj.name == "btn_del") {
+		if (!gfn_isNull(gv_file_id)) {
+			if (confirm("가입신청서 이미지를 삭제하시겠습니까")) {
+				fn_delFile("btn");
+			}
+		} else {
+			alert("삭제할 가입신청서 이미지가 없습니다.");
+		}
+	} else if (obj.name == "btn_down") {
+		fn_fileDownload();
+	}
+}
+
+// 닫기 버튼
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

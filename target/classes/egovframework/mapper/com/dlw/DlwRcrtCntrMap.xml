@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwRcrtCntrMap">
+    <!-- 모집인계약서 출력 정보의 수-->
+    <select id="DlwRcrtCntrMap.getRcrtCntrCount" parameterType="map" resultType="int">
+        /* DlwRcrtCntrMap.getRcrtCntrCount */
+        SELECT COUNT(*)
+		FROM MEM_PROD_ACCNT MPA
+		     INNER JOIN MEMBER MB ON MPA.MEM_NO = MB.MEM_NO
+		     LEFT OUTER JOIN TB_RCRT_CNTR RC ON MPA.ACCNT_NO = RC.ACCNT_NO
+		WHERE MPA.DEL_FG = 'N'
+		AND MPA.JOIN_CL = #{join_cl}
+		<if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+            AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+        </if>
+        <if test="accnt_no != null and accnt_no != ''">
+            AND MPA.ACCNT_NO = #{accnt_no}
+        </if>
+        <if test='cntr_yn == "Y"'>
+            AND RC.ACCNT_NO IS NOT NULL
+        </if>
+        <if test='cntr_yn == "N"'>
+            AND RC.ACCNT_NO IS NULL
+        </if>
+    </select>
+
+    <!-- 모집인계약서 출력 정보 -->
+    <select id="DlwRcrtCntrMap.getRcrtCntrList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwRcrtCntrMap.getRcrtCntrList */
+               *
+          FROM (
+		        SELECT ROW_NUMBER() OVER(ORDER BY MPA.ACCNT_NO ASC) AS PAGE_INDX,
+		               MPA.ACCNT_NO, 
+		               MPA.MEM_NO, 
+		               MB.MEM_NM, 
+		               MB.CELL, 
+		               MPA.JOIN_DT, 
+		               RC.FILE_NM
+				FROM MEM_PROD_ACCNT MPA
+				     INNER JOIN MEMBER MB ON MPA.MEM_NO = MB.MEM_NO
+				     LEFT OUTER JOIN TB_RCRT_CNTR RC ON MPA.ACCNT_NO = RC.ACCNT_NO
+				WHERE MPA.DEL_FG = 'N'
+				AND MPA.JOIN_CL = '01'
+				<if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+		           AND MPA.JOIN_DT BETWEEN #{stt_dt} AND #{end_dt}
+		       </if>
+		       <if test="accnt_no != null and accnt_no != ''">
+                   AND MPA.ACCNT_NO = #{accnt_no}
+               </if>
+		       <if test='cntr_yn == "Y"'>
+                   AND RC.ACCNT_NO IS NOT NULL
+               </if>
+               <if test='cntr_yn == "N"'>
+		           AND RC.ACCNT_NO IS NULL
+		       </if>
+		) Z
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+    
+    <insert id="DlwRcrtCntrMap.insertFile" parameterType="map">
+            MERGE /* DlwRcrtCntrMap.insertFile */
+                  INTO TB_RCRT_CNTR A
+            USING (SELECT #{accnt_no} AS ACCNT_NO,
+                          #{file_nm} AS FILE_NM
+                   FROM DUAL) B
+               ON (A.ACCNT_NO = B.ACCNT_NO)
+             WHEN MATCHED THEN
+                  UPDATE SET A.FILE_NM = B.FILE_NM 
+             WHEN NOT MATCHED THEN
+                  INSERT (A.ACCNT_NO, A.FILE_NM, A.REG_DM, A.REG_MAN)
+                  VALUES (#{accnt_no}, #{file_nm}, SYSDATE, #{rgsr_id})
+    </insert>
+</mapper>

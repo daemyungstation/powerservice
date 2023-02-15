@@ -1,0 +1,653 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SubTrgtListMap">
+    <sql id="SubTrgtListMap.selectCondition_fragment">
+        <where>
+            <if test = "sub_trgt_list_id != null and sub_trgt_list_id != ''">
+               AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="SubTrgtListMap.getSubTrgtListCount" parameterType="map" resultType="int">
+        SELECT /* SubTrgtListMap.getSubTrgtListCount */
+               COUNT(*)
+          FROM (SELECT A.* FROM TB_SUB_TRGT_LIST_DTL A
+            <if test="cnsr_id != null and cnsr_id != ''">
+               LEFT JOIN TB_CMPG_ALCT_DTL TC ON TC.SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID WHERE CNSR_ID = #{cnsr_id}
+            </if>
+          )
+          <include refid="SubTrgtListMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="SubTrgtListMap.getSubTrgtList" parameterType="map" resultType="resultMap">
+        SELECT /* SubTrgtListMap.getSubTrgtList */
+             *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                      , B.*
+                      , (SELECT TEAM_NM FROM TB_CONS_TEAM CT WHERE CT.TEAM_CD = B.HGRN_TEAM_CD) AS HGRN_TEAM_NM
+                      , GETCODENM('CAM070',B.TRGT_LIST_EXTC_TYP_CD,B.CNTR_CD) AS TRGT_LIST_EXTC_TYP_NM
+                      , (CASE
+                             WHEN B.CMPG_INVT_MTHD_CD='10' THEN (SELECT MAX(SURS_NM) FROM TB_SURS_BASI WHERE SURS_ID=B.INVT_CNTS_ID)
+                             WHEN B.CMPG_INVT_MTHD_CD='20' THEN (SELECT MAX(SCRT_NM) FROM TB_SCRT_BASI WHERE SCRT_ID=B.INVT_CNTS_ID)
+                             WHEN B.CMPG_INVT_MTHD_CD='30' THEN (SELECT MAX(CHAT_MSG_TITL) FROM TB_CHAT_CNTS_ADMN WHERE CHAT_CNTS_ID=B.INVT_CNTS_ID)
+                             ELSE ''
+                          END) AS INVT_CNTS_NM
+                     , NVL((SELECT MAX('N') FROM TB_TRGT_CUST_ALCT WHERE SUB_TRGT_LIST_ID = B.SUB_TRGT_LIST_ID) , 'Y') AS DELETE_FG
+                     , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT WHERE SUB_TRGT_LIST_ID=B.SUB_TRGT_LIST_ID) AS ASSIGNNUM
+                  FROM (SELECT A.CNTR_CD ,A.TRGT_LIST_ID ,A.SUB_TRGT_LIST_ID ,A.SUB_TRGT_LIST_NM
+                              ,A.SUB_TRGT_LIST_EXPI ,A.INVT_CNTS_ID ,A.CMPG_PRFM_TEAM_CD
+                              ,A.TRGT_LIST_EXTC_TYP_CD
+                              ,A.CUST_DATA_EXTC_CNT ,A.DFCT_DATA_CNT
+                              ,A.RGSR_ID ,A.RGSN_DTTM ,A.AMND_ID ,A.AMNT_DTTM
+                              ,CT.HGRN_TEAM_CD ,CT.TEAM_NM
+                              ,(SELECT USER_NM FROM TB_USER WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                              ,(SELECT USER_NM FROM TB_USER WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                              ,(SELECT CMPG_INVT_MTHD_CD FROM TB_TRGT_LIST_DTL TD WHERE TD.TRGT_LIST_ID = A.TRGT_LIST_ID) AS CMPG_INVT_MTHD_CD
+                         FROM TB_SUB_TRGT_LIST_DTL A LEFT JOIN TB_CONS_TEAM CT ON A.CMPG_PRFM_TEAM_CD = CT.TEAM_CD
+                            <if test="cnsr_id != null and cnsr_id != ''">
+                               LEFT JOIN TB_CMPG_ALCT_DTL TC ON TC.SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID WHERE CNSR_ID = #{cnsr_id}
+                            </if>
+                        )B
+                        <include refid="SubTrgtListMap.selectCondition_fragment"/>
+                        <choose>
+                            <when test="orderBy != null and orderBy != ''">
+                               ORDER BY ${orderBy} ${orderDirection}
+                            </when>
+                            <otherwise>
+                               ORDER BY AMNT_DTTM DESC
+                            </otherwise>
+                       </choose>
+                 )
+    </select>
+
+    <insert id="SubTrgtListMap.insertSubTrgtList" parameterType="map">
+        <selectKey keyProperty="sub_trgt_list_id" resultType="String" order="BEFORE">
+            SELECT 'STL' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        INSERT /* SubTrgtListMap.insertSubTrgtList */
+          INTO TB_SUB_TRGT_LIST_DTL
+              (TRGT_LIST_ID, SUB_TRGT_LIST_ID, SUB_TRGT_LIST_NM, SUB_TRGT_LIST_EXPI
+             , INVT_CNTS_ID, CMPG_PRFM_TEAM_CD, TRGT_LIST_EXTC_TYP_CD
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{trgt_list_id},NVL(#{sub_trgt_list_id_scheduling},#{sub_trgt_list_id}), #{sub_trgt_list_nm}, #{sub_trgt_list_expi}
+              , #{invt_cnts_id}, #{cmpg_prfm_team_cd}, #{trgt_list_extc_typ_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="SubTrgtListMap.updateSubTrgtList" parameterType="map">
+        UPDATE /* SubTrgtListMap.updateSubTrgtList */
+               TB_SUB_TRGT_LIST_DTL
+           SET
+        <choose>
+            <when test="updateOption == 'extract'">
+               CUST_DATA_EXTC_CNT       = (SELECT COUNT(*) FROM TB_TRGT_CUST_DTPT B WHERE B.SUB_TRGT_LIST_ID = #{sub_trgt_list_id} AND B.TRGT_LIST_ID = #{trgt_list_id} AND B.CNTR_CD = #{cntr_cd})
+             , DFCT_DATA_CNT         = (SELECT COUNT(*) FROM TB_DFCT_DATA B WHERE B.SUB_TRGT_LIST_ID = #{sub_trgt_list_id} AND B.TRGT_LIST_ID = #{trgt_list_id} AND B.CNTR_CD = #{cntr_cd})
+            </when>
+            <otherwise>
+               AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , SUB_TRGT_LIST_NM = #{sub_trgt_list_nm}
+            </otherwise>
+        </choose>
+         WHERE SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+    </update>
+
+    <delete id="SubTrgtListMap.deleteSubTrgtList" parameterType="map">
+        DELETE /* SubTrgtListMap.deleteSubTrgtList */
+          FROM TB_SUB_TRGT_LIST_DTL
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+         <if test = "sub_trgt_list_id != null and sub_trgt_list_id != ''">
+           AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+         </if>
+           AND CNTR_CD =  #{cntr_cd}
+    </delete>
+
+    <delete id="SubTrgtListMap.deleteTrgtCustByTrgtList" parameterType="map">
+        DELETE /* SubTrgtListMap.deleteTrgtCustByTrgtList */
+          FROM TB_TRGT_CUST_DTPT
+         WHERE TRGT_LIST_ID = #{trgt_list_id}
+         <if test = "sub_trgt_list_id != null and sub_trgt_list_id != ''">
+           AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+         </if>
+           AND CNTR_CD =  #{cntr_cd}
+    </delete>
+
+    <insert id="SubTrgtListMap.insertTrgtCustByDB" parameterType="map" timeout="300">
+       INSERT /* SubTrgtListMap.insertTrgtCustByDB */
+          INTO TB_TRGT_CUST_DTPT
+              (TRGT_CUST_DTPT_ID, TRGT_LIST_ID, SUB_TRGT_LIST_ID, MEM_NO, CUST_NM
+             , CLPH_TLNO, HOME_TLNO, COMP_TLNO, ETC_TlNO, CNTR_CD
+             , ACCNT_NO, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, PRMV_ID
+             , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+             , USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN, USER_DEFN9_CNTN, USER_DEFN10_CNTN
+             , USER_DEFN11_CNTN, USER_DEFN12_CNTN, USER_DEFN13_CNTN, USER_DEFN14_CNTN, USER_DEFN15_CNTN
+             , USER_DEFN16_CNTN, USER_DEFN17_CNTN, USER_DEFN18_CNTN, USER_DEFN19_CNTN, USER_DEFN20_CNTN)
+        VALUES (('TAR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0')), #{trgt_list_id}, #{sub_trgt_list_id}, #{mem_no}, #{mem_nm}
+             , REPLACE(#{cell}, '-', ''), REPLACE(#{home_tlno}, '-', ''), REPLACE(#{comp_tlno}, '-', ''), REPLACE(#{etc_tlno}, '-', ''), #{cntr_cd}
+             , #{accnt_no}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{prmv_id}
+             , #{user_defn1_cntn}, #{user_defn2_cntn}, #{user_defn3_cntn}, #{user_defn4_cntn}, #{user_defn5_cntn}
+             , #{user_defn6_cntn}, #{user_defn7_cntn}, #{user_defn8_cntn}, #{user_defn9_cntn}, #{user_defn10_cntn}
+             , #{user_defn11_cntn}, #{user_defn12_cntn}, #{user_defn13_cntn}, #{user_defn14_cntn}, #{user_defn15_cntn}
+             , #{user_defn16_cntn}, #{user_defn17_cntn}, #{user_defn18_cntn}, #{user_defn19_cntn}, #{user_defn20_cntn}
+               )
+    </insert>
+
+    <insert id="SubTrgtListMap.insertOneTrgtCust" parameterType="map">
+         INSERT /* SubTrgtListMap.insertOneTrgtCust */
+           INTO TB_TRGT_CUST_DTPT
+              (TRGT_CUST_DTPT_ID, TRGT_LIST_ID, SUB_TRGT_LIST_ID, CUST_NM, MEM_NO
+             , ACCNT_NO, CLPH_TLNO, HOME_TLNO, COMP_TLNO
+             , UNTY_CASE_ADTL_YN, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, CNTR_CD
+             , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+             , USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN, USER_DEFN9_CNTN, USER_DEFN10_CNTN)
+        VALUES (('TAR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0')), #{trgt_list_id}, #{sub_trgt_list_id}, #{cust_nm}, #{mem_no}
+             , #{accnt_no}, REPLACE(#{clph_tlno}, '-', ''), REPLACE(#{home_tlno}, '-', ''), REPLACE(#{comp_tlno}, '-', '')
+             , 'Y', #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{cntr_cd}
+             , #{user_defn1_cntn}, #{user_defn2_cntn}, #{user_defn3_cntn}, #{user_defn4_cntn}, #{user_defn5_cntn}
+             , #{user_defn6_cntn}, #{user_defn7_cntn}, #{user_defn8_cntn}, #{user_defn9_cntn}, #{user_defn10_cntn}
+         )
+    </insert>
+
+    <insert id="SubTrgtListMap.insertTrgtCustByExcel" parameterType="map">
+         INSERT /* SubTrgtListMap.insertTrgtCustByExcel */
+           INTO TB_TRGT_CUST_DTPT
+              (TRGT_CUST_DTPT_ID, TRGT_LIST_ID, SUB_TRGT_LIST_ID, MEM_NO, CUST_NM
+             , CLPH_TLNO, HOME_TLNO, COMP_TLNO, ETC_TLNO , CNTR_CD
+             , ACCNT_NO, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+             , USER_DEFN1_CNTN, USER_DEFN2_CNTN, USER_DEFN3_CNTN, USER_DEFN4_CNTN, USER_DEFN5_CNTN
+             , USER_DEFN6_CNTN, USER_DEFN7_CNTN, USER_DEFN8_CNTN, USER_DEFN9_CNTN, USER_DEFN10_CNTN)
+        VALUES (('TAR' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0')), #{trgt_list_id}, #{sub_trgt_list_id}, #{mem_no}, #{cust_nm}
+             , REPLACE(#{clph_tlno}, '-', ''), REPLACE(#{home_tlno}, '-', ''), REPLACE(#{comp_tlno}, '-', ''), REPLACE(#{etc_tlno}, '-', ''), #{cntr_cd}
+             , #{accnt_no}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , #{user_defn1_cntn}, #{user_defn2_cntn}, #{user_defn3_cntn}, #{user_defn4_cntn}, #{user_defn5_cntn}
+             , #{user_defn6_cntn}, #{user_defn7_cntn}, #{user_defn8_cntn}, #{user_defn9_cntn}, #{user_defn10_cntn}
+         )
+    </insert>
+
+    <select id="SubTrgtListMap.getAssigNum" parameterType="map" resultType="resultMap">
+        SELECT /* SubTrgtListMap.getAssigNum */
+             *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                              , CUST_DATA_EXTC_CNT
+                              , (SELECT COUNT(*)FROM TB_TRGT_CUST_ALCT WHERE SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID) ASSIGNUM
+                  FROM TB_SUB_TRGT_LIST_DTL A
+          <include refid="SubTrgtListMap.selectCondition_fragment"/>
+          )
+    </select>
+
+    <select id="SubTrgtListMap.getSubTrgtStatByCmpgCount" parameterType="map" resultType="int">
+        SELECT /* SubTrgtListMap.getSubTrgtStatByCmpgCount */
+               COUNT(*)
+          FROM (SELECT A.*
+                    FROM TB_SUB_TRGT_LIST_DTL A
+                   WHERE EXISTS (SELECT 'Y'
+                                 FROM TB_CMPG_BASI
+                                WHERE CMPG_ID = #{cmpg_id}
+                                  AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                  AND CNTR_CD = A.CNTR_CD)
+                <if test="cntr_cd != null and cntr_cd != ''">
+                   AND CNTR_CD = #{cntr_cd}
+                </if>
+                <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                   AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+                </if>
+                <if test="rgsn_dttm_sttdt != null and rgsn_dttm_sttdt != '' and rgsn_dttm_enddt != null and rgsn_dttm_enddt != ''">
+                   AND RGSN_DTTM >= #{rgsn_dttm_sttdt}||'000000' AND RGSN_DTTM  <![CDATA[ <= ]]>  #{rgsn_dttm_enddt}||'235959'
+                </if>
+                 ) A
+          <include refid="SubTrgtListMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="SubTrgtListMap.getSubTrgtStatByCmpgList" parameterType="map" resultType="resultMap">
+        SELECT /* SubTrgtListMap.getSubTrgtStatByCmpgList */
+               *
+          FROM (SELECT <choose>
+                          <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                          </when>
+                          <otherwise>
+                            ROW_NUMBER() OVER (ORDER BY SUB_TRGT_LIST_NM DESC) AS PAGE_INDX
+                          </otherwise>
+                       </choose>
+                     , A.*
+                     , GETCODENM('CAM050',A.CMPG_PRGR_STAT_CD, A.CNTR_CD) AS CMPG_PRGR_STAT_NM
+                  FROM (SELECT A.*
+                             , (SELECT TEAM_NM FROM TB_CONS_TEAM WHERE TEAM_CD = A.CMPG_PRFM_TEAM_CD AND CNTR_CD = A.CNTR_CD) AS TEAM_NM
+                             , (SELECT COUNT(*) FROM TB_CMPG_ALCT_DTL WHERE CMPG_ID = A.CMPG_ID AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID AND CNTR_CD = A.CNTR_CD) AS CNSR_CNT
+                             , (SELECT CMPG_PRGR_STAT_CD FROM TB_CMPG_BASI WHERE CMPG_ID = A.CMPG_ID AND CNTR_CD = A.CNTR_CD) AS CMPG_PRGR_STAT_CD
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                               <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS STALL
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_STAT_CD = '10'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST10
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_STAT_CD = '20'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST20
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_STAT_CD = '30'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST30
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_STAT_CD = '40'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST40
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_STAT_CD = '50'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST50
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '1000'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST1000
+                             , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '1001'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST1001
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '2000'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST2000
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '2001'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST2001
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '2002'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST2002
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3000'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3000
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3001'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3001
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3002'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3002
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3003'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3003
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3004'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3004
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3005'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3005
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3006'
+                                 <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3006
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3007'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3007
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3008'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3008
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3009'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3009
+                            , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3010'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3010
+                           , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3011'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3011
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3012'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3012
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3013'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3013
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3014'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3014
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3015'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3015
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '3016'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST3016
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4001'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4001
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4002'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4002
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4003'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4003
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4004'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4004
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4005'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4005
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4006'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4006
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4007'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4007
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4010'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4010
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4011'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4011
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4012'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4012
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4013'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4013
+                          , (SELECT COUNT(*) FROM TB_TRGT_CUST_ALCT
+                                 WHERE CMPG_ID = A.CMPG_ID
+                                   AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                   AND SUB_TRGT_LIST_ID = A.SUB_TRGT_LIST_ID
+                                   AND CNTR_CD = A.CNTR_CD
+                                   AND DPMS_RESL_CD = '4015'
+                                <if test="dpms_dttm_sttdt != null and dpms_dttm_sttdt != '' and dpms_dttm_enddt != null and dpms_dttm_enddt != ''">
+                                   AND DPMS_DTTM >= #{dpms_dttm_sttdt}||'000000' AND DPMS_DTTM  <![CDATA[ <= ]]>  #{dpms_dttm_enddt}||'235959'
+                                </if>
+                                   ) AS ST4015
+                          FROM (SELECT A.*
+                                     , #{cmpg_id} AS CMPG_ID
+                                  FROM TB_SUB_TRGT_LIST_DTL A
+                                 WHERE EXISTS (SELECT 'Y'
+                                                 FROM TB_CMPG_BASI
+                                                WHERE CMPG_ID = #{cmpg_id}
+                                                  AND TRGT_LIST_ID = A.TRGT_LIST_ID
+                                                  AND CNTR_CD = A.CNTR_CD)
+                                <if test="cntr_cd != null and cntr_cd != ''">
+                                   AND CNTR_CD = #{cntr_cd}
+                                </if>
+                                <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                                   AND SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+                                </if>
+                                <if test="rgsn_dttm_sttdt != null and rgsn_dttm_sttdt != '' and rgsn_dttm_enddt != null and rgsn_dttm_enddt != ''">
+                                   AND RGSN_DTTM >= #{rgsn_dttm_sttdt}||'000000' AND RGSN_DTTM  <![CDATA[ <= ]]>  #{rgsn_dttm_enddt}||'235959'
+                                </if>
+                               ) A
+                       ) A
+               ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+</mapper>

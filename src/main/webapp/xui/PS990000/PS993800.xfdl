@@ -1,0 +1,167 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="PS993800" classname="PS993800" inheritanceid="" position="absolute 0 0 340 106" titletext="신한인증" onload="PS993800_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_popup" class="sta_popupBg1" enable="false" position="absolute 0 0 340 106"/>
+        <Button id="btn_close" taborder="0" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 310 8 330 27"/>
+        <Static id="stc_30" text="신한 인증" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 152 28"/>
+        <Static id="sta_GrayLine" class="sta_WF_Line1" position="absolute 11 41 329 42"/>
+        <Static id="stc_txt_05" class="sta_workData" position="absolute 105 42 329 68" visible="true"/>
+        <Static id="stc_txt_02" text="카드번호" class="sta_workLabel1" visible="true" position="absolute 11 42 105 68" style="font:Dotum,8;" validate=""/>
+        <Edit id="edt_card_no" taborder="14" maxlength="16" visible="true" position="absolute 108 45 274 65" ontextchanged="fn_ontextchanged" enable="true" inputtype="number"/>
+        <Button id="btn_cancel" taborder="15" text="취소" onclick="btn_close_onclick" position="absolute 257 74 329 94" tooltiptext="취소" style="border:0 none #000000ff ;padding:0 0 0 0;"/>
+        <Button id="btn_shSavePromAthn" taborder="18" text="신한세이브약정인증" position="absolute 134 74 254 94" tooltiptext="신한세이브약정인증" style="border:0 none #000000ff ;padding:0 0 0 0;" onclick="btn_onclick" enable="false"/>
+        <Button id="btn_shAllnCardAthn" taborder="29" text="신한제휴카드인증" onclick="btn_onclick" position="absolute 11 74 131 94" tooltiptext="인증" style="border:0 none #000000ff ;padding:0 0 0 0;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="card_no" type="STRING" size="256"/>
+          <Column id="cl" type="STRING" size="256"/>
+          <Column id="result" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item1" compid="edt_card_no" propid="value" datasetid="ds_smartLifeCard" columnid="card_no"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[/********************************************************************************************/
+/* 1. Include Library include, variables Declaration 영역                                  */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트) 처리                                           	*/
+/********************************************************************************************/
+function PS993800_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_setResult(false);
+}
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg)
+{
+	if (errcd != 0) {
+		trace(errcd)
+		return false;
+	} else {
+		switch (svcid) {
+			case "shCardAthn":
+				var sCl = ds_inqCndt.getColumn(0, "cl");
+				var sResult = ds_inqCndt.getColumn(0, "result");
+				// 제휴카드 인증결과
+				if (sCl == "card") {
+					if(sResult == "00") {
+						alert("해당사항 없습니다.");
+						fn_setResult(false);
+					} else if(sResult == "01") {
+						alert("LG전자 제휴카드입니다.\n세이브약정 거래 인증하십시오.");
+						fn_setResult(true);
+					} else if(sResult == "02") {
+						alert("LGU+ 제휴카드입니다.");
+						opener.fn_ShinHanAppComplete(edt_card_no.value);
+					} else {
+						alert("연결 실패입니다.");
+						fn_setResult(false);
+					}
+				}
+				// 세이브약정 거래 인증
+				else {
+					if(sResult == "00") {
+						alert("해당사항 없습니다.");
+						fn_setResult(false);
+					} else if(sResult == "01") {
+						alert("세이브약정 거래 카드입니다.");
+						opener.fn_ShinHanAppComplete(edt_card_no.value);
+					} else {
+						alert("연결 실패입니다.");
+						fn_setResult(false);
+					}
+				}
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+// 신한카드인증 전
+function fn_preShCardAthn(sType)
+{
+	if (gfn_isNull(edt_card_no.value)) {
+		alert("카드번호가 없습니다.");
+		fn_setResult(false);
+		return false;
+	}
+	
+	ds_inqCndt.clearData();
+	ds_inqCndt.addRow();
+	ds_inqCndt.setColumn(0, "card_no", edt_card_no.value);
+	ds_inqCndt.setColumn(0, "cl", sType);
+	
+	return true;
+}
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+// 신한제휴카드인증
+function fn_shCardAthn(sType)
+{
+	if (!fn_preShCardAthn(sType)) return false;
+	
+	var szSvcid       = "shCardAthn";
+    var szController  = "/dlw/cons-prod/sh-athn";
+    var szInDs        = "ds_input=ds_inqCndt";
+    var szOutDs       = "ds_inqCndt=ds_output";
+    var szParam       = "";
+    var szRetCallback = "fn_callBack";
+	
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback);
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+// 결과 설정
+function fn_setResult(sType)
+{
+	btn_shSavePromAthn.enable = sType;
+	edt_card_no.setFocus();
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+// 닫기
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+// 버튼클릭
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (obj.name= "btn_shAllnCardAthn") {			// 신한제휴카드인증
+		fn_shCardAthn("card");
+	} else if (obj.name= "btn_shSavePromAthn") {	// 신한세이브약정인증
+		fn_shCardAthn("save");
+	}
+}]]></Script>
+  </Form>
+</FDL>

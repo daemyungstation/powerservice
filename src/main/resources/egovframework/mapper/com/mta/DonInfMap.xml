@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DonInfMap">
+    <sql id="DonInfMap.selectCondition_fragment">
+        <where>
+            <if test="domn_lvl_cnt != null and domn_lvl_cnt != ''">
+                AND DOMN_LVL_CNT = #{domn_lvl_cnt}
+            </if>
+            <if test="hgrn_domn_cd != null and hgrn_domn_cd != ''">
+                AND HGRN_DOMN_CD = #{hgrn_domn_cd}
+            </if>
+            <if test="domn_nm != null and domn_nm != ''">
+                AND DOMN_NM LIKE '%' || #{domn_nm} || '%'
+            </if>
+            <if test="domn_sqnc != null and domn_sqnc != ''">
+                AND DOMN_SQNC = #{domn_sqnc}
+            </if>
+            <if test="domn_expi != null and domn_expi != ''">
+                AND DOMN_EXPI LIKE '%' || #{domn_expi} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="rgsr_id != null and rgsr_id != ''">
+                AND RGSR_ID = #{rgsr_id}
+            </if>
+            <if test="rgsn_dttm != null and rgsn_dttm != ''">
+                AND RGSN_DTTM = #{rgsn_dttm}
+            </if>
+            <if test="amnd_id != null and amnd_id != ''">
+                AND AMND_ID = #{amnd_id}
+            </if>
+            <if test="amnt_dttm != null and amnt_dttm != ''">
+                AND AMNT_DTTM = #{amnt_dttm}
+            </if>
+            <if test="data_type_cd != null and data_type_cd != ''">
+                AND DATA_TYPE_CD = #{data_type_cd}
+            </if>
+            <choose>
+                <when test="treefg != null and treefg != ''">
+                    <choose>
+                        <when test="domn_cd != null and domn_cd != ''">
+                        AND HGRN_DOMN_CD = #{domn_cd}
+                        </when>
+                        <otherwise>
+                        AND HGRN_DOMN_CD IS NULL
+                        </otherwise>
+                    </choose>
+                </when>
+                <otherwise>
+                    <if test="domn_cd != null and domn_cd != ''">
+                        AND DOMN_CD = #{domn_cd}
+                    </if>
+                    <if test="hgrn_domn_cd == null or hgrn_domn_cd == ''">
+                        AND (HGRN_DOMN_CD IS NULL OR HGRN_DOMN_CD ='')
+                    </if>
+                </otherwise>
+            </choose>
+        </where>
+    </sql>
+
+    <!-- 트리 구조 리스트 (15.04.06) -->
+    <select id="DonInfMap.getDonInfTreeList" parameterType="map" resultType="resultMap">
+        SELECT /* DonInfMap.getDonInfTreeList */
+               DOMN_CD, HGRN_DOMN_CD, DOMN_NM, DOMN_LVL_CNT, USE_YN
+             , DOMN_NM, DATA_TYPE_CNTN, DOMN_EXPI
+             , (SELECT COUNT(DOMN_CD)
+                   FROM TB_DOMN_INFO B
+                  WHERE B.HGRN_DOMN_CD = A.DOMN_CD) AS NODECOUNT
+             , (SELECT CASE WHEN COUNT(*) > 0 THEN 'TRUE' END
+                   FROM TB_DOMN_INFO
+                  WHERE HGRN_DOMN_CD = A.DOMN_CD) AS HASCHILDREN
+          FROM TB_DOMN_INFO A
+        <include refid="DonInfMap.selectCondition_fragment"/>
+      ORDER BY A.DOMN_SQNC ASC
+    </select>
+    <!-- // 트리 구조 리스트 -->
+
+    <!-- 도메인 관리 건수 조회 (15.04.06)  -->
+    <select id="DonInfMap.getDonInfCount" parameterType="map" resultType="int">
+        SELECT /* DonInfMap.getDonInfCount */
+               COUNT(*)
+          FROM TB_DOMN_INFO
+        <include refid="DonInfMap.selectCondition_fragment"/>
+    </select>
+    <!-- 도메인 관리 건수 조회  -->
+
+    <!-- 도메인 관리 목록 조회 (15.04.06) -->
+    <select id="DonInfMap.getDonInf" parameterType="map" resultType="resultMap">
+        SELECT /* DonInfMap.getDonInf */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT DOMN_CD, HGRN_DOMN_CD, DOMN_NM, DOMN_SQNC, USE_YN, DOMN_EXPI
+                       , DATA_TYPE_CNTN, DATA_TYPE_CD, DATA_TYPE1_LNGT, DATA_TYPE2_LNGT
+                       , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, DOMN_LVL_CNT
+                       , (SELECT DOMN_NM
+                             FROM TB_DOMN_INFO
+                            WHERE DOMN_CD = A.HGRN_DOMN_CD) AS PARDOMN_NM
+                       , (SELECT USER_NM
+                            FROM TB_USER
+                           WHERE USER_ID = A.RGSR_ID) AS RGSR_NM
+                       , (SELECT USER_NM
+                            FROM TB_USER
+                           WHERE USER_ID = A.AMND_ID) AS AMND_NM
+                       , (SELECT COUNT(*)
+                             FROM TB_DOMN_INFO
+                            WHERE HGRN_DOMN_CD = A.DOMN_CD
+                              AND USE_YN = 'Y' ) AS NODEUSECOUNT
+                       , GETCODENM('PMS010', A.DATA_TYPE_CD, #{cntr_cd}) AS DATA_TYPE_NM
+                       , (SELECT MAX(DOMN_SQNC)
+                             FROM TB_DOMN_INFO
+                     <include refid="DonInfMap.selectCondition_fragment"/>
+                       ) AS MAXORD
+                  FROM TB_DOMN_INFO A
+                <include refid="DonInfMap.selectCondition_fragment"/>
+                <if test="orderBy != null and orderBy != ''">
+                    ORDER BY ${orderBy} ${orderDirection}
+                </if>
+                ) B
+    </select>
+    <!-- // 도메인 관리 목록 조회 -->
+
+    <!-- 도메인 관리 등록/수정 (15.04.07) -->
+    <insert id="DonInfMap.mergeDonInf" parameterType="map">
+    MERGE INTO /* DonInfMap.mergeDonInf */
+               TB_DOMN_INFO A
+    USING (SELECT #{domn_cd} DOMN_CD, #{hgrn_domn_cd} HGRN_DOMN_CD FROM DUAL) B
+       ON (A.DOMN_CD = B.DOMN_CD
+           AND NVL(A.HGRN_DOMN_CD, ' ') = NVL(B.HGRN_DOMN_CD, ' '))
+     WHEN MATCHED THEN
+        UPDATE SET
+               DOMN_NM    	 	= #{domn_nm}
+             , DOMN_SQNC     	= #{domn_sqnc}
+             , USE_YN        	= #{use_yn}
+             , DATA_TYPE_CNTN	= #{data_type_cntn}
+             , DATA_TYPE_CD  	= #{data_type_cd}
+             , DATA_TYPE1_LNGT	= #{data_type1_lngt}
+             , DATA_TYPE2_LNGT	= #{data_type2_lngt}
+             , DOMN_EXPI     	= #{domn_expi}
+             , AMND_ID       	= #{amnd_id}
+             , AMNT_DTTM     	= TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+     WHEN NOT MATCHED THEN
+        INSERT (DOMN_CD, HGRN_DOMN_CD, DOMN_NM, DOMN_SQNC, USE_YN, DOMN_EXPI
+                , DATA_TYPE_CNTN, DATA_TYPE_CD, DATA_TYPE1_LNGT, DATA_TYPE2_LNGT
+                , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, DOMN_LVL_CNT)
+        VALUES (#{domn_cd}, #{hgrn_domn_cd}, #{domn_nm}, #{domn_sqnc}, #{use_yn}, #{domn_expi}
+             , #{data_type_cntn}, #{data_type_cd}, #{data_type1_lngt}, #{data_type2_lngt}
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{domn_lvl_cnt})
+    </insert>
+    <!-- // 도메인 관리 등록/수정 -->
+
+    <!-- 도메인 관리 순서 수정 (15.04.07) -->
+    <update id="DonInfMap.modifyDonInfOrd" parameterType="map">
+        <![CDATA[
+            UPDATE /* DonInfMap.modifyDomainOrd */
+                   TB_DOMN_INFO
+               SET DOMN_SQNC  =
+                       CASE DOMN_CD
+                           WHEN #{domn_cd}  THEN ${domn_sqnc}
+                           ELSE CASE SIGN( ${old_domn_sqnc} - ${domn_sqnc} )
+                                   WHEN -1 THEN DOMN_SQNC - 1
+                                   WHEN  1 THEN DOMN_SQNC + 1
+                               END
+                           END
+             WHERE DOMN_SQNC <=
+                    CASE SIGN( ${oldDonInford} - ${domn_sqnc} )
+                        WHEN 1 THEN ${old_domn_sqnc}
+                        WHEN -1 THEN ${domn_sqnc}
+                    END
+                  AND DOMN_SQNC >=
+                    CASE SIGN( ${old_domn_sqnc} - ${domn_sqnc} )
+                        WHEN 1 THEN ${domn_sqnc}
+                        WHEN -1 THEN ${old_domn_sqnc}
+                    END
+        ]]>
+        <choose>
+          <when test="hgrn_domn_cd != null and hgrn_domn_cd != ''">
+             AND HGRN_DOMN_CD = #{hgrn_domn_cd}
+          </when>
+          <otherwise>
+                   AND (HGRN_DOMN_CD IS NULL OR HGRN_DOMN_CD ='')
+          </otherwise>
+        </choose>
+    </update>
+    <!-- // 도메인 관리 순서 수정 -->
+
+    <!-- 도메인 관리 순서 중복 확인 (15.04.07) -->
+    <select id="DonInfMap.getDonInfDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* DonInfMap.getDonInfDuplicateCount */
+               COUNT(*)
+          FROM TB_DOMN_INFO
+          WHERE DOMN_SQNC = #{domn_sqnc}
+            AND DOMN_CD != #{domn_cd}
+        <choose>
+            <when test="hgrn_domn_cd == null or hgrn_domn_cd == ''">
+            AND HGRN_DOMN_CD IS NULL
+            </when>
+            <otherwise>
+            AND HGRN_DOMN_CD = #{hgrn_domn_cd}
+            </otherwise>
+        </choose>
+    </select>
+    <!-- // 도메인 관리 순서 중복 확인 -->
+
+    <!-- 도메인 관리 삭제 (15.04.07) -->
+    <delete id="DonInfMap.deleteDonInf" parameterType="map">
+        DELETE /* DonInfMap.deleteDonInf */
+          FROM TB_DOMN_INFO
+         WHERE DOMN_CD IN (SELECT DOMN_CD
+                             FROM (SELECT *
+                                       FROM TB_DOMN_INFO
+                                    )
+                         START WITH DOMN_CD = #{domn_cd}
+                         CONNECT BY PRIOR DOMN_CD = HGRN_DOMN_CD
+                            )
+    </delete>
+    <!-- // 도메인 관리 삭제 -->
+
+    <!-- 도메인 관리 전체엑셀다운 (15.04.09) -->
+    <select id="DonInfMap.getDonInfExcelList" parameterType="map" resultType="resultMap">
+         SELECT  /* DonInfMap.getDonInfExcelList */
+               DT_DOMN_CD, DT_DOMN_NM, DT_DOMN_SQNC, DT_USE_YN, DT_DOMN_LVL_CNT
+             , DM_DOMN_CD, DM_DOMN_NM, DM_DOMN_SQNC, DM_USE_YN, DM_DOMN_LVL_CNT
+             , IT_DOMN_CD, IT_DOMN_NM, IT_DOMN_SQNC, IT_USE_YN, IT_DOMN_LVL_CNT
+             , DATA_TYPE_CD, CODENM, DATA_TYPE1_LNGT, DATA_TYPE2_LNGT, DOMN_EXPI
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+         FROM (SELECT DT.DOMN_CD AS DT_DOMN_CD
+                     ,DT.DOMN_NM AS DT_DOMN_NM
+                     ,DT.DOMN_SQNC AS DT_DOMN_SQNC
+                     ,DT.USE_YN AS DT_USE_YN
+                     ,DT.DOMN_LVL_CNT  AS DT_DOMN_LVL_CNT
+                     ,DM.DOMN_CD AS DM_DOMN_CD
+                     ,DM.DOMN_NM AS DM_DOMN_NM
+                     ,DM.DOMN_SQNC AS DM_DOMN_SQNC
+                     ,DM.USE_YN AS DM_USE_YN
+                     ,DM.DOMN_LVL_CNT AS DM_DOMN_LVL_CNT
+                     ,IT.DOMN_CD  AS IT_DOMN_CD
+                     ,IT.DOMN_NM AS IT_DOMN_NM
+                     ,IT.DOMN_SQNC AS IT_DOMN_SQNC
+                     ,IT.USE_YN AS IT_USE_YN
+                     ,IT.DOMN_LVL_CNT AS IT_DOMN_LVL_CNT
+                     ,IT.DATA_TYPE_CD AS DATA_TYPE_CD
+                     ,TC.CD_NM AS CODENM
+                     ,IT.DATA_TYPE1_LNGT AS DATA_TYPE1_LNGT
+                     ,IT.DATA_TYPE2_LNGT AS DATA_TYPE2_LNGT
+                     ,IT.DOMN_EXPI AS DOMN_EXPI
+                     ,(SELECT USER_NM
+                         FROM TB_USER
+                        WHERE USER_ID = IT.RGSR_ID) AS RGSR_ID
+                     ,(TO_CHAR(TO_DATE(IT.RGSN_DTTM, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD')) AS RGSN_DTTM
+                     ,(SELECT USER_NM
+                         FROM TB_USER
+                        WHERE USER_ID = IT.AMND_ID) AS AMND_ID
+                     ,(TO_CHAR(TO_DATE(IT.AMNT_DTTM, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD')) AS AMNT_DTTM
+                 FROM TB_DOMN_INFO DT
+                 LEFT OUTER JOIN TB_DOMN_INFO DM
+                   ON DT.DOMN_CD = DM.HGRN_DOMN_CD
+                 LEFT OUTER JOIN TB_DOMN_INFO IT
+                   ON DM.DOMN_CD = IT.HGRN_DOMN_CD
+                 LEFT OUTER JOIN TB_CD TC
+                   ON IT.DATA_TYPE_CD = TC.CD
+                  AND TC.CD_SET_CD = 'PMS010'
+                WHERE DT.DOMN_LVL_CNT = 1
+              )
+          ORDER BY DT_DOMN_SQNC, DM_DOMN_SQNC, IT_DOMN_SQNC
+    </select>
+    <!-- // 도메인 관리 전체엑셀다운 -->
+
+    <!-- 도메인 관리 엑셀다운 카운트 (15.04.09) -->
+    <select id="DonInfMap.getDonInfExcelCount" parameterType="map" resultType="int">
+        SELECT  /* DonInfMap.getDonInfExcelCount */
+               COUNT(*)
+         FROM (SELECT *
+                 FROM TB_DOMN_INFO DT
+                 LEFT OUTER JOIN TB_DOMN_INFO DM
+                   ON DT.DOMN_CD = DM.HGRN_DOMN_CD
+                 LEFT OUTER JOIN TB_DOMN_INFO IT
+                   ON DM.DOMN_CD = IT.HGRN_DOMN_CD
+                 LEFT OUTER JOIN TB_CD TC
+                   ON IT.DATA_TYPE_CD = TC.CD
+                  AND TC.CD_SET_CD = 'PMS010'
+                WHERE DT.DOMN_LVL_CNT = 1
+              )
+    </select>
+    <!-- //도메인 관리 엑셀다운 카운트 -->
+
+    <!-- 칼럼상세정보 건수조회 (15.05.14) -->
+    <select id="DonInfMap.getRefercolmCount" parameterType="map" resultType="int">
+        SELECT /* DonInfMap.getRefercolmCount */
+            COUNT(*)
+          FROM TB_TBL_COLM_DTL
+         WHERE DOMN_CD = #{domn_cd}
+    </select>
+    <!-- // 칼럼상세정보 건수조회 -->
+
+    <select id="DonInfMap.getDonInfMaxSequence" parameterType="map" resultType="int">
+        SELECT /* DonInfMap.getDonInfMaxSequence */
+               NVL(MAX(DOMN_SQNC), 0)
+          FROM TB_DOMN_INFO
+         WHERE 1 = 1
+           <choose>
+            <when test="hgrn_domn_cd != null and hgrn_domn_cd != ''">
+            AND HGRN_DOMN_CD = #{hgrn_domn_cd}
+            </when>
+            <otherwise>
+            AND HGRN_DOMN_CD IS NULL
+            </otherwise>
+        </choose>
+    </select>
+</mapper>

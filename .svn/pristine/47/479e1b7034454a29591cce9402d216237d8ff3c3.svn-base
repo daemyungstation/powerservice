@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WklyBswrTypMap">
+
+    <sql id="WklyBswrTypMap.selectCondition_fragment">
+        <where>
+            <if test ="wkly_bswr_typ_cd != null and wkly_bswr_typ_cd != ''">
+                AND WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+            </if>
+            <if test ="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test ="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test ="bzdp_team_cd != null and bzdp_team_cd != ''">
+                AND BZDP_TEAM_CD = #{bzdp_team_cd}
+            </if>
+        </where>
+    </sql>
+
+    <select id="WklyBswrTypMap.getCodeSetCount" parameterType="map" resultType="int">
+        SELECT /* WklyBswrTypMap.getCodeSetCount */
+               COUNT(*)
+          FROM TB_WKLY_BSWR_TYP A
+        <include refid="WklyBswrTypMap.selectCondition_fragment" />
+    </select>
+
+    <select id="WklyBswrTypMap.getCodeSetList" parameterType="map" resultType="resultMap">
+        SELECT /* WklyBswrTypMap.getCodeSetList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT WKLY_BSWR_TYP_CD, WKLY_BSWR_TYP_NM, WKLY_BSWR_TYP_EXPI, USE_YN
+                     , BZDP_TEAM_CD, BZDP_TEAM_CD AS BZDP_TEAM_CD_OLD, EXPE_SQNC, EXPE_SQNC AS EXPE_SQNC_OLD
+                     , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.TEAM_NM
+                          FROM TB_CONS_TEAM B
+                         WHERE B.TEAM_CD = A.BZDP_TEAM_CD ) AS BZDP_TEAM_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_WKLY_BSWR_TYP A
+        <include refid="WklyBswrTypMap.selectCondition_fragment" />
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                ORDER BY ${orderBy} ${orderDirection}
+            </when>
+            <otherwise>
+                ORDER BY EXPE_SQNC ASC
+            </otherwise>
+        </choose>
+               ) B
+    </select>
+
+    <insert id="WklyBswrTypMap.insertCodeSet" parameterType="map">
+        INSERT /* WklyBswrTypMap.insertCodeSet */
+          INTO TB_WKLY_BSWR_TYP
+               (WKLY_BSWR_TYP_CD, CNTR_CD, WKLY_BSWR_TYP_NM, WKLY_BSWR_TYP_EXPI, USE_YN
+             , BZDP_TEAM_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+             , EXPE_SQNC)
+        VALUES (#{wkly_bswr_typ_cd}, #{cntr_cd}, #{wkly_bswr_typ_nm}, #{wkly_bswr_typ_expi}, #{use_yn}
+              , #{bzdp_team_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+              , #{expe_sqnc})
+    </insert>
+
+    <update id="WklyBswrTypMap.updateCodeSet" parameterType="map">
+        UPDATE /* WklyBswrTypMap.updateCodeSet */
+               TB_WKLY_BSWR_TYP
+           SET WKLY_BSWR_TYP_NM = #{wkly_bswr_typ_nm}
+             , WKLY_BSWR_TYP_EXPI = #{wkly_bswr_typ_expi}
+             , USE_YN = #{use_yn}
+             , BZDP_TEAM_CD = #{bzdp_team_cd}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , EXPE_SQNC = #{expe_sqnc}
+        WHERE WKLY_BSWR_TYP_CD = #{wkly_bswr_typ_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <select id="WklyBswrTypMap.getCodeSetMaxSequence" parameterType="map" resultType="int">
+        SELECT /* WklyBswrTypMap.getCodeSetMaxSequence */
+               NVL(MAX(EXPE_SQNC), 0)
+          FROM TB_WKLY_BSWR_TYP
+         WHERE BZDP_TEAM_CD = #{bzdp_team_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </select>
+
+    <select id="WklyBswrTypMap.getCodeSetDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* WklyBswrTypMap.getCodeSetDuplicateCount */
+               COUNT(*)
+          FROM TB_WKLY_BSWR_TYP
+         WHERE BZDP_TEAM_CD = #{bzdp_team_cd}
+           AND CNTR_CD = #{cntr_cd}
+           AND EXPE_SQNC = #{expe_sqnc}
+           AND WKLY_BSWR_TYP_CD != #{wkly_bswr_typ_cd}
+    </select>
+
+    <update id="WklyBswrTypMap.updateCodeSetSequence" parameterType="map">
+    <![CDATA[
+        UPDATE /* WklyBswrTypMap.updateCodeSetSequence */
+               TB_WKLY_BSWR_TYP
+           SET EXPE_SQNC = (CASE WKLY_BSWR_TYP_CD WHEN #{wkly_bswr_typ_cd} THEN ${expe_sqnc}
+                                  ELSE (CASE SIGN(${expe_sqnc_old} - ${expe_sqnc}) WHEN -1 THEN EXPE_SQNC - 1
+                                                                               WHEN  1 THEN EXPE_SQNC + 1
+                                        END)
+                          END)
+          WHERE EXPE_SQNC <= (CASE SIGN(${expe_sqnc_old} - ${expe_sqnc}) WHEN  1 THEN ${expe_sqnc_old}
+                                                                   WHEN -1 THEN ${expe_sqnc}
+                            END)
+            AND EXPE_SQNC >= (CASE SIGN(${expe_sqnc_old} - ${expe_sqnc}) WHEN  1 THEN ${expe_sqnc}
+                                                                   WHEN -1 THEN ${expe_sqnc_old}
+                            END)
+            AND BZDP_TEAM_CD = #{bzdp_team_cd}
+            AND CNTR_CD = #{cntr_cd}
+    ]]>
+    </update>
+
+</mapper>

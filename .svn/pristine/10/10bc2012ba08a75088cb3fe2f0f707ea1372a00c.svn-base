@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Comm_TopBtn" classname="Work_Top" inheritanceid="" position="absolute 0 0 239 16" titletext="그리드 공통버튼" onload="Comm_TopBtn_onload">
+    <Layouts>
+      <Layout>
+        <Button id="btn_grd_Add" taborder="0" onclick="fn_commBtn_onclick" class="btn_grd_Add" position="absolute 55 0 71 16" anchor="top right" tooltiptext="행추가"/>
+        <Button id="btn_grd_Del" taborder="1" onclick="fn_commBtn_onclick" class="btn_grd_del" position="absolute 77 0 93 16" anchor="top right" tooltiptext="행삭제"/>
+        <Button id="btn_grd_Print" taborder="2" onclick="fn_commBtn_onclick" class="btn_grd_Print" position="absolute 32 136 179 252" anchor="top right" tooltiptext="리포트출력"/>
+        <Button id="btn_grd_Up" taborder="3" onclick="fn_commBtn_onclick" class="btn_grd_Excel" position="absolute 118 0 134 16" anchor="top right" tooltiptext="양식다운로드"/>
+        <Button id="btn_grd_ExcelUp" taborder="4" onclick="fn_commBtn_onclick" class="btn_grd_Up" position="absolute 140 0 156 16" anchor="top right" tooltiptext="엑셀업로드"/>
+        <Button id="btn_grd_ExcelDn" taborder="5" onclick="fn_commBtn_onclick" class="btn_grd_Dn" position="absolute 162 0 178 16" anchor="top right" tooltiptext="엑셀다운로드"/>
+        <Button id="btn_grd_ExcelFullDn" taborder="6" onclick="fn_commBtn_onclick" class="btn_grd_CsvDn" position="absolute 182 0 198 16" anchor="top right" tooltiptext="엑셀 대용량다운로드"/>
+        <Button id="btn_grd_Config" taborder="7" onclick="fn_commBtn_onclick" class="btn_grd_Config" position="absolute 201 0 217 16" anchor="top right" tooltiptext="칼럼 보이기/숨기기"/>
+        <Button id="btn_grd_Change" taborder="8" onclick="fn_commBtn_onclick" class="btn_grd_Change" position="absolute 223 0 239 16" anchor="top right" tooltiptext="다중정렬"/>
+      </Layout>
+    </Layouts>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[
+//include "LIB::lib_All.xjs";
+
+var fv_objForm;
+var fv_objGrid;
+var arrGrid = new Array();
+
+var fv_strGrid;
+function Comm_TopBtn_onload(obj:Form, e:LoadEventInfo)
+{
+	
+}
+
+// 그리드 오브젝트 Sync 처리
+function fn_initGridInfo(objForm, objGrid, strGridList)
+{
+	fv_objForm = objForm;
+	fv_objGrid = objGrid;
+	fv_strGrid = strGridList;
+}
+
+function fn_commBtn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	// 그리드 엑셀다운로드 버튼 클릭시 권한처리
+	//trace("  this.getOwnerFrame().form.pv_winKey -  "+ this.getOwnerFrame().form.pv_winKey);
+
+	// 일반화면 
+	if(this.getOwnerFrame().form.name == "WorkMain") {
+		if(this.getOwnerFrame().form.pv_winKey != -1) {
+		//if(this.getOwnerFrame().form.name.indexOf(gfn_getWorkFormNm()) != -1) {
+			if(obj.name == "btn_grd_ExcelDn") {
+				if(!this.getOwnerFrame().form.div_Comm.fn_getAuthYn("EXCELDN")) {
+					return;
+				}
+			}
+		}
+	// 팝업화면
+	} else {
+		if(obj.name == "btn_grd_ExcelDn") {
+			if(!gfn_getAuthYn("EXCELDN")) {
+				return;
+			}
+		}
+	}
+
+	switch(obj.name)
+	{
+		case "btn_grd_Add":
+			fv_objForm.fn_commGridAdd(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_Del":
+			fv_objForm.fn_commGridDel(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_Print":
+			fv_objForm.fn_commGridPrint(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_Up":
+			fv_objForm.fn_commGridFxfrDown(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_ExcelUp":
+			fv_objForm.fn_commGridExcelImport(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_ExcelDn":
+			fn_commGridExcelExport(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_ExcelFullDn":
+			fv_objForm.fn_commGridExcelFullExport(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_Config":
+			fv_objForm.fn_commGridColSelect(fv_objForm, fv_objGrid);
+			break;
+		case "btn_grd_Change":
+			fv_objForm.fn_commGridSort(fv_objForm, fv_objGrid);
+			break;
+		default:
+			break;
+	}
+}
+
+
+
+// 그리드 공통버튼
+/***************************************************************************
+ * 기      능		: (그리드공통버튼) 엑셀 Import
+ ***************************************************************************/
+function fn_commGridExcelImport(objForm, objGrid)
+{
+	gfn_importExcelToDataset(objGrid.binddataset, 0, 1, 0, null, div_body.sta_TotalCnt);
+}
+
+/***************************************************************************
+ * 기      능		: (그리드공통버튼) 엑셀 Export
+ ***************************************************************************/
+function fn_commGridExcelExport(objForm, objGrid)
+{
+	var strFileName = gfn_isNull(this.getOwnerFrame().srcTitle)?"ExcelFileName":this.getOwnerFrame().srcTitle;
+	gfn_exportGridToExcel(objGrid, strFileName, "Sheet1", fv_strGrid);
+}
+
+]]></Script>
+  </Form>
+</FDL>

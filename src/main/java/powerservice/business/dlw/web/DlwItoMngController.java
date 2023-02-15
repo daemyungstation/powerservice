@@ -1,0 +1,918 @@
+package powerservice.business.dlw.web;
+
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.servlet.ModelAndView;
+
+import powerservice.business.bean.UserSession;
+import powerservice.business.dlw.service.DataAthrQuryService;
+import powerservice.business.dlw.service.DlwItoMngService;
+import powerservice.business.dlw.service.impl.EventMonitorDao;
+import powerservice.common.util.CommonUtils;
+import powerservice.core.bean.ActionResult;
+import powerservice.core.bean.ActionResultType;
+import powerservice.core.util.ParamUtils;
+import powerservice.core.util.SessionUtils;
+import powerservice.core.util.excel.ExcelImportRowHandler;
+import powerservice.core.util.excel.ExcelImporter;
+import powerservice.core.util.excel.ExcelValidator;
+
+import com.tobesoft.xplatform.data.DataSet;
+
+import egovframework.rte.cmmn.ria.xplatform.XPlatformConstant;
+import egovframework.rte.cmmn.ria.xplatform.map.DataSetMap;
+import egovframework.rte.cmmn.ria.xplatform.map.XPlatformMapDTO;
+import powerservice.business.dlw.service.DlwProdVasService;
+
+
+@Controller
+@RequestMapping(value = "/dlw/itomng")
+public class DlwItoMngController {
+
+
+    @Resource
+    private DlwItoMngService dlwItoMngService;
+
+    @Resource
+    private DataAthrQuryService dataAthrQuryService;
+
+    /**
+     * 해약환급데일리 작업 조회(해약환급데일리테이블 조회)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/selectResnDayCloseList")
+    public ModelAndView selectResnDayCloseList(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+
+                int nTotal = dlwItoMngService.getResnDayCloseListCount(hmParam);
+                mapOutVar.put("nTotalListCnt", nTotal);
+
+                List<Map<String, Object>> mList = dlwItoMngService.getResnDayCloseList(hmParam);
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+
+    /**
+     * 해약환급데일리 작업 조회(해약환급데일리테이블에 데이터가 없을때)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/selectResnDayCloseList2")
+    public ModelAndView selectResnDayCloseList2(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+
+                int nTotal = dlwItoMngService.getResnDayCloseListCount2(hmParam);
+                mapOutVar.put("nTotalListCnt", nTotal);
+
+                List<Map<String, Object>> mList = dlwItoMngService.getResnDayCloseList2(hmParam);
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+
+
+    /**
+     * 해약환급데일리 작업 저장(해약환급데일리테이블에 INSERT)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */    
+    @RequestMapping(value = "/saveResnDayClose")
+    public ModelAndView insertResnDayClose(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+        UserSession oLoginUser = (UserSession) SessionUtils.getLoginUser();
+
+        // 에러코드및 메시지
+        String szErrorCode="0";
+        String szErrorMsg="OK";
+
+        try {
+            Map <String, Object> mapInVar     = xpDto.getInVariableMap();
+            Map <String, DataSetMap> mapInDs  = xpDto.getInDataSetMap();
+            Map <String, Object> mapOutVar    = xpDto.getOutVariableMap();
+            Map <String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            //CommonUtils.printLog("========================================= newprod");
+
+            DataSetMap srchInDs = (DataSetMap)mapInDs.get("ds_input");
+            //Object lvl = (Object)mapInVar.get("lvl");
+            //Object high_ed_cd = (Object)mapInVar.get("high_ed_cd");
+
+                hmParam = srchInDs.get(0);
+
+                hmParam.put("reg_man", oLoginUser.getUserid());
+                hmParam.put("upd_man", oLoginUser.getUserid());
+                //hmParam.put("lvl", lvl);
+                //hmParam.put("high_ed_cd", high_ed_cd);
+
+                ParamUtils.addCenterParam(hmParam);
+
+                int rowType = ((Integer) hmParam.get(XPlatformConstant.DATASET_ROW_TYPE)).intValue();
+
+                System.out.println("==============================================>>" + rowType);
+                CommonUtils.printLog(hmParam);
+
+                System.out.println("<<<<<<<<<<<<< 신규 >>>>>>>>>>>>>>>>>>");
+               
+                dlwItoMngService.insertResnDayClose(hmParam);  // 등록
+
+                mapOutDs.put("ds_output", listMap);
+
+
+            modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+            modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, 	 xpDto.getOutDataSetMap());
+        } catch (Exception e) {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg  = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG,  szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    
+    /**
+     * 해약환급데일리 작업 삭제(해약환급데일리테이블 DELETE)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */    
+    @RequestMapping(value = "/deleteResnDayClose")
+    public ModelAndView deleteResnDayClose(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+        UserSession oLoginUser = (UserSession) SessionUtils.getLoginUser();
+
+        // 에러코드및 메시지
+        String szErrorCode="0";
+        String szErrorMsg="OK";
+
+        try {
+            Map <String, Object> mapInVar     = xpDto.getInVariableMap();
+            Map <String, DataSetMap> mapInDs  = xpDto.getInDataSetMap();
+            Map <String, Object> mapOutVar    = xpDto.getOutVariableMap();
+            Map <String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            //CommonUtils.printLog("========================================= newprod");
+
+            DataSetMap srchInDs = (DataSetMap)mapInDs.get("ds_input");
+            //Object lvl = (Object)mapInVar.get("lvl");
+            //Object high_ed_cd = (Object)mapInVar.get("high_ed_cd");
+
+                hmParam = srchInDs.get(0);               
+
+                hmParam.put("reg_man", oLoginUser.getUserid());
+                hmParam.put("upd_man", oLoginUser.getUserid());
+                //hmParam.put("lvl", lvl);
+                //hmParam.put("high_ed_cd", high_ed_cd);
+
+                ParamUtils.addCenterParam(hmParam);
+
+                int rowType = ((Integer) hmParam.get(XPlatformConstant.DATASET_ROW_TYPE)).intValue();
+
+                System.out.println("==============================================>>" + rowType);
+                CommonUtils.printLog(hmParam);
+
+                System.out.println("<<<<<<<<<<<<< 삭제 >>>>>>>>>>>>>>>>>>");
+               
+                dlwItoMngService.deleteResnDayClose(hmParam);  // 등록
+
+                mapOutDs.put("ds_output", listMap);
+
+
+            modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+            modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, 	 xpDto.getOutDataSetMap());
+        } catch (Exception e) {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg  = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG,  szErrorMsg);
+
+        return modelAndView;
+    }
+    
+
+    /**
+     * 미납대상생성관리 조회 조회리스트(MG용)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    
+    @RequestMapping(value = "/titList")
+    public ModelAndView getNonPayTitList(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                List<Map<String, Object>> mList = dlwItoMngService.getCrdtCllctnTitList(hmParam);
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+	
+    
+    /**
+     * 채권추심회원현황 조회(MG용)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/selectCrdtCllctnList")
+    public ModelAndView selectCrdtCllctnList(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+
+                int nTotal = dlwItoMngService.getCrdtCllctnListCount(hmParam);
+                mapOutVar.put("nTotalListCnt", nTotal);
+
+                List<Map<String, Object>> mList = dlwItoMngService.getCrdtCllctnList(hmParam);
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+            }
+        }
+        
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+
+    /**
+     * 청구일자조회(주말 공휴일 대체휴일을 제외한 날짜 조회)
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    
+    @RequestMapping(value = "/getReqDay")
+    public ModelAndView getReqDay(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";        
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+            
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {            
+                hmParam = listInDs.get(0);
+ 
+                List<Map<String, Object>> mList = dlwItoMngService.getReqDay(hmParam);
+ 
+                listMap.setRowMaps(mList);
+ 
+                mapOutDs.put("ds_output", listMap);
+ 
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+                 
+    /**
+     * 종합현황 사원별 조회
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/selectUserTeamList")
+    public ModelAndView selectUserTeamList(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+       
+        
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+
+                int nTotal = dlwItoMngService.selectUserTeamListCount(hmParam);
+                mapOutVar.put("nTotalListCnt", nTotal);
+                               
+                List<Map<String, Object>> mList = dlwItoMngService.selectUserTeamList(hmParam);
+                listMap.setRowMaps(mList);                             
+                
+                mapOutDs.put("ds_output", listMap);                
+              
+            }
+        }
+        
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    
+    
+	/**
+	* 종합현황 업체별 조회
+	*
+	* @param pmParam Map<String, Object>
+	* @return ModelAndView
+	* @throws Exception
+	*/
+    @RequestMapping(value = "/selectUserTeamListDept")
+    public ModelAndView selectUserTeamListDept(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+                
+                
+                /*
+                // 엔컴 부서코드 조건여부
+                String sChkDeptYn = "Y";
+                
+                String strGroupCd = "";
+                if ("Y".equals(sChkDeptYn)) {
+                    UserSession oLoginUser = (UserSession) SessionUtils.getLoginUser();
+                    hmParam.put("paramEmpleNo", oLoginUser.getUserid());
+                    //hmParam.put("paramEmpleNo", "2020030013");
+                    
+                    strGroupCd =  hmParam.get("team_cd").toString();		//상담그룹코드 에이앤젯(T20600)
+                    //strGroupCd =  "T20600";		//상담그룹코드 에이앤젯(T20600)
+                    System.out.println("strGroupCd===="+strGroupCd);
+                    hmParam.put("paramAs", "EMP");
+                    CommonUtils.printLog(hmParam);
+                    String dataAthrQury = StringUtils.defaultString((String) dataAthrQuryService.getDataAthrQury(hmParam));
+                    
+                    // (주)에인앤젯 업체 종합현황 조회 시 
+                    // 스페셜라이프 상품만 조회 가능 (타 업체의 경우 스페셜조회 불가)_20210430
+                    // 0029 : 스페셜라이프 , 0001 : 결합L , 0027 다이렉트 
+                    if (!strGroupCd.equals("T20600")){
+	                    if (!"".equals(dataAthrQury.trim()) ) {
+	                        dataAthrQury = dataAthrQury.replace("AND", "AND (");  
+	                        dataAthrQury += "OR EMP.DEPT_CD IS NULL) AND SECTION_THR NOT IN ('0029', '0001', '0027') ";	                        
+	                    }
+                    } else {                    	
+                    	dataAthrQury = " AND SECTION_THR IN ('0029', '0001', '0027')  ";
+                    }
+
+                    hmParam.put("dataAthrQury", dataAthrQury);
+                }
+                */
+
+                int nTotal = dlwItoMngService.selectUserTeamListCountDept(hmParam);
+                mapOutVar.put("nTotalListCntDept", nTotal);                
+                
+                List<Map<String, Object>> mList = dlwItoMngService.selectUserTeamListDept(hmParam);
+                listMap.setRowMaps(mList);                
+               
+                
+                mapOutDs.put("ds_output", listMap);
+               
+            }
+        }
+        
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+
+    /**
+     * 채무불이행등재 조회
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/getDebtList")
+    public ModelAndView selectDevtList(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+                
+                System.out.println(hmParam);
+
+                int nTotal = dlwItoMngService.getDebtListCount(hmParam);
+                mapOutVar.put("nTotalListCnt", nTotal);
+
+                List<Map<String, Object>> mList = dlwItoMngService.getDebtList(hmParam);
+                listMap.setRowMaps(mList);
+                mapOutDs.put("ds_output", listMap);
+            }
+        }
+        
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    /**
+     * 채무불이행등재고객 상세정보
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/getDebtDtlList")
+    public ModelAndView selectDebtDtlList(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        DataSetMap listMap2 = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+              
+                System.out.println(hmParam);
+
+                List<Map<String, Object>> mList = dlwItoMngService.getDebtDtlList(hmParam);                                               
+                listMap.setRowMaps(mList);
+                
+                hmParam = listMap.get(0);
+                
+                mapOutDs.put("ds_output", listMap);
+                
+                List<Map<String, Object>> mList2 = dlwItoMngService.getDebtPayInfo(hmParam);
+                listMap2.setRowMaps(mList2);
+                mapOutDs.put("ds_output2", listMap2);
+            }
+        }
+        
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    /**
+     * 채무불이행등재고객 해지처리
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/updDebtCancel")
+    public ModelAndView updateDebtCancel(XPlatformMapDTO xpDto, Model model) throws Exception {
+        ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+        UserSession oLoginUser = (UserSession) SessionUtils.getLoginUser();
+
+        // 에러코드및 메시지
+        String szErrorCode="0";
+        String szErrorMsg="OK";
+
+        try {
+            Map <String, Object> mapInVar     = xpDto.getInVariableMap();
+            Map <String, DataSetMap> mapInDs  = xpDto.getInDataSetMap();
+            Map <String, Object> mapOutVar    = xpDto.getOutVariableMap();
+            Map <String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+			DataSetMap srchInDs = (DataSetMap)mapInDs.get("ds_input");
+			
+			hmParam = srchInDs.get(0);                               
+			
+			ParamUtils.addCenterParam(hmParam);
+			hmParam.put("reg_man", oLoginUser.getUserid());
+			hmParam.put("upd_man", oLoginUser.getUserid());
+			   
+			dlwItoMngService.updateDebtCancel(hmParam);  // 해제
+			
+			mapOutDs.put("ds_output", listMap);
+
+            modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+            modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, 	 xpDto.getOutDataSetMap());
+        } catch (Exception e) {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg  = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG,  szErrorMsg);
+
+        return modelAndView;
+    }
+    
+    /**
+     * 고객미납실적 조회
+     *
+     * @param pmParam Map<String, Object>
+     * @return ModelAndView
+     * @throws Exception
+     */
+    @RequestMapping(value = "/getNoPaymentCustList")
+    public ModelAndView getNoPaymentCustList(XPlatformMapDTO xpDto, Model model) throws Exception {
+    	ModelAndView modelAndView = new ModelAndView("xplatformMapView");
+        DataSetMap listMap = new DataSetMap();
+       
+        
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        // 에러코드및 메시지
+        String szErrorCode = "0";
+        String szErrorMsg = "OK";
+
+        try
+        {
+            Map<String, Object> mapInVar = xpDto.getInVariableMap();
+            Map<String, DataSetMap> mapInDs = xpDto.getInDataSetMap();
+            Map<String, Object> mapOutVar = xpDto.getOutVariableMap();
+            Map<String, DataSetMap> mapOutDs = xpDto.getOutDataSetMap();
+
+            DataSetMap listInDs = (DataSetMap) mapInDs.get("ds_input");
+            if (listInDs.size() > 0)
+            {
+                hmParam = listInDs.get(0);
+
+                // 페이징 정보
+                DataSetMap listInGds = (DataSetMap) mapInDs.get("gds_RequestCompVariable");
+                if (listInGds != null && listInGds.size() > 0)
+                {
+                    Map pMap = listInGds.get(0);
+
+                    String excel_fg = (String) mapInVar.get("excel_fg");
+                    if (!"Y".equals(excel_fg))
+                    {
+                        hmParam.put("startLine", pMap.get("startNum"));
+                        hmParam.put("endLine", pMap.get("endNum"));
+                    }
+                }
+
+                int nTotal = dlwItoMngService.getNoPaymentCustListCount(hmParam);
+                mapOutVar.put("nTotalListCnt", nTotal);
+                               
+                List<Map<String, Object>> mList = dlwItoMngService.getNoPaymentCustList(hmParam);
+                listMap.setRowMaps(mList);                             
+                
+                mapOutDs.put("ds_output", listMap);                
+              
+            }
+        }
+        
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            szErrorCode = "-1";
+            szErrorMsg = e.getMessage();
+        }
+
+        modelAndView.addObject(XPlatformConstant.OUT_VARIABLES_ATT_NAME, xpDto.getOutVariableMap());
+        modelAndView.addObject(XPlatformConstant.OUT_DATASET_ATT_NAME, xpDto.getOutDataSetMap());
+        modelAndView.addObject(XPlatformConstant.ERROR_CODE, szErrorCode);
+        modelAndView.addObject(XPlatformConstant.ERROR_MSG, szErrorMsg);
+
+        return modelAndView;
+    }
+}

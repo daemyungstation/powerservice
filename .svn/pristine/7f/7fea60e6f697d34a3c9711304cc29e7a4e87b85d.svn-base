@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GdsMap">
+
+    <sql id="GdsMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="gds_cd != null and gds_cd != ''">
+                AND GDS_CD = #{gds_cd}
+            </if>
+            <if test="gds_nm != null and gds_nm != ''">
+                AND GDS_NM LIKE '%' || #{gds_nm} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="GdsMap.getGdsCount" parameterType="map" resultType="int">
+        SELECT /* GdsMap.getGdsCount */
+               COUNT(*)
+          FROM TB_GDS A
+        <include refid="GdsMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="GdsMap.getGdsList" parameterType="map" resultType="resultMap">
+        SELECT /* GdsMap.getGdsList */
+               *
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                  FROM (SELECT GDS_CD, GDS_NM, GDS_EXPI, MAIN_INFO_CNTN, SCRN_NM
+                             , SCRN_WIDT_VL, SCRN_HGHT_VL, PPUP_YN, ADTL_INFO_CNTN
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.RGSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.AMND_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                          FROM TB_GDS A
+        <include refid="GdsMap.selectCondition_fragment"/>
+        <if test="orderBy != null and orderBy != ''">
+                      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+                       ) B
+               )
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="GdsMap.insertGds" parameterType="map">
+        INSERT /* GdsMap.insertGds */
+          INTO TB_GDS
+               (GDS_CD, GDS_NM, GDS_EXPI, MAIN_INFO_CNTN, SCRN_NM
+              , SCRN_WIDT_VL, SCRN_HGHT_VL, PPUP_YN, ADTL_INFO_CNTN
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{gds_cd}, #{gds_nm}, #{gds_expi}, #{main_info_cntn}, #{scrn_nm}
+              , #{scrn_widt_vl}, #{scrn_hght_vl}, #{ppup_yn}, #{adtl_info_cntn}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="GdsMap.updateGds" parameterType="map">
+        UPDATE /* GdsMap.updateGds */
+               TB_GDS
+           SET GDS_NM = #{gds_nm}
+             , GDS_EXPI = #{gds_expi}
+             , MAIN_INFO_CNTN = #{main_info_cntn}
+             , SCRN_NM = #{scrn_nm}
+             , SCRN_WIDT_VL = #{scrn_widt_vl}
+             , SCRN_HGHT_VL = #{scrn_hght_vl}
+             , PPUP_YN = #{ppup_yn}
+             , ADTL_INFO_CNTN = #{adtl_info_cntn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE GDS_CD = #{gds_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="GdsMap.deleteGds" parameterType="map">
+        DELETE /* GdsMap.deleteGds */
+          FROM TB_GDS
+         WHERE GDS_CD = #{gds_cd}
+           AND CNTR_CD = #{cntr_cd}
+    </delete>
+
+</mapper>

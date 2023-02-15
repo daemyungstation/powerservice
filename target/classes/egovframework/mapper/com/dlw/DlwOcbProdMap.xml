@@ -1,0 +1,922 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOcbProdMap">
+    <!-- OCB 적립 상품 조회 건수 -->
+    <select id="DlwOcbProdMap.getOcbProdCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwOcbProdMap.getOcbProdCount */
+               COUNT(*)
+          FROM OCB_PRODUCT OP
+          JOIN PRODUCT P
+            ON P.PROD_CD = OP.PROD_CD
+          LEFT JOIN PRODUCT_MODEL_CL_CD PMCC
+            ON PMCC.MODEL_CL_CD = OP.MODEL_CL_CD
+          LEFT JOIN PRODUCT_MODEL_MST PMM
+            ON PMM.PROD_CD = OP.PROD_CD AND OP.MODEL_CL_CD =PMM.PROD_KIND
+          LEFT JOIN PRODUCT_MODEL_DTL PMD
+            ON PMD.SEQ = OP.MODEL_CL_CD AND PMD.MODEL_CD = OP.MODEL_DTL_CD
+          LEFT JOIN PRODUCT_KIND PK
+            ON  PK.MODEL_CL_CD = OP.MODEL_CL_CD AND PK.SEQ = OP.KIND_CD
+         WHERE 1=1
+        <if test="seq != null and seq != ''">
+            AND OP.SEQ=#{seq}
+        </if>
+        <if test="prod_nm != null and prod_nm != ''">
+           AND P.PROD_NM like '%'|| #{prod_nm} || '%'
+        </if>
+        <if test="use_yn != null and use_yn != ''">
+           AND op.use_yn = #{use_yn}
+        </if>
+    </select>
+
+    <!-- OCB 적립 상품 조회 -->
+    <select id="DlwOcbProdMap.getOcbProdList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBProdList -->
+
+
+        SELECT /* DlwOcbProdMap.getOcbProdList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY #{orderBy} , #{orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           '' AS PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT OP.SEQ
+                             , P.PROD_NM
+                             , P.PROD_CD
+                             , OP.MODEL_CL_CD
+                             , OP.MODEL_DTL_CD
+                             , OP.KIND_CD
+                             , PMCC.MODEL_CL_NM
+                             , PMD.MODEL_NM
+                             , PROD_KIND_NM
+                             , OP.OCB_POINT
+                             , OP.APPLY_DT AS APPLY_DT
+                             , OP.JOIN_START_DT AS JOIN_START_DT
+                             , OP.JOIN_END_DT AS JOIN_END_DT
+                             , OP.PROD_START_CNT
+                             , OP.PROD_END_CNT
+                             , TO_CHAR(OP.REG_DM, 'YYYY-MM-DD HH24:MI:SS') AS REG_DM
+                             , FN_EMPLE_NM(OP.REG_MAN) AS REG_MAN
+                             , CASE WHEN OP.USE_YN ='Y'
+                                    THEN '사용'
+                                    WHEN OP.USE_YN ='N'
+                                    THEN '사용중지'
+                                    ELSE ''
+                                END AS DEL_FG
+                             , USE_YN
+                             , P.EXPR_NO
+                          FROM OCB_PRODUCT OP
+                          JOIN PRODUCT P
+                            ON P.PROD_CD = OP.PROD_CD
+                          LEFT JOIN PRODUCT_MODEL_CL_CD PMCC
+                            ON PMCC.MODEL_CL_CD = OP.MODEL_CL_CD
+                          LEFT JOIN PRODUCT_MODEL_MST PMM
+                            ON PMM.PROD_CD = OP.PROD_CD AND OP.MODEL_CL_CD =PMM.PROD_KIND
+                          LEFT JOIN PRODUCT_MODEL_DTL PMD
+                            ON PMD.SEQ = OP.MODEL_CL_CD AND PMD.MODEL_CD = OP.MODEL_DTL_CD
+                          LEFT JOIN PRODUCT_KIND PK
+                            ON  PK.MODEL_CL_CD = OP.MODEL_CL_CD AND PK.SEQ = OP.KIND_CD
+                         WHERE 1=1
+                         <if test="seq != null and seq != ''">
+                             AND OP.SEQ=#{seq}
+                         </if>
+                         <if test="prod_nm != null and prod_nm != ''">
+                            AND P.PROD_NM like '%'|| #{prod_nm} || '%'
+                         </if>
+                         <if test="use_yn != null and use_yn != ''">
+                            AND op.use_yn = #{use_yn}
+                         </if>
+                       ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+
+    <!-- OCB 적립 상품등록 -->
+    <insert id="DlwOcbProdMap.insertOcbProd" parameterType="map">
+        <!-- DM-SQLID : sql-life.xml insertOCBProduct -->
+        INSERT /* DlwOcbProdMap.insertOcbProd */
+          INTO OCB_PRODUCT
+             ( SEQ
+             , PROD_CD
+             <if test="model_cl_cd != null and model_cl_cd != ''">
+             , MODEL_CL_CD
+             </if>
+             <if test="model_dtl_cd != null and model_dtl_cd != ''">
+             , MODEL_DTL_CD
+             </if>
+             <if test="kind_cd != null and kind_cd != ''">
+             , KIND_CD
+             </if>
+             , OCB_POINT
+             , JOIN_START_DT
+             , JOIN_END_DT
+             , PROD_START_CNT
+             , PROD_END_CNT
+             , APPLY_DT
+             , USE_YN
+             , REG_MAN
+             , REG_DM
+             )
+        SELECT NVL(MAX(SEQ),0)+1
+             , #{prod_cd}
+             <if test="model_cl_cd != null and model_cl_cd != ''">
+             , #{model_cl_cd}
+             </if>
+             <if test="model_dtl_cd != null and model_dtl_cd != ''">
+              , #{model_dtl_cd}
+             </if>
+             <if test="kind_cd != null and kind_cd != ''">
+             , #{kind_cd}
+             </if>
+             , #{ocb_point}
+             , TO_CHAR(#{join_start_dt} || '01')
+             , TO_CHAR(#{join_end_dt} || '01')
+             , #{prod_start_cnt}
+             , #{prod_end_cnt}
+             , TO_CHAR(#{apply_dt} || '01')
+             , #{del_fg}
+             , #{reg_man}
+             , SYSDATE
+          FROM OCB_PRODUCT
+    </insert>
+
+    <!-- OCB 적립 상품수정 -->
+    <update id="DlwOcbProdMap.updateOcbProd" parameterType="map">
+        <!-- DM-SQLID : sql-life.xml updateOCBProduct -->
+        UPDATE /* DlwOcbProdMap.updateOcbProd */
+               OCB_PRODUCT
+           SET PROD_CD= #{prod_cd}
+             <if test="model_cl_cd != null and model_cl_cd != ''">
+             , MODEL_CL_CD = #{model_cl_cd}
+             </if>
+             <if test="model_dtl_cd != null and model_dtl_cd != ''">
+             , MODEL_DTL_CD = #{model_dtl_cd}
+             </if>
+             <if test="model_dtl_cd == null or model_dtl_cd == ''">
+             , MODEL_DTL_CD = null
+             </if>
+             <if test="kind_cd != null and kind_cd != ''">
+             , KIND_CD = #{kind_cd}
+             </if>
+             <if test="kind_cd == null or kind_cd == ''">
+             , KIND_CD = null
+             </if>
+             , OCB_POINT = #{ocb_point}
+             , JOIN_START_DT = TO_CHAR( #{join_start_dt} || '01')
+             , JOIN_END_DT = TO_CHAR( #{join_end_dt} || '01')
+             , PROD_START_CNT = #{prod_start_cnt}
+             , PROD_END_CNT = #{prod_end_cnt}
+             , APPLY_DT = TO_CHAR(#{apply_dt} || '01')
+             <if test="del_fg != null and del_fg != ''">
+             , USE_YN = #{del_fg}
+             </if>
+             , UPD_MAN =  #{reg_man}
+             , UPD_DM = SYSDATE
+         WHERE SEQ = #{seq}
+    </update>
+
+    <!-- OCB이력 카운트 -->
+    <select id="DlwOcbProdMap.getOcbProdSaveCount" parameterType="map" resultType="int">
+        <!-- DM-SQLID : sql-life.xml selectOCBProdListCount -->
+
+
+        SELECT /* DlwOcbProdMap.getOcbProdSaveCount */
+               COUNT(SEQ)
+          FROM OCB_PRODUCT
+         WHERE USE_YN='Y'
+         <if test="prod_cd">
+           AND PROD_CD = #{prod_cd}
+         </if>
+         <if test="model_cl_cd">
+           AND MODEL_CL_CD =#{model_cl_cd}
+         </if>
+    </select>
+
+    <!-- OCB 이력 조회 건수 -->
+    <select id="DlwOcbProdMap.getOcbTransHistCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwOcbProdMap.getOcbTransHistCount */
+               COUNT(*)
+          FROM OCB_TRANS_HIST OTH
+          LEFT JOIN MEMBER M
+            ON M.MEM_NO = OTH.MEM_NO
+          LEFT JOIN OCB_CODE OC
+            ON OC.CODE = OTH.RESULT
+         WHERE 1=1
+           AND NVL(OTH.ACCNT_NO,'') != ''
+           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+             AND TO_CHAR(OTH.REG_DT, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+           </if>
+           <if test="ocb_gubun != null and ocb_gubun != ''">
+             AND OTH.ocbgubun = #{ocb_gubun}
+           </if>
+           <if test="accnt_no != null and accnt_no != ''">
+             AND OTH.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="mem_nm != null and mem_nm != ''">
+             AND M.MEM_NM LIKE '%' || #{mem_nm} || '%'
+           </if>
+           <if test="accnt_no != null and accnt_no != ''">
+             AND OTH.ACCNT_NO = #{accnt_no}
+           </if>
+           <if test="reg_stat == '01'">
+               AND OTH.RESULT='0000'
+           </if>
+           <if test="reg_stat == '02'">
+               AND OTH.RESULT != '0000'
+                OR OTH.RESULT IS NULL
+               AND OTH.ACCNT_NO IS NOT NULL
+           </if>
+    </select>
+    <!-- OCB 이력 조회 -->
+    <select id="DlwOcbProdMap.getOcbTransHistList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBTransHistList -->
+
+
+        SELECT /* DlwOcbProdMap.getOcbProdList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           '' AS PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT OTH.seq
+                             , M.MEM_NM
+                             , M.MEM_NO
+                             , FN_COM_NM('0186',OTH.OCBGUBUN) AS OCB_GUBUN
+                             , NVL(OC.TITLE,'연결오류') AS RESULT
+                             , OC.CONTEXT AS MESSAGE
+                             , FN_EMPLE_NM(OTH.REG_MAN) AS REG_MAN
+                             , TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT
+                             , OTH.ACCNT_NO
+                             , OTH.OCB_POINT
+                          FROM OCB_TRANS_HIST OTH
+                          LEFT JOIN MEMBER M
+                            ON M.MEM_NO = OTH.MEM_NO
+                          LEFT JOIN OCB_CODE OC
+                            ON OC.CODE = OTH.RESULT
+                         WHERE 1=1
+                           AND LENGTH(OTH.ACCNT_NO) = 12
+                           <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                             AND TO_CHAR(OTH.REG_DT, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}
+                           </if>
+                           <if test="ocb_gubun != null and ocb_gubun != ''">
+                             AND OTH.ocbgubun = #{ocb_gubun}
+                           </if>
+                           <if test="accnt_no != null and accnt_no != ''">
+                             AND OTH.ACCNT_NO = #{accnt_no}
+                           </if>
+                           <if test="mem_nm != null and mem_nm != ''">
+                             AND M.MEM_NM LIKE '%' || #{mem_nm} || '%'
+                           </if>
+                           <if test="accnt_no != null and accnt_no != ''">
+                             AND OTH.ACCNT_NO = #{accnt_no}
+                           </if>
+                           <if test="reg_stat == '01'">
+                               AND OTH.RESULT='0000'
+                           </if>
+                           <if test="reg_stat == '02'">
+                               AND OTH.RESULT != '0000'
+                                OR OTH.RESULT IS NULL
+                               AND OTH.ACCNT_NO IS NOT NULL
+                           </if>
+                       ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+
+    <!-- OCB상품 적립 전송 조회 -->
+    <select id="DlwOcbProdMap.getOcbTransList" parameterType="map" resultType="resultMap">
+
+        SELECT /*DlwOcbProdMap.getOcbTransList*/
+        	MAINTBL.ACCNT_NO,
+		    MAINTBL.MEM_NM,
+		    MAINTBL.PROD_CD,
+		    MAINTBL.PROD_NM,
+		    MAINTBL.MODEL_CL_NM,
+		    MAINTBL.MODEL_NM,
+		    MAINTBL.JOIN_DT,
+		    MAINTBL.ACC_STAT AS STAT,
+		    MAINTBL.TRUE_COUNT AS TOT_CNT,
+		    MAINTBL.PAY_NO AS PAY_CNT,
+		    MAINTBL.PAY_AMT AS OCB_POINT,
+		    MAINTBL.LAST_PAY_DAY,
+		    MAINTBL.CHK_YN,
+		    MAINTBL.MEM_NO,
+		    MAINTBL.CI_VAL,
+		    MAINTBL.OCB_YN,
+		    NVL(OCBTBL.TOT_OCB,0) AS TOT_OCB,
+		    NVL(OCBTBL.TOT_OCB_CNT,0) AS TOT_OCB_CNT,
+            (CASE WHEN NVL(K100TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+                  WHEN NVL(K100TBL.CANCLE_YN,'N') = 'Y' THEN 'N'
+                  ELSE 'Y'
+             END) AS OCB_STAT
+		FROM
+		(
+		    SELECT MPA.ACCNT_NO,
+		        MB.MEM_NM,
+		        MPA.PROD_CD,
+		        PD.PROD_NM,
+		        (SELECT MODEL_CL_NM FROM PRODUCT_MODEL_CL_CD WHERE MODEL_CL_CD = MPA.PROD_MODEL_KIND) AS MODEL_CL_NM,
+		        (SELECT PMD.MODEL_NM FROM PRODUCT_MODEL_MST PMM INNER JOIN
+		                PRODUCT_MODEL_DTL PMD ON PMM.SEQ = PMD.SEQ AND PMM.DEL_FG = 'N'
+		                WHERE PROD_CD = MPA.PROD_CD  AND PROD_KIND = MPA.PROD_MODEL_KIND AND MODEL_CD = PROD_MODEL_CD
+		        ) AS MODEL_NM,
+		        MPA.JOIN_DT,
+		        DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS ACC_STAT,
+		        NVL(PMTBL.TRUE_COUNT,0) AS TRUE_COUNT,
+		        PMTBL.PAY_NO,
+		        PMTBL.PAY_AMT,
+		        PMTBL.LAST_PAY_DAY,
+		        'N' AS CHK_YN,
+		        MB.MEM_NO,
+		        MB.CI_VAL,
+		        MB.OCB_YN,
+		        OP.PROD_START_CNT,
+		        OP.PROD_END_CNT
+		    FROM MEM_PROD_ACCNT MPA INNER JOIN
+		        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'  INNER JOIN
+		        OCB_PRODUCT OP ON MPA.PROD_CD = OP.PROD_CD AND USE_YN='Y'
+		            AND MPA.JOIN_DT BETWEEN OP.JOIN_START_DT AND OP.JOIN_END_DT INNER JOIN
+		        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD INNER JOIN
+		        (
+		            SELECT
+		                ACCNT_NO,
+		                COUNT(NO) AS PAY_NO,
+		                (COUNT(NO) * MAX(PAY_AMT)) AS PAY_AMT,
+		                MAX(PAY_DAY) AS LAST_PAY_DAY,
+		                MAX(NO) AS TRUE_COUNT
+		            FROM PAY_MNG_DTL PD
+		            WHERE PD.DEL_FG = 'N'
+		                AND TO_CHAR(TO_DATE(PAY_DAY,'YYYY-MM-DD'),'YYYYMM') = #{stt_dt}
+		            GROUP BY ACCNT_NO
+		         ) PMTBL ON MPA.ACCNT_NO = PMTBL.ACCNT_NO
+		         WHERE PAY_NO BETWEEN OP.PROD_START_CNT AND OP.PROD_END_CNT
+		) MAINTBL LEFT OUTER JOIN
+		      (
+                SELECT ACCNT_NO,
+                    NVL(SUM(TO_NUMBER(OCB_POINT)), 0) AS TOT_OCB,
+                    NVL(SUM(TO_NUMBER(TRANS_CNT)), 0) AS TOT_OCB_CNT
+                FROM OCB_TRANS_HIST OTH
+                WHERE OTH.OCBGUBUN='K100'
+                    AND OTH.RESULT = '0000'
+                    AND OTH.CANCLE_YN IS NULL
+                GROUP BY ACCNT_NO
+		      ) OCBTBL ON MAINTBL.ACCNT_NO = OCBTBL.ACCNT_NO LEFT OUTER JOIN
+              (
+                SELECT ACCNT_NO, WORK_DATE, WORK_DATE_END,CANCLE_YN
+                FROM OCB_TRANS_HIST OTH
+                WHERE OTH.OCBGUBUN='K100'
+                    AND OTH.RESULT = '0000'
+                    AND OTH.CANCLE_YN IS NULL
+              ) K100TBL ON MAINTBL.ACCNT_NO = K100TBL.ACCNT_NO AND TO_CHAR(TO_DATE(WORK_DATE,'YYYY-MM-DD'),'YYYYMM') = #{stt_dt}
+
+	     WHERE 1=1 AND
+         (CASE WHEN NVL(K100TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+               WHEN NVL(K100TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) = 'N'
+
+		   <if test="mem_nm != null and mem_nm != ''">
+               AND MAINTBL.MEM_NM LIKE '%' || #{mem_nm} || '%'
+           </if>
+           <if test="prod_cd != null and prod_cd != ''">
+               AND MAINTBL.PROD_CD = #{prod_cd}
+           </if>
+           <if test="accnt_no != null and accnt_no != ''">
+               AND MAINTBL.ACCNT_NO = #{accnt_no}
+           </if>
+		 ORDER BY MAINTBL.ACCNT_NO
+
+        <!-- DM-SQLID : sql-life.xml selectOCBTransList -->
+        <!--
+              SELECT TBL.ACCNT_NO
+                    , M.MEM_NM
+                    , P.PROD_NM
+                    , TBL.PROD_CD
+                    , PMCC.MODEL_CL_NM
+                    , PMD.MODEL_NM
+                    , PROD_KIND_NM
+                    , TBL.OCB_CNT AS PAY_CNT
+                    , TBL.OCB_POINT
+                    , TBL.PAY_CNT_ST
+                    , TBL.PAY_CNT_END
+                    , 'N' AS CHK_YN
+                    , M.MEM_NO
+                    , M.CI_VAL
+                    , FN_EVENT(TBL.ACCNT_NO) AS STAT
+                    , TBL.TOT_CNT
+                    , FN_LASY_PAY_DAY(TBL.ACCNT_NO) AS LAST_PAY_DAY
+                    , FN_YEN_CHE(TBL.ACCNT_NO) AS YENCHE
+                    , TBL.MON_PAY_DAY AS MON_PAY_DAY
+                    , TBL.TOT_OCB
+                    , TBL.TOT_OCB_CNT
+                    , NVL(M.OCB_YN,'N') AS OCB_YN
+              FROM
+              (
+              SELECT MPA.ACCNT_NO
+                     , MPA.MEM_NO
+                     , MPA.JOIN_DT
+                     , MPA.PROD_CD
+                     , MPA.PROD_KIND
+                     , MPA.PROD_MODEL_CD
+                     , MPA.PROD_MODEL_KIND
+                     , FN_PAY_COUNT(MPA.ACCNT_NO)TOT_CNT
+                     , MIN(PM.NO) PAY_CNT_ST
+                     , MAX(PM.NO) PAY_CNT_END
+                     , MAX(PM.PAY_DAY) MON_PAY_DAY
+                     , NVL(OP.OCB_POINT,0) * (MAX(PM.NO)-MIN(PM.NO)+1-NVL(OTH.TRANS_CNT,0)) OCB_POINT
+                     ,(MAX(PM.NO)-MIN(PM.NO)+1-NVL(OTH.TRANS_CNT,0)) OCB_CNT
+                     ,(SELECT NVL(SUM(TO_NUMBER(OCB_POINT)),0)
+                       FROM OCB_TRANS_HIST OTH
+                       WHERE OTH.OCBGUBUN='K100'
+                         AND OTH.RESULT = '0000'
+                         AND OTH.CANCLE_YN IS NULL
+                         AND MPA.ACCNT_NO = OTH.ACCNT_NO
+                       )TOT_OCB
+                     ,(SELECT NVL(SUM(TO_NUMBER(TRANS_CNT)),0)
+                       FROM OCB_TRANS_HIST OTH
+                       WHERE OTH.OCBGUBUN='K100'
+                         AND OTH.RESULT = '0000'
+                         AND OTH.CANCLE_YN IS NULL
+                         AND MPA.ACCNT_NO = OTH.ACCNT_NO
+                       )TOT_OCB_CNT
+                  FROM MEM_PROD_ACCNT MPA
+                  JOIN PAY_MNG PM
+                    ON PM.ACCNT_NO = MPA.ACCNT_NO AND PM.DEL_FG ='N'
+                  JOIN OCB_PRODUCT OP
+                    ON MPA.PROD_CD = OP.PROD_CD AND MPA.PROD_MODEL_KIND = OP.MODEL_CL_CD
+                   AND MPA.JOIN_DT >= OP.APPLY_DT
+                   AND MPA.JOIN_DT BETWEEN OP.JOIN_START_DT
+                   AND OP.JOIN_END_DT
+                   AND OP.APPLY_DT = (SELECT MAX(APPLY_DT)
+                                         FROM OCB_PRODUCT
+                                         WHERE USE_YN='Y'
+                                         AND PROD_CD = OP.PROD_CD
+                                         AND MODEL_CL_CD = OP.MODEL_CL_CD
+                                         )
+                  LEFT JOIN OCB_TRANS_HIST OTH
+                    ON OTH.ACCNT_NO = MPA.ACCNT_NO
+                   AND OTH.OCBGUBUN='K100'
+                   AND OTH.RESULT = '0000'
+                   AND OTH.CANCLE_YN IS NULL
+                   AND(OTH.WORK_DATE BETWEEN #{stt_dt} AND #{end_dt}
+                         OR OTH.WORK_DATE_END BETWEEN #{stt_dt} AND #{end_dt}
+                       )
+                 WHERE MPA.DEL_FG ='N'
+                   AND PM.NO BETWEEN OP.PROD_START_CNT
+                   AND OP.PROD_END_CNT
+                   AND OP.USE_YN ='Y'
+                   AND PM.PAY_DAY BETWEEN #{stt_dt} AND #{end_dt}
+                 GROUP BY MPA.ACCNT_NO, MPA.JOIN_DT, MPA.PROD_CD, MPA.PROD_KIND, MPA.PROD_MODEL_CD
+                        , MPA.PROD_MODEL_KIND, MPA.MEM_NO, OP.OCB_POINT, OP.PROD_END_CNT, OTH.OCB_POINT
+                        , OTH.TRANS_CNT
+          )TBL
+          JOIN MEMBER M
+            ON M.MEM_NO = TBL.MEM_NO
+          JOIN PRODUCT P
+            ON P.PROD_CD = TBL.PROD_CD
+          LEFT JOIN PRODUCT_MODEL_CL_CD PMCC
+            ON PMCC.MODEL_CL_CD = TBL.PROD_MODEL_KIND
+          LEFT JOIN PRODUCT_MODEL_MST PMM
+            ON PMM.PROD_CD = TBL.PROD_CD AND TBL.PROD_MODEL_KIND = PMM.PROD_KIND
+          LEFT JOIN PRODUCT_MODEL_DTL PMD
+            ON PMD.SEQ = TBL.PROD_MODEL_KIND AND PMD.MODEL_CD = TBL.PROD_MODEL_CD
+          LEFT JOIN PRODUCT_KIND PK
+            ON PK.MODEL_CL_CD = TBL.PROD_MODEL_KIND AND PK.SEQ = TBL.PROD_KIND
+          LEFT JOIN RESCISSION R
+            ON TBL.ACCNT_NO = R.ACCNT_NO AND R.DEL_FG='N' AND RESN_CL != '01'
+         WHERE 1=1
+           AND R.ACCNT_NO IS NULL
+           AND OCB_YN = 'Y'
+           AND TBL.OCB_POINT > 0
+           AND TBL.OCB_CNT > 0
+           AND TBL.TOT_OCB_CNT != TBL.TOT_CNT
+
+           <if test="mem_nm != null and mem_nm != ''">
+               AND M.MEM_NM LIKE '%' || #{mem_nm} || '%'
+           </if>
+           <if test="prod_cd != null and prod_cd != ''">
+               AND P.PROD_CD = #{prod_cd}
+           </if>
+           <if test="accnt_no != null and accnt_no != ''">
+               AND TBL.ACCNT_NO = #{accnt_no}
+           </if>
+        -->
+    </select>
+
+    <!-- OCB상품 취소 전송  조회 -->
+    <select id="DlwOcbProdMap.getOcbDelList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBCancleList -->
+
+        SELECT /* DlwOcbProdMap.getOcbDelList */
+        	OTH.ACCNT_NO,
+            MPA.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+            OTH.WORK_DATE,
+            OTH.REG_MAN,
+            OTH.OCB_POINT,
+            OTH.ACCEPT_NO,
+            OTH.SEND_DATE,
+            MB.CI_VAL,
+            OTH.SEQ,
+            DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STAT,
+            OTH.OCBGUBUN,
+            (CASE WHEN NVL(K200TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+               WHEN NVL(K200TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) AS OCB_STAT
+        FROM OCB_TRANS_HIST  OTH INNER JOIN
+            MEM_PROD_ACCNT MPA ON OTH.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+            (
+                SELECT ACCNT_NO, WORK_DATE ,CANCLE_YN
+                FROM OCB_TRANS_HIST OTH
+                WHERE OTH.OCBGUBUN='K200'
+                    AND OTH.RESULT = '0000'
+                    AND OTH.CANCLE_YN IS NULL
+                    AND TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') = #{stt_dt}
+            ) K200TBL ON OTH.ACCNT_NO = K200TBL.ACCNT_NO
+
+        WHERE TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') =  #{stt_dt}
+            AND OTH.OCBGUBUN='K100'
+            AND OTH.RESULT = '0000'
+            AND NVL(OTH.CANCLE_YN,'N') = 'N'
+            AND (CASE WHEN NVL(K200TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+                      WHEN NVL(K200TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) = 'N'
+
+        <!--
+        SELECT /* DlwOcbProdMap.getOcbDelList */
+               'N' CHK_YN
+             , OTH.ACCNT_NO
+             , M.MEM_NO
+             , M.MEM_NM
+             , P.PROD_NM
+             , TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH:MM:DD') AS REG_DT
+             , OTH.WORK_DATE || '~' || OTH.WORK_DATE_END AS WORK_DATE
+             , FN_EMPLE_NM(OTH.REG_MAN) AS REG_MAN
+             , OTH.OCB_POINT
+             , OTH.ACCEPT_NO
+             , OTH.SEND_DATE
+             , M.CI_VAL
+             , OTH.SEQ
+             , FN_EVENT(OTH.ACCNT_NO) AS STAT
+             , FN_YEN_CHE(OTH.ACCNT_NO) AS YENCHE
+             , OTH.OCBGUBUN
+          FROM OCB_TRANS_HIST  OTH
+          JOIN MEM_PROD_ACCNT MPA
+            ON MPA.ACCNT_NO = OTH.ACCNT_NO
+          JOIN MEMBER M
+            ON M.MEM_NO = OTH.MEM_NO
+          JOIN PRODUCT P
+            ON P.PROD_CD = MPA.PROD_CD
+         WHERE RESULT='0000'
+           AND OCBGUBUN='K100'
+           AND CANCLE_YN IS NULL
+           AND OTH.ACCNT_NO IS NOT NULL
+           AND OTH.ACCEPT_NO IS NOT NULL
+           <if test="stt_dt != null and stt_dt != ''">
+               AND SUBSTR(OTH.SEND_DATE,0,6) = #{stt_dt}
+           </if>
+           <if test="mem_nm != null and mem_nm != ''">
+               AND M.MEM_NM LIKE '%' || #{mem_nm} ||'%'
+           </if>
+           <if test="prod_cd != null and prod_cd != ''">
+               AND P.PROD_CD =  #{prod_cd}
+           </if>
+           <if test="accnt_no != null and accnt_no != ''">
+               AND OTH.ACCNT_NO = #{accnt_no}
+           </if>
+            -->
+    </select>
+
+     <!-- OCB상품 사용 전송 조회 -->
+     <!-- 임동진 수정 -->
+    <select id="DlwOcbProdMap.getOcbUseList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBAddList -->
+		SELECT /*DlwOcbProdMap.getOcbUseList*/
+		    OTH.ACCNT_NO,
+            MPA.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+            OTH.WORK_DATE,
+            OTH.REG_MAN,
+            OTH.OCB_POINT,
+            OTH.ACCEPT_NO,
+            OTH.SEND_DATE,
+            MB.CI_VAL,
+            OTH.SEQ,
+            DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STAT,
+            OTH.OCBGUBUN,
+            (CASE WHEN NVL(K200TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+               WHEN NVL(K200TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) AS OCB_STAT
+        FROM OCB_TRANS_HIST  OTH INNER JOIN
+            MEM_PROD_ACCNT MPA ON OTH.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+            (
+                SELECT ACCNT_NO, WORK_DATE ,CANCLE_YN
+                FROM OCB_TRANS_HIST OTH
+                WHERE OTH.OCBGUBUN='K200'
+                    AND OTH.RESULT = '0000'
+                    AND OTH.CANCLE_YN IS NULL
+                    AND TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') = #{stt_dt}
+            ) K200TBL ON OTH.ACCNT_NO = K200TBL.ACCNT_NO
+
+        WHERE TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') =  #{stt_dt}
+            AND OTH.OCBGUBUN='K100'
+            AND OTH.RESULT = '0000'
+            AND NVL(OTH.CANCLE_YN,'N') = 'N'
+            AND (CASE WHEN NVL(K200TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+                      WHEN NVL(K200TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) = 'N'
+		<!--
+        SELECT /*DlwOcbProdMap.getOcbAddList*/
+
+            A.ACCNT_NO
+            ,B.MEM_NM
+            ,B.PROD_NM
+            ,B.PROD_CD
+            ,B.PROD_MODEL AS MODEL_CL_NM
+            ,B.PROD_MODEL_NM
+            ,B.PROD_KIND
+            ,A.TRANS_CNT AS PAY_CNT
+            ,A.OCB_POINT
+            ,'N' AS CHK_YN
+            ,B.MEM_NO
+            ,B.CI_VAL
+            ,(SELECT NVL(SUM(TO_NUMBER(OCB_POINT)),0) FROM OCB_TRANS_HIST OTH WHERE
+                OTH.OCBGUBUN='K400'
+                AND OTH.RESULT = '0000'
+                AND OTH.CANCLE_YN IS NULL
+                AND B.ACCNT_NO = OTH.ACCNT_NO
+              )TOT_OCB,
+            (SELECT NVL(SUM(TO_NUMBER(TRANS_CNT)),0) FROM OCB_TRANS_HIST OTH WHERE
+                OTH.OCBGUBUN='K400'
+                AND OTH.RESULT = '0000'
+                AND OTH.CANCLE_YN IS NULL
+                AND B.ACCNT_NO = OTH.ACCNT_NO
+            )TOT_OCB_CNT
+        FROM OCB_TRANS_HIST A INNER JOIN
+            USERNPRODUCT_VIEW B ON A.ACCNT_NO = B.ACCNT_NO
+        WHERE NVL(result,'') = '0000'
+        AND A.WORK_DATE BETWEEN #{stt_dt} AND #{end_dt}
+        AND A.OCBGUBUN = 'K100'
+        AND A.CANCLE_YN IS NULL
+        AND (SELECT NVL(TO_NUMBER(TRANS_CNT),0) FROM OCB_TRANS_HIST OTH WHERE
+                         OTH.OCBGUBUN='K400'
+                         AND OTH.RESULT = '0000'
+                         AND OTH.CANCLE_YN IS NULL
+                         AND B.ACCNT_NO = OTH.ACCNT_NO
+                         AND OTH.WORK_DATE BETWEEN #{stt_dt} AND #{end_dt}) = 0
+           <if test="mem_nm != null and mem_nm != ''">
+               AND B.MEM_NM LIKE '%' || #{mem_nm} ||'%'
+           </if>
+           <if test="prod_cd != null and prod_cd != ''">
+               AND B.PROD_CD =  #{prod_cd}
+           </if>
+           <if test="accnt_no != null and accnt_no != ''">
+               AND B.ACCNT_NO = #{accnt_no}
+           </if>
+
+        -->
+    </select>
+
+        <select id="DlwOcbProdMap.getOcbAddList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBAddList -->
+		SELECT /*DlwOcbProdMap.getOcbAddList*/
+        	OTH.ACCNT_NO,
+            MPA.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+            OTH.WORK_DATE,
+            OTH.REG_MAN,
+            OTH.OCB_POINT,
+            OTH.ACCEPT_NO,
+            OTH.SEND_DATE,
+            MB.CI_VAL,
+            OTH.SEQ,
+            DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STAT,
+            OTH.OCBGUBUN,
+            (CASE WHEN NVL(K300TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+               WHEN NVL(K300TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) AS OCB_STAT
+        FROM OCB_TRANS_HIST  OTH INNER JOIN
+            MEM_PROD_ACCNT MPA ON OTH.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+            (
+                SELECT ACCNT_NO, WORK_DATE ,CANCLE_YN
+                FROM OCB_TRANS_HIST OTH
+                WHERE OTH.OCBGUBUN='K300'
+                    AND OTH.RESULT = '0000'
+                    AND OTH.CANCLE_YN IS NULL
+                    AND TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') = #{stt_dt}
+            ) K300TBL ON OTH.ACCNT_NO = K300TBL.ACCNT_NO
+
+        WHERE TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') =  #{stt_dt}
+            AND OTH.OCBGUBUN='K200'
+            AND OTH.RESULT = '0000'
+            AND NVL(OTH.CANCLE_YN,'N') = 'N'
+            AND (CASE WHEN NVL(K300TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+                      WHEN NVL(K300TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) = 'N'
+
+    </select>
+
+
+    <!-- OCB상품 적립 취소 전송  조회 -->
+    <select id="DlwOcbProdMap.getOcbUseDelList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBCancleList -->
+
+        SELECT /* DlwOcbProdMap.getOcbUseDelList */
+        	OTH.ACCNT_NO,
+            MPA.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+            OTH.WORK_DATE,
+            OTH.REG_MAN,
+            OTH.OCB_POINT,
+            OTH.ACCEPT_NO,
+            OTH.SEND_DATE,
+            MB.CI_VAL,
+            OTH.SEQ,
+            DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STAT,
+            OTH.OCBGUBUN,
+            (CASE WHEN NVL(K300TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+               WHEN NVL(K300TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) AS OCB_STAT
+        FROM OCB_TRANS_HIST  OTH INNER JOIN
+            MEM_PROD_ACCNT MPA ON OTH.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+            (
+                SELECT ACCNT_NO, WORK_DATE ,CANCLE_YN
+                FROM OCB_TRANS_HIST OTH
+                WHERE OTH.OCBGUBUN='K300'
+                    AND OTH.RESULT = '0000'
+                    AND OTH.CANCLE_YN IS NULL
+                    AND TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') = #{stt_dt}
+            ) K300TBL ON OTH.ACCNT_NO = K300TBL.ACCNT_NO
+
+        WHERE TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') =  #{stt_dt}
+            AND OTH.OCBGUBUN='K200'
+            AND OTH.RESULT = '0000'
+            AND NVL(OTH.CANCLE_YN,'N') = 'N'
+            AND (CASE WHEN NVL(K300TBL.ACCNT_NO,'N') = 'N' THEN 'N'
+                      WHEN NVL(K300TBL.CANCLE_YN,'N') = 'Y' THEN 'N' ELSE 'Y' END) = 'N'
+
+    </select>
+
+        <!-- OCB상품 사용 취소 전송  조회 -->
+    <select id="DlwOcbProdMap.getOcbSavDelList" parameterType="map" resultType="resultMap">
+        <!-- DM-SQLID : sql-life.xml selectOCBCancleList -->
+
+        SELECT /* DlwOcbProdMap.getOcbSavDelList */
+        	OTH.ACCNT_NO,
+            MPA.MEM_NO,
+            MB.MEM_NM,
+            PD.PROD_CD,
+            PD.PROD_NM,
+            TO_CHAR(OTH.REG_DT,'YYYY-MM-DD HH24:MI:SS') AS REG_DT,
+            OTH.WORK_DATE,
+            OTH.REG_MAN,
+            OTH.OCB_POINT,
+            OTH.ACCEPT_NO,
+            OTH.SEND_DATE,
+            MB.CI_VAL,
+            OTH.SEQ,
+            DECODE(FN_ACCNT_STAT(MPA.ACCNT_NO),'Y','정상','R','해약','C','청약철회','E','행사') AS STAT,
+            OTH.OCBGUBUN
+        FROM OCB_TRANS_HIST  OTH INNER JOIN
+            MEM_PROD_ACCNT MPA ON OTH.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+            MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+            PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+
+        WHERE TO_CHAR(TO_DATE(OTH.WORK_DATE,'YYYY-MM-DD'),'YYYYMM') =  #{stt_dt}
+            AND OTH.OCBGUBUN='K300'
+            AND OTH.RESULT = '0000'
+            AND NVL(OTH.CANCLE_YN,'N') = 'N'
+
+    </select>
+
+
+    <!-- OCB이력 카운트 -->
+    <select id="DlwOcbProdMap.getOcbTransHistCnt" resultType="int">
+        <!-- DM-SQLID : sql-life.xml selectOCBTransHistCnt -->
+
+
+        SELECT /* DlwOcbProdMap.getOcbTransHistCnt */
+               NVL(MAX(SEQ),0)+1
+          FROM OCB_TRANS_HIST
+    </select>
+
+    <!-- OCB 전송이력 등록 -->
+    <insert id="DlwOcbProdMap.insertOcbTransHist" parameterType="map">
+        <!-- DM-SQLID : sql-life.xml insertOCBTransHist -->
+        INSERT /* DlwOcbProdMap.insertOcbTransHist */
+          INTO OCB_TRANS_HIST
+             ( SEQ
+             <if test="mem_no != null and mem_no != ''">
+             , MEM_NO
+             </if>
+             , REG_MAN
+             , REG_DT
+             , OCBGUBUN
+             <if test="resultcode != null and resultcode != ''">
+             , RESULT
+             </if>
+             <if test="message != null and message != ''">
+             , MESSAGE
+             </if>
+             <if test="accnt_no != null and accnt_no != ''">
+             , ACCNT_NO
+             </if>
+             <if test="ocb_point != null and ocb_point != ''">
+             , OCB_POINT
+             </if>
+             <if test="accept_no != null and accept_no != ''">
+             , ACCEPT_NO
+             </if>
+             <if test="send_date != null and send_date != ''">
+             , SEND_DATE
+             </if>
+             <if test="stt_dt != null and stt_dt != ''">
+             , WORK_DATE
+             </if>
+             <if test="end_dt != null and end_dt != ''">
+             , WORK_DATE_END
+             </if>
+             <if test="pay_cnt != null and pay_cnt != ''">
+             , TRANS_CNT
+             </if>
+             )
+        SELECT NVL(MAX(SEQ),0)+1
+             <if test="mem_no != null and mem_no != ''">
+             , #{mem_no}
+             </if>
+             , #{reg_man}
+             , SYSDATE
+             , #{ocb_gubun}
+             <if test="resultcode != null and resultcode != ''">
+             , #{resultcode}
+             </if>
+             <if test="message != null and message != ''">
+             , #{message}
+             </if>
+             <if test="accnt_no != null and accnt_no != ''">
+             , #{accnt_no}
+             </if>
+             <if test="ocb_point != null and ocb_point != ''">
+             , #{ocb_point}
+             </if>
+             <if test="accept_no != null and accept_no != ''">
+             , #{accept_no}
+             </if>
+             <if test="send_date != null and send_date != ''">
+             , #{send_date}
+             </if>
+             <if test="stt_dt != null and stt_dt != ''">
+             , #{stt_dt}
+             </if>
+             <if test="end_dt != null and end_dt != ''">
+             , #{stt_dt}
+             </if>
+             <if test="pay_cnt != null and pay_cnt != ''">
+             , #{pay_cnt}
+             </if>
+           FROM OCB_TRANS_HIST
+    </insert>
+
+    <!-- OCB 전송이력 수정 -->
+    <update id="DlwOcbProdMap.updateOcbTransHist" parameterType="map">
+        <!-- DM-SQLID : sql-life.xml updateOCBTransHist -->
+        UPDATE /* DlwOcbProdMap.updateOCBTransHist */
+               OCB_TRANS_HIST
+           SET CANCLE_YN='Y'
+             , CANCLE_DM=SYSDATE
+             , UPD_MAN = #{reg_man}
+             , UPD_DT = SYSDATE
+        WHERE SEQ = #{seq}
+    </update>
+</mapper>

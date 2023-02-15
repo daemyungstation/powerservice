@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="LicnBasInfoMap">
+
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <!-- getLicnBasInfoUserCount                                                -->
+    <!--     : 라이센스 적용 대상자 구함                                    -->
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <select id="LicnBasInfoMap.getLicnBasInfoUserCount" parameterType="map" resultType="int">
+        SELECT /* LicnBasInfoMap.getLicnBasInfoUserCount */
+               COUNT(*)
+          FROM TB_USER
+         WHERE USER_STAT_CD IN ('10', '30')
+           AND USE_YN = 'Y'
+    </select>
+
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <!-- getLicnBasInfoTodayLoginUserCount                                      -->
+    <!--     : 라이센스 적용 대상자 구함                                    -->
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <select id="LicnBasInfoMap.getLicnBasInfoTodayLoginUserCount" parameterType="map" resultType="int">
+        SELECT /* LicnBasInfoMap.getLicnBasInfoTodayLoginUserCount */
+               COUNT(DISTINCT USER_ID)
+          FROM TB_LGN_HSTR
+         WHERE TO_CHAR(LGN_DTTM, 'YYYYMMDD') = TO_CHAR(SYSTIMESTAMP, 'YYYYMMDD')
+           AND USER_ID NOT IN (SELECT USER_ID
+                                 FROM TB_USER
+                                WHERE TEAM_CD = 'TT99')
+        <if test="user_id != null and user_id != ''">
+           AND USER_ID != #{user_id}
+        </if>
+    </select>
+
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <!-- getLicnBasInfoCenterCount                                              -->
+    <!--     : 라이센스 적용 센터수 구함                                    -->
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <select id="LicnBasInfoMap.getLicnBasInfoCenterCount" parameterType="map" resultType="int">
+        SELECT /* LicnBasInfoMap.getLicnBasInfoCenterCount */
+               COUNT(*)
+          FROM TB_CNTR
+         WHERE USE_YN = 'Y'
+    </select>
+
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <!-- getLicnBasInfoSiteName                                                 -->
+    <!--     : 라이센스 적용 대상 사이트명 구함                             -->
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <select id="LicnBasInfoMap.getLicnBasInfoSiteName" parameterType="map" resultType="string">
+        SELECT /* LicnBasInfoMap.getLicnBasInfoSiteName */
+               BAS_VL
+          FROM TB_BAS_VL
+         WHERE SRVR_ID = 'Z'
+           AND BAS_VL_NM = 'site_name'
+    </select>
+
+
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <!-- insertLicnBasInfoHstr                                              -->
+    <!--     : 라이선스 기준 정보 이력 등록                                 -->
+    <!-- ////////////////////////////////////////////////////////////////// -->
+    <insert id="LicnBasInfoMap.insertLicnBasInfoHstr" parameterType="map">
+        INSERT /* LicnBasInfoMap.insertLicnBasInfoHstr */
+          INTO TB_LICN_BAS_INFO_HSTR
+               (SRVR_ID, SRVR_OPRT_DTTM, SITE_INFO_CNTN, SRVR_IP_ADDR, WAS_INFO_CNTN
+              , LICN_ISNC_DT, LICN_END_DT, PS_INLT_DT, PS_GDS_NM, PS_GDS_VRSN_NM
+              , PS_LICN_KEY_CNTN, CNTR_LICN_QNT, CNSR_LICN_QNT, ADMR_LICN_QNT, STAF_LICN_QNT
+              , IB_FNCT_YN, OB_FNCT_YN, KMS_FNCT_YN, STAF_FNCT_YN, MO_FNCT_YN
+              , WALB_FNCT_YN)
+        VALUES (#{srvr_id}, SYSTIMESTAMP, #{site_info_cntn}, #{srvr_ip_addr}, #{was_info_cntn}
+              , #{licn_isnc_dt}, #{licn_end_dt}, #{ps_inlt_dt}, #{ps_gds_nm}, #{ps_gds_vrsn_nm}
+              , #{ps_licn_key_cntn}, #{cntr_licn_qnt}, #{cnsr_licn_qnt}, #{admr_licn_qnt}, #{staf_licn_qnt}
+              , #{ib_fnct_yn}, #{ob_fnct_yn}, #{kms_fnct_yn}, #{staf_fnct_yn}, #{mo_fnct_yn}
+              , #{walb_fnct_yn})
+    </insert>
+
+
+    <select id="LicnBasInfoMap.getSessInfoHstrMonthlyChartList" parameterType="map" resultType="resultMap">
+        SELECT /* LicnBasInfoMap.getSessInfoHstrMonthlyChartList */
+               TO_CHAR(TO_DATE(B.DT, 'YYYYMMDD'), 'MM/DD') AS X, NVL(A.CNT, 0) AS CNT
+             , (CASE WHEN B.DT = TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END) AS TODAY_YN
+          FROM (SELECT DT, COUNT(DISTINCT USER_ID) AS CNT
+                  FROM (SELECT TO_CHAR(CHNG_DTTM, 'YYYYMMDD') AS DT, USER_ID
+                          FROM TB_SESS_INFO_HSTR
+                         WHERE CHNG_DTTM BETWEEN TO_TIMESTAMP(TO_CHAR(SYSDATE, 'YYYYMM') || '01000000', 'YYYYMMDDHH24MISS')
+                           AND TO_TIMESTAMP(TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD') || '235959', 'YYYYMMDDHH24MISS')
+                       )
+                 GROUP BY DT
+               ) A
+             , (SELECT TO_CHAR(TO_DATE(TO_CHAR(SYSDATE, 'YYYYMM') || '01', 'YYYYMMDD') + LEVEL - 1, 'YYYYMMDD') AS DT
+                  FROM DUAL
+               CONNECT BY LEVEL <![CDATA[<=]]> LAST_DAY(SYSDATE) - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMM') || '01', 'YYYYMMDD') + 1
+               ) B
+         WHERE A.DT(+) = B.DT
+         ORDER BY B.DT ASC
+    </select>
+
+    <select id="LicnBasInfoMap.getLicnIsncInfoHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* LicnBasInfoMap.getLicnIsncInfoHstrList */
+               LICN_ISNC_DT
+             , CNSR_LICN_QNT
+             , PS_LICN_KEY_CNTN
+          FROM TB_LICN_BAS_INFO_HSTR
+         GROUP BY LICN_ISNC_DT, CNSR_LICN_QNT, PS_LICN_KEY_CNTN
+        <if test="orderBy != null and orderBy != ''">
+         ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+</mapper>

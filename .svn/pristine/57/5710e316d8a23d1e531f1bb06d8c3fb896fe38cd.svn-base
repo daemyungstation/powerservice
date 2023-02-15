@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwVasSearchMap">
+
+
+   <select id="DlwVasSearchMap.selectVatIssuCondList1" parameterType="map" resultType="resultMap">
+      /* DlwVasSearchMap.selectVatIssuCondList1 */
+      SELECT CASE WHEN TBL.RNUM = 1 THEN FN_COM_NM('107', TBL.SVC_CL) ELSE '' END svc_nm	/* 서비스구분명 */
+             , NVL(FN_PROD_NM(TBL.PROD_CD), '합계') prod_nm		/* 상품명 */
+             , TBL.PREV_YEAR_TOTAL_CNT+TBL.LAST_YEAR_TOTAL_CNT+TBL.CUR_YEAR_TOTAL_CNT total_cnt	/* 합계 */
+             , TBL.prev_year_total_cnt	/*  */
+             , TBL.last_year_total_cnt	/*  */
+             , TBL.cur_year_total_cnt	/*  */
+             , tbl.jan as month01	/* 1월 */
+             , tbl.feb as month02	/* 2월 */
+             , tbl.mar as month03	/* 3월 */
+             , tbl.apr as month04	/* 4월 */
+             , tbl.may as month05	/* 5월 */
+             , tbl.jun as month06	/* 6월 */
+             , tbl.jul as month07	/* 7월 */
+             , tbl.aug as month08	/* 8월 */
+             , tbl.sep as month09	/* 9월 */
+             , tbl.oct as month10	/* 10월 */
+             , tbl.nov as month11	/* 11월 */
+             , tbl.dec as month12	/* 12월 */
+             , #{srch_year} AS this_year
+             , TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY') AS last_year
+             , TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')||'이전' AS past_year
+             , min_app_no
+             , max_app_no
+             , CASE WHEN TBL.RNUM = 1 THEN (CASE WHEN TBL.MIN_APP_NO = TBL.MAX_APP_NO THEN TO_CHAR(TBL.MIN_APP_NO) || '회' ELSE TO_CHAR(TBL.MIN_APP_NO) || '~' || TO_CHAR(TBL.MAX_APP_NO) || '회' END)
+                    ELSE '' END app_no
+          FROM (
+                SELECT NVL(TBL1.PROD_CD, '00') PROD_CD
+                     , TBL1.SVC_CL
+                     , ROW_NUMBER()OVER(PARTITION BY TBL1.SVC_CL ORDER BY TBL1.PROD_CD DESC) RNUM
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) &lt; TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')
+                            THEN 1
+                            ELSE 0
+                       END) PREV_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) = TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')
+                            THEN 1
+                            ELSE 0
+                       END) LAST_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) = #{srch_year}
+                            THEN 1
+                            ELSE 0
+                       END) CUR_YEAR_TOTAL_CNT
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'01'
+                            THEN 1
+                            ELSE 0
+                       END) JAN
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'02'
+                            THEN 1
+                            ELSE 0
+                       END) FEB
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'03'
+                            THEN 1
+                            ELSE 0
+                       END) MAR
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'04'
+                            THEN 1
+                            ELSE 0
+                       END) APR
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'05'
+                            THEN 1
+                            ELSE 0
+                       END) MAY
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'06'
+                            THEN 1
+                            ELSE 0
+                       END) JUN
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'07'
+                            THEN 1
+                            ELSE 0
+                       END) JUL
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'08'
+                            THEN 1
+                            ELSE 0
+                       END) AUG
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'09'
+                            THEN 1
+                            ELSE 0
+                       END) SEP
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'10'
+                            THEN 1
+                            ELSE 0
+                       END) OCT
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'11'
+                            THEN 1
+                            ELSE 0
+                       END) NOV
+                     , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'12'
+                            THEN 1
+                            ELSE 0
+                       END) DEC
+                     , MIN(TBL1.APP_NO) MIN_APP_NO
+                     , MAX(TBL1.APP_NO) MAX_APP_NO
+                  FROM (
+                        SELECT NVL(POSM.PROD_CD, '00') PROD_CD
+                             , OS.SVC_CL
+                             , POSM.APP_NO
+                             , SIH.ISU_DT
+                          FROM PROD_OPT_SVC_MST POSM
+                               INNER JOIN PROD_OPT_SVC_DTL POSD ON POSM.SEQ = POSD.SEQ
+                               INNER JOIN OPT_SVC OS ON POSD.OPT_SVC_CD = OS.SEQ AND OS.SVC_CL IN ('005', '006', '009')
+                               LEFT OUTER JOIN SVC_ISU_HIST SIH ON POSM.SEQ = SIH.SEQ AND SIH.OPTSVC_SEQ = POSD.OPT_SVC_CD
+                         WHERE 1 = 1
+                           AND SUBSTR(SIH.ISU_DT,1,4) &lt;= #{srch_year}
+
+                        <if test="srch_year != null and srch_year != ''">
+                           AND SUBSTR(SIH.ISU_DT,1,4) = #{srch_year}
+                        </if>
+                           AND NVL(SIH.VALID_SVC, '01') != '02'
+
+                        UNION ALL
+
+                        SELECT NVL(ACCNT.PROD_CD, '00') PROD_CD
+                             , SIHE.OPTSVC_SEQ SVC_CL
+                             , SIHE.APP_NO
+                             , SIHE.ISU_DT
+                          FROM SVC_ISU_HIST_EXCEPT SIHE
+                               INNER JOIN MEM_PROD_ACCNT ACCNT ON SIHE.ACCNT_NO = ACCNT.ACCNT_NO
+                               INNER JOIN OPT_SVC OS ON SIHE.OPTSVC_SEQ = OS.SEQ AND OS.SVC_CL IN ('005', '006', '009')
+                         WHERE 1 = 1
+                           AND SUBSTR(SIHE.ISU_DT,1,4) &lt;= #{srch_year}
+                        <if test="srch_year != null and srch_year != ''">
+                           AND SUBSTR(SIHE.ISU_DT,1,4) = #{srch_year}
+                        </if>
+                           AND NVL(SIHE.VALID_SVC, '01') != '02'
+                       ) TBL1
+                GROUP BY ROLLUP(TBL1.SVC_CL, TBL1.PROD_CD)
+               ) TBL
+         WHERE TBL.SVC_CL IS NOT NULL
+        ORDER BY TBL.SVC_CL, TBL.PROD_CD
+    </select>
+   <select id="DlwVasSearchMap.selectVatIssuCondList2" parameterType="map" resultType="resultMap">
+        /* DlwVasSearchMap.selectVatIssuCondList2 */
+        select TBL2.svc_nm
+             , TBL2.prev_year_total_cnt + tbl2.last_year_total_cnt+tbl2.cur_year_total_cnt as total_cnt
+             , TBL2.prev_year_total_cnt
+             , TBL2.last_year_total_cnt
+             , TBL2.cur_year_total_cnt
+             , TBL2.jan AS month01
+             , TBL2.feb AS month02
+             , TBL2.mar AS month03
+             , TBL2.apr AS month04
+             , TBL2.may AS month05
+             , TBL2.jun AS month06
+             , TBL2.jul AS month07
+             , TBL2.aug AS month08
+             , TBL2.sep AS month09
+             , TBL2.oct AS month10
+             , TBL2.nov AS month11
+             , TBL2.dec AS month12
+             , TBL2.min_app_no
+             , TBL2.max_app_no
+             , TBL2.bf_gubun
+             , CASE WHEN TBL2.RNUM = 1 THEN (CASE WHEN TBL2.BF_GUBUN = 1 THEN TO_CHAR(TBL2.MIN_APP_NO) || '~' || TO_CHAR(TBL2.MAX_APP_NO) || '회' ELSE '행사 후' END)
+                ELSE '' END app_no
+          FROM (
+                SELECT ROW_NUMBER()OVER(ORDER BY TBL.SVC_CL, CASE WHEN B.NO = '1' THEN TBL.SEQ ELSE NULL END) RNUM
+                     , CASE WHEN B.NO = '1' THEN TBL.SEQ ELSE NULL END SEQ
+                     , CASE WHEN B.NO = '1' THEN TBL.SVC_NM ELSE (CASE WHEN TBL.SVC_CL = '003' THEN '전방 삼품권 금액(천원)' ELSE NULL END) END SVC_NM
+                     , TBL.SVC_CL
+                     , MAX(TBL.VAL) VAL
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * (TBL.PREV_YEAR_TOTAL_CNT+TBL.LAST_YEAR_TOTAL_CNT+TBL.CUR_YEAR_TOTAL_CNT)) TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.PREV_YEAR_TOTAL_CNT) PREV_YEAR_TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.LAST_YEAR_TOTAL_CNT) LAST_YEAR_TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.CUR_YEAR_TOTAL_CNT) CUR_YEAR_TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.JAN) JAN
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.FEB) FEB
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.MAR) MAR
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.APR) APR
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.MAY) MAY
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.JUN) JUN
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.JUL) JUL
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.AUG) AUG
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.SEP) SEP
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.OCT) OCT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.NOV) NOV
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.DEC) DEC
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * MIN_APP_NO) MIN_APP_NO
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * MAX_APP_NO) MAX_APP_NO
+                     , MAX(1) BF_GUBUN
+                  FROM (
+                        SELECT TBL1.SEQ
+                             , TBL1.SVC_NM
+                             , CASE WHEN TBL1.SVC_CL = '003' THEN TBL1.SVC_CL ELSE '000' END SVC_CL
+                             , CASE WHEN TBL1.SEQ = '0004' THEN 50
+                                    WHEN TBL1.SEQ = '0006' THEN 100
+                                    WHEN TBL1.SEQ = '0007' THEN 150
+                                    WHEN TBL1.SEQ = '0008' THEN 200
+                                    WHEN TBL1.SEQ = '0009' THEN 300
+                                    WHEN TBL1.SEQ = '0010' THEN 400
+                                    WHEN TBL1.SEQ = '0011' THEN 500
+                                    ELSE 1
+                               END VAL
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) &lt; TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')
+                                    THEN 1
+                                    ELSE 0
+                               END) PREV_YEAR_TOTAL_CNT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) = TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')
+                                    THEN 1
+                                    ELSE 0
+                               END) LAST_YEAR_TOTAL_CNT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) = #{srch_year}
+                                    THEN 1
+                                    ELSE 0
+                               END) CUR_YEAR_TOTAL_CNT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'01'
+                                    THEN 1
+                                    ELSE 0
+                               END) JAN
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'02'
+                                    THEN 1
+                                    ELSE 0
+                               END) FEB
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'03'
+                                    THEN 1
+                                    ELSE 0
+                               END) MAR
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'04'
+                                    THEN 1
+                                    ELSE 0
+                               END) APR
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'05'
+                                    THEN 1
+                                    ELSE 0
+                               END) MAY
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'06'
+                                    THEN 1
+                                    ELSE 0
+                               END) JUN
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'07'
+                                    THEN 1
+                                    ELSE 0
+                               END) JUL
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'08'
+                                    THEN 1
+                                    ELSE 0
+                               END) AUG
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'09'
+                                    THEN 1
+                                    ELSE 0
+                               END) SEP
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'10'
+                                    THEN 1
+                                    ELSE 0
+                               END) OCT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'11'
+                                    THEN 1
+                                    ELSE 0
+                               END) NOV
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'12'
+                                    THEN 1
+                                    ELSE 0
+                               END) DEC
+                             , MIN(TBL1.APP_NO) MIN_APP_NO
+                             , MAX(TBL1.APP_NO) MAX_APP_NO
+                          FROM (
+                            SELECT NVL(POSM.PROD_CD, '00') PROD_CD
+                                 , OS.SVC_CL
+                                 , POSM.APP_NO
+                                 , SIH.ISU_DT
+                                 , OS.SVC_NM
+                                 , OS.SEQ
+                              FROM PROD_OPT_SVC_MST POSM
+                                   INNER JOIN PROD_OPT_SVC_DTL POSD ON POSM.SEQ = POSD.SEQ
+                                   INNER JOIN OPT_SVC OS ON POSD.OPT_SVC_CD = OS.SEQ AND OS.SVC_CL NOT IN ('005', '006', '009')
+                                   LEFT OUTER JOIN SVC_ISU_HIST SIH ON POSM.SEQ = SIH.SEQ AND SIH.OPTSVC_SEQ = POSD.OPT_SVC_CD
+                             WHERE 1 = 1
+                               AND SUBSTR(SIH.ISU_DT,1,4) &lt;= #{srch_year}
+                            <if test="srch_year != null and srch_year != ''">
+                               AND SUBSTR(SIH.ISU_DT,1,4) = #{srch_year}
+                            </if>
+                               AND POSM.APP_NO > 0
+                               AND OS.SEQ != '0012'
+                               AND NVL(SIH.VALID_SVC, '01') != '02'
+
+                            UNION ALL
+
+                            SELECT NVL(ACCNT.PROD_CD, '00') PROD_CD
+                                 , OS.SVC_CL
+                                 , SIHE.APP_NO
+                                 , SIHE.ISU_DT
+                                 , OS.SVC_NM
+                                 , SIHE.OPTSVC_SEQ SEQ
+                              FROM SVC_ISU_HIST_EXCEPT SIHE
+                                   INNER JOIN MEM_PROD_ACCNT ACCNT ON SIHE.ACCNT_NO = ACCNT.ACCNT_NO
+                                   INNER JOIN OPT_SVC OS ON SIHE.OPTSVC_SEQ = OS.SEQ AND OS.SVC_CL NOT IN ('005', '006', '009')
+                             WHERE 1 = 1
+                               AND SUBSTR(SIHE.ISU_DT,1,4) &lt;= #{srch_year}
+                            <if test="srch_year != null and srch_year != ''">
+                               AND SUBSTR(SIHE.ISU_DT,1,4) = #{srch_year}
+                            </if>
+                               AND SIHE.APP_NO > 0
+                               AND SIHE.OPTSVC_SEQ != '0012'
+                               AND NVL(SIHE.VALID_SVC, '01') != '02'
+                           ) TBL1
+                        GROUP BY TBL1.SEQ, TBL1.SVC_NM, CASE WHEN TBL1.SVC_CL = '003' THEN TBL1.SVC_CL ELSE '000' END
+                       ) TBL, (SELECT '1' NO FROM DUAL UNION ALL SELECT '2' NO FROM DUAL) B
+                 WHERE CASE WHEN B.NO = '1' THEN TBL.SVC_NM ELSE (CASE WHEN TBL.SVC_CL = '003' THEN '전방 삼품권 금액(천원)' ELSE NULL END) END IS NOT NULL
+                GROUP BY TBL.SVC_CL
+                       , CASE WHEN B.NO = '1' THEN TBL.SEQ ELSE NULL END
+                       , CASE WHEN B.NO = '1' THEN TBL.SVC_NM ELSE (CASE WHEN TBL.SVC_CL = '003' THEN '전방 삼품권 금액(천원)' ELSE NULL END) END
+
+                UNION ALL
+
+                SELECT ROW_NUMBER()OVER(ORDER BY TBL.SVC_CL, CASE WHEN B.NO = '1' THEN TBL.SEQ ELSE NULL END) RNUM
+                     , CASE WHEN B.NO = '1' THEN TBL.SEQ ELSE NULL END SEQ
+                     , CASE WHEN B.NO = '1' THEN TBL.SVC_NM ELSE (CASE WHEN TBL.SVC_CL = '003' THEN '후방 삼품권 금액(천원)' WHEN TBL.SVC_CL = '008' THEN '투어몰 삼품권 금액(천원)' ELSE NULL END) END SVC_NM
+                     , TBL.SVC_CL
+                     , MAX(TBL.VAL) VAL
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * (TBL.PREV_YEAR_TOTAL_CNT+TBL.LAST_YEAR_TOTAL_CNT+TBL.CUR_YEAR_TOTAL_CNT)) TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.PREV_YEAR_TOTAL_CNT) PREV_YEAR_TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.LAST_YEAR_TOTAL_CNT) LAST_YEAR_TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.CUR_YEAR_TOTAL_CNT) CUR_YEAR_TOTAL_CNT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.JAN) JAN
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.FEB) FEB
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.MAR) MAR
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.APR) APR
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.MAY) MAY
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.JUN) JUN
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.JUL) JUL
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.AUG) AUG
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.SEP) SEP
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.OCT) OCT
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.NOV) NOV
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * TBL.DEC) DEC
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * MIN_APP_NO) MIN_APP_NO
+                     , SUM((CASE WHEN B.NO = '2' THEN VAL ELSE 1 END) * MAX_APP_NO) MAX_APP_NO
+                     , MAX(2) BF_GUBUN
+                  FROM (
+                        SELECT TBL1.SEQ
+                             , TBL1.SVC_NM
+                             , CASE WHEN TBL1.SVC_CL = '003' THEN TBL1.SVC_CL ELSE '000' END SVC_CL
+                             , CASE WHEN TBL1.SEQ = '0004' THEN 50
+                                    WHEN TBL1.SEQ = '0006' THEN 100
+                                    WHEN TBL1.SEQ = '0007' THEN 150
+                                    WHEN TBL1.SEQ = '0008' THEN 200
+                                    WHEN TBL1.SEQ = '0009' THEN 300
+                                    WHEN TBL1.SEQ = '0010' THEN 400
+                                    WHEN TBL1.SEQ = '0011' THEN 500
+                                    ELSE 1
+                               END VAL
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) &lt; TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')
+                                    THEN 1
+                                    ELSE 0
+                               END) PREV_YEAR_TOTAL_CNT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) = TO_CHAR(ADD_MONTHS(TO_DATE(#{srch_year},'YYYY'),-12),'YYYY')
+                                    THEN 1
+                                    ELSE 0
+                               END) LAST_YEAR_TOTAL_CNT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,4) = #{srch_year}
+                                    THEN 1
+                                    ELSE 0
+                               END) CUR_YEAR_TOTAL_CNT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'01'
+                                    THEN 1
+                                    ELSE 0
+                               END) JAN
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'02'
+                                    THEN 1
+                                    ELSE 0
+                               END) FEB
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'03'
+                                    THEN 1
+                                    ELSE 0
+                               END) MAR
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'04'
+                                    THEN 1
+                                    ELSE 0
+                               END) APR
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'05'
+                                    THEN 1
+                                    ELSE 0
+                               END) MAY
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'06'
+                                    THEN 1
+                                    ELSE 0
+                               END) JUN
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'07'
+                                    THEN 1
+                                    ELSE 0
+                               END) JUL
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'08'
+                                    THEN 1
+                                    ELSE 0
+                               END) AUG
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'09'
+                                    THEN 1
+                                    ELSE 0
+                               END) SEP
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'10'
+                                    THEN 1
+                                    ELSE 0
+                               END) OCT
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'11'
+                                    THEN 1
+                                    ELSE 0
+                               END) NOV
+                             , SUM(CASE WHEN SUBSTR(TBL1.ISU_DT,1,6) = #{srch_year}||'12'
+                                    THEN 1
+                                    ELSE 0
+                               END) DEC
+                             , MIN(TBL1.APP_NO) MIN_APP_NO
+                             , MAX(TBL1.APP_NO) MAX_APP_NO
+                          FROM (
+                            SELECT NVL(POSM.PROD_CD, '00') PROD_CD
+                                 , OS.SVC_CL
+                                 , POSM.APP_NO
+                                 , SIH.ISU_DT
+                                 , OS.SVC_NM
+                                 , OS.SEQ
+                              FROM PROD_OPT_SVC_MST POSM
+                                   INNER JOIN PROD_OPT_SVC_DTL POSD ON POSM.SEQ = POSD.SEQ
+                                   INNER JOIN OPT_SVC OS ON POSD.OPT_SVC_CD = OS.SEQ AND OS.SVC_CL NOT IN ('005', '006', '009')
+                                   LEFT OUTER JOIN SVC_ISU_HIST SIH ON POSM.SEQ = SIH.SEQ AND SIH.OPTSVC_SEQ = POSD.OPT_SVC_CD
+                             WHERE 1 = 1
+                               AND SUBSTR(SIH.ISU_DT,1,4) &lt;= #{srch_year}
+                            <if test="srch_year != null and srch_year != ''">
+                               AND SUBSTR(SIH.ISU_DT,1,4) = #{srch_year}
+                            </if>
+                               AND POSM.APP_NO = 0
+                               AND OS.SEQ != '0012'
+                               AND NVL(SIH.VALID_SVC, '01') != '02'
+
+                            UNION ALL
+
+                            SELECT NVL(ACCNT.PROD_CD, '00') PROD_CD
+                                 , OS.SVC_CL
+                                 , SIHE.APP_NO
+                                 , SIHE.ISU_DT
+                                 , OS.SVC_NM
+                                 , SIHE.OPTSVC_SEQ SEQ
+                              FROM SVC_ISU_HIST_EXCEPT SIHE
+                                   INNER JOIN MEM_PROD_ACCNT ACCNT ON SIHE.ACCNT_NO = ACCNT.ACCNT_NO
+                                   INNER JOIN OPT_SVC OS ON SIHE.OPTSVC_SEQ = OS.SEQ AND OS.SVC_CL NOT IN ('005', '006', '009')
+                             WHERE 1 = 1
+                               AND SUBSTR(SIHE.ISU_DT,1,4) &lt;= #{srch_year}
+                            <if test="srch_year != null and srch_year != ''">
+                               AND SUBSTR(SIHE.ISU_DT,1,4) = #{srch_year}
+                            </if>
+                               AND SIHE.APP_NO = 0
+                               AND SIHE.OPTSVC_SEQ != '0012'
+                               AND NVL(SIHE.VALID_SVC, '01') != '02'
+                           ) TBL1
+                        GROUP BY TBL1.SEQ, TBL1.SVC_NM, CASE WHEN TBL1.SVC_CL = '003' THEN TBL1.SVC_CL ELSE '000' END
+                       ) TBL, (SELECT '1' NO FROM DUAL UNION ALL SELECT '2' NO FROM DUAL) B
+                 WHERE CASE WHEN B.NO = '1' THEN TBL.SVC_NM ELSE (CASE WHEN TBL.SVC_CL = '003' THEN '후방 삼품권 금액(천원)' WHEN TBL.SVC_CL = '008' THEN '투어몰 삼품권 금액(천원)' ELSE NULL END) END IS NOT NULL
+                GROUP BY TBL.SVC_CL
+                       , CASE WHEN B.NO = '1' THEN TBL.SEQ ELSE NULL END
+                       , CASE WHEN B.NO = '1' THEN TBL.SVC_NM ELSE (CASE WHEN TBL.SVC_CL = '003' THEN '후방 삼품권 금액(천원)' WHEN TBL.SVC_CL = '008' THEN '투어몰 삼품권 금액(천원)' ELSE NULL END) END
+                ) TBL2
+        ORDER BY TBL2.BF_GUBUN, TBL2.RNUM
+    </select>
+
+</mapper>

@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwDeptMap">
+
+    <sql id="DlwDeptMap.selectCondition_fragment">
+        <where>
+            <if test="dept_nm != null and dept_nm != ''">
+                AND DEPT_FULL_NM LIKE '%' || #{dept_nm} || '%'
+            </if>
+        </where>
+    </sql>
+
+    <select id="DlwDeptMap.getDlwDeptCount" parameterType="map" resultType="int">
+
+
+        SELECT /* DlwDeptMap.getDlwDeptCount */
+               COUNT(*)
+          FROM (SELECT A.*
+                  FROM (SELECT DEPT_CD, FN_DEPT_NM(DEPT_CD) AS DEPT_FULL_NM
+                          FROM DEPARTMENT
+                         WHERE USE_YN = 'Y'
+                        ) A
+                <include refid="DlwDeptMap.selectCondition_fragment" />
+                ) B
+    </select>
+
+    <select id="DlwDeptMap.getDlwDeptList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwDeptMap.getDlwDeptList */
+               B.*
+          FROM (SELECT A.*,
+                    <choose>
+                        <when test="orderBy != null and orderBy != ''">
+                            ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) PAGE_INDX
+                        </when>
+                        <otherwise>
+                            ROW_NUMBER() OVER(ORDER BY LVL, ORDR_TURN DESC) PAGE_INDX
+                        </otherwise>
+                    </choose>
+                 FROM (SELECT DEPT_CD, DEPT_NM, LVL, ORDR_TURN
+                            , FN_DEPT_NM(DEPT_CD) AS DEPT_FULL_NM
+                         FROM DEPARTMENT
+                        WHERE USE_YN = 'Y'
+                       ) A
+                <include refid="DlwDeptMap.selectCondition_fragment" />
+                ) B
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+        </if>
+    </select>
+
+
+
+     <select id="DlwDeptMap.getDlwDeptList001" parameterType="map" resultType="resultMap">
+
+        SELECT  /* DlwDeptMap.getDlwDeptList001  [자료권한 적용자 조회]  */
+
+              EMPLE_NM EMPLE_NM
+             , EMPLE_NO EMPLE_NO
+             , FN_COM_NM('06', POSN_CD) POSNNM
+             , FN_DEPT_NM(DEPT_CD) DEPTNM
+             ,DATA_AUTH
+          FROM EMPLOYEE
+         WHERE DEL_FG = 'N'
+           AND NVL(DATA_AUTH, chr(0)) =  #{data_auth}
+             <if test="grp_data_auth != null and grp_data_auth != ''">
+            AND NVL(GRP_DATA_AUTH, '9999') = #{grp_data_auth}
+            </if>
+           <if test="emp_nm != null and emp_nm != ''">
+             and  EMPLE_NM like   '%' || #{emp_nm} ||'%'
+
+        </if>
+
+        ORDER BY FN_DEPT_NM(DEPT_CD), EMPLE_NM
+
+    </select>
+
+
+      <select id="DlwDeptMap.getDlwDeptList001_mi" parameterType="map" resultType="resultMap">
+
+        SELECT  /* DlwDeptMap.getDlwDeptList001_mi  [자료권한 미적용자 조회]  */
+
+              EMPLE_NM EMPLE_NM
+             , EMPLE_NO EMPLE_NO
+             , FN_COM_NM('06', POSN_CD) POSNNM
+             , FN_DEPT_NM(DEPT_CD) DEPTNM
+             ,DATA_AUTH
+          FROM EMPLOYEE
+         WHERE DEL_FG = 'N'
+           AND NVL(DATA_AUTH, chr(0)) !=  #{data_auth}
+           <if test="emp_nm != null and emp_nm != ''">
+             and  EMPLE_NM like   '%' || #{emp_nm} ||'%'
+        </if>
+        <if test="grp_data_auth != null and grp_data_auth != ''">
+               AND (
+                   NVL(DATA_AUTH, '9999') != #{data_auth}
+                   OR
+                   (NVL(DATA_AUTH, '9999') = #{data_auth} AND NVL(GRP_DATA_AUTH, '9999') != #{grp_data_auth} )
+               )
+        </if>
+
+        ORDER BY FN_DEPT_NM(DEPT_CD), EMPLE_NM
+
+    </select>
+
+       <select id="DlwDeptMap.getDlwDeptgrpList003" parameterType="map" resultType="resultMap">
+
+        SELECT  /* DlwDeptMap.getDlwDeptgrpList003   */
+                       DAG.AUTH_GRP_CD AUTHGRPCD
+                     , DAG.AUTH_GRP_NM AUTHGRPNM
+                     , DAG.USE_YN USEYN
+                  FROM DATA_AUTH_GRP DAG
+
+    </select>
+
+         <!-- 권한주기   -->
+            <update id="DlwDeptMap.deptinsert" parameterType="map">
+
+                UPDATE /* DlwDeptMap.deptinsert */
+                        EMPLOYEE
+                   SET   DATA_AUTH = #{data_auth}
+                        , GRP_DATA_AUTH = #{grp_data_auth}
+                        , UPD_DM = SYSDATE
+                        , UPD_MAN = #{upd_man}
+                 WHERE EMPLE_NO = #{emple_no}
+            </update>
+
+<!--자료권한그룹 insert -->
+      <insert id="DlwDeptMap.dept_grp_insert"  parameterType="map" >
+
+
+         INSERT INTO  /* DlwDeptMap.dept_grp_insert */
+            DATA_AUTH_GRP (
+           AUTH_GRP_CD
+          ,AUTH_GRP_NM
+          ,USE_YN
+          ,REG_DM
+          ,REG_MAN
+          ,UPD_DM
+          ,UPD_MAN
+        ) SELECT
+           A.AUTH_GRP_CD
+          ,#{authgrpnm}
+          ,#{useyn}
+          ,SYSDATE
+          ,#{regman}
+          ,SYSDATE
+          ,#{regman}
+          FROM
+        (SELECT LPAD(NVL(MAX(CAST(AUTH_GRP_CD AS INT)) + 1, '1'), 4, '0') AS AUTH_GRP_CD FROM DATA_AUTH_GRP) A
+
+
+    </insert>
+
+
+           <!--자료권한그룹 update -->
+            <update id="DlwDeptMap.dept_grp_update" parameterType="map">
+
+                UPDATE /* DlwDeptMap.dept_grp_update */
+                        DATA_AUTH_GRP
+                   SET   AUTH_GRP_NM = #{authgrpnm}
+                        , USE_YN = #{useyn}
+                        , UPD_DM = SYSDATE
+                        , UPD_MAN = #{regman}
+                 WHERE AUTH_GRP_CD = #{authgrpcd}
+            </update>
+
+
+        <!--DATA_AUTH_GRP_DTL 데이터있는지 여부확인 -->
+
+           <select id="DlwDeptMap.authgrpcdcnt" parameterType="map" resultType="int">
+              SELECT  /* DlwDeptMap.authgrpcdcnt  */
+                     count(*)
+                  FROM DATA_AUTH_GRP_DTL DAG
+               WHERE AUTH_GRP_CD = #{authgrpcd} and
+                    DEPT_CD = #{dept_cd}
+          </select>
+
+
+         <!--DATA_AUTH_GRP_DTL 삭제  -->
+         <update id="DlwDeptMap.authgrpcddelete" parameterType="map">
+              DELETE /* DlwDeptMap.authgrpcddelete */
+              FROM     DATA_AUTH_GRP_DTL
+              WHERE AUTH_GRP_CD = #{authgrpcd} and
+                    DEPT_CD = #{dept_cd}
+          </update>
+
+       <insert id="DlwDeptMap.authgrpcdinsert"  parameterType="map" >
+
+            INSERT INTO DATA_AUTH_GRP_DTL (
+               AUTH_GRP_CD
+              ,DEPT_CD
+              ,REG_DM
+              ,REG_MAN
+                ) SELECT
+                #{authgrpcd}
+              , #{dept_cd}
+              ,SYSDATE
+              , #{reg_man}  from DUAL
+      </insert>
+
+
+        <select id="DlwDeptMap.getDlwreportDeptgrpList" parameterType="map" resultType="resultMap">
+         SELECT REPORT_GRP_CD  REPORTGRPCD
+             , REPORT_GRP_NM   REPORTGRPNM
+             , USE_YN  USEYN
+             , LVL LVL
+          FROM REPORT_AUTH_GRP
+    </select>
+
+
+      <select id="DlwDeptMap.getDlwreportDeptList001_mi" parameterType="map" resultType="resultMap">
+
+        SELECT  /* DlwDeptMap.getDlwreportDeptList001_mi  [권한 미사용자 조회]  */
+
+               EMPLE_NM  EMPLE_NM
+             , EMPLE_NO
+             , FN_COM_NM('06', POSN_CD) POSNNM
+             , FN_DEPT_NM(DEPT_CD) DEPTNM
+             , '/dmlife/images/commute_user.png' SOURCE
+          FROM EMPLOYEE
+         WHERE DEL_FG = 'N'
+           AND NVL(REPORT_AUTH, chr(0)) !=  #{reportgrpcd}
+           <if test="elp_nm != null and elp_nm != ''">
+             and  EMPLE_NM like   '%' || #{elp_nm} ||'%'
+          </if>
+        ORDER BY FN_DEPT_NM(DEPT_CD), EMPLE_NM
+
+    </select>
+
+      <select id="DlwDeptMap.getDlwreportDeptList001" parameterType="map" resultType="resultMap">
+
+          SELECT /* DlwDeptMap.getDlwreportDeptList001  [권한 사용자 조회]  */
+                 EMPLE_NM
+             , EMPLE_NO
+             , FN_COM_NM('06', POSN_CD)  POSNNM
+             , FN_DEPT_NM(DEPT_CD) DEPTNM
+             , '/dmlife/images/commute_user.png' SOURCE
+          FROM EMPLOYEE
+         WHERE DEL_FG = 'N'
+          <if test="elp_nm != null and elp_nm != ''">
+             and  EMPLE_NM like   '%' || #{elp_nm} ||'%'
+          </if>
+           AND NVL(REPORT_AUTH,chr(0)) = #{reportgrpcd}
+           AND NVL(REPORT_ADMIN_AUTH, 'N') = 'N'
+        ORDER BY FN_DEPT_NM(DEPT_CD), EMPLE_NM
+
+    </select>
+
+
+       <!-- 종합현황 사용자권한주기   -->
+            <update id="DlwDeptMap.reportdeptinsert" parameterType="map">
+
+                UPDATE /* DlwDeptMap.reportdeptinsert */
+                        EMPLOYEE
+
+                  SET   REPORT_AUTH = #{reportgrpcd}
+                        , REPORT_ADMIN_AUTH = 'N'
+                       , UPD_DM = SYSDATE
+                    , UPD_MAN = #{upd_man}
+
+              WHERE EMPLE_NO = #{emple_no}
+
+            </update>
+
+
+
+  <!--   /*권한그룹별 조회 항목 설정*/ -->
+     <select id="DlwDeptMap.getDlwreportDeptListdll" parameterType="map" resultType="resultMap">
+
+        SELECT  /* DlwDeptMap.getDlwreportDeptListdll    */
+
+              COLUMN_CD
+             , COLUMN_NM
+             , LVL LVL
+             , (CASE WHEN  (SELECT COLUMN_CD FROM REPORT_AUTH_GRP_DTL
+                            WHERE REPORT_AUTH_GRP_DTL.REPORT_GRP_CD= #{reportgrpcd}
+                                 AND REPORT_AUTH_GRP_DTL.COLUMN_CD=REPORT_COLUMN_LIST.COLUMN_CD )  > ' ' THEN '1' ELSE '0' END) CHK
+          FROM REPORT_COLUMN_LIST
+         ORDER BY ORDR_TURN
+
+    </select>
+
+     <!--권한그룹별 insert -->
+      <insert id="DlwDeptMap.report_grp_insert"  parameterType="map" >
+
+
+         INSERT INTO  /* DlwDeptMap.report_grp_insert */
+            REPORT_AUTH_GRP (
+           REPORT_GRP_CD
+          ,REPORT_GRP_NM
+          ,USE_YN
+          ,LVL
+          ,REG_DM
+          ,REG_MAN
+          ,UPD_DM
+          ,UPD_MAN
+        ) SELECT
+           A.REPORT_GRP_CD
+          ,#{report_grp_nm}
+          ,#{useyn}
+          ,#{lvl}
+          ,SYSDATE
+          ,#{regman}
+          ,SYSDATE
+          ,#{regman}
+          FROM
+        (SELECT LPAD(NVL(MAX(CAST(REPORT_GRP_CD AS INT)) + 1, '1'), 4, '0') AS REPORT_GRP_CD FROM REPORT_AUTH_GRP) A
+
+
+    </insert>
+
+       <!--권한그룹별 update -->
+            <update id="DlwDeptMap.report_grp_update" parameterType="map">
+
+                UPDATE /* REPORT_AUTH_GRP.report_grp_update */
+                        REPORT_AUTH_GRP
+                   SET   REPORT_GRP_NM = #{report_grp_nm}
+                        , USE_YN = #{useyn}
+                        , LVL    = #{lvl}
+                        , UPD_DM = SYSDATE
+                        , UPD_MAN = #{regman}
+                 WHERE REPORT_GRP_CD = #{report_grp_cd}
+            </update>
+
+
+</mapper>

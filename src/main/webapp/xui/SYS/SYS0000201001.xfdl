@@ -1,0 +1,223 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="FrmDev" classname="Work_Contents1" inheritanceid="" position="absolute 0 0 414 307" titletext="버튼목록팝업" onload="FrmDev_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_40" class="sta_popupBg1" enable="false" position="absolute 0 0 413 307"/>
+        <Static id="stc_41" text="버튼선택" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 385 7 405 26"/>
+        <Div id="div_body" anchor="all" taborder="1" style="background:#ff450066;" text="Div00" position="absolute 3 37 410 304">
+          <Layouts>
+            <Layout>
+              <Grid id="grd_list" taborder="1" binddataset="ds_list" autoenter="select" useinputpanel="false" cellsizingtype="col" position="absolute 5 29 404 261" anchor="left top" onheadclick="div_body_grd_list_onheadclick">
+                <Formats>
+                  <Format id="default">
+                    <Columns>
+                      <Column size="35"/>
+                      <Column size="0"/>
+                      <Column size="80"/>
+                      <Column size="220"/>
+                      <Column size="60"/>
+                    </Columns>
+                    <Rows>
+                      <Row size="24" band="head"/>
+                      <Row size="24"/>
+                    </Rows>
+                    <Band id="head">
+                      <Cell displaytype="checkbox" edittype="none"/>
+                      <Cell col="1" text="버튼ID"/>
+                      <Cell col="2" text="버튼명"/>
+                      <Cell col="3" text="버튼설명"/>
+                      <Cell col="4" text="공통여부"/>
+                    </Band>
+                    <Band id="body">
+                      <Cell displaytype="checkbox" edittype="checkbox" text="bind:_chk"/>
+                      <Cell col="1" text="bind:btnId"/>
+                      <Cell col="2" style="align:left;" text="bind:btnNm"/>
+                      <Cell col="3" style="align:left;" text="bind:btnExpi"/>
+                      <Cell col="4" text="bind:comnYn"/>
+                    </Band>
+                  </Format>
+                </Formats>
+              </Grid>
+              <Button id="btn_select" taborder="1" text="선택" onclick="btn_select_onclick" position="absolute 337 5 402 25"/>
+              <Button id="Button01" taborder="1" text="데이타셋" onclick="div_body_Button01_onclick" class="btn_WF_act4" position="absolute 248 5 326 25" anchor="left bottom"/>
+            </Layout>
+          </Layouts>
+        </Div>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="chk" type="STRING" size="256"/>
+          <Column id="btnId" type="STRING" size="256"/>
+          <Column id="btnNm" type="STRING" size="256"/>
+          <Column id="btnExpi" type="STRING" size="256"/>
+          <Column id="comnYn" type="STRING" size="256"/>
+          <Column id="btnLnpSqnc" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_input" firefirstcount="0" firenextcount="0">
+        <ColumnInfo>
+          <Column id="scrnNo" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="scrnNo"/>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/***************************************************************************
+ * Program ID    : SCRIP_GUIDE.xfdl
+ * Program Name  : 스크립트 가이드
+ * Author        : 홍길동
+ * Created On    : 2012.11.05
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자    내    용
+ * =========================================================================
+ * 2012.11.05   홍길동    최초작성
+ **************************************************************************/
+
+//**************************************************************************
+// [ PART 1 ] Form에서 Include 할 라이브러리(xjs)파일 정의
+//**************************************************************************
+include "LIB::lib_All.xjs";
+
+//**************************************************************************
+// [ PART 2 ] Form에서 사용될 전역변수를 선언
+//**************************************************************************
+var fv_formId;
+
+//**************************************************************************
+// [ PART 3 ] Form Event 정의
+//**************************************************************************
+
+/***************************************************************************
+ * 기      능		: 폼 onload이벤트
+ ***************************************************************************/
+function FrmDev_onload(obj:Form, e:LoadEventInfo)
+{
+	// 시스템 공통함수 호출
+	gfn_commPopInit(obj);
+
+	// 폼 공통함수 호출
+	fn_init();
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_init()
+ * 기      능		: 폼 초기화 공통함수
+ ***************************************************************************/
+function fn_init()
+{
+	trace("pv_scrnNo::"+pv_scrnNo);
+	ds_input.setColumn(0, "scrnNo", pv_scrnNo);
+	//TO-DO: 폼 초기화 관련 처리
+	fn_commSearch(gfn_getCommTypeAppend());	//조회 처리
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_selectPrdt()
+ * 기      능		: 더블클릭 수 처리
+ ***************************************************************************/
+function fn_selectPrdt(nRow)
+{
+	var j = 0;
+	var btnIdList="";
+	var btnNmList="";
+	for (var i = 0; i <= ds_list.rowcount; i++) {
+		if (ds_list.getColumn(i, "_chk") == 1) {			
+			btnIdList += ds_list.getColumn(i, "btnId")+",";
+			btnNmList += ds_list.getColumn(i, "btnNm")+",";
+			j++;
+		}
+	}
+	//trace(btnNmList.substr(0, btnNmList.length-2));
+	var obj = new Object;
+	
+	obj["btnIdList"] = btnIdList.substr(0, btnIdList.length-1);
+	obj["btnNmList"] = btnNmList.substr(0, btnNmList.length-1);
+	
+	close(obj);
+}
+
+//**************************************************************************
+// [ PART 4 ] Detail Process Event 정의
+//**************************************************************************
+
+/***************************************************************************
+ * 기      능		: (공통) 그리드 onheadclick이벤트 발생시에 전체체크(체크박스), 칼럼정렬 기능 추가
+ ***************************************************************************/
+function div_body_grd_list_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_grdHeadClick(obj, e);
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 선택실행
+ ***************************************************************************/
+function btn_select_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_selectPrdt()
+}
+
+/***************************************************************************
+ * 기      능		: (공통) 화면닫기
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+//**************************************************************************
+// [ PART 5 ] Main Process Event 정의
+//**************************************************************************
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch()
+ * 기      능		: (공통버튼)조회 프로세스
+
+ ***************************************************************************/
+function fn_commSearch(sType)
+{	
+	ds_list.clearData();
+	
+	// KWData 설정
+	gfn_kwDataInit();
+	gfn_setKwData_trscCode("SYS00002R25");
+	gfn_setKwData_screenId("");
+	gfn_setKwData_bizGroupCode("");
+	gfn_setKwData_systemCode("");
+	gfn_setKwData_nameSpace("com.kyowon.krp.sys.dc.authorityadmnistrationdc.DCAthrAdmnSqlMap");
+	gfn_setKwData_sqlId("getListBtnId");
+	gfn_tranDIS(sType 
+				, "ds_input=ds_input"
+				, "ds_list=datas"
+				, "fn_commSearch_callBack");
+}
+
+//**************************************************************************
+// [ PART 6 ] 사용자정의함수 정의
+//**************************************************************************
+
+/***************************************************************************
+ * 함  수  명		: fn_commSearch_callBack()
+ * 기      능		: [CallBack함수] Transaction Callback함수
+ ***************************************************************************/
+function fn_commSearch_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	//trace(ds_list.saveXML);
+}
+
+function div_body_Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_debug(ds_list);
+}]]></Script>
+  </Form>
+</FDL>

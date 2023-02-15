@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="EmilRecpMap">
+    <sql id="EmilRecpMap.selectCondition_fragment">
+        <where>
+            <if test="emil_recp_id != null and emil_recp_id != ''">
+                AND EMIL_RECP_ID = #{emil_recp_id}
+            </if>
+            <if test="emilmsg_id != null and emilmsg_id != ''">
+                AND EMILMSG_ID = #{emilmsg_id}
+            </if>
+        </where>
+    </sql>
+
+    <select id="EmilRecpMap.getEmilRecpCount" parameterType="map" resultType="int">
+        SELECT /* EmilRecpMap.getEmilRecpCount */
+               COUNT(*)
+          FROM TB_EMIL_RECP_DTL A
+          <include refid="EmilRecpMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="EmilRecpMap.getEmilRecpList" parameterType="map" resultType="resultMap">
+        SELECT /* EmilRecpMap.getEmilRecpList */
+            A.*
+          FROM (SELECT <choose>
+                             <when test="orderBy != null and orderBy != ''">
+                                ROW_NUMBER () OVER (ORDER BY ${orderBy} ${orderDirection}) AS PAGINGINDEX
+                           </when>
+                           <otherwise>
+                               ROW_NUMBER () OVER (ORDER BY AMNT_DTTM DESC) AS PAGINGINDEX
+                           </otherwise>
+                         </choose>
+                       , A.*
+                  FROM (SELECT EMIL_RECP_ID, EMILMSG_ID, EMIL_TITL, EMIL_CNTN, EMIL_HTML_CNTN
+                             , RECP_DTTM, DPMS_DTTM, DPMS_CHPR_NM, DPMS_EMIL_ADDR
+                             , CONSNO, CUST_ID, CUST_NM
+                             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                          FROM TB_EMIL_RECP_DTL A
+                           <include refid="EmilRecpMap.selectCondition_fragment"/>
+                       ) A
+                ) A
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+         ORDER BY PAGINGINDEX ASC
+    </select>
+
+    <insert id="EmilRecpMap.insertEmilRecp">
+        <selectKey keyProperty="emil_recp_id" resultType="String" order="BEFORE">
+            SELECT 'ERP' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* EmilRecpMap.insertEmilRecp */
+          INTO TB_EMIL_RECP_DTL
+               (EMIL_RECP_ID, EMILMSG_ID, EMIL_TITL, EMIL_CNTN, EMIL_HTML_CNTN
+              , RECP_DTTM, DPMS_DTTM, DPMS_CHPR_NM, DPMS_EMIL_ADDR
+              , CONSNO, CUST_ID, CUST_NM
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{emil_recp_id}, #{emilmsg_id}, #{emil_titl}, #{emil_cntn}, #{emil_html_cntn}
+              , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{dpms_dttm}, #{dpms_chpr_nm}, #{dpms_emil_addr}
+              , #{consno}, #{cust_id}, #{cust_nm}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="EmilRecpMap.updateEmilRecp" parameterType="map">
+        UPDATE /* EmilRecpMap.updateEmilRecp */
+               TB_EMIL_RECP_DTL
+           SET CONSNO		= #{eml_cntn}
+             , CUST_ID		= #{cust_id}
+             , CUST_NM		= #{cust_nm}
+         WHERE EMIL_RECP_ID	= #{emil_recp_id}
+           AND CNTR_CD		= #{cntr_cd}
+    </update>
+
+    <update id="EmilRecpMap.updateEmilRecpCntn" parameterType="map">
+        UPDATE /* EmilRecpMap.updateEmilRecpCntn */
+               TB_EMIL_RECP_DTL
+          SET EMIL_HTML_CNTN	= #{emil_html_cntn}
+        WHERE EMIL_RECP_ID		= #{emil_recp_id}
+          AND CNTR_CD			= #{cntr_cd}
+    </update>
+</mapper>
+

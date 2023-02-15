@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace = "WklyRprgEtcMap">
+    <sql id="WklyRprgEtcMap.selectCondition_fragment">
+        <where>
+            <if test="wkly_rprg_id != null and wkly_rprg_id != ''">
+                AND WKLY_RPRG_ID = #{wkly_rprg_id}
+            </if>
+            <if test="wkly_rprg_etc_mtr_cd != null and wkly_rprg_etc_mtr_cd != ''">
+                AND WKLY_RPRG_ETC_MTR_CD = #{wkly_rprg_etc_mtr_cd}
+            </if>
+            <if test="wkly_rprg_etc_mtr_cds != null and wkly_rprg_etc_mtr_cds.size > 0">
+                <foreach collection="wkly_rprg_etc_mtr_cds" item="item" separator="," close=")" open="AND WKLY_RPRG_ETC_MTR_CD IN (">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <select id = "WklyRprgEtcMap.getWklyEtcCount" parameterType="map" resultType="int">
+        SELECT /*WklyRprgEtcMap.getWklyEtcCount*/
+               COUNT(*)
+          FROM (SELECT *
+                  FROM TB_WKLY_RPRG_ETC_MTR A
+              <include refid="WklyRprgEtcMap.selectCondition_fragment" />
+               ) A
+    </select>
+
+    <select id = "WklyRprgEtcMap.getWklyEtcList" parameterType="map" resultType="resultMap">
+        SELECT /*WklyRprgEtcMap.getWklyEtcList*/
+               A.*
+             , GETCODENM('PMS110', A.WKLY_RPRG_ETC_MTR_CD, A.CNTR_CD) AS WKLY_RPRG_ETC_MTR_NM
+          FROM (SELECT A.*
+                     , (SELECT C.USER_NM
+                          FROM TB_USER C
+                         WHERE C.USER_ID = A.RGSR_ID) RGSR_NM
+                     , (SELECT C.USER_NM
+                          FROM TB_USER C
+                         WHERE C.USER_ID = A.AMND_ID) AMND_NM
+                  FROM (SELECT *
+                          FROM TB_WKLY_RPRG_ETC_MTR A
+                      <include refid="WklyRprgEtcMap.selectCondition_fragment" />
+                        ) A
+               ) A
+    </select>
+
+    <insert id = "WklyRprgEtcMap.insertWklyEtc" parameterType="map">
+        INSERT /* WklyRprgEtcMap.insertWklyEtc */
+          INTO TB_WKLY_RPRG_ETC_MTR (
+               WKLY_RPRG_ID ,WKLY_RPRG_ETC_MTR_CD, WKLY_RPRG_ETC_MTR_CNTN, CNTR_CD
+             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM )
+        VALUES (#{wkly_rprg_id}, #{wkly_rprg_etc_mtr_cd}, #{wkly_rprg_etc_mtr_cntn}, #{cntr_cd}
+             , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id = "WklyRprgEtcMap.updateWklyEtc" parameterType="map">
+        UPDATE /* WklyRprgEtcMap.updateWklyEtc */
+              TB_WKLY_RPRG_ETC_MTR
+           SET AMNT_DTTM                     = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+             , AMND_ID  	                 = #{amnd_id}
+             , WKLY_RPRG_ETC_MTR_CNTN        = #{wkly_rprg_etc_mtr_cntn}
+         WHERE WKLY_RPRG_ID                  = #{wkly_rprg_id}
+           AND WKLY_RPRG_ETC_MTR_CD          = #{wkly_rprg_etc_mtr_cd}
+    </update>
+
+    <select id = "WklyRprgEtcMap.getEtcResult" parameterType="map" resultType="resultMap">
+        SELECT /* WklyRprgEtcMap.getEtcResult */
+               WKLY_RPRG_ETC_MTR_CD
+             , GETCODENM('PMS110', A.WKLY_RPRG_ETC_MTR_CD, A.CNTR_CD) AS WKLY_RPRG_ETC_MTR_NM
+             , (CASE
+                WHEN WKLY_RPRG_ETC_MTR_CD <![CDATA[<=]]> 20
+                THEN '건의 및 이슈사항'
+                ELSE '특이사항'
+                END) AS WKLY_RPRG_ETC_MTR_TYPE_NM
+             , SUBSTR(XMLAGG(XMLELEMENT(COL ,CHR(13) || CHR(10) || CHR(13) || CHR(10), WKLY_RPRG_ETC_MTR_CNTN) ORDER BY USER_NM).EXTRACT('//text()').GETSTRINGVAL(), 3) AS WKLY_RPRG_ETC_MTR_CNTN
+          FROM (SELECT WKLY_RPRG_ETC_MTR_CD
+                     , ('[' || C.USER_NM || ']' || CHR(13) || CHR(10) || WKLY_RPRG_ETC_MTR_CNTN) AS WKLY_RPRG_ETC_MTR_CNTN
+                     , A.CNTR_CD, C.USER_NM
+                  FROM (SELECT *
+                          FROM TB_WKLY_RPRG_ETC_MTR A
+                         WHERE EXISTS(SELECT 'Y'
+                                        FROM TB_WKLY_RPRG_BASI
+                                       WHERE WKLY_RPRG_ID = A.WKLY_RPRG_ID
+                                         AND SBMS_YN = 'Y'
+                                         AND WKLY_RPRG_BAS_YRMN = #{wkly_rprg_bas_yrmn}
+                                            AND WKLY_RPRG_WT_SQNC = #{wkly_rprg_wt_sqnc}
+                                       <if test="appr_id != null and appr_id != ''">
+                                           AND APPR_ID = #{appr_id}
+                                       </if>
+                                         )
+                      ) A
+                      LEFT JOIN TB_WKLY_RPRG_BASI B
+                        ON A.WKLY_RPRG_ID = B.WKLY_RPRG_ID
+                      LEFT JOIN TB_USER C
+                        ON B.RPTR_ID = C.USER_ID
+                <where>
+                    <if test="team1_cd != null and team1_cd != ''">
+                        AND EXISTS (SELECT 'Y'
+                                      FROM TB_CONS_TEAM
+                                     WHERE TEAM_CD = C.TEAM_CD
+                                       AND HGRN_TEAM_CD = #{team1_cd})
+                    </if>
+                    <if test="team2_cd != null and team2_cd != ''">
+                        AND C.TEAM_CD = #{team2_cd}
+                    </if>
+                </where>
+                ) A
+          GROUP BY WKLY_RPRG_ETC_MTR_CD, CNTR_CD
+          ORDER BY WKLY_RPRG_ETC_MTR_CD
+    </select>
+
+    <delete id="WklyRprgEtcMap.deleteWklyEtc" parameterType="map">
+        DELETE /* WklyRprgEtcMap.deleteWklyEtc */
+          FROM TB_WKLY_RPRG_ETC_MTR
+         WHERE WKLY_RPRG_ID = #{wkly_rprg_id}
+        <if test="wkly_rprg_etc_mtr_cd != null and wkly_rprg_etc_mtr_cd != ''">
+           AND WKLY_RPRG_ETC_MTR_CD = #{wkly_rprg_etc_mtr_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+           AND CNTR_CD = #{cntr_cd}
+        </if>
+
+    </delete>
+</mapper>

@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOthersMap">
+
+
+        <!-- 회사정보 조회  -->
+          <select id="DlwOthersMap.getUseEntrList" parameterType="map" resultType="resultMap">
+              SELECT /* DlwOthersMap.getUseEntrList */
+                     CORP_NM
+                     ,CEO_NM
+                     ,BSNS_REGNO
+                     ,BSNS_CODT
+                     ,BSNS_TYPE
+                     ,TEL
+                     ,ZIP
+                     ,ADDR
+                     ,ADDR2
+                     ,EMAIL
+                     ,HOMEP
+                     ,CHAR_ID
+                     ,SITE_ID
+                     ,USER_ID
+                     ,CONF_NO_ID
+                     ,CMS_MTHD
+                     ,REG_DM
+                     ,REG_MAN
+                     ,UPD_DM
+                     ,UPD_MAN
+                     ,CARD_MEM_CD
+                     ,CARD_TERMINL_NO
+                     ,CARD_FILE_PATH
+                FROM USE_ENTR
+          </select>
+
+    <!-- 회사정보 수정 -->
+         <update id="DlwOthersMap.updateUseEntr" parameterType="map" timeout="3">
+             UPDATE /* DlwOthersMap.updateUseEntr */
+                     USE_ENTR
+                SET
+                        CORP_NM = #{corp_nm}
+                    ,CEO_NM = #{ceo_nm}
+                    ,BSNS_REGNO = #{bsns_regno}
+                    ,BSNS_CODT = #{bsns_codt}
+                    ,BSNS_TYPE = #{bsns_type}
+                    ,TEL = #{tel}
+                    ,ZIP = #{zip}
+                    ,ADDR = #{addr}
+                    ,ADDR2 = #{addr2}
+                    ,EMAIL = #{email}
+                    ,HOMEP = #{homep}
+                    ,CHAR_ID = #{char_id}
+                    ,SITE_ID = #{site_id}
+                    ,USER_ID = #{user_id}
+                    ,CONF_NO_ID = #{conf_no_id}
+                    ,CMS_MTHD = #{cms_mthd}
+                    ,UPD_DM = SYSDATE
+                    ,UPD_MAN = #{rgsr_id}
+                    ,CARD_MEM_CD = #{card_mem_cd	}
+                    ,CARD_TERMINL_NO = #{card_terminl_no}
+                    ,CARD_FILE_PATH = #{card_file_path}
+         </update>
+
+    <!-- 그룹 코드 조회 -->
+         <select id="DlwOthersMap.getGroupCdList" parameterType="map" resultType="resultMap">
+
+                 SELECT	 /* DlwOthersMap.getGroupCdList */
+                           ROW_NUMBER() OVER(ORDER BY GRP_CD) SEQ
+                           ,GRP_CD
+                           ,GRP_NM
+                           ,CON
+                           ,REG_DM
+                           ,REG_MAN
+                 FROM  COM_CD_GRP
+                 <if test="grp_nm != null and grp_nm != ''">
+                 WHERE	GRP_NM like '%' ||  #{grp_nm} || '%'
+                 </if>
+         </select>
+
+     <!-- 그룹 공통 코드 삽입  -->
+        <insert id="DlwOthersMap.insertComCdGrp"  parameterType="map">
+                INSERT INTO /* DlwOthersMap.insertComCdGrp */
+                         COM_CD_GRP
+
+                    (     GRP_CD
+                        , GRP_NM
+                        , CON
+                        , REG_DM
+                        , REG_MAN
+                        , UPD_DM
+                        , UPD_MAN
+                    )
+
+                  SELECT
+                            a.GRP_CD
+                          , #{grp_nm}
+                          , #{con}
+                          , SYSDATE
+                          , #{rgsr_id}
+                          , SYSDATE
+                          , #{lgn_id}
+                  FROM
+                      ( SELECT 'S'||SUBSTR(TO_CHAR(LPAD(NVL(MAX(TO_NUMBER(REPLACE(GRP_CD,'S',''))) + 1, 1), 4, '0')),2,4) GRP_CD
+                        FROM COM_CD_GRP WHERE SUBSTR(GRP_CD,1,1) = 'S' ) a
+            </insert>
+
+
+    <!--그룹공통 코드 수정  -->
+            <update id="DlwOthersMap.updateComCdGrp" parameterType="map" timeout="3">
+                UPDATE /* DlwOthersMap.updateComCdGrp */
+                        COM_CD_GRP
+                SET
+                   GRP_NM 	= #{grp_nm}
+                  ,CON 		= #{con}
+                  ,UPF_DM 	= SYSDATE
+                  ,UPD_MAN 	= #{lgn_id}
+                WHERE GRP_CD = #{grp_cd}
+            </update>
+
+     <!-- 공통 코드 조회  -->
+          <select id="DlwOthersMap.selectComCdGrpLis" parameterType="map" resultType="resultMap">
+                SELECT	/* DlwOthersMap.selectComCdGrpLis */
+                         <!-- ROW_NUMBER() OVER(ORDER BY COM_CD)  -->
+                                  CC.GRP_CD
+                                 ,ORDR_TURN
+                                 ,CC.COM_CD
+                                 ,CC.CD_NM
+                                 ,CC.CON
+                                 ,USE_YN
+
+                 FROM COM_CD CC
+                      LEFT  OUTER JOIN COM_CD_GRP CCG on CC.GRP_CD = CCG.GRP_CD
+                 WHERE	CC.GRP_CD = #{grp_cd}
+                 <if test="ordr_turn != ' ' and ordr_turn != null">
+                     AND ORDR_TURN =#{ordr_turn}
+                 </if>
+                 ORDER BY ORDR_TURN
+          </select>
+
+      <!-- 공통 코드 등록 -->
+           <insert id="DlwOthersMap.insertComCd" parameterType="map">
+            INSERT /* DlwOthersMap.insertComCd */
+                  INTO COM_CD
+                             (
+                              GRP_CD
+                              , COM_CD
+                              , CD_NM
+                              , ORDR_TURN
+                              , USE_YN
+                              , CON
+                              , REG_DM
+                              , REG_MAN
+                              , UPD_DM
+                              , UPD_MAN
+                             )
+                  SELECT
+
+                          #{grp_cd}
+                          <if test="com_cd == null or com_cd == ''">
+                          , a.COM_CD
+                          </if>
+                          , #{cd_nm}
+                          , CAST(#{ordr_turn} as int)
+                          , #{use_yn}
+                          , #{con}
+                          , SYSDATE
+                          , #{rgsr_id}
+                          , SYSDATE
+                          , #{lgn_id}
+                  <if test="tempComCd == null or tempComCd == ''">
+                  FROM
+                      ( SELECT /* DlwOthersMap.getMaxComCd */
+                              'S' || LPAD(NO,3,'0') AS COM_CD
+                        FROM (
+                               SELECT /* DlwOthersMap.getMaxComCd */
+                                      nvl(max(TO_NUMBER(REGEXP_REPLACE(COM_CD, '[a-zA-Z_]', ''))),0)+1 AS NO
+                                 FROM COM_CD
+                                 WHERE GRP_CD = #{grp_cd}
+                                )
+                         )  a
+                </if>
+                <if test="tempComCd != null and tempComCd != ''">
+                  FROM DUAL
+                </if>
+        </insert>
+
+       <!-- 공통코드 수정  -->
+           <update id="DlwOthersMap.updateComCd" parameterType="map" timeout="3">
+
+            UPDATE /* DlwOthersMap.updateComCd */
+                    COM_CD
+            SET
+                   CD_NM 		= #{cd_nm}
+                  ,ORDR_TURN 	= CAST(#{ordr_turn} as int)
+                  ,USE_YN 		= #{use_yn}
+                  ,CON 			= #{con}
+                  ,UPD_DM 		= SYSDATE
+                  ,UPD_MAN  	= #{upd_man}
+            WHERE GRP_CD = #{grp_cd}
+            AND	  COM_CD = #{com_cd}
+        </update>
+
+        <delete id="DlwOthersMap.deleteComcd" parameterType="map">
+            DELETE /* DlwOthersMap.deleteComcd */
+            FROM      COM_CD
+            WHERE GRP_CD = #{grp_cd}
+            AND COM_CD = #{com_cd}
+
+        </delete>
+
+      <!-- 불능코드 조회  -->
+        <select id="DlwOthersMap.getImpsCdList" parameterType="map" resultType="resultMap">
+                SELECT /* DlwOthersMap.getImpsCdList*/
+                        ROW_NUMBER() OVER(ORDER BY ORDR_TURN) SEQ
+                        ,COM_CD
+                        ,CD_NM
+                FROM COM_CD
+                WHERE GRP_CD = '15'
+                <if test="com_cd != null and com_cd != ''">
+                  AND  COM_CD =  #{com_cd}
+                </if>
+
+                <if test="cd_nm != null and cd_nm != ''">
+                  AND  CD_NM LIKE '%' || #{cd_nm} || '%'
+                </if>
+        </select>
+
+       <!-- 불능코드 중복 확인  -->
+        <select id="DlwOthersMap.getDuplImpsCd" parameterType="map" resultType="int">
+                 SELECT /* DlwOthersMap.getDuplImpsCd */
+                        COUNT(*)
+                 FROM COM_CD
+                 WHERE COM_CD = #{com_cd}
+        </select>
+
+      <!-- 불능코드 등록  -->
+        <insert id="DlwOthersMap.insertImpsCd" parameterType="map">
+     /* sql-cms.xml [CMS 불능코드등록] ID : DlwOthersMap.insertImpsCd 작성자 : 김원진  */
+         INSERT INTO COM_CD (  ordr_turn
+                               ,GRP_CD
+                               ,COM_CD
+                               ,CD_NM
+                               ,USE_YN
+                               ,CON
+                               ,REG_DM
+                               ,REG_MAN
+                               ,UPD_DM
+                               ,UPD_MAN
+                             )
+
+                             SELECT a.ordr_turn
+                                    , '15'
+                                    , #{com_cd}
+                                    , #{cd_nm}
+                                    , 'Y'
+                                    , 'CMS 불능코드 - ' || #{cd_nm}
+                                    , SYSDATE
+                                    ,  #{rgsr_id}
+                                    , SYSDATE
+                                    ,  #{rgsr_id}
+                  FROM (SELECT NVL(MAX(ORDR_TURN) + 1, '1') AS ORDR_TURN
+                          FROM COM_CD
+                         WHERE GRP_CD = '15') a
+                         <!-- 불능코드 그룹코드 번호 = 15 -->
+     </insert>
+
+<!-- 불능코드 등록  -->
+       <delete id="DlwOthersMap.deleteImpsCd" parameterType="map">
+           DELETE /* DlwOthersMap.deleteImpsCd */
+           FROM COM_CD
+           WHERE GRP_CD ='15'
+           AND COM_CD = #{com_cd}
+
+       </delete>
+
+
+ <!-- 월 목표건수 조회  -->
+           <select id="DlwOthersMap.selectMonTargetNoList" parameterType="map" resultType="resultMap">
+
+                   SELECT 	/* DlwOthersMap.selectMonTargetNoList  */
+                           ROW_NUMBER() OVER(ORDER BY COM_CD) SEQ
+                          ,a.cd_nm as loc_nm
+                          ,a.com_cd as loc_cd
+                          ,TO_CHAR(SYSDATE, 'YYYYMM') as mon
+                          ,NVL(b.target_no, 0) as target_no
+                    FROM COM_CD a
+                          LEFT OUTER JOIN MON_TARGET_NO b ON a.com_cd = b.loc_cd
+                                                            AND TO_CHAR(SYSDATE, 'YYYYMM') = TO_CHAR(TO_DATE(#{srch_elem}, 'YYYYMM'), 'YYYYMM')
+                WHERE a.grp_cd = '69'
+                AND a.use_yn = 'Y'
+                ORDER BY loc_cd
+
+        </select>
+
+<!-- 월 목표건수 삭제  -->
+        <delete id="DlwOthersMap.deleteMonTargetNo" parameterType="map">
+
+            DELETE  /* DlwOthersMap.deleteMonTargetNo */
+            FROM MON_TARGET_NO
+            WHERE TO_CHAR(SYSDATE, 'YYYYMM') = TO_CHAR(#{srch_elem}, 'YYYYMM')
+                    <!-- SUBSTR(convert(varchar,mon,111),0,8)	= substring(convert(varchar,#vo.mon#,111),0,8) -->
+        </delete>
+
+
+
+<!-- 월 목표건수 등록  -->
+        <insert id="DlwOthersMap.insertMonTargetNo" parameterType="map">
+
+            INSERT INTO  /* DlwOthersMap.insertMonTargetNo  */
+                        MON_TARGET_NO (
+                                          mon
+                                        , loc_cd
+                                        , target_no
+                                        , reg_dm
+                                        , reg_man
+                                        , upd_dm
+                                        , upd_man
+                                       )
+                         VALUES (
+                                          cast(#{mon} as datetime)
+                                        , #{loc_cd}
+                                        , cast(#{target_no} as int)
+                                        , SYSDATE
+                                        , #{reg_man}
+                                        , SYSDATE
+                                        , #{upd_man}
+                                 )
+        </insert>
+
+    <!-- 발송 반송 COUNT -->
+    <select id="DlwOthersMap.getPostSendListCount" parameterType="map" resultType="int">
+	SELECT
+		   COUNT(*)
+		FROM PS_WILLVI.TB_DLV TD INNER JOIN
+		(
+		    SELECT
+                A.DLV_ID,
+                A.SQNC_NO,
+		        A.DLV_NO,
+		        A.DLV_STAT_CD,
+		        A.DSPS_MTHD_CD,
+		        A.DSPS_RSN_CD,
+		        A.DLV_DSPS_RSN_CD,
+		        A.DLV_DSPS_DT,
+		        A.AMND_ID,
+		        A.AMNT_DTTM
+            FROM PS_WILLVI.TB_DLV_DTL A INNER JOIN
+            (
+                SELECT
+                    B.DLV_ID,
+                    MAX(B.SQNC_NO) AS SQNC_NO
+                FROM PS_WILLVI.TB_DLV_DTL B
+                GROUP BY B.DLV_ID
+            ) BB ON A.DLV_ID = BB.DLV_ID AND A.SQNC_NO = BB.SQNC_NO
+		) TB ON TD.DLV_ID = TB.DLV_ID INNER JOIN
+		    LF_DMUSER.MEM_PROD_ACCNT_DAMO MPA ON TD.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG='N'
+		WHERE 1=1
+
+	   <if test="accnt_no != null and accnt_no != ''">
+       		AND TD.ACCNT_NO = #{accnt_no}
+       </if>
+
+       <if test="dsps_mthd_cd != null and dsps_mthd_cd != ''">
+       		AND TB.DSPS_MTHD_CD = #{dsps_mthd_cd}
+       </if>
+
+       <if test="dlv_type_cd != null and dlv_type_cd != ''">
+       		AND TB.DLV_TYPE_CD = #{dlv_type_cd}
+       </if>
+
+       <if test="dlv_stat_cd != null and dlv_stat_cd != ''">
+       		AND TB.DLV_STAT_CD = #{dlv_stat_cd}
+       </if>
+
+    </select>
+
+    <!-- 발송 반송  list -->
+    <select id="DlwOthersMap.getPostSendList" parameterType="map" resultType="resultMap">
+		SELECT
+		   TD.DLV_ID,
+	       TD.ACCNT_NO,
+	       MB.MEM_NM,
+	       DLV_TYPE_CD,  --발송유형
+	       SNDG_KIND_CD, -- 발송종류
+	       DLV_STAT_CD, -- 진행상태코드
+	       DSPS_MTHD_CD, -- 처리방법
+	       DSPS_RSN_CD, --처리결과코드
+	       DLV_DSPS_RSN_CD, --처리사유코드
+	       (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = TD.DLV_TYPE_CD AND TB_CD.CD_SET_CD = 'CHL080' AND TB_CD.CNTR_CD  =  'CCA') AS DLV_TYPE_NM,
+	       (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = TD.SNDG_KIND_CD AND TB_CD.CD_SET_CD = 'CHL120' AND TB_CD.CNTR_CD  =  'CCA') AS SNDG_KIND_NM,
+	       TB.DLV_NO,
+	       (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = TB.DLV_STAT_CD AND TB_CD.CD_SET_CD = 'CHL090' AND TB_CD.CNTR_CD  =  'CCA') AS DLV_STAT_NM,
+	       (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = TB.DSPS_MTHD_CD AND TB_CD.CD_SET_CD = 'CHL100' AND TB_CD.CNTR_CD  =  'CCA') AS DSPS_MTHD_NM,
+	       (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = TB.DSPS_RSN_CD AND TB_CD.CD_SET_CD = 'CHL102' AND TB_CD.CNTR_CD  =  'CCA') AS DSPS_RSN_NM,
+	       TB.DLV_DSPS_DT,
+	       (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = TB.DLV_DSPS_RSN_CD AND TB_CD.CD_SET_CD = 'CHL110' AND TB_CD.CNTR_CD  =  'CCA') AS DLV_DSPS_RESN_NM,
+	       MPA.RESORT_NO,
+	       EMP.EMPLE_NM,
+	       TB.AMNT_DTTM
+		FROM PS_WILLVI.TB_DLV TD INNER JOIN
+		(
+		    SELECT
+                A.DLV_ID,
+                A.SQNC_NO,
+		        A.DLV_NO,
+		        A.DLV_STAT_CD,
+		        A.DSPS_MTHD_CD,
+		        A.DSPS_RSN_CD,
+		        A.DLV_DSPS_RSN_CD,
+		        A.DLV_DSPS_DT,
+		        A.AMND_ID,
+		        A.AMNT_DTTM
+            FROM PS_WILLVI.TB_DLV_DTL A INNER JOIN
+            (
+                SELECT
+                    --ROW_NUMBER() OVER (PARTITION BY DLV_ID ORDER BY DLV_ID ASC, SQNC_NO DESC) AS DLV_INDEX,
+                    B.DLV_ID,
+                    MAX(B.SQNC_NO) AS SQNC_NO
+                FROM PS_WILLVI.TB_DLV_DTL B
+                GROUP BY B.DLV_ID
+            ) BB ON A.DLV_ID = BB.DLV_ID AND A.SQNC_NO = BB.SQNC_NO
+		) TB ON TD.DLV_ID = TB.DLV_ID INNER JOIN
+		    LF_DMUSER.MEM_PROD_ACCNT_DAMO MPA ON TD.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG='N' INNER JOIN
+		    LF_DMUSER.MEMBER_DAMO MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' INNER JOIN
+		    LF_DMUSER.EMPLOYEE_DAMO EMP ON TB.AMND_ID = EMP.EMPLE_NO
+		WHERE 1=1
+
+	   <if test="accnt_no != null and accnt_no != ''">
+       		AND TD.ACCNT_NO = #{accnt_no}
+       </if>
+
+       <if test="dsps_mthd_cd != null and dsps_mthd_cd != ''">
+       		AND TB.DSPS_MTHD_CD = #{dsps_mthd_cd}
+       </if>
+
+       <if test="dlv_type_cd != null and dlv_type_cd != ''">
+       		AND TB.DLV_TYPE_CD = #{dlv_type_cd}
+       </if>
+
+       <if test="dlv_stat_cd != null and dlv_stat_cd != ''">
+       		AND TB.DLV_STAT_CD = #{dlv_stat_cd}
+       </if>
+
+    </select>
+
+    <!-- 신규 등록 시 회원번호  여부  -->
+    <select id="DlwOthersMap.getDlvAccntCount" parameterType="map" resultType="int">
+        SELECT /* DlwOthersMap.getPostSendList */
+               COUNT(*)
+        FROM PS_WILLVI.TB_DLV
+	    WHERE ACCNT_NO = #{accnt_no}
+    </select>
+
+    <!-- 발송 /반송 MASTER INSERT -->
+    <insert id="DlwOthersMap.insertDlv" parameterType="map">
+        <selectKey keyProperty="dlv_id" resultType="String" order="BEFORE">
+            SELECT 'DLV' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(PS_WILLVI.SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* DlwOthersMap.insertDlv */
+          INTO PS_WILLVI.TB_DLV
+               (DLV_ID, ACCNT_NO, MEM_NO, MEM_NM, CSMM_PRFL_NO, SNDG_KIND_CD, DLV_TYPE_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{dlv_id}, #{accnt_no}, #{mem_no}, #{mem_nm}, #{csmm_prfl_no}, #{sndg_kind_cd}, #{dlv_type_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+
+    <!-- 발송 /반송 DTL INSERT -->
+    <insert id="DlwOthersMap.insertDlvDtl" parameterType="map">
+        <selectKey keyProperty="sqnc_no" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(SQNC_NO),0)+1 FROM PS_WILLVI.TB_DLV_DTL WHERE DLV_ID = #{dlv_id}
+        </selectKey>
+
+        INSERT /* DlwOthersMap.insertDlvDtl */
+          INTO PS_WILLVI.TB_DLV_DTL
+               (DLV_ID, SQNC_NO, DLV_NO
+              , DLV_STAT_CD, DSPS_MTHD_CD, DSPS_RSN_CD, DLV_DSPS_DT, DLV_DSPS_RSN_CD
+              , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{dlv_id}, #{sqnc_no}, #{dlv_no}
+              , #{dlv_stat_cd}, #{dsps_mthd_cd}, #{dsps_rsn_cd}, #{dlv_dsps_dt}, #{dlv_dsps_rsn_cd}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <!-- 발송 /반송  DTL UPDATE -->
+    <update id="DlwOthersMap.updateDlvDtl" parameterType="map">
+        UPDATE /* DlwOthersMap.updateDlvDtl */
+               PS_WILLVI.TB_DLV_DTL
+           SET AMNT_DTTM	= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , AMND_ID		= #{amnd_id}
+
+            <if test="dsps_mthd_cd != null and dsps_mthd_cd != ''">
+             , DSPS_MTHD_CD = #{dsps_mthd_cd}
+            </if>
+            <if test="dsps_rsn_cd != null and dsps_rsn_cd != ''">
+             , DSPS_RSN_CD	= #{dsps_rsn_cd}
+            </if>
+            <if test="dlv_dsps_dt != null and dlv_dsps_dt != ''">
+             , DLV_DSPS_DT = #{dlv_dsps_dt}
+            </if>
+            <if test="dlv_dsps_rsn_cd != null and dlv_dsps_rsn_cd != ''">
+             , DLV_DSPS_RSN_CD = #{dlv_dsps_rsn_cd}
+            </if>
+         WHERE DLV_ID = #{dlv_id}
+           AND SQNC_NO = #{sqnc_no}
+    </update>
+
+    <!-- 발송 반송  list -->
+    <select id="DlwOthersMap.getPostSendDtlList" parameterType="map" resultType="resultMap">
+		SELECT
+			/* DlwOthersMap.getPostSendDtlList */
+		    A.DLV_ID,
+		    A.SQNC_NO,
+		    A.DLV_NO,
+		    A.DLV_STAT_CD,
+		    (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = A.DLV_STAT_CD AND TB_CD.CD_SET_CD = 'CHL090' AND TB_CD.CNTR_CD  =  'CCA') AS DLV_STAT_NM,
+		    A.DSPS_MTHD_CD,
+		    (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = A.DSPS_MTHD_CD AND TB_CD.CD_SET_CD = 'CHL100' AND TB_CD.CNTR_CD  =  'CCA') AS DSPS_MTHD_NM,
+		    A.DSPS_RSN_CD,
+		    (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = A.DSPS_RSN_CD AND TB_CD.CD_SET_CD = 'CHL102' AND TB_CD.CNTR_CD  =  'CCA') AS DSPS_RSN_NM,
+		    A.DLV_DSPS_RSN_CD,
+		    (SELECT CD_NM FROM PS_WILLVI.TB_CD WHERE TB_CD.CD = A.DLV_DSPS_RSN_CD AND TB_CD.CD_SET_CD = 'CHL110' AND TB_CD.CNTR_CD  =  'CCA') AS DLV_DSPS_RSN_NM,
+		    A.DLV_DSPS_DT,
+		    A.AMND_ID,
+		    A.AMNT_DTTM
+		FROM PS_WILLVI.TB_DLV_DTL A
+		WHERE 1=1
+		AND DLV_ID = #{dlv_id}
+		ORDER BY A.SQNC_NO DESC
+
+    </select>
+
+    <!-- 회원번호 업로드 리스트  INSERT -->
+    <insert id="DlwOthersMap.insertAccnt" parameterType="map">
+		INSERT /* DlwOthersMap.insertAccnt */
+	       INTO MEM_UPLOAD_INFO (CELL)
+	       VALUES (#{cell})
+    </insert>
+
+    <!-- 전화번호 엑셀 업로드 회원 조회  list -->
+    <select id="DlwOthersMap.getInfoofCellList" parameterType="map" resultType="resultMap">
+		<!--
+		SELECT TBL.CELL,
+		    NVL(TBL.ACC_CNT,0) AS ACC_CNT,
+		    (
+		        SELECT COM_NM
+		        FROM MEM_PROD_ACCNT A INNER JOIN
+		            B2BCOMCD B2B ON A.B2B_COMP_CD = B2B.COM_CD
+		        WHERE ACCNT_NO = TBL.LAST_ACCNT
+		        AND DEL_FG = 'N'
+		     ) AS B2B_COMP_NM
+		FROM
+		(
+		SELECT UI.CELL,
+		    COUNT(MPA.ACCNT_NO) AS ACC_CNT,
+		    MAX(MPA.ACCNT_NO) AS LAST_ACCNT
+		FROM MEM_UPLOAD_INFO UI LEFT OUTER JOIN
+		    MEMBER MB ON UI.CELL = MB.CELL AND MB.DEL_FG = 'N' INNER JOIN
+		    MEM_PROD_ACCNT MPA ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N'
+		GROUP BY UI.CELL
+		) TBL
+		 -->
+		SELECT UI.CELL,
+		    MPA.ACCNT_NO,
+		    (B2B.COM_NM) AS B2B_COMP_NM ,
+		    MPA.JOIN_DT
+		FROM MEM_UPLOAD_INFO UI LEFT OUTER JOIN
+		    MEMBER MB ON UI.CELL = MB.CELL AND MB.DEL_FG = 'N' INNER JOIN
+		    MEM_PROD_ACCNT MPA ON MPA.MEM_NO = MB.MEM_NO AND MPA.DEL_FG = 'N' INNER JOIN
+		    B2BCOMCD B2B ON MPA.B2B_COMP_CD = B2B.COM_CD
+		ORDER BY CELL, ACCNT_NO
+
+    </select>
+
+    <!-- 회원번호 업로드 리스트  INSERT -->
+    <delete id="DlwOthersMap.deleteAccnt" parameterType="map">
+		DELETE FROM MEM_UPLOAD_INFO
+    </delete>
+
+    </mapper>

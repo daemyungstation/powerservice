@@ -1,0 +1,190 @@
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:context="http://www.springframework.org/schema/context" xmlns:mvc="http://www.springframework.org/schema/mvc" xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd         http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd         http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd">
+
+    <!-- PowerService : Controller 로드 -->
+    <context:component-scan base-package="egovframework or powerservice.business">
+        <context:include-filter expression="org.springframework.stereotype.Controller" type="annotation"/>
+        <context:exclude-filter expression="org.springframework.stereotype.Service" type="annotation"/>
+        <context:exclude-filter expression="org.springframework.stereotype.Repository" type="annotation"/>
+    </context:component-scan>
+    <!-- // PowerService : Controller 로드 -->
+
+    <!-- PowerService : 정적 파일 처리 -->
+    <mvc:resources mapping="/common/**" location="/common/" cache-period="3600" />
+    <mvc:resources mapping="/dexteditor/**" location="/dexteditor/" cache-period="3600" />
+    <mvc:resources mapping="/include/**" location="/include/" cache-period="3600" />
+    <mvc:resources mapping="/script/**" location="/script/" cache-period="3600" />
+    <mvc:resources mapping="/theme/**" location="/theme/" cache-period="3600" />
+    <!-- // PowerService : 정적 파일 처리 -->
+
+    <!-- For Pagination Tag -->
+    <bean class="egovframework.com.cmm.ImagePaginationRenderer" id="imageRenderer"/>
+
+    <bean class="egovframework.rte.ptl.mvc.tags.ui.pagination.DefaultPaginationManager" id="paginationManager">
+        <property name="rendererType">
+            <map>
+                <entry key="image" value-ref="imageRenderer"/>
+            </map>
+        </property>
+    </bean>
+
+    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter">
+        <property name="webBindingInitializer">
+            <bean class="egovframework.com.cmm.web.EgovBindingInitializer"/>
+        </property>
+        <!-- PowerService : @RequestBody 로 JSON 파라미터 사용 -->
+        <property name="messageConverters">
+            <list>
+                <bean class="org.springframework.http.converter.ByteArrayHttpMessageConverter" />
+                <bean class="org.springframework.http.converter.StringHttpMessageConverter">
+                    <property name="supportedMediaTypes" value="text/plain;charset=UTF-8" />
+                </bean>
+                <bean class="org.springframework.http.converter.FormHttpMessageConverter" />
+                <bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+                    <property name="supportedMediaTypes" value="application/json;charset=UTF-8" />
+                </bean>
+            </list>
+        </property>
+        <!-- // PowerService : @RequestBody 로 JSON 파라미터 사용 -->
+        <!-- PowerService : XPlatform 파라미터 사용 -->
+        <property name="customArgumentResolvers">
+            <list>
+                <bean class="egovframework.rte.cmmn.ria.support.CustomRiaArgumentResolver">
+                    <property name="uiAdaptor">
+                        <ref bean="xpMapAdaptor" />
+                    </property>
+                </bean>
+                <bean class="egovframework.rte.cmmn.ria.support.CustomRiaArgumentResolver">
+                    <property name="uiAdaptor">
+                        <ref bean="xpVOAdaptor" />
+                    </property>
+                </bean>
+            </list>
+        </property>
+        <!-- // PowerService : XPlatform 파라미터 사용 -->
+    </bean>
+
+    <bean name="xpMapAdaptor" class="egovframework.rte.cmmn.ria.xplatform.map.XPlatformAdaptorImp" />
+    <bean name="xpVOAdaptor" class="egovframework.rte.cmmn.ria.xplatform.vo.XPlatformAdaptorVOImp" />
+    <!-- PowerService : 바로 JSP 화면 호출을 위한 ORDER 변경 -->
+    <!--
+    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping"/>
+    -->
+    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping" p:order="1" />
+    <!-- // PowerService : 바로 JSP 화면 호출을 위한 ORDER 변경 -->
+
+    <!-- IP 정보 기록 및 로그인 체크가 필요한 URL과 로그인 여부를 체크해줄 인터셉터를 등록한다. -->
+    <!-- <mvc:interceptors>
+        <bean class="egovframework.com.cmm.interceptor.IpObtainInterceptor" />
+        <mvc:interceptor>
+            <mvc:mapping path="/**/*.do" />
+            <mvc:exclude-mapping path="/uat/uia/**" />
+            <mvc:exclude-mapping path="/index.do" />
+            <mvc:exclude-mapping path="/EgovLeft.do" />
+            <mvc:exclude-mapping path="/EgovContent.do" />
+            <mvc:exclude-mapping path="/EgovTop.do" />
+            <mvc:exclude-mapping path="/EgovBottom.do" />
+            <mvc:exclude-mapping path="/uat/uia/egovLoginUsr.do" />
+            <mvc:exclude-mapping path="/uat/uia/actionLogin.do" />
+            <bean class="egovframework.com.cmm.interceptor.AuthenticInterceptor" />
+        </mvc:interceptor>
+    </mvc:interceptors> -->
+
+    <!-- PowerService : 로그 출력을 위한 Exception 처리자 변경
+    <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+        <property name="defaultErrorView" value="egovframework/com/cmm/error/egovError"/>
+        <property name="exceptionMappings">
+            <props>
+                <prop key="org.springframework.dao.DataAccessException">egovframework/com/cmm/error/dataAccessFailure</prop>
+                <prop key="org.springframework.transaction.TransactionException">egovframework/com/cmm/error/dataAccessFailure</prop>
+                <prop key="egovframework.rte.fdl.cmmn.exception.EgovBizException">egovframework/com/cmm/error/egovBizException</prop>
+                <prop key="org.springframework.web.HttpSessionRequiredException">egovframework/com/uat/uia/EgovLoginUsr</prop>
+            </props>
+        </property>
+    </bean>
+    -->
+
+    <!-- PowerService : Exception 처리자 지정 -->
+    <bean id="handlerExceptionResolver" class="powerservice.web.handler.ExceptionHandler" >
+        <!-- from ExceptionHandler -->
+        <property name="ajaxErrorView" value="error/ajax" />
+        <property name="ajaxDefaultErrorMessage" value="에러가 발생하였습니다." />
+        <property name="ajaxShowTechMessage" value="true" />
+
+        <!-- from SimpleMappingExceptionResolver -->
+        <property name="defaultErrorView" value="error/default" />
+        <property name="exceptionMappings">
+            <props>
+                <prop key="org.springframework.dao.DataAccessException">
+                    egovframework/com/cmm/error/dataAccessFailure
+                </prop>
+                <prop key="org.springframework.transaction.TransactionException">
+                    egovframework/com/cmm/error/dataAccessFailure
+                </prop>
+                <prop key="egovframework.rte.fdl.cmmn.exception.EgovBizException">
+                    egovframework/com/cmm/error/egovBizException
+                </prop>
+                <prop key="org.springframework.web.HttpSessionRequiredException">
+                    egovframework/com/uat/uia/EgovLoginUsr
+                </prop>
+                <prop key="powerservice.core.access.AccessIPException">
+                    error/access-deny
+                </prop>
+                <prop key="powerservice.core.access.AccessSessionException">
+                    error/session
+                </prop>
+                <prop key="java.lang.RuntimeException">
+                    unchecked
+                </prop>
+            </props>
+        </property>
+    </bean>
+    <!-- // PowerService : Exception 처리자 지정 -->
+
+
+    <!-- for JFile -->
+    <bean class="org.springframework.web.servlet.view.BeanNameViewResolver" p:order="0"/>
+
+    <bean class="org.springframework.web.servlet.view.UrlBasedViewResolver" p:order="1" p:prefix="/WEB-INF/jsp/" p:suffix=".jsp" p:viewClass="org.springframework.web.servlet.view.JstlView"/>
+
+
+    <bean id="xplatformMapView" class="egovframework.rte.cmmn.ria.xplatform.map.XPlatformMapView" />
+    <bean id="xplatformObjectView" class="egovframework.rte.cmmn.ria.xplatform.vo.XPlatformObjectView" />
+    <!-- PowerService : DispatcherServlet 정적파일(js, css, jpg, ...) 처리 제외 -->
+    <mvc:default-servlet-handler />
+
+    <!-- PowerService : 바로 JSP 화면 호출 설정 -->
+    <bean id="urlFilenameViewController" class="org.springframework.web.servlet.mvc.UrlFilenameViewController" />
+    <bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+        <property name="order" value="2" />
+        <property name="mappings">
+            <props>
+                <prop key="/**/*.do">urlFilenameViewController</prop>
+            </props>
+        </property>
+    </bean>
+    <!-- // PowerService : 바로 JSP 화면 호출 설정 -->
+
+    <!-- PowerService : JSON 반환 뷰 설정 -->
+    <bean id="actionResultView" class="org.springframework.web.servlet.view.json.MappingJacksonJsonView">
+        <property name="modelKey" value="actionResult" />
+        <property name="extractValueFromSingleKeyModel" value="true" />
+    </bean>
+    <!-- // PowerService : JSON 반환 뷰 설정 -->
+
+    <!-- PowerService : CSRF / Submit Data Value Processor -->
+    <bean name="requestDataValueProcessor" class="powerservice.web.security.TokenRequestDataValueProcessor" />
+
+    <!-- PowerService : Interceptor handlers -->
+    <mvc:interceptors>
+        <bean class="powerservice.web.handler.HandlerInterceptor" />
+        <bean class="egovframework.rte.cmmn.ria.support.RiaInterceptor">
+            <property name="uiDTO">
+                <list>
+                    <bean class="egovframework.rte.cmmn.ria.xplatform.map.XPlatformMapDTO" />
+                </list>
+            </property>
+        </bean>
+    </mvc:interceptors>
+    <!-- // PowerService : Interceptor handlers -->
+
+</beans>

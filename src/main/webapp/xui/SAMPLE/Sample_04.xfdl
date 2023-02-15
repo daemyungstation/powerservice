@@ -1,0 +1,163 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="Sample_04" classname="Sample_04" inheritanceid="" position="absolute 0 0 1007 808" titletext="암/복호화 샘플(Base64)">
+    <Layouts>
+      <Layout>
+        <Edit id="Edit01" taborder="0" enable="false" position2="absolute l:606 w:114 t:49 h:20" positiontype="position2" visible="false"/>
+        <Edit id="Edit02" taborder="1" position2="absolute l:486 w:114 t:50 h:20" positiontype="position2" visible="false"/>
+        <Button id="Button03" taborder="1" text="암호화" onclick="Button03_onclick" position="absolute 144 50 201 70"/>
+        <Grid id="Grid00" taborder="1" binddataset="ds_Data" useinputpanel="false" position2="absolute l:26 w:399 t:133 h:66" positiontype="position2">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="123"/>
+                <Column size="133"/>
+                <Column size="126"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="Ori"/>
+                <Cell col="1" text="Enc"/>
+                <Cell col="2" text="Dec"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:Ori"/>
+                <Cell col="1" displaytype="text" text="bind:Enc"/>
+                <Cell col="2" text="bind:Dec"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="Button00" taborder="1" text="복호화" onclick="Button00_onclick" position="absolute 344 50 401 70"/>
+        <TextArea id="TextArea00" taborder="1" position2="absolute l:27 w:614 t:229 h:474" positiontype="position2" autoselect="true"/>
+        <Static id="Static37" text="암/복호화 샘플(Base64)" class="sta_WF_title" position="absolute 20 16 304 40"/>
+        <Static id="Static11" text="암/복호화 처리결과" class="sta_WF_subtitle" position="absolute 21 107 260 131"/>
+        <Static id="Static00" text="암/복호화 처리 상세내용" class="sta_WF_subtitle" position="absolute 21 205 260 229"/>
+        <Button id="Button01" taborder="1" text="Clear" onclick="Button01_onclick" position="absolute 403 50 460 70"/>
+        <TextArea id="TextArea01" taborder="1" position2="absolute l:26 w:114 t:50 h:55" positiontype="position2" autoselect="true"/>
+        <TextArea id="TextArea02" taborder="1" position2="absolute l:227 w:114 t:50 h:55" positiontype="position2" enable="false" autoselect="true"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item1" compid="Edit01" propid="value" datasetid="ds_Data" columnid="Dec"/>
+      <BindItem id="item0" compid="Edit02" propid="value" datasetid="ds_Data" columnid="Ori"/>
+      <BindItem id="item2" compid="TextArea01" propid="value" datasetid="ds_Data" columnid="Ori"/>
+      <BindItem id="item3" compid="TextArea02" propid="value" datasetid="ds_Data" columnid="Dec"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_Data" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Ori" type="STRING" size="256"/>
+          <Column id="Enc" type="STRING" size="4000"/>
+          <Column id="Dec" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+var test;
+ 
+function encode64(input) {
+		var output = "";
+		var chr1, chr2, chr3;
+		var enc1, enc2, enc3, enc4;
+		var i = 0;
+		do {
+			chr1 = input.charCodeAt(i++);
+			chr2 = input.charCodeAt(i++);
+			chr3 = input.charCodeAt(i++);
+			enc1 = chr1 >> 2;
+			enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+			enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+			enc4 = chr3 & 63;
+			if (isNaN(chr2)) {
+				enc3 = enc4 = 64;
+			} else if (isNaN(chr3)) {
+				enc4 = 64;
+			}
+			output = output + keyStr.charAt(enc1) + keyStr.charAt(enc2)
+					+ keyStr.charAt(enc3) + keyStr.charAt(enc4);
+		} while (i < input.length);
+		
+		test = output;
+		return output;
+	}
+	
+	
+	function decode64() {
+		var output = "";
+		var chr1, chr2, chr3;
+		var enc1, enc2, enc3, enc4;
+		var i = 0;
+		// remove all characters that are not A-Z, a-z, 0-9, +, /, or =
+		test = test.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+		do {
+			enc1 = keyStr.indexOf(test.charAt(i++));
+			enc2 = keyStr.indexOf(test.charAt(i++));
+			enc3 = keyStr.indexOf(test.charAt(i++));
+			enc4 = keyStr.indexOf(test.charAt(i++));
+			chr1 = (enc1 << 2) | (enc2 >> 4);
+			chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+			chr3 = ((enc3 & 3) << 6) | enc4;
+			output = output + String.fromCharCode(chr1);
+			if (enc3 != 64) {
+				output = output + String.fromCharCode(chr2);
+			}
+			if (enc4 != 64) {
+				output = output + String.fromCharCode(chr3);
+			}
+		} while (i < test.length);
+		return output;
+	}
+	
+	function encode64Han(str) {
+		return encode64(escape(str))
+	}
+	
+	function decode64Han(str) {
+		return unescape(decode64(str))
+	}
+
+function Button00_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var decData = unescape(decode64(ds_Data.getColumn(0,"Enc")));
+	ds_Data.setColumn(0, "Dec", decData);
+	
+	TextArea00.value = TextArea00.value + "\n\n[복호화처리---------------------------------------------]\n\n"+ds_Data.saveXML();
+}
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	ds_Data.setColumn(0, "Ori", null);
+	ds_Data.setColumn(0, "Enc", null);
+	ds_Data.setColumn(0, "Dec", null);
+	
+	TextArea00.value = "";
+}
+
+function Button03_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if(TextArea01.text.trim() == ""){
+		alert("암호화 대상 내용을 입력하세요!!");
+		return;
+	}
+
+	var encData = encode64Han(ds_Data.getColumn(0, "Ori"));
+	
+	ds_Data.setColumn(0, "Enc", encData);
+	ds_Data.setColumn(0, "Dec", null);
+	
+	TextArea00.value = "[암호화처리---------------------------------------------]\n\n"+ds_Data.saveXML();
+
+	trace("encData::"+encData);
+	trace(ds_Data.saveXML());
+}
+]]></Script>
+  </Form>
+</FDL>

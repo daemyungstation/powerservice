@@ -1,0 +1,164 @@
+/*
+ * (@)# VocDtlService.java
+ *
+ * @author 이희철
+ * @version 1.0
+ * @date 2015/04/01
+ * Copyright (c) 2015 by Inwoo tech inc, KOREA. All Rights Reserved.
+ *
+ * http://www.inwoo.co.kr
+ *
+ * NOTICE! This software is the confidential and proprietary
+ * information of
+ * Inwoo Tech Inc. You shall not disclose such Confidential
+ * Information and shall use it only in accordance with the terms
+ * of the license agreement you
+ * entered into with Inwoo Tech Inc.
+ *
+ */
+
+package powerservice.business.cns.service.impl;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import powerservice.business.cns.service.VocDtlService;
+import egovframework.rte.fdl.cmmn.EgovAbstractServiceImpl;
+
+/**
+ * VOC 관리를 한다.
+ *
+ * Copyright (c) 2015 Company Inwoo Tech Inc.
+ *
+ * @author 이희철
+ * @version 1.0
+ * @date 2015/04/01
+ * @프로그램ID VocDtl
+ */
+@Service
+public class VocDtlServiceImpl extends EgovAbstractServiceImpl implements VocDtlService {
+
+    @Resource
+    public VocDtlDAO vocDtlDAO;
+
+    /**
+     * VOC 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return VOC 정보의 검색 수
+     * @throws Exception
+     */
+    public int getVocDtlCount(Map<String, ?> pmParam) throws Exception {
+        return vocDtlDAO.getVocDtlCount(pmParam);
+    }
+
+    /**
+     * VOC 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return VOC 리스트
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getVocDtlList(Map<String, ?> pmParam) throws Exception {
+        return vocDtlDAO.getVocDtlList(pmParam);
+    }
+
+    /**
+     * VOC 정보를 검색한다. (1건)
+     *
+     * @param psId VOC아이디
+     * @return VOC 정보
+     * @throws Exception
+     */
+    public Map<String, Object> getVocDtl(String psId)  throws Exception {
+        Map<String, String> mParam = new HashMap<String, String>();
+        mParam.put("voc_id", psId);
+
+        return vocDtlDAO.getVocDtl(mParam);
+    }
+
+    /**
+     * VOC 정보를 등록한다.
+     *
+     * @param pmParam VOC 정보
+     * @return VOC아이디
+     * @throws Exception
+     */
+    public String insertVocDtl(Map<String, ?> pmParam) throws Exception {
+        String sKey = "";
+        int nResult = vocDtlDAO.insertVocDtl(pmParam);
+        if (nResult > 0) {
+            sKey = (String) pmParam.get("voc_id");
+
+            // VOC 내역 이력 저장
+            vocDtlDAO.insertVocDtlHstr(pmParam);
+        }
+        return sKey;
+    }
+
+    /**
+     * VOC 정보를 수정한다.
+     *
+     * @param pmParam VOC 정보
+     * @throws Exception
+     */
+    public int updateVocDtl(Map<String, ?> pmParam) throws Exception {
+        int nResult = vocDtlDAO.updateVocDtl(pmParam);
+        if (nResult > 0) {
+            if ("happycall".equals((String) pmParam.get("oper_typ"))) { // 해피콜 처리인 경우
+                // VOC 해피콜 처리 이력 저장
+                vocDtlDAO.insertVocHpclDspsHstr(pmParam);
+            } else {
+                // VOC 내역 이력 저장
+                vocDtlDAO.insertVocDtlHstr(pmParam);
+            }
+        }
+        return nResult;
+    }
+
+
+    /**
+     * 상담사별 VOC 해피콜 미처리 건수를 검색한다.
+     *
+     * @return 상담사별 VOC 해피콜 미처리 건수
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getTodoVocHpclDspsCount() throws Exception {
+        return vocDtlDAO.getTodoVocHpclDspsCount();
+    }
+
+
+    /**
+     * VOC 해피콜 처리 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return VOC 해피콜 처리 정보의 검색 수
+     * @throws Exception
+     */
+    public int getVocHpclDspsHstrCount(Map<String, ?> pmParam) throws Exception {
+        return vocDtlDAO.getVocHpclDspsHstrCount(pmParam);
+    }
+
+    /**
+     * VOC 해피콜 처리 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return VOC 해피콜 처리 리스트
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getVocHpclDspsHstrList(Map<String, ?> pmParam) throws Exception {
+        return vocDtlDAO.getVocHpclDspsHstrList(pmParam);
+    }
+
+
+    public int deletevoc(Map<String, ?> pmParam) throws Exception {
+        return (Integer) vocDtlDAO.deletevoc(pmParam);
+
+     }
+
+}

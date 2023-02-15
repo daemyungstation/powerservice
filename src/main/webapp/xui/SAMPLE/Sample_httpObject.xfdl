@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="httpObject" classname="httpObject" inheritanceid="" position="absolute 0 0 1024 768" titletext="New Form" onload="httpObject_onload">
+    <Layouts>
+      <Layout>
+        <Button taborder="0" text="DownLoad (성공)" id="btn_down" onclick="btn_down_onclick" position="absolute 28 102 148 128"/>
+        <Edit taborder="1" id="edt_url" position="absolute 125 13 576 38" value="http://localhost:8080/tobehye/controll/fileupload.jsp?PATH=file"/>
+        <Static id="Static00" text="Server Url" position="absolute 5 17 104 37"/>
+        <Button taborder="4" text="Upload" id="btn_up" onclick="btn_up_onclick" position="absolute 172 102 292 128"/>
+        <Static id="Static02" text="download file name" position="absolute 8 41 120 69"/>
+        <Edit taborder="5" text="http://localhost:8080/test/" id="edt_download" position="absolute 125 44 448 69" value="uploadform.html"/>
+        <ProgressBar id="ProgressBar00" taborder="6" max="100" min="0" pos="0" step="1" blockgap="2" blocksize="15" position="absolute 8 80 315 94" style="barcolor:gold; " onclick="ProgressBar00_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <HttpObject asyncflag="true" id="HttpObject00" retry="10" onstatus="HttpObject00_onstatus" timeout="30000" onload="HttpObject00_onload"/>
+      <FileDialog defaultextention="false" filter="png(*.png)|*.png|Text File(*.txt)|*.txt" filterindex="0" id="FileDialog00" defaultextension="true"/>
+      <Dataset id="file" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="Column0" type="STRING" size="256"/>
+          <Column id="Column1" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="Column0">1</Col>
+            <Col id="Column1">2</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="output" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true"/>
+      <VirtualFile id="VirtualFile00"/>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[var downFolder; //사용자가 지정한 폴더 저장
+
+//upload
+function btn_up_onclick(obj:Button,  e:ClickEventInfo)
+{
+	ProgressBar00.pos = 0;
+
+	var vFile_up = FileDialog00.open("file upload",FileDialog.LOAD,"%MYDOCUMENT%");
+
+	if (vFile_up)
+	{
+		var rtn = HttpObject00.upload("http://172.10.11.160:8080/tobehye/controll/fileupload.jsp?PATH=file",FileDialog.LOAD,vFile_up,true);
+		trace("파일 업로드:" + rtn );
+	}
+}
+
+//download
+function btn_down_onclick(obj:Button,  e:ClickEventInfo)
+{
+
+	//Confilrm창 뜨지 않는방법..
+	ProgressBar00.pos = 0; 
+	downFolder = FileDialog00.open("file download",FileDialog.SELFOLDER); //사용자 폴더 선택
+
+	var vFile_down = new VirtualFile();
+	vFile_down.open(edt_download.text, VirtualFile.openWrite );	//내문서로 다운로드 받음.
+
+	if (vFile_down)
+	{		
+	trace(vFile_down.filename);
+		var strFileName = vFile_down.filename;
+		var rtn = HttpObject00.download("http://172.10.11.160:8080/tobehye/controll/fileDownload.jsp?file=" + strFileName,vFile_down,true);
+		trace(edt_url.text + " -- 파일 다운로드:" + rtn);
+	}
+	/*
+
+
+	ProgressBar00.pos = 0;
+	downFolder = FileDialog00.open("file download",FileDialog.SAVE,"",edt_download.text); //사용자 폴더 선택
+	var vFile_down = new VirtualFile();
+	vFile_down.open(downFolder.fullpath, VirtualFile.openWrite );	
+	trace(">>>>>"+downFolder.fullpath);
+	if (vFile_down)
+	{		
+	trace(vFile_down.filename);
+		var strFileName = edt_download.value;
+		var rtn = HttpObject00.download("http://localhost:8080/tobehye/controll/fileDownload.jsp?file=" + strFileName,vFile_down,true);
+		trace(edt_url.text + " -- 파일 다운로드:" + rtn);
+	}	
+	*/
+
+}
+
+function HttpObject00_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo)
+{
+	ProgressBar00.pos = e.status;
+}
+
+function HttpObject00_onload(obj:HttpObject, e:HttpObjLoadEventInfo)
+{
+	trace("onload >> " + e.errorcode + "/errormsg>> "+ e.errormsg );
+	
+	if(e.errorcode == 200 || e.errorcode == 0) {
+		ProgressBar00.pos = 100;
+	}
+	
+	if( e.errorcode == 200 ) //업로드 완료
+	{
+		alert("upload success ");
+		edt_download.value = e.errormsg;
+	}
+	
+	if( e.errormsg == "Success" ) //다운로드 완료
+	{
+		alert("download success"); 
+
+		//ExtCommon의 readFile메소드로 내문서의 temp파일을 읽은 후 writeFile메소드로 지정한 경로에 다시 파일을 생성해줌.
+		var DownObj;
+		var objExt = new ExtCommon;
+		DownObj = objExt.readFile(system.convertRealPath("%DOCUMENT%")+edt_download.value,"OBJ");
+		trace(downFolder+edt_download.value);
+		objExt.writeFile(downFolder+"\\"+edt_download.value, DownObj);		
+		VirtualFile.delete(system.convertRealPath("%DOCUMENT%")+edt_download.value); //임시파일을 지움.
+		system.execShell(downFolder); //다운로드 받은 폴더를 열어줌.
+	}
+	//trace("errorcode = " + e.errorcode + " \ " + "errormsg = " + e.errormsg );
+}
+]]></Script>
+  </Form>
+</FDL>

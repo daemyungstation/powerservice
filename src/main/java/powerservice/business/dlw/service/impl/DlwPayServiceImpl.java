@@ -1,0 +1,4191 @@
+/*
+ * (@)# DlwPayService.java
+ *
+ * @author 석민
+ * @version 1.0
+ * @date 2016/02/22
+ * Copyright (c) 2015 by Inwoo tech inc, KOREA. All Rights Reserved.
+ *
+ * http://www.inwoo.co.kr
+ *
+ * NOTICE! This software is the confidential and proprietary
+ * information of
+ * Inwoo Tech Inc. You shall not disclose such Confidential
+ * Information and shall use it only in accordance with the terms
+ * of the license agreement you
+ * entered into with Inwoo Tech Inc.
+ *
+ */
+
+package powerservice.business.dlw.service.impl;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.InetAddress;                            // 2018.11.01 추가
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import kr.co.nicepay.module.lite.NicePayWebConnector;   // 2018.11.01 추가
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import powerservice.business.dlw.service.DlwPayService;
+import powerservice.business.sys.service.BasVlService;
+import powerservice.common.util.CommonUtils;
+import powerservice.common.util.NicePayProcess;         // 2018.11.01 추가
+import powerservice.core.util.ParamUtils;
+import au.com.bytecode.opencsv.CSVReader;
+
+import com.oreilly.servlet.MultipartRequest;
+
+import egovframework.com.cmm.service.EgovProperties;
+import egovframework.rte.cmmn.ria.xplatform.map.DataSetMap;
+import egovframework.rte.fdl.cmmn.EgovAbstractServiceImpl;
+import egovframework.rte.fdl.cmmn.exception.EgovBizException;
+
+
+/**
+ * 산출정보를 관리한다
+ */
+@Service
+public class DlwPayServiceImpl extends EgovAbstractServiceImpl implements DlwPayService {
+
+    @Resource
+    public DlwPayDAO DlwPayDAO;
+
+    @Resource
+    public BasVlService basVlService;
+
+
+    private final Logger log = LoggerFactory.getLogger(DlwPayServiceImpl.class);
+
+    /**
+     * 결과 데이터 건수조회
+     * 정승철
+     * 20181015
+    */
+    public List<Map<String, Object>> getReqResultCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getReqResultCount(pmParam);
+    }
+
+
+    /**
+     * 결과등록
+     * 정승철
+     * 20181016
+    */
+    public void insertResultInfo(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResult) throws Exception {
+
+        List<Map<String, Object>> lstRows = new ArrayList<Map<String, Object>>();
+        String sFileKey = "";
+        String tempDir = System.getProperty("java.io.tmpdir");
+
+        log.info(" : : : : : : : : : : : : : insertResultInfo 시작");
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*200);
+        Enumeration enm = multipartRequest.getFileNames();
+        File upfile = null;
+
+        InputStream is 			= null;
+        InputStreamReader isr 	= null;
+        BufferedReader br 		= null;
+
+        try {
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+
+                sFileKey = (String)enm.nextElement();
+                log.info("sFileKey : " + sFileKey);
+                upfile = multipartRequest.getFile(sFileKey);
+                String sOrigFn = upfile.getName();
+                mResult.put("orig_file_nm", sOrigFn);
+
+                log.info("upfile.getPath() : " + upfile.getPath());
+
+                is = new FileInputStream(upfile);
+                isr = new InputStreamReader(is, "EUC-KR");
+                br = new BufferedReader(isr);
+                HashMap<String,Object> mRow = null;
+                String sLine;
+
+                CSVReader reader = new CSVReader(br);
+
+                String[] sArr;
+                String colId = "";
+                int lineNo=0, j=0;
+                String biky = "";
+
+
+                ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                log.info(" : : : : : : : : : : : : : TB_MEMBER_WDRW_RESULT 시작");
+
+                while ((sArr = reader.readNext()) != null) {
+                    lineNo++;
+
+                    // 1 라인은 (헤더라인) continue;
+                    if (lineNo < 2) {
+                        continue;
+                    }
+
+                    mRow = new HashMap<>();
+
+                    biky = "";
+
+                    for (j=0; j<sArr.length; ++j) {
+                        sArr[j] = sArr[j].trim();
+
+                        colId = "Col" + CommonUtils.lpad((j+1)+"", 2, "0");
+
+                        if ("Col16".equals(colId)) {
+                            mRow.put(colId, sArr[j].substring(0,1));
+                        }
+                        else if ("Col02".equals(colId)) {
+                            biky = CommonUtils.nvls(sArr[j]);
+                            mRow.put(colId, biky);
+                        }
+                        else {
+                            mRow.put(colId, CommonUtils.nvls(sArr[j]));
+                        }
+
+                    }
+
+                    if (null == biky || "".equals(biky)) {
+                        continue;
+                    }
+
+                    ParamUtils.addSaveParam(mRow);
+
+                    lstRows.add(mRow);
+
+                    // (카드/CMS) 청구결과 테이블 INSERT - TB_MEMBER_WDRW_RESULT
+                    int nResult =  DlwPayDAO.insertResultInfo(lstRows);
+                    lstRows.clear();
+
+                } // end while
+
+                log.info(" : : : : : : : : : : : : : TB_MEMBER_WDRW_RESULT 끝");
+                ///////////////////////////////////////////////////////////////////////////////////////////////
+
+
+                if (null != mRow) {
+                    //log.info(" : : : : : : : : : : : : : insertResultInfo 555");
+                    /* 결과 비트 업데이트 stat =05 */
+                    //DlwCardDAO.card_wdrw_update_stat(mRow);
+                }
+
+                //log.info(" : : : : : : : : : : : : : insertResultInfo 8");
+
+                break; // 파일은 1개만 업로드 한다.
+            }
+        } catch (FileNotFoundException ex) {
+            throw ex;
+        } catch (IOException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw ex;
+        } finally {
+            if (null != br) br.close();
+            if (null != isr) isr.close();
+            if (null != is) is.close();
+
+            if (null != upfile && upfile.exists()) {
+                upfile.delete();
+            }
+        }
+
+        log.info(" : : : : : : : : : : : : : insertResultInfo 실행완료");
+    }
+
+
+    /**
+     * 파일변환 (** 결과반영)
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public List<Map<String, Object>> convertFile(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.convertFile(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181018
+     * 이름 : 송준빈
+     * 추가내용 : 출금이체의뢰내역(청구) 조회건수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public int getWdrwReqListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getWdrwReqListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181018
+     * 이름 : 송준빈
+     * 추가내용 : 출금이체의뢰내역(청구) 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getWdrwReqList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getWdrwReqList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181026
+     * 이름 : 송준빈
+     * 추가내용 : 출금이체의뢰내역(청구) Card 총 합계
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCalcAndChargeCardSummary(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCalcAndChargeCardSummary(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191223
+     * 이름 : 송준빈
+     * 추가내용 : 출금이체의뢰내역(청구) Card무승인 총 합계
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCalcAndChargeCardNauthSummary(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCalcAndChargeCardNauthSummary(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181026
+     * 이름 : 송준빈
+     * 추가내용 : 출금이체의뢰내역(청구) CMS 총 합계
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCalcAndChargeCMSSummary(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCalcAndChargeCMSSummary(pmParam);
+    }
+
+    /**
+     * 특수회원 카운트조회
+     * 정승철
+     * 20181019
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public int getCntSpecialAcntList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getCntSpecialAcntList(pmParam);
+    }
+
+    /**
+     * 특수회원 조회
+     * 정승철
+     * 20181018
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getSpecialAcntList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getSpecialAcntList(pmParam);
+    }
+
+    /**
+     * 특수회원 입력체크
+     * 정승철
+     * 20181113
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public int getChkSpecialAcntList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getChkSpecialAcntList(pmParam);
+    }
+
+    /**
+     * 특수회원 입력
+     * 정승철
+     * 20181019
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public void insertExtSpecial(Map<String, ?> pmParam) throws Exception {
+
+        DlwPayDAO.insertExtSpecial(pmParam);
+    }
+
+    /**
+     * 특수회원 수정
+     * 정승철
+     * 20181019
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public void updateExtSpecial(Map<String, ?> pmParam) throws Exception {
+
+        DlwPayDAO.updateExtSpecial(pmParam);
+    }
+
+
+    /**
+     * 특수회원 삭제
+     * 정승철
+     * 20181019
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public void deleteExtSpecial(Map<String, ?> pmParam) throws Exception {
+
+        DlwPayDAO.deleteExtSpecial(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181022
+     * 이름 : 송준빈
+     * 추가내용 : 특정회원의 청구 여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public int getWdrwReqAccntConfirm(String accnt_no) {
+        return DlwPayDAO.getWdrwReqAccntConfirm(accnt_no);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181022
+     * 이름 : 송준빈
+     * 추가내용 : 출금이체의뢰내역(산출, 청구(행사, 해약)) 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getWdrwReqAccntEventConfirm(String accnt_no) throws Exception {
+        return DlwPayDAO.getWdrwReqAccntEventConfirm(accnt_no);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181023
+     * 이름 : 임동진
+     * 추가내용 : 결과 데이터 확인 후 청구 테이블 결과 업데이트 처리
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public int uptReqResultStat(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.uptReqResultStat(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181023
+     * 이름 : 임동진
+     * 추가내용 : 결과 데이터 확인 후 청구 테이블 결과 업데이트 처리(ROLLBACK)
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public int uptReqResultStat_R(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.uptReqResultStat_R(pmParam);
+    }
+
+
+    @Override
+    public int uptReqResultStaT_R(Map<String, ?> pmParam) throws Exception {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+
+    /** ================================================================
+     * 날짜 : 20181025
+     * 이름 : 송준빈
+     * 추가내용 : Card File List 수신리스트 결과 반영 여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_RSLT
+     * ================================================================
+     * */
+    public int getWdrwResultCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getWdrwResultCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181029
+     * 이름 : 정승철
+     * 추가내용 : Card 결과로그 List 카운트 조회
+     * ================================================================
+     * */
+    public int getDlwRltmCardLogCount(Map<String, Object> pmParam) { 
+        return DlwPayDAO.getDlwRltmCardLogCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181029
+     * 이름 : 정승철
+     * 추가내용 : Card 결과로그 List 조회
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getDlwRltmCardLogList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getDlwRltmCardLogList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : 자유결제 카드 결과데이터 INSERT
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_RSLT
+     * ================================================================
+     * */
+    public int insertFreeCardResult(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertFreeCardResult(pmParam);
+    }
+
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : 자유결제 카드결과를 산출관리쪽에 UPDATE
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public int updateReqWdrw(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateReqWdrw(pmParam);
+    }
+
+
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : 실시간 카드결제 (자유결제) - 대상회원 상태 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_RSLT
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAccntStatByFreeCard(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAccntStatByFreeCard(pmParam);
+    }
+
+
+    /************************************
+     * NICEPAY 결제관련 함수
+    ************************************/
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : 빌키 생성
+     * ================================================================
+     * */
+    public String[] billKeyCreate(Map<String, Object> pmParam) throws Exception {
+        String rtVal[] = new String[5];
+        NicePayProcess nicepay = new NicePayProcess();
+        String prod_cd = (String)pmParam.get("prod_cd");
+        String menu_gbn = (String)pmParam.get("menu_gbn");
+        String email = "lifeway@daemyung.com";
+        String tmpEmail = CommonUtils.checkNull((String)pmParam.get("email"));
+
+        /*20180723 37회 SDP카드변경 이슈로 인한 추가*/
+        String pay_No = (String)pmParam.get("pay_no");
+        String pay_kind = (String)pmParam.get("pay_kind");
+
+        if("".equals(tmpEmail)) {
+            email = tmpEmail;
+        }
+
+        Map<String, Object> hm = new HashMap<String, Object>();
+        hm.put("prod_cd", prod_cd);
+
+        /*20180723 37회 SDP카드변경 이슈로 인한 추가*/
+        hm.put("pay_no", pay_No);
+        hm.put("pay_kind", pay_kind);
+
+        if(menu_gbn != null) {
+            hm.put("menu_gbn", menu_gbn);
+        } else {
+            hm.put("menu_gbn", "");
+        }
+
+        //nicepay = niceBillSetting(hm);
+
+        nicepay = niceBillSetting(hm,"billKeyCreate");
+        nicepay.setMoid((String)pmParam.get("accnt_no"));
+        nicepay.setBuyerName((String)pmParam.get("mem_nm"));
+        nicepay.setBuyerEmail(email);
+        nicepay.setBuyerTel((String)pmParam.get("cell"));
+        nicepay.setGoodsName((String)pmParam.get("prod_nm"));
+        nicepay.setCardNumber((String)pmParam.get("card_no"));
+        nicepay.setExpYear((String)pmParam.get("exp_year"));
+        nicepay.setExpMonth((String)pmParam.get("exp_mon"));
+        nicepay.setCardIdNo("");
+        nicepay.setCardPw("");
+        nicepay.setIdno((String)pmParam.get("card_idn_no"));
+
+        NicePayWebConnector result = nicepay.requestBillKey();
+        for(int i = 0; i < 5; i++) {
+            rtVal[i] = "";
+        }
+        rtVal[0] = result.getResultData("ResultCode");
+        rtVal[1] = result.getResultData("BID");
+        rtVal[2] = result.getResultData("ResultMsg");
+        rtVal[3] = result.getResultData("CardCode");
+        rtVal[4] = result.getResultData("CardName");
+        return rtVal;
+    }
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : 빌키 생성전 설정
+     * ================================================================
+     * */
+    public NicePayProcess niceBillSetting(Map<String, Object> pmParam, String gbn) throws Exception {
+        NicePayProcess nicepay = new NicePayProcess();
+
+        ParamUtils.addCenterParam(pmParam);
+
+        String sPayFilePath = basVlService.getBasVlAsString("pay_file_path", (String) pmParam.get("cntr_cd"));
+
+        nicepay.setNicePayHome(sPayFilePath+"/web_site/nicelog");
+        //nicepay.setNicePayHome("c:/web_site/nicelog");
+
+        //String menu_gbn = String.valueOf(pmParam.get("menu_gbn"));
+        String prod_cd = String.valueOf(pmParam.get("prod_cd"));
+        String bid = String.valueOf(pmParam.get("bid"));
+
+        //MID 및 KEY값 DB에서 가져오기
+        String strMidKey = DlwPayDAO.getAccntMid(pmParam);
+        String mid = strMidKey.substring(0,10);  //mid
+        String key = strMidKey.substring(10);	 //key
+
+        /* 자유 결제 시 키를 별도 지정*/
+        if (pmParam.get("pay_kind").equals("03")){
+            mid = "dmlife001m";
+            key = "Zq7E5qjYbqPMZWHvlZtt1HbC8jJIPfAkVkkGOvf7gRoKfweOMCiHu/VPob5uGrIDyYQyplxnknTXxX2D8F+emA==";
+        }
+
+        System.out.println("pay_kind      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + pmParam.get("pay_kind"));
+        System.out.println("mid      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + mid);
+        System.out.println("key      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + key);
+
+        nicepay.setMID(mid);
+        nicepay.setMerchantKey(key);
+
+        return nicepay;
+    }
+
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : Card 빌링결제
+     * ================================================================
+     * */
+    public Map<String, Object> billPay(Map<String, Object> pmParam) throws Exception {
+        InetAddress inet = InetAddress.getLocalHost();
+        String uip = inet.getHostAddress();
+        String accntNo = (String)pmParam.get("accnt_no");
+        String payAmt = (String)pmParam.get("pay_amt");
+        String memNm = (String)pmParam.get("mem_nm");
+        String email = (String)pmParam.get("email");
+        String cell = (String)pmParam.get("cell");
+        String prodNm = (String)pmParam.get("prod_nm");
+        String bid = (String)pmParam.get("bid");
+        String cardQuota = (String)pmParam.get("card_quota");
+        String billGubun = (String)pmParam.get("billGubun");
+
+        System.out.println("BID xxxxxxxxxxxxxxxxxxx>>> " + bid);
+        System.out.println("MENU_GBN xxxxxxxxxxxxxxxxxxx>>> " + (String)pmParam.get("menu_gbn"));
+
+        if (billGubun == null) {
+            billGubun = "00";
+          }
+
+        NicePayProcess nicepay = new NicePayProcess();
+
+        System.out.println("거래구분 값(1) => "+billGubun);
+
+
+        try {
+            nicepay = niceBillSetting(pmParam, "Real_Key");
+            nicepay.setAmt(payAmt);
+            nicepay.setMoid(accntNo);
+            nicepay.setBuyerName(memNm);
+            nicepay.setBuyerEmail(email);
+            nicepay.setBuyerTel(cell);
+            nicepay.setGoodsName(prodNm);
+            nicepay.setBillKey(bid);
+
+            //임동진 수정
+            nicepay.setMallreserved(billGubun);
+            nicepay.setCardQuota(cardQuota);
+            NicePayWebConnector result = nicepay.paybill();
+
+            String resultCode = result.getResultData("ResultCode");
+            String resultMsg = result.getResultData("ResultMsg");
+            String tid = result.getResultData("TID");
+            String authDate = result.getResultData("AuthDate");
+            String authCode = result.getResultData("AuthCode");
+            String cardCode = result.getResultData("CardCode");
+
+            pmParam.put("uip", uip);
+            pmParam.put("result_cd", resultCode);
+            pmParam.put("result_msg", resultMsg);
+            pmParam.put("tid", tid);
+            pmParam.put("auth_dt", authDate);
+            pmParam.put("auth_cd", authCode);
+            pmParam.put("card_cd", cardCode);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return pmParam;
+    }
+
+
+    /** ================================================================
+     * 날짜 : 20181031
+     * 이름 : 정승철
+     * 추가내용 : Card 빌링결제 (자유금액)
+     * ================================================================
+     * */
+    public Map<String, Object> billPayFreeProc(Map<String, Object> pmParam) throws Exception {
+
+        //빌키생성정보 조회
+        List<Map<String, Object>> tmpList = DlwPayDAO.getBillKeyCrtnInfo(pmParam);
+
+        if(tmpList != null && tmpList.size() > 0) {
+            Map<String, Object> tmpMap = (Map<String, Object>)tmpList.get(0);
+            pmParam.put("email", String.valueOf(tmpMap.get("email")));
+            pmParam.put("cell", String.valueOf(tmpMap.get("cell")));
+            pmParam.put("prod_nm", String.valueOf(tmpMap.get("prod_nm")));
+            pmParam.put("prod_cd", String.valueOf(tmpMap.get("prod_cd")));
+            pmParam.put("mem_nm", String.valueOf(tmpMap.get("mem_nm")));
+
+            System.out.println("############ 1. billPayFreeProc pmParam : " + pmParam);
+
+            try {
+                String accnt_no = (String)pmParam.get("accnt_no");
+                String mem_nm = (String)pmParam.get("mem_nm");
+                String email = (String)pmParam.get("email");
+                String cell = (String)pmParam.get("cell");
+                String prod_nm = (String)pmParam.get("prod_nm");
+                String card_no = (String)pmParam.get("card_no");
+                String exp_year = (String)pmParam.get("exp_year");
+                String exp_mon = (String)pmParam.get("exp_mon");
+                String card_idn_no = (String)pmParam.get("card_idn_no");
+
+                NicePayProcess nicepay = new NicePayProcess();
+
+                ParamUtils.addCenterParam(pmParam);
+                String sPayFilePath = basVlService.getBasVlAsString("pay_file_path", (String) pmParam.get("cntr_cd"));
+
+                nicepay.setNicePayHome(sPayFilePath+"/web_site/nicelog");
+                //nicepay.setNicePayHome("c:/web_site/nicelog");
+                nicepay.setGoodsName(prod_nm);
+                nicepay.setMoid(accnt_no);
+                nicepay.setBuyerName(mem_nm);
+                nicepay.setBuyerTel(cell);
+                nicepay.setBuyerEmail(email);
+                nicepay.setCardNumber(card_no);
+                nicepay.setExpYear(exp_year);
+                nicepay.setExpMonth(exp_mon);
+                nicepay.setIdno(card_idn_no);
+
+                //임동진 수정
+                nicepay.setMallreserved("00");
+
+                NicePayWebConnector connector = nicepay.requestCardMemAuth();
+
+                System.out.println("@@@ : " + connector.getResultData("ResultCode"));
+
+                if(!"0000".equals(connector.getResultData("ResultCode"))) {
+                    pmParam.put("result_cd", connector.getResultData("ResultCode"));
+                    pmParam.put("result_msg", connector.getResultData("ResultMsg"));
+                    //pmParam.put("result_cd", "01");
+                    //pmParam.put("result_msg", "빌키생성 실패");
+                } else {
+
+                    String billKeyArr[] = new String[5];
+                    billKeyArr = billKeyCreate(pmParam);
+
+                    System.out.println("XXXXXXXXXXXXXXX> : " + billKeyArr[0]);
+                    System.out.println("XXXXXXXXXXXXXXX> : " + billKeyArr[2]);
+
+
+
+                    if(billKeyArr[0].equals("F100")) {
+                        pmParam.put("bid", billKeyArr[1]);
+                        Map<String, Object> rsltParam = billPay(pmParam);
+
+                        System.out.println("XXXXXXXXXXXXXXX> : " + String.valueOf(rsltParam.get("result_msg")));
+
+                        pmParam.put("uip", String.valueOf(rsltParam.get("uip")));
+                        pmParam.put("result_cd", String.valueOf(rsltParam.get("result_cd")));
+                        pmParam.put("result_msg", String.valueOf(rsltParam.get("result_msg")));
+                        pmParam.put("tid", String.valueOf(rsltParam.get("tid")));
+                        pmParam.put("auth_dt", String.valueOf(rsltParam.get("auth_dt")));
+                        pmParam.put("auth_cd", String.valueOf(rsltParam.get("auth_cd")));
+                        pmParam.put("card_cd", String.valueOf(rsltParam.get("card_cd")));
+                    } else {
+                        pmParam.put("result_cd", "01");
+                        pmParam.put("result_msg", "빌키생성 실패");
+                    }
+
+                }
+            }
+            catch(Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
+        return pmParam;
+    }
+
+    /** ================================================================
+     * 날짜 : 20181101
+     * 이름 : 송준빈
+     * 추가내용 : 두구좌 상품관리 현황 조회건수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public int getDoubleAccntListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getDoubleAccntListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181101
+     * 이름 : 송준빈
+     * 추가내용 : 두구좌 상품관리 현황 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getDoubleAccntList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getDoubleAccntList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181107
+     * 이름 : 임동진
+     * 추가내용 : 실시간 카드 결제 취소 결과 반영
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_RESULT
+     * ================================================================
+     * */
+    public Map<String, Object> updateRealtimeCardCancel(Map<String, Object> pmParam) throws Exception {
+        String result_code = "";
+        String result_msg = "";
+        //String tmp_pay_no = String.valueOf((Integer.parseInt(String.valueOf(pmParam.get("pay_no"))) + Integer.parseInt(String.valueOf(pmParam.get("pay_cnt")))) - 1);
+        //String menu_gbn = String.valueOf(pmParam.get("menu_gbn"));
+        String filePayChkFg = "Y";
+
+        if(!"Y".equals(filePayChkFg)) {
+            pmParam.put("pay_result_msg", "파일결제의 입금일이 잘못되어 취소할 수 없습니다.");
+        } else {
+            Map<String, Object> cancResult = new HashMap();
+
+            cancResult = CardCancelBillPay(pmParam);
+
+            result_code = String.valueOf(cancResult.get("result_code"));
+            result_msg = String.valueOf(cancResult.get("result_msg"));
+            String cncl_day = String.valueOf(cancResult.get("cncl_day"));
+            String cncl_tm = String.valueOf(cancResult.get("cncl_tm"));
+            String uip = String.valueOf(cancResult.get("uip"));
+            if("2001".equals(result_code))
+            {
+                pmParam.put("result_code", "03");
+                pmParam.put("uip", uip);
+                pmParam.put("result_msg", result_msg);
+                pmParam.put("cncl_day", cncl_day);
+                pmParam.put("cncl_tm", cncl_tm);
+                pmParam.put("cncl_day", cncl_day);
+                pmParam.put("type", "cancel");
+
+                DlwPayDAO.updateCardResult(pmParam);
+                /*
+                if("0003".equals(menu_gbn) || "0004".equals(menu_gbn))
+                {
+                    pmParam.put("pay_no", tmp_pay_no);
+                    DlwCardDAO.updateDlwCardWdrwReqCanc(pmParam);
+                }
+                */
+
+            } else{
+                pmParam.put("result_code", "01");
+                pmParam.put("result_msg", result_msg);
+                pmParam.put("type", "cancel_fail");
+            }
+
+            System.out.println("xxxxxxx" + pmParam);
+        }
+        return pmParam;
+    }
+
+    /**
+     * NicePay Card 빌링결제 취소
+     * @param pmParam 검색 조건
+     * @return 취소 여부
+     * @throws Exception
+     */
+    public Map<String, Object> CardCancelBillPay(Map<String, Object> pmParam)
+            throws Exception
+    {
+        String payAmt = String.valueOf(pmParam.get("pay_amt"));
+        String tid = String.valueOf(pmParam.get("tid"));
+        NicePayProcess nicepay = new NicePayProcess();
+        try
+        {
+            nicepay = niceBillSetting(pmParam,"Real_Key");
+            nicepay.setAmt(payAmt);
+            nicepay.setTid(tid);
+            nicepay.setCancelPwd("1111");     // 대명 취소 비밀번호
+            //nicepay.setCancelPwd("123456"); //nicepay 테스트 취소 비밀번호
+            nicepay.setCancelMsg((String)pmParam.get("emple_no"));
+
+            NicePayWebConnector result = nicepay.doCancel();
+
+            String resultCode = result.getResultData("ResultCode");
+            String resultMsg = result.getResultData("ResultMsg");
+            String cnclDay = result.getResultData("CancelDate");
+            String cnclTm = result.getResultData("CancelTime");
+
+            InetAddress inet = InetAddress.getLocalHost();
+            String uip = inet.getHostAddress();
+            pmParam.put("uip", uip);
+            pmParam.put("result_code", resultCode);
+            pmParam.put("result_msg", (new StringBuilder(String.valueOf(resultCode))).append(" : ").append(resultMsg).toString());
+            pmParam.put("cncl_day", cnclDay);
+            pmParam.put("cncl_tm", cnclTm);
+        }
+        catch(Exception e)
+        {
+            e.printStackTrace();
+        }
+        return pmParam;
+    }
+
+    /** ================================================================
+     * 날짜 : 20181113
+     * 이름 : 송준빈
+     * 추가내용 : 회원고객정보 탭 (청구이력)
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMainWdrwLogList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMainWdrwLogList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181114
+     * 이름 : 정승철
+     * 추가내용 : 환불등록
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * */
+    public Map<String, Object> updatePayCancel(Map<String, Object> pmParam) throws Exception {
+
+        System.out.println("====== updatePayCancel 파라미터 " + pmParam);
+
+        // 환불 등록
+        DlwPayDAO.insertRefundByPayCancel(pmParam);
+
+        /*
+        String pay_mthd = (String)pmParam.get("pay_mthd");
+        System.out.println("pay_mthd : " + pay_mthd);
+        // CMS 결제취소만 결과테이블 INSERT
+        if("04".equals(pay_mthd)) {
+            System.out.println("여기");
+            DlwPayDAO.insertCmsResultByPayCancel(pmParam);
+        }
+        */
+
+        /*
+        // 취소시간
+        String cncl_tm = new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date());
+        pmParam.put("cncl_tm", cncl_tm);
+
+        String pay_mthd = (String)pmParam.get("pay_mthd");
+
+        // 1. CMS 결과데이터 INSERT
+        //    또는
+        //    카드 결과데이터 UPDATE
+        if("04".equals(pay_mthd)) {
+            DlwPayDAO.insertCmsResultByPayCancel(pmParam);
+        }
+        else if("06".equals(pay_mthd)) {
+            DlwPayDAO.updateCardResultByPayCancel(pmParam);
+        }
+
+        // 2. 산출관리 UPDATE
+        DlwPayDAO.updateWdrwReqByPayCancel(pmParam);
+
+        // 3. 입금데이터 삭제처리
+        //DlwPayDAO.updateCmsPayCancel(pmParam);
+
+        // (2018.11.20 변경)
+        // 3. 가수금으로 등록
+        DlwPayDAO.insertGasuAmtByPayCancel(pmParam);
+        */
+
+
+        return pmParam;
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191209
+     * 이름 : 송준빈
+     * 추가내용 : 카드 무승인 결제 취소 처리
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_REQ_NAUTH_CNCL
+     * ================================================================
+     * */
+    public int insertNauthPayCancel(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertNauthPayCancel(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191209
+     * 이름 : 송준빈
+     * 추가내용 : 카드 무승인 결제 취소건 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_REQ_NAUTH_CNCL
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getNauthPayCancel(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getNauthPayCancel(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 메인
+     * 이름 : /dlw/cust/cust-acnt/list
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getMemberRefundListCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberRefundListCount(pmParam);
+    }
+
+    public List<Map<String, Object>> getMemberRefundList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberRefundList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 메인
+     * 이름 : /dlw/cms/gasu-dtl/list
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+
+    /**
+     * 사원 상세정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 사원 상세정보
+     * @throws Exception
+     */
+    public Map<String, Object> getEmplDtptList(String psParam) throws Exception {
+        Map<String, Object> pmParam = new HashMap<String, Object>();
+        pmParam.put("emple_no", psParam);
+        return DlwPayDAO.getEmplDtptList(pmParam);
+    }
+    /**
+     * 데이터 권한별 검색조건을 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 데이터 권한별 검색조건
+     * @throws Exception
+     */
+    public String getDataAthrFunc(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getDataAthrFunc(pmParam);
+    }
+
+    /**
+     * 고객-구좌 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 고객-구좌 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getDlwCustAccntListCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) DlwPayDAO.getDlwCustAccntListCount(pmParam);
+    }
+
+    /**
+     * 고객-구좌 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 고객-구좌 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCustAccntList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getDlwCustAccntList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 팝업
+     * 이름 : /dlw/cms/gasu-dtl/list
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+
+    /**
+     *  가수금 환불 내역조회
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getMemberRefundDetail(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberRefundDetail(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 팝업
+     * 이름 : /dlw/cms/gasu-dtl/merge
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+
+    /**
+     *  가수 환불 상세 내역 수정
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public int updateMemberRefundDtl(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateMemberRefundDtl(pmParam);
+    }
+
+    /**
+     *  가수 환불 상세 내역 입금
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public int insertMemberRefundDtl(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertMemberRefundDtl(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 팝업
+     * 이름 : /dlw/cms/gasu-dtl/delete
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+
+    /**
+     *  가수금 환불 내역조회
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public int deleteMemberRefundDtl(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteMemberRefundDtl(pmParam);
+    }
+
+
+    /** ================================================================
+     * 날짜 : 팝업
+     * 이름 : /dlw/cms/gasu-mng/delete
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    /**
+     *  가수 삭제
+     *
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public int deleteMemberRefundMng(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteMemberRefundMng(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 팝업
+     * 이름 : /dlw-syst/cd/cd-list
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+
+    /**
+     * 코드 정보의 검색 수를 반환한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 코드 정보의 검색 건수
+     * @throws Exception
+     */
+    public int getDlwCodeListCount(Map<String, ?> pmParam) throws Exception {
+        return (Integer) DlwPayDAO.getDlwCodeListCount(pmParam);
+    }
+
+    /**
+     * 코드 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 코드 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getDlwCodeList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getDlwCodeList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181126
+     * 이름 : 송준빈
+     * 추가내용 : 해약,행사시 환불테이블 Insert 구문
+     * 대상 테이블 : TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * */
+    public int insertMemberReqRefund(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertMemberReqRefund(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181127
+     * 이름 : 정승철
+     * 추가내용 : 회원의 환불회차정보를 검색
+     * 대상 테이블 : TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getRefundReqNoOfAccnt(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getRefundReqNoOfAccnt(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181127
+     * 이름 : 정승철
+     * 추가내용 : (CMS) 환불반영
+     * 대상 테이블 : TB_MEMBER_WDRW_REQ
+     *               PAY_MNG
+     *               PAY_MNG_DTL
+     *               PAY_MNG_DTL1
+     * ================================================================
+     * */
+    public Map<String, Object> updateByCmsRefundProcess(Map<String, Object> pmParam) throws Exception {
+        System.out.println("CMS 입금(취소)반영 pmParam : " + pmParam);
+
+        // 산출청구관리 UPDATE 및 입금데이터 삭제처리
+        DlwPayDAO.updateCmsPayCancel(pmParam);
+
+
+        // 1. 산출관리 UPDATE
+        //DlwPayDAO.updateWdrwReqByPayCancel(pmParam);
+
+        // 2. 입금데이터 삭제처리
+        //DlwPayDAO.updateCmsPayCancel(pmParam);
+
+        return pmParam;
+    }
+
+    /** ================================================================
+     * 날짜 : 20181204
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 조회 조회건수
+     * 대상 테이블 : LF_DMUSER.TB_MBID_CSV_FILE_LIST
+     * ================================================================
+     * */
+    public int getMbidCsvFileListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMbidCsvFileListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181204
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_MBID_CSV_FILE_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMbidCsvFileList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMbidCsvFileList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181204
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 다운로드시행자 업데이트
+     * 대상 테이블 : LF_DMUSER.TB_MBID_CSV_FILE_LIST
+     * ================================================================
+     * */
+    public int updateDownLoadEmplFileList(Map<String, ?> pmParam)throws Exception {
+        return DlwPayDAO.updateDownLoadEmplFileList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181204
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 다운로드시행자 이력정보 등록
+     * 대상 테이블 : LF_DMUSER.TB_MBID_CSV_DNDL_HIST
+     * ================================================================
+     * */
+    public int insertDownLoadEmplHist(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertDownLoadEmplHist(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181213
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 처리일자 조회
+     * 대상 테이블 : LF_DMUSER.TB_CSV_FILE_BATCH_DAY
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCsvFileBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getCsvFileBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181213
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 처리일자 등록
+     * 대상 테이블 : LF_DMUSER.TB_CSV_FILE_BATCH_DAY
+     * ================================================================
+     * */
+    public int insertCsvFileBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertCsvFileBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181213
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 처리일자 삭제
+     * 대상 테이블 : LF_DMUSER.TB_CSV_FILE_BATCH_DAY
+     * ================================================================
+     * */
+    public int deleteCsvFileBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteCsvFileBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181213
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 유효성 체크
+     * 대상 테이블 : LF_DMUSER.TB_CSV_FILE_BATCH_DAY
+     * ================================================================
+     * */
+    public int validationInsertCsvFile(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.validationInsertCsvFile(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20180407
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 산출시 전월 결과반영 여부 확인
+     * 대상 테이블 : TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public int getPreMonthResultReflect(Map<String, ?> pmParam) throws Exception {
+    	return DlwPayDAO.getPreMonthResultReflect(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 산출 초기화
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int updateInitUplusPrepaymentData(Map<String, Object> pmParam) {
+        return DlwPayDAO.updateInitUplusPrepaymentData(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 산출 TB insert
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int insertUplusPrepaymentData(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertUplusPrepaymentData(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 산출 현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int getUplusPrepaymentDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusPrepaymentDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 산출 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUplusPrepaymentDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusPrepaymentDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190318
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 산출 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUplusPrepaymentDataListCalc(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusPrepaymentDataListCalc(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190118
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 파일 전송후 상태값 업데이트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int updateUplusPrepaymentDataList(Map<String, Object> pmParam) throws Exception {
+        return DlwPayDAO.updateUplusPrepaymentDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 미선납회원 리스트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUplusNonPrepaymentMember(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusNonPrepaymentMember(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 KB_NO 가져오기
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCurrntKbNo(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCurrntKbNo(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 미선납회원 이관작업
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int insertUplusNonPrepaymentMember(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertUplusNonPrepaymentMember(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20181220
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 미선납회원 이관작업후 업데이트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int updateUplusNonPrepaymentMember(Map<String, Object> pmParam) {
+        return DlwPayDAO.updateUplusNonPrepaymentMember(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190117
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 마스터 데이터 입력
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public int insertUplusPrepaymentMst(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertUplusPrepaymentMst(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190118
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 전송한 파일 목록 조회(결과 미도착)
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getSendFileUplusPrepaymentList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getSendFileUplusPrepaymentList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190118
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 수신된 파일마스터 저장
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public int insertUplusPrepaymentRecvLog(Map<String, Object> pmParam)throws Exception {
+        return DlwPayDAO.insertUplusPrepaymentRecvLog(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190118
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 수신된 날짜의 데이터의 수신상태를 수신상태로 전환
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public int sendUplusPrepaymentFileUpdate(Map<String, Object> pmParam) throws Exception {
+        return DlwPayDAO.sendUplusPrepaymentFileUpdate(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190118
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 해당월에 송/수신된 데이터 모두 보기
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAllUplusPrepaymentList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getAllUplusPrepaymentList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190130
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 데이터 결과 반영
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int resultUplusPrepaymentDtlUpdate(Map<String, Object> pmParam) {
+        return DlwPayDAO.resultUplusPrepaymentDtlUpdate(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190130
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 결과반영 MASTER 상태 변경
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+    public int resultUplusPrepaymentMstUpdate(Map<String, Object> pmParam) {
+        return DlwPayDAO.resultUplusPrepaymentMstUpdate(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190130
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 결과가 오지 않은 데이터 업데이트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int noResultUplusPrepaymentFileChange(Map<String, Object> pmParam) {
+        return DlwPayDAO.noResultUplusPrepaymentFileChange(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191105
+     * 이름 : 송준빈
+     * 추가내용 : 해당 결과 파일의 정산 년월 확인
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_MST
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getUplusTargetCalcMonth(Map<String, Object> pmParam) {
+		return DlwPayDAO.getUplusTargetCalcMonth(pmParam);
+	}
+
+	/** ================================================================
+     * 날짜 : 20191105
+     * 이름 : 송준빈
+     * 추가내용 : LGU+ 결과데이터 요청 결과 반영 
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+	public int updateResultReflectionRequestData(Map<String, Object> pmParam) {
+		return DlwPayDAO.updateResultReflectionRequestData(pmParam);
+	}
+
+    /** ================================================================
+     * 날짜 : 20190102
+     * 이름 : 송준빈
+     * 추가내용 : 고객미납관리(NEW) 현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_YENCHE_MNG
+     * ================================================================
+     * */
+    public int getMemberYencheMngDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberYencheMngDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190102
+     * 이름 : 송준빈
+     * 추가내용 : 고객미납관리(NEW) 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_YENCHE_MNG
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberYencheMngDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberYencheMngDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190121
+     * 이름 : 송준빈
+     * 추가내용 : 고객미납관리(NEW) 청구실행
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_YENCHE_MNG
+     * ================================================================
+     * */
+    public int insertMemberYencheMngDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertMemberYencheMngDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190305
+     * 이름 : 송준빈
+     * 추가내용 : 고객미납이력(NEW) 현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_YENCHE_HSTR
+     * ================================================================
+     * */
+    public int getMemberYencheHstrDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberYencheHstrDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190305
+     * 이름 : 송준빈
+     * 추가내용 : 고객미납이력(NEW) 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_YENCHE_HSTR
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberYencheHstrDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberYencheHstrDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원 현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * */
+    public int getMemberMangiExtDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberMangiExtDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiExtDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberMangiExtDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원 엑셀 업로드
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * */
+    public void userExcelUpload(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResuslt) throws Exception {
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        //LOGGER.info("---uploadToSms 서비스 - 1");
+
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*20);
+        Enumeration enm = multipartRequest.getFileNames();
+        String sKey = "";
+
+        int fileCnt	= 0;
+
+        Map<String, Object> mParam = null;
+
+        // 엑셀파일 워크북 객체 생성
+        XSSFWorkbook workbook = null;
+
+        // 시트 지정
+        XSSFSheet sheet = null;
+
+        // 로우
+        XSSFRow xrow = null;
+
+        // cell
+        XSSFCell xcell = null;
+
+        List<Map<String,Object>> lst = new ArrayList<>();
+        Map<String,Object> mRow = new HashMap<>();
+
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        try {
+
+                mParam = new HashMap<>();
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+                fileCnt++;
+                sKey = (String)enm.nextElement();
+
+                log.debug("sKey : " + sKey);
+
+                File upfile = multipartRequest.getFile(sKey);
+                String sUpFileName = upfile.getName();
+
+                log.debug("upfile.length() : " +upfile.length());
+
+                if (upfile.exists()) {
+                    log.debug("file exists");
+                } else {
+                    log.debug("file does not exists");
+                }
+
+                // 엑셀파일 워크북 객체 생성
+                workbook = new XSSFWorkbook(new FileInputStream(upfile));
+
+                sheet = workbook.getSheetAt(0);
+
+                String value;
+                int i=0, j;
+                String strRegman = "";
+
+                int rows = sheet.getPhysicalNumberOfRows();
+
+                if (rows > 10005)
+                {
+                    throw new EgovBizException("업로드정보가 10000건이 넘습니다. 전산팀에 업로드 요청 부탁드립니다.!!");
+                }
+
+                ParamUtils.addSaveParam(hmParam);
+
+                strRegman = hmParam.get("rgsr_id").toString();
+
+                log.debug("Excel Rows : " + rows);
+
+                for (i=0; i < rows; i++)
+                {
+                    xrow = sheet.getRow(i);
+                    int cells = xrow.getPhysicalNumberOfCells();
+
+                    if (i < 1)
+                    {
+                        continue;
+                    }
+
+                     for(j = 0; j < cells; j++)
+                     {
+                          xcell = xrow.getCell(j);
+
+                          value = "";
+
+                        switch (xcell.getCellType())
+                        {
+                            case Cell.CELL_TYPE_BOOLEAN:
+                                value = "" + xcell.getBooleanCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_NUMERIC:
+                                value = "" + xcell.getNumericCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_STRING:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_BLANK:
+                                value = " ";
+                            break;
+
+                            default:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+                        }
+
+                        if (null != value)
+                        {
+                            value = value.trim();
+                        }
+
+                        //mRow.put("rgsr_id", strRegman);
+                        //LOGGER.debug("Excel B : " + value);
+                        if(sUpFileName.equals("mangiUserMultiSendList.xlsx"))
+                        {
+                            switch (j)
+                            {
+                                case 0:
+                                    mRow.put("accnt_no", value);
+                                break;
+
+                                case 1:
+                                    mRow.put("cell", value);
+                                break;
+
+                                case 2:
+                                    mRow.put("zip_code", value);
+                                break;
+
+                                case 3:
+                                    mRow.put("adress", value);
+                                break;
+
+                                case 4:
+                                    mRow.put("gift_code", value);
+                                break;
+
+                                case 5:
+                                    mRow.put("receiver_nm", value);
+                                break;
+
+                                case 6:
+                                    mRow.put("receiver_cell", value);
+                                break;
+
+                                default:
+
+                                break;
+                            }
+                        }
+                        else if(sUpFileName.equals("mangiOrderMultiSendList.xlsx"))
+                        {
+                            switch (j)
+                            {
+                                case 0:
+                                    mRow.put("accnt_no", value);
+                                break;
+
+                                case 1:
+                                    mRow.put("gift_code", value);
+                                break;
+
+                                case 2:
+                                    mRow.put("delivery_corp", value);
+                                break;
+
+                                case 3:
+                                    mRow.put("invoice_num", value);
+                                break;
+
+                                case 4:
+                                    mRow.put("tx_etc", value);
+                                break;
+
+                                case 5:
+                                    mRow.put("ordr_day", value);
+                                break;
+
+                                default:
+
+                                break;
+                            }
+                        }
+                     }
+
+                    lst.add(mRow);
+                    listMap.setRowMaps(lst);
+                    hmParam = listMap.get(0);
+
+                    if(sUpFileName.equals("mangiUserMultiSendList.xlsx"))
+                    {
+                        insertUserExcelUpload(hmParam);
+                        insertProdExcelUpload(hmParam);
+                        DlwPayDAO.updateMemberMangiExtDataList(hmParam);
+                    }
+                    else if(sUpFileName.equals("mangiOrderMultiSendList.xlsx"))
+                    {
+                        mergeOrderExcelUpload(hmParam);
+                    }
+                }
+
+                upfile.delete();
+            }
+
+            if (fileCnt < 1)
+            {
+                throw new EgovBizException("업로드된 파일이 없습니다.");
+            }
+
+        }
+        catch (FileNotFoundException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        finally
+        {
+
+        }
+
+    }
+
+    /**
+     * SMS일괄 엑셀 업로드 건별
+     *
+     * @param pmParam 물류 정보
+     * @throws Exception
+     */
+    public String insertUserExcelUpload(Map<String, Object> pmParam) throws Exception {
+        String sAccntno = StringUtils.defaultString((String) pmParam.get("accnt_no"));
+        int confirmInsertCount = DlwPayDAO.getMemberMangiExtConfirmCount(pmParam); // 등록이 되지 않은 회원만 등록 되도록 함.
+        if(confirmInsertCount == 0 && sAccntno.length() == 12)
+        {
+            DlwPayDAO.insertUserExcelUpload(pmParam);
+        }
+        return sAccntno;
+    }
+
+    public String insertProdExcelUpload(Map<String, Object> pmParam) throws Exception {
+        String sAccntno = StringUtils.defaultString((String) pmParam.get("accnt_no"));
+
+        if(sAccntno != null && sAccntno != "" && !sAccntno.equals("") && sAccntno.length() == 12)
+        {
+            DlwPayDAO.insertProdExcelUpload(pmParam);
+        }
+        return sAccntno;
+    }
+
+    public String mergeOrderExcelUpload(Map<String, Object> pmParam) throws Exception {
+        String sAccntno = StringUtils.defaultString((String) pmParam.get("accnt_no"));
+        if(sAccntno != null && sAccntno != "" && !sAccntno.equals("") && sAccntno.length() == 12)
+        {
+            DlwPayDAO.mergeOrderExcelUpload(pmParam);
+        }
+        return sAccntno;
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 상품등록 팝업 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_GIFTSET
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiExtConfirmList(Map<String, Object> pmParam) throws Exception {
+        return DlwPayDAO.getMemberMangiExtConfirmList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 상품등록 팝업 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_GIFTSET
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiGiftset(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberMangiGiftset(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 상품등록 팝업 등록
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_GIFTSET
+     * ================================================================
+     * */
+    public int insertMemberMangiGiftset(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertMemberMangiGiftset(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 상품등록 팝업 삭제
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_GIFTSET
+     * ================================================================
+     * */
+    public int deleteMemberMangiGiftset(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteMemberMangiGiftset(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190103
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원정보 수정
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_EXT
+     * ================================================================
+     * */
+    public int updateMemberMangiExtDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.updateMemberMangiExtDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190115
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 상품등록 팝업 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiProdDetail(Map<String, Object> pmParam) throws Exception {
+        return DlwPayDAO.getMemberMangiProdDetail(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190116
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원 상품 팝업 입력
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public int insertMemberMangiProdDetail(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertMemberMangiProdDetail(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190116
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원 상품 팝업 수정
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public int updateMemberMangiProdDetail(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateMemberMangiProdDetail(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190116
+     * 이름 : 송준빈
+     * 추가내용 : 만기연장 관리회원 상품 팝업 삭제
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public int deleteMemberMangiProdDetail(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteMemberMangiProdDetail(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190222
+     * 이름 : 송준빈
+     * 추가내용 : 장례이행보증현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public int getPerfMainDataCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getPerfMainDataCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190222
+     * 이름 : 송준빈
+     * 추가내용 : 장례이행보증현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getPerfMainDataList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getPerfMainDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190222
+     * 이름 : 송준빈
+     * 추가내용 :  장례이행보증현황 추가
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public int insertPerfMainDataList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertPerfMainDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190222
+     * 이름 : 송준빈
+     * 추가내용 : 장례이행보증현황 수정
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public int updatePerfMainDataList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updatePerfMainDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190222
+     * 이름 : 송준빈
+     * 추가내용 : 장례이행보증현황 삭제
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public int deletePerfMainDataList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deletePerfMainDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190222
+     * 이름 : 송준빈
+     * 추가내용 : 장례이행보증현황 팝업 조회
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getPerfMainConfirmList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getPerfMainConfirmList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190225
+     * 이름 : 송준빈
+     * 추가내용 : 장례이행보증현황 (해약, 행사) 실지급금액 조회
+     * 대상 테이블 : LF_DMUSER.TB_PERF_MAIN
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getPerfMainPayAmt(String pmParam) throws Exception {
+        return DlwPayDAO.getPerfMainPayAmt(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190226
+     * 이름 : 송준빈
+     * 추가내용 : 증서출력-일괄출력 팝업 조회조건 Data 가져오기
+     * 대상 테이블 : LF_DMUSER.CL_COND_DATA
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCodeClCdDataset(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getCodeClCdDataset(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190226
+     * 이름 : 송준빈
+     * 추가내용 : 증서출력-일괄출력 증서상품등록 팝업 조회
+     * 대상 테이블 : LF_DMUSER.CL_COND_DATA
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getClCondData(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getClCondData(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190226
+     * 이름 : 송준빈
+     * 추가내용 : 증서출력-일괄출력 증서상품등록 팝업 등록
+     * 대상 테이블 : LF_DMUSER.CL_COND_DATA
+     * ================================================================
+     * */
+    public int insertClCondData(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertClCondData(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190226
+     * 이름 : 송준빈
+     * 추가내용 : 증서출력-일괄출력 증서상품등록 팝업 삭제
+     * 대상 테이블 : LF_DMUSER.CL_COND_DATA
+     * ================================================================
+     * */
+    public int deleteClCondData(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteClCondData(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190319
+     * 이름 : 송준빈
+     * 추가내용 : 카드 청구 파일 다운로드시 기준 파일 가져오기
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_EXT_CHECK
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCardSendMakeFileDt(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCardSendMakeFileDt(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191212
+     * 이름 : 송준빈
+     * 추가내용 : 카드 무승인 청구 파일 다운로드시 기준 파일 가져오기
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_EXT_CHECK
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCardNauthSendMakeFileDt(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCardNauthSendMakeFileDt(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190401
+     * 이름 : 송준빈
+     * 추가내용 : 회원 입금정보 리스트 업로드
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_UPLOAD_TEMP, LF_DMUSER.TB_MEMBER_PAY_INFO
+     * ================================================================
+     * */
+    public void memberUploadList(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResuslt) throws Exception {
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        //LOGGER.info("---uploadToSms 서비스 - 1");
+
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*20);
+        Enumeration enm = multipartRequest.getFileNames();
+        String sKey = "";
+
+        int fileCnt	= 0;
+
+        Map<String, Object> mParam = null;
+
+        // 엑셀파일 워크북 객체 생성
+        XSSFWorkbook workbook = null;
+
+        // 시트 지정
+        XSSFSheet sheet = null;
+
+        // 로우
+        XSSFRow xrow = null;
+
+        // cell
+        XSSFCell xcell = null;
+
+        List<Map<String,Object>> lst = new ArrayList<>();
+        Map<String,Object> mRow = new HashMap<>();
+
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        try {
+
+                mParam = new HashMap<String, Object>();
+              ParamUtils.addSaveParam(mParam);
+              mParam.put("reg_man", mParam.get("rgsr_id"));
+              DlwPayDAO.deleteRegTempData(mParam);
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+                fileCnt++;
+                sKey = (String)enm.nextElement();
+
+                log.debug("sKey : " + sKey);
+
+                File upfile = multipartRequest.getFile(sKey);
+                String sUpFileName = upfile.getName();
+
+                log.debug("upfile.length() : " +upfile.length());
+
+                if (upfile.exists()) {
+                    log.debug("file exists");
+                } else {
+                    log.debug("file does not exists");
+                }
+
+                // 엑셀파일 워크북 객체 생성
+                workbook = new XSSFWorkbook(new FileInputStream(upfile));
+
+                sheet = workbook.getSheetAt(0);
+
+                String value;
+                int i=0, j;
+
+                int rows = sheet.getPhysicalNumberOfRows();
+
+                if (rows > 5000)
+                {
+                    throw new EgovBizException("업로드정보가 5000건이 넘습니다. 전산팀에 업로드 요청 부탁드립니다.!!");
+                }
+
+                ParamUtils.addSaveParam(hmParam);
+                String sRegMan = (String)hmParam.get("rgsr_id");
+
+                log.debug("Excel Rows : " + rows);
+
+                for (i=0; i < rows; i++)
+                {
+                    xrow = sheet.getRow(i);
+                    int cells = xrow.getPhysicalNumberOfCells();
+
+                    if (i < 1)
+                    {
+                        continue;
+                    }
+
+                     for(j = 0; j < cells; j++)
+                     {
+                          xcell = xrow.getCell(j);
+
+                          value = "";
+
+                        switch (xcell.getCellType())
+                        {
+                            case Cell.CELL_TYPE_BOOLEAN:
+                                value = "" + xcell.getBooleanCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_NUMERIC:
+                                value = "" + xcell.getNumericCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_STRING:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_BLANK:
+                                value = " ";
+                            break;
+
+                            default:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+                        }
+
+                        if (null != value)
+                        {
+                            value = value.trim();
+                        }
+
+                        switch (j)
+                        {
+                            case 0:
+                                mRow.put("accnt_no", value);
+                            break;
+
+                            default:
+
+                            break;
+                        }
+                     }
+
+                    lst.add(mRow);
+                    listMap.setRowMaps(lst);
+
+                    hmParam = listMap.get(0);
+                    hmParam.put("reg_man", sRegMan);
+
+                    DlwPayDAO.insertMemberExcelUpload(hmParam); // 엑셀 회원 명부 업로드 저장
+                }
+                upfile.delete();
+            }
+
+            if (fileCnt < 1)
+            {
+                  throw new EgovBizException("업로드된 파일이 없습니다.");
+            }
+        }
+        catch (FileNotFoundException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        finally
+        {
+
+        }
+    }
+
+    /** ================================================================
+     * 날짜 : 20190401
+     * 이름 : 송준빈
+     * 추가내용 : 회원 입금정보 업로드 리스트 조회수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_UPLOAD_TEMP
+     * ================================================================
+     * */
+    public int getMemberUploadDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberUploadDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190401
+     * 이름 : 송준빈
+     * 추가내용 : 회원 입금정보 업로드 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_UPLOAD_TEMP
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberUploadDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberUploadDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190410
+     * 이름 : 송준빈
+     * 추가내용 : 고객 미납 월마감 전체 집계
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getTotalMemberList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getTotalMemberList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190410
+     * 이름 : 송준빈
+     * 추가내용 : 고객 미납 월마감 결합 집계
+     * 대상 테이블 : LF_DMUSER.TB_CLOSE_MEMBER_MON
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getRelMemberList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getRelMemberList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190412
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구 카드 회신 데이터 리스트 INSERT
+     * 대상 테이블 : LF_DMUSER.TB_CARD_RECV_FILE_LIST
+     * ================================================================
+     * */
+    public int insertCardRecvFileList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertCardRecvFileList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190412
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구 카드 회신 데이터 리스트 조회
+     * 대상 테이블 : LF_DMUSER.TB_CARD_RECV_FILE_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCardRecvFileList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCardRecvFileList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190412
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구 카드 회신 데이터 (무승인) 저장 여부
+     * 대상 테이블 : LF_DMUSER.TB_CARDNAUTH_RECV_FILE_LIST
+     * ================================================================
+     * */
+    public int getCardNauthRecvFileExist(Map<String, Object> pmParam) {
+        return DlwPayDAO.getCardNauthRecvFileExist(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190412
+     * 이름 : 송준빈
+     * 추가내용 :  일일청구 카드 회신 데이터 리스트 UPDATE
+     * 대상 테이블 : LF_DMUSER.TB_CARD_RECV_FILE_LIST
+     * ================================================================
+     * */
+    public int updateCardRecvFileList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateCardRecvFileList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190416
+     * 이름 : 송준빈
+     * 추가내용 : 수수료 산출 집계 조회
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_BASIC_INFO
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAlowBasicInfo(Map<String, Object> pmParam) {
+        return DlwPayDAO.getAlowBasicInfo(pmParam);
+    }
+
+
+    /** ================================================================
+      * 날짜 : 20190416
+     * 이름 : 송준빈
+     * 추가내용 : 수수료 산출 집계 조회 전체 총합
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_BASIC_INFO
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAlowBasicInfoSummary(Map<String, Object> pmParam) {
+        return DlwPayDAO.getAlowBasicInfoSummary(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190416
+     * 이름 : 송준빈
+     * 추가내용 : 수수료 산출 집계 상세 내용 조회수
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_BASIC_INFO
+     * ================================================================
+     * */
+    public int getAlowBasicInfoDetailCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAlowBasicInfoDetailCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190416
+     * 이름 : 송준빈
+     * 추가내용 : 수수료 산출 집계 상세 내용 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_BASIC_INFO
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAlowBasicInfoDetail(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAlowBasicInfoDetail(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190416
+     * 이름 : 송준빈
+     * 추가내용 : 수수료 산출 집계 상세 내용 조회 리스트 전체 총합
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_BASIC_INFO
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAlowBasicInfoDetailSummary(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAlowBasicInfoDetailSummary(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190423
+     * 이름 : 송준빈
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getMonthAlowCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMonthAlowCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190423
+     * 이름 : 임동진
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAlowDetailList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAlowDetailList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190423
+     * 이름 : 임동진
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getAlowDetailCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAlowDetailCount(pmParam);
+    }
+
+
+
+    /** ================================================================
+     * 날짜 : 20190423
+     * 이름 : 송준빈
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMonthAlowList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMonthAlowList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190423
+     * 이름 : 송준빈
+     * 추가내용 :
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMonthAlowListSummary(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMonthAlowListSummary(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (회원별수당) 조회수
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getMemberSpecFeesCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberSpecFeesCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (회원별수당) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberSpecFeesList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberSpecFeesList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (사원별수당) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberSpecFeesSummary(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberSpecFeesSummary(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (사원별수당) 조회수
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getEmplSpecFeesCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getEmplSpecFeesCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (사원별수당) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getEmplSpecFeesList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getEmplSpecFeesList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (사원별수당) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getEmplSpecFeesSummary(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getEmplSpecFeesSummary(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (이월환수) 조회수
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getCarryOverRefundCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getCarryOverRefundCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (이월환수) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCarryOverRefundList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getCarryOverRefundList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190425
+     * 이름 : 송준빈
+     * 추가내용 : 회원별수당조회 (사원별수당) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getCarryOverRefundSummary(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getCarryOverRefundSummary(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191023
+     * 이름 : 김주용
+     * 추가내용 : 회원별수당조회 (재무현황) 조회수
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public int getFinancialStatusCount(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getFinancialStatusCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20191023
+     * 이름 : 김주용
+     * 추가내용 : 회원별수당조회 (재무현황) 리스트
+     * 대상 테이블 :
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getFinancialStatusList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getFinancialStatusList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190503
+     * 이름 : 송준빈
+     * 추가내용 : 수당/수수료 배치일자 조회
+     * 대상 테이블 : LF_DMUSER.TB_FEES_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getFeesCalcBatchDay(Map<String, ?> pmParam)throws Exception {
+        return DlwPayDAO.getFeesCalcBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190503
+     * 이름 : 송준빈
+     * 추가내용 : 수당/수수료 배치일자 등록여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_FEES_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public int getChkFeesCalcBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getChkFeesCalcBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190503
+     * 이름 : 송준빈
+     * 추가내용 : 수당/수수료 배치일자 추가
+     * 대상 테이블 : LF_DMUSER.TB_FEES_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public int insertFeesCalcBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertFeesCalcBatchDay(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191101
+     * 이름 : 김주용
+     * 추가내용 : 재무현황 배치일자 조회
+     * 대상 테이블 : LF_DMUSER.TB_FINANCE_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getFinanceCalcBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getFinanceCalcBatchDay(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191101
+     * 이름 : 김주용
+     * 추가내용 : 재무현황 배치일자 등록
+     * 대상 테이블 : LF_DMUSER.TB_FINANCE_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public int insertFinanceCalcBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertFinanceCalcBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20191101
+     * 이름 : 김주용
+     * 추가내용 : 재무현황 배치일자 삭제
+     * 대상 테이블 : LF_DMUSER.TB_FINANCE_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public int deleteFinanceCalcBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteFinanceCalcBatchDay(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191101
+     * 이름 : 김주용
+     * 추가내용 : 재무현황 배치일자 유효성체크
+     * 대상 테이블 : LF_DMUSER.TB_FINANCE_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public int validationInsertFinanceCalcBatch(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.validationInsertFinanceCalcBatch(pmParam);
+    }
+    
+    public int insertFinanceFileMake() throws Exception {
+    	Map<String, Object> hmParam = new HashMap();
+   	    Date d = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+        String sYYYYMMDD = sdf.format(d);
+        String sYYYYMM   = sYYYYMMDD.substring(0, 6);
+
+        Map<String, Object> hmParamTypeA = new HashMap<String, Object>();
+
+        hmParamTypeA.put("batch_day", sYYYYMMDD);
+
+        List<Map<String, Object>> listBatchInfo = DlwPayDAO.getFinanceExcelBatchDay(hmParamTypeA);
+
+        if (listBatchInfo.size() <= 0) {
+            System.out.println("배치수행 일자가 아닙니다. 배치를 종료합니다.");
+            return -1;
+        }
+
+        String sMbidFileParentFixPath;
+        String sMbidFileFullPath;
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.indexOf("windows") >= 0)
+        {
+       	 sMbidFileParentFixPath = "C:\\media\\FINANCE\\"; // 이건 예제임. 실제 PATH가 아님. (rootPath : C:/)
+       	 sMbidFileFullPath = sMbidFileParentFixPath + sYYYYMM + "\\" + "재무현황"+sYYYYMMDD + "_A.xlsx";
+        }
+        else
+        {
+       	 sMbidFileParentFixPath = "/media/FINANCE/"; // 이건 예제임. 실제 PATH가 아님. (rootPath : /app/)
+       	 sMbidFileFullPath = sMbidFileParentFixPath + sYYYYMM + "/" + "재무현황"+sYYYYMMDD + "_A.xlsx";
+        }
+
+        File fileMakeFileDirectoryPath = new File(sMbidFileParentFixPath + sYYYYMM);
+        if(fileMakeFileDirectoryPath.exists() == false)
+   	 {
+       	 fileMakeFileDirectoryPath.mkdirs();
+   	 }
+
+        System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 엑셀생성경로 : " + sMbidFileParentFixPath);
+
+        //List<Map<String, Object>> mList = DlwCondDAO.getMbidExcelList(hmParamTypeA); // 선수금 조회 (** 매일 입금,취소된 회원 데이터 조회)
+        List<Map<String, Object>> mList = new ArrayList<Map<String,Object>>();
+
+        FileOutputStream outputStream = null;
+        Connection connectionTypeA = null;
+        PreparedStatement preparedStatementTypeA = null ;
+        ResultSet rsTypeA = null;
+
+        String sAccessClassName = EgovProperties.getProperty("Globals.Fix.Database.Access.DriverClassName");
+     	 String sAccessIp        = EgovProperties.getProperty("Globals.Fix.Database.Access.Ip");
+     	 String sAccessUserName  = EgovProperties.getProperty("Globals.Fix.Database.Access.UserName");
+     	 String sAccessPassword  = EgovProperties.getProperty("Globals.Fix.Database.Access.Password");
+
+     	 System.out.println("프로퍼티[1] :: " + sAccessClassName + "," + "프로퍼티[2] :: " + sAccessIp + "," +
+     			            "프로퍼티[3] :: " + sAccessUserName + "," + "프로퍼티[4] :: " + sAccessPassword);
+     	 
+     	
+         Map pMap = listBatchInfo.get(0);
+//         hmParam.put("startLine", pMap.get("CALC_STA_DATE"));
+//         hmParam.put("endLine", pMap.get("CALC_END_DATE"));
+    
+
+     	 // A 타입 파일 작성 start
+     	 String sqlStatementTypeA =  "";
+     	sqlStatementTypeA += "        SELECT                                                                                                                                                                                                        \n";
+        sqlStatementTypeA += "            MAIN_TBL.*                                                                                                                                                                                                \n";
+        sqlStatementTypeA += "        FROM                                                                                                                                                                                                          \n";
+        sqlStatementTypeA += "        (                                                                                                                                                                                                             \n";
+        sqlStatementTypeA += "            SELECT A.PAGE_INDX                                                                                                                                                                                        \n";
+        sqlStatementTypeA += "			     , A.ACCNT_NO                                                                                                                                                                                           \n";
+        sqlStatementTypeA += "			     , A.MEM_NM                                                                                                                                                                                             \n";
+        sqlStatementTypeA += "			     , A.PROD_NM                                                                                                                                                                                            \n";
+        sqlStatementTypeA += "			     , A.PROD_AMT                                                                                                                                                                                           \n";
+        sqlStatementTypeA += "			     , A.PAY_AMT                                                                                                                                                                                            \n";
+        sqlStatementTypeA += "			     , A.EXPR_NO                                                                                                                                                                                            \n";
+        sqlStatementTypeA += "			     , A.PAY_CNT                                                                                                                                                                                            \n";
+        sqlStatementTypeA += "			     , A.KSTBIT                                                                                                                                                                                             \n";
+        sqlStatementTypeA += "			     , CASE WHEN A.RESN_PROC_YN = 'Y' THEN '처리'                                                                                                                                                           \n";
+        sqlStatementTypeA += "                        WHEN A.KSTBIT = '해약' AND NVL(A.RESN_PROC_YN, 'N') = 'N' THEN '미처리'                                                                                                                       \n";
+        sqlStatementTypeA += "                        ELSE '' END AS RESN_PROC_YN                                                                                                                                                                   \n";
+        sqlStatementTypeA += "			     , A.ALOW_AMT                                                                                                                                                                                           \n";
+        sqlStatementTypeA += "			     , A.RESNREDMP_AMT                                                                                                                                                                                      \n";
+        sqlStatementTypeA += "			     , CASE WHEN PAY_LIMIT_AMT > 500000 THEN 500000                                                                                                                                             \n";
+        sqlStatementTypeA += "			            ELSE PAY_LIMIT_AMT END AS PAY_LIMIT_AMT                                                                                                                                                         \n";
+        sqlStatementTypeA += "			     , ROUND((A.ALOW_DTL_AMT*0.75)+((A.ALOW_DTL_AMT*0.25)*A.PAY_AMT/A.PROD_AMT)) AS ALOW_DTL_AMT                                                                                                            \n";
+        sqlStatementTypeA += "			     , CASE WHEN A.ALOW_AMT > (A.ALOW_DTL_AMT*0.75)+((A.ALOW_DTL_AMT*0.25)*A.PAY_AMT/A.PROD_AMT) THEN ROUND(A.ALOW_AMT-(A.ALOW_DTL_AMT*0.75)+((A.ALOW_DTL_AMT*0.25)*A.PAY_AMT/A.PROD_AMT))      \n";
+        sqlStatementTypeA += "			            ELSE 0 END AS LIMIT_EXCESS                                                                                                                                                                      \n";
+        sqlStatementTypeA += "			FROM (                                                                                                                                                                                                      \n";
+        sqlStatementTypeA += "			    SELECT ROW_NUMBER() OVER(ORDER BY MPA.ACCNT_NO ASC) AS PAGE_INDX                                                                                                                                        \n";
+        sqlStatementTypeA += "			         , MPA.ACCNT_NO                                                                                                                                                                                     \n";
+        sqlStatementTypeA += "			         , MBR.MEM_NM                                                                                                                                                                                       \n";
+        sqlStatementTypeA += "			         , PD.PROD_NM                                                                                                                                                                                       \n";
+        sqlStatementTypeA += "			         , PD.PROD_AMT                                                                                                                                                                                      \n";
+        sqlStatementTypeA += "			         , (SELECT SUM(PAY_AMT) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N' AND PAY_DAY < TO_CHAR(SYSDATE,'YYYYMMDD')) AS PAY_AMT                                               \n";
+        sqlStatementTypeA += "			         , PD.EXPR_NO                                                                                                                                                                                       \n";
+        sqlStatementTypeA += "			         , (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N' AND PAY_DAY < TO_CHAR(SYSDATE,'YYYYMMDD')) AS PAY_CNT                                                   \n";
+        sqlStatementTypeA += "			         , CASE WHEN MPA.KSTBIT = '01' THEN '대기'                                                                                                                                                          \n";
+        sqlStatementTypeA += "			                WHEN MPA.KSTBIT = '02' THEN '가입'                                                                                                                                                          \n";
+        sqlStatementTypeA += "			                WHEN MPA.KSTBIT = '03' THEN '해약'                                                                                                                                                          \n";
+        sqlStatementTypeA += "			                WHEN MPA.KSTBIT = '04' THEN '행사'                                                                                                                                                          \n";
+        sqlStatementTypeA += "			                WHEN MPA.KSTBIT = '09' THEN '만기' ELSE MPA.KSTBIT END KSTBIT                                                                                                                               \n";
+        sqlStatementTypeA += "			         , (SELECT RESN_PROC_YN FROM RESCISSION WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS RESN_PROC_YN                                                                                             \n";
+        sqlStatementTypeA += "			         , NVL((SELECT SUM(ABI.ALOW_AMT)                                                                                                                                                                    \n";
+        sqlStatementTypeA += "			            FROM TB_ALOW_BASIC_INFO ABI                                                                                                                                                                     \n";
+        sqlStatementTypeA += "			            INNER JOIN B2B_SALE_TYPE_DTL DTL ON ABI.SALE_TYPE = DTL.SALE_TYPE                                                                                                                               \n";
+        sqlStatementTypeA += "			            WHERE ABI.ACCNT_NO = MPA.ACCNT_NO                                                                                                                                                               \n";
+        sqlStatementTypeA += "			            AND ALOW_BIT IN ('T33A','T33B')), 0) AS ALOW_AMT                                                                                                                                                \n";
+        sqlStatementTypeA += "			         , NVL((SELECT SUM(ABI.ALOW_AMT)                                                                                                                                                                    \n";
+        sqlStatementTypeA += "			            FROM TB_ALOW_BASIC_INFO ABI                                                                                                                                                                     \n";
+        sqlStatementTypeA += "			            INNER JOIN B2B_SALE_TYPE_DTL DTL ON ABI.SALE_TYPE = DTL.SALE_TYPE                                                                                                                               \n";
+        sqlStatementTypeA += "			            WHERE ABI.ACCNT_NO = MPA.ACCNT_NO                                                                                                                                                               \n";
+        sqlStatementTypeA += "			            AND ALOW_BIT NOT IN ('T33A','T33B')), 0) AS RESNREDMP_AMT                                                                                                                                       \n";
+        sqlStatementTypeA += "			         , PD.PROD_AMT*0.1 AS PAY_LIMIT_AMT                                                                                                                                                                 \n";
+        sqlStatementTypeA += "			         , (SELECT SUM(AMT) FROM ALOW_DA_DTL WHERE ACCNT_NO = MPA.ACCNT_NO AND EMPLE_NO = MPA.EMPLE_NO AND ALOW_CD = 'T21') AS ALOW_DTL_AMT                                                                 \n";
+        sqlStatementTypeA += "			                                                                                                                                                                                                            \n";
+        sqlStatementTypeA += "			    FROM MEM_PROD_ACCNT MPA                                                                                                                                                                                 \n";
+        sqlStatementTypeA += "			        INNER JOIN MEMBER_DAMO MBR                                                                                                                                                                          \n";
+        sqlStatementTypeA += "			                ON MBR.MEM_NO = MPA.MEM_NO AND MBR.DEL_FG = 'N'                                                                                                                                             \n";
+        sqlStatementTypeA += "			        INNER JOIN PRODUCT PD                                                                                                                                                                               \n";
+        sqlStatementTypeA += "			                ON PD.PROD_CD = MPA.PROD_CD                                                                                                                                                                 \n";
+        sqlStatementTypeA += "			        INNER JOIN EMPLOYEE EMP                                                                                                                                                                             \n";
+        sqlStatementTypeA += "                            ON EMP.EMPLE_NO = MPA.EMPLE_NO AND EMP.DEL_FG = 'N'                                                                                                                                       \n";
+        sqlStatementTypeA += "			    WHERE 1=1                                                                                                                                                                                               \n";
+        sqlStatementTypeA += "			    AND MPA.DEL_FG = 'N'                                                                                                                                                                                    \n";
+        sqlStatementTypeA += "	                AND MPA.JOIN_DT BETWEEN '"+pMap.get("CALC_STA_DATE")+"' || '01' AND  '"+pMap.get("CALC_END_DATE")+"' || '31'                                                                                            \n";
+        sqlStatementTypeA += "			) A                                                                                                                                                                                                         \n";
+        sqlStatementTypeA += "        ) MAIN_TBL                                                                                                                                                                                                    \n";
+        sqlStatementTypeA += "        WHERE 1=1                                                                                                                                                                                                     \n";
+
+
+     	 System.out.println(sqlStatementTypeA);
+
+     	 try
+     	 {
+     		 System.out.println("---------sAccessIp :"+ sAccessIp);
+     		System.out.println("---------sAccessUserName :"+ sAccessUserName);
+     		System.out.println("---------sAccessPassword :"+ sAccessPassword);
+     		 Class.forName(sAccessClassName);
+     	  	 connectionTypeA = DriverManager.getConnection(sAccessIp, sAccessUserName, sAccessPassword);
+     	     preparedStatementTypeA = connectionTypeA.prepareStatement(sqlStatementTypeA) ;
+     	     rsTypeA = preparedStatementTypeA.executeQuery();
+
+     	     // 대용량 엑셀 만들기
+     	     Workbook wb = new SXSSFWorkbook(100);
+     	     Sheet sh = wb.createSheet("21_00");
+
+     	     // 선수금 sheet용
+     	     String[] sArrTitle = {"No", "회원번호", "회원명", "상품명", "총 상조계약금", "상조 실납입금액", "총납입회차", "실납입회차", "회원상태", "처리",
+     	    		               "수수료", "환수", "수당 한도액", "수당 공제액", "한도초과" };
+
+     	     List <String> lstCol = new ArrayList<String>();
+     	    lstCol.add("page_indx");
+     	    lstCol.add("accnt_no");
+     	    lstCol.add("mem_nm");
+     	    lstCol.add("prod_nm");
+     	    lstCol.add("prod_amt");
+     	    lstCol.add("pay_amt");
+     	    lstCol.add("expr_no");
+     	    lstCol.add("pay_cnt");
+     	    lstCol.add("kstbit");
+     	    lstCol.add("resn_proc_yn");
+     	    lstCol.add("alow_amt");
+     	    lstCol.add("resnredmp_amt");
+     	    lstCol.add("pay_limit_amt");
+     	    lstCol.add("alow_dtl_amt");
+     	    lstCol.add("limit_excess");
+
+     	     int i = 0;
+     	     int j = 0;
+     	     Row row = sh.createRow(i++);
+
+     	     for (String field : sArrTitle) {
+     	         Cell cell = row.createCell(j++);
+     	         cell.setCellValue((String) field);
+     	     }
+
+     	     System.out.println("====재무현황데이터 엑셀파일 리스트 sheet 시작");
+
+     	     // 해당 셀에 데이터를 입력한다.
+     	     Map<String, Object> mRow = null;
+     	     String val = "";
+     	     String colId = "";
+     	     int rowCnt = 0;
+
+     	     for (i = 0; i < mList.size(); i++) {
+     	         mRow = mList.get(i);
+     	         row = sh.createRow(i+1);
+     	         System.out.println("xxxxxx>   " + i);
+     	         for (j=0; j<lstCol.size(); ++j) {
+     	             colId = lstCol.get(j);
+     	             Cell cell = row.createCell(j);
+     	             val = CommonUtils.nvls(String.valueOf(mRow.get(colId)));
+
+     	             cell.setCellValue(val);
+     	         }
+     	     }
+
+     	     while(rsTypeA.next())
+     	     {
+     	         row = sh.createRow(i+1);
+     	         System.out.println("xxxxxx>   " + i);
+     	         for (j=0; j<lstCol.size(); ++j) {
+     	             colId = lstCol.get(j);
+     	             Cell cell = row.createCell(j);
+     	             val = CommonUtils.nvls(String.valueOf(rsTypeA.getString(colId)));
+
+     	             cell.setCellValue(val);
+     	         }
+     	         i++;
+     	     }
+
+     	     System.out.println("====재무현황데이터 엑셀파일 리스트 sheet 끝");
+     	     //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+     	     outputStream = new FileOutputStream(sMbidFileFullPath);
+     	     wb.write(outputStream);
+
+     	     hmParamTypeA.put("ext_dt", sYYYYMMDD);
+     	     hmParamTypeA.put("file_type", "A");
+     	     hmParamTypeA.put("file_path", sMbidFileFullPath);
+     	     hmParamTypeA.put("file_name", "재무현황"+sYYYYMMDD + "_A.xlsx");
+
+     	     DlwPayDAO.updateFinanceCalcBatchDay(hmParamTypeA);
+
+     	     outputStream.close();
+     	     rsTypeA.close();
+     	     preparedStatementTypeA.close();
+     	     connectionTypeA.close();
+     	 }
+     	 catch(Exception e)
+     	 {
+     		 e.printStackTrace();
+     	 }
+     	 finally
+     	 {
+     		 if(outputStream != null)
+     		 {
+     		     outputStream.close();
+     		 }
+     		 if(rsTypeA != null)
+    		 {
+     			 rsTypeA.close();
+    		 }
+     		 if(preparedStatementTypeA != null)
+    		 {
+     			 preparedStatementTypeA.close();
+    		 }
+     		 if(connectionTypeA != null)
+    		 {
+     			 connectionTypeA.close();
+    		 }
+     	 }
+
+   	 return 0;
+    }
+
+    /** ================================================================
+     * 날짜 : 20190503
+     * 이름 : 송준빈
+     * 추가내용 : 수당/수수료 배치일자 삭제
+     * 대상 테이블 : LF_DMUSER.TB_FEES_CALC_BATCH_DAY
+     * ================================================================
+     * */
+    public int deleteFeesCalcBatchDay(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteFeesCalcBatchDay(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190522
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 상품조회 팝업 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_GIFTSET
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiGiftsetList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getMemberMangiGiftsetList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190508
+     * 이름 : 정승철
+     * 추가내용 : 수당수수료산출 상세데이터 입력
+     * 대상 테이블 : TB_ALOW_BASIC_INFO
+     * =================================================================
+     * */
+    public int insertAlowBasicInfo(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertAlowBasicInfo(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190508
+     * 이름 : 정승철
+     * 추가내용 : 수당수수료산출 상세데이터 수정
+     * 대상 테이블 : TB_ALOW_BASIC_INFO
+     * =================================================================
+     * */
+    public int updateAlowBasicInfo(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateAlowBasicInfo(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190509
+     * 이름 : 정승철
+     * 추가내용 : 수당수수료산출 상세데이터 삭제
+     * 대상 테이블 : TB_ALOW_BASIC_INFO
+     * =================================================================
+     * */
+    public int deleteAlowBasicInfo(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteAlowBasicInfo(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190508
+     * 이름 : 정승철
+     * 추가내용 : 수당수수료산출 상세데이터 히스토리 저장
+     * 대상 테이블 : TB_ALOW_BASIC_INFO_HISTORY
+     * =================================================================
+     * */
+    public int insertAlowBasicInfoHistory(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertAlowBasicInfoHistory(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190510
+     * 이름 : 정승철
+     * 추가내용 : 수당수수료 수기등록 중복체크
+     * 대상 테이블 : TB_ALOW_BASIC_INFO
+     * =================================================================
+     * */
+    public String chkAlowDupl(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.chkAlowDupl(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190514
+     * 이름 : 정승철
+     * 추가내용 : 수당수수료 최종마감년월 조회
+     * 대상 테이블 : ALOW_DA_DTL_DUMMY
+     * =================================================================
+     * */
+    public String getAlowLastCloseYyyymm(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getAlowLastCloseYyyymm(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 조회수
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public int getUplusPrepayHoldDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusPrepayHoldDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 리스트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUplusPrepayHoldDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusPrepayHoldDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public int insertUplusPrepayHoldData(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertUplusPrepayHoldData(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 삭제
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public int deleteUplusPrepayHoldDataList(Map<String, Object> pmParam) {
+    	return DlwPayDAO.deleteUplusPrepayHoldDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 해제시 산출대상에 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int insertUplusHoldPrepaymentMember(Map<String, Object> pmParam) {
+    	return DlwPayDAO.insertUplusHoldPrepaymentMember(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190610
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 수수료 현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_AMT
+     * ================================================================
+     * */
+    public int getMemberMangiAmtDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberMangiAmtDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190610
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 수수료 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_AMT
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiAmtDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getMemberMangiAmtDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190610
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 수수료 산출 초기화
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_AMT
+     * ================================================================
+     * */
+    public int updateMemberMangiAmtDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.updateMemberMangiAmtDataList(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190610
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 수수료 산출 TB insert
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_AMT
+     * ================================================================
+     * */
+    public int insertMemberMangiAmtDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertMemberMangiAmtDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190614
+     * 이름 : 송준빈
+     * 추가내용 : U플러스 보류 고객 엑셀 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public void uplusHoldExcelUpload(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResuslt) throws Exception {
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        //LOGGER.info("---uploadToSms 서비스 - 1");
+
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*20);
+        Enumeration enm = multipartRequest.getFileNames();
+        String sKey = "";
+
+        int fileCnt	= 0;
+
+        Map<String, Object> mParam = null;
+
+        // 엑셀파일 워크북 객체 생성
+        XSSFWorkbook workbook = null;
+
+        // 시트 지정
+        XSSFSheet sheet = null;
+
+        // 로우
+        XSSFRow xrow = null;
+
+        // cell
+        XSSFCell xcell = null;
+
+        List<Map<String,Object>> lst = new ArrayList<>();
+        Map<String,Object> mRow = new HashMap<>();
+
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        try {
+
+                mParam = new HashMap<>();
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+                fileCnt++;
+                sKey = (String)enm.nextElement();
+
+                log.debug("sKey : " + sKey);
+
+                File upfile = multipartRequest.getFile(sKey);
+                String sUpFileName = upfile.getName();
+
+                log.debug("upfile.length() : " +upfile.length());
+
+                if (upfile.exists()) {
+                    log.debug("file exists");
+                } else {
+                    log.debug("file does not exists");
+                }
+
+                // 엑셀파일 워크북 객체 생성
+                workbook = new XSSFWorkbook(new FileInputStream(upfile));
+
+                sheet = workbook.getSheetAt(0);
+
+                String value;
+                int i=0, j;
+                String strRegman = "";
+
+                int rows = sheet.getPhysicalNumberOfRows();
+
+                if (rows > 10005)
+                {
+                    throw new EgovBizException("업로드정보가 10000건이 넘습니다. 전산팀에 업로드 요청 부탁드립니다.!!");
+                }
+
+                ParamUtils.addSaveParam(hmParam);
+
+                strRegman = hmParam.get("rgsr_id").toString();
+
+                log.debug("Excel Rows : " + rows);
+
+                for (i=0; i < rows; i++)
+                {
+                    xrow = sheet.getRow(i);
+                    int cells = xrow.getPhysicalNumberOfCells();
+
+                    if (i < 1)
+                    {
+                        continue;
+                    }
+
+                     for(j = 0; j < cells; j++)
+                     {
+                          xcell = xrow.getCell(j);
+
+                          value = "";
+
+                        switch (xcell.getCellType())
+                        {
+                            case Cell.CELL_TYPE_BOOLEAN:
+                                value = "" + xcell.getBooleanCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_NUMERIC:
+                                value = "" + xcell.getNumericCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_STRING:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_BLANK:
+                                value = " ";
+                            break;
+
+                            default:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+                        }
+
+                        if (null != value)
+                        {
+                            value = value.trim();
+                        }
+
+                        //mRow.put("rgsr_id", strRegman);
+                        //LOGGER.debug("Excel B : " + value);
+                        switch (j)
+                        {
+                            case 0:
+                                mRow.put("accnt_no", value);
+                            break;
+
+                            case 1:
+                            	mRow.put("hold_kb_no", value);
+                            break;
+
+                            default:
+
+                            break;
+                         }
+                        mRow.put("reg_man", strRegman);
+                     }
+
+                    lst.add(mRow);
+                    listMap.setRowMaps(lst);
+                    hmParam = listMap.get(0);
+                    
+                    int iRegYn = DlwPayDAO.existUplusPrepayHoldData(hmParam);
+                    
+                    if(iRegYn <= 0)
+                    {
+                    	DlwPayDAO.insertUplusPrepayHoldData(hmParam);
+                    }
+                }
+
+                upfile.delete();
+            }
+
+            if (fileCnt < 1)
+            {
+                throw new EgovBizException("업로드된 파일이 없습니다.");
+            }
+
+        }
+        catch (FileNotFoundException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        finally
+        {
+
+        }
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190527
+     * 이름 : 송준빈
+     * 추가내용 : 사원별 수당관리 마스터 데이터
+     * 대상 테이블 : 
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getAlowEmpleMstList(Map<String, ?> pmParam)throws Exception {
+		return DlwPayDAO.getAlowEmpleMstList(pmParam);
+	}
+	
+	/** ================================================================
+     * 날짜 : 20190527
+     * 이름 : 송준빈
+     * 추가내용 : 사원별 수당관리 디테일 데이터 (담당고객)
+     * 대상 테이블 : 
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getAlowEmpleDtlList(Map<String, ?> pmParam)throws Exception {
+		return DlwPayDAO.getAlowEmpleDtlList(pmParam);
+	}
+	
+	/** ================================================================
+     * 날짜 : 20190527
+     * 이름 : 송준빈
+     * 추가내용 : 고객별 수당관리 마스터 데이터
+     * 대상 테이블 : 
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getAlowAccntNoMstList(Map<String, ?> pmParam)throws Exception {
+		return DlwPayDAO.getAlowAccntNoMstList(pmParam);
+	}
+	
+	/** ================================================================
+     * 날짜 : 20190527
+     * 이름 : 송준빈
+     * 추가내용 : 고객별 수당관리 디테일 데이터
+     * 대상 테이블 : 
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getAlowAccntNoDtlList(Map<String, ?> pmParam)throws Exception {
+		return DlwPayDAO.getAlowAccntNoDtlList(pmParam);
+	}
+	
+	/** ================================================================
+     * 날짜 : 20190617
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 관리회원 삭제
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public int deleteMemberMangiExtDataList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.deleteMemberMangiExtDataList(pmParam);
+    }
+    
+    
+    /** ================================================================
+     * 날짜 : 20190620
+     * 이름 : 김주용
+     * 추가내용 : 만기연장 관리회원 배송 엑셀 업로드
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public void userExcelDeliveryUpload(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResuslt) throws Exception {
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        //LOGGER.info("---uploadToSms 서비스 - 1");
+
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*20);
+        Enumeration enm = multipartRequest.getFileNames();
+        String sKey = "";
+
+        int fileCnt	= 0;
+
+        Map<String, Object> mParam = null;
+
+        // 엑셀파일 워크북 객체 생성
+        XSSFWorkbook workbook = null;
+
+        // 시트 지정
+        XSSFSheet sheet = null;
+
+        // 로우
+        XSSFRow xrow = null;
+
+        // cell
+        XSSFCell xcell = null;
+
+        List<Map<String,Object>> lst = new ArrayList<>();
+        Map<String,Object> mRow = new HashMap<>();
+
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        try {
+
+                mParam = new HashMap<>();
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+                fileCnt++;
+                sKey = (String)enm.nextElement();
+
+                log.debug("sKey : " + sKey);
+
+                File upfile = multipartRequest.getFile(sKey);
+                String sUpFileName = upfile.getName();
+
+                log.debug("upfile.length() : " +upfile.length());
+
+                if (upfile.exists()) {
+                    log.debug("file exists");
+                } else {
+                    log.debug("file does not exists");
+                }
+
+                // 엑셀파일 워크북 객체 생성
+                workbook = new XSSFWorkbook(new FileInputStream(upfile));
+
+                sheet = workbook.getSheetAt(0);
+
+                String value;
+                int i=0, j;
+                String strRegman = "";
+
+                int rows = sheet.getPhysicalNumberOfRows();
+
+                if (rows > 10005)
+                {
+                    throw new EgovBizException("업로드정보가 10000건이 넘습니다. 전산팀에 업로드 요청 부탁드립니다.!!");
+                }
+
+                ParamUtils.addSaveParam(hmParam);
+
+                strRegman = hmParam.get("rgsr_id").toString();
+
+                log.debug("Excel Rows : " + rows);
+
+                for (i=0; i < rows; i++)
+                {
+                    xrow = sheet.getRow(i);
+                    int cells = xrow.getPhysicalNumberOfCells();
+
+                    if (i < 1)
+                    {
+                        continue;
+                    }
+
+                     for(j = 0; j < cells; j++)
+                     {
+                          xcell = xrow.getCell(j);
+
+                          value = "";
+
+                        switch (xcell.getCellType())
+                        {
+                            case Cell.CELL_TYPE_BOOLEAN:
+                                value = "" + xcell.getBooleanCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_NUMERIC:
+                                value = "" + xcell.getNumericCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_STRING:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_BLANK:
+                                value = " ";
+                            break;
+
+                            default:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+                        }
+
+                        if (null != value)
+                        {
+                            value = value.trim();
+                        }
+
+                        //mRow.put("rgsr_id", strRegman);
+                        //LOGGER.debug("Excel B : " + value);
+                        
+                        switch (j)
+                        {
+                            case 0:
+                                mRow.put("accnt_no", value);
+                            break;
+
+                            case 1:
+                                mRow.put("delivery_corp_nm", value);
+                            break;
+
+                            case 2:
+                                mRow.put("invoice_num", value);
+                            break;
+
+                            case 3:
+                                mRow.put("delivery_corp", value);
+                            break;
+                            
+                            default:
+
+                            break;
+                        }
+                    
+                     }
+                     
+                     System.out.println("delivery_corp : "+mRow.get("delivery_corp"));
+
+                    lst.add(mRow);
+                    listMap.setRowMaps(lst);
+                    hmParam = listMap.get(0);
+
+                    
+//                    insertUserExcelUpload(hmParam);
+//                    insertProdExcelUpload(hmParam);
+                    
+                    DlwPayDAO.updateUserExcelDeliveryUpload(hmParam);
+                    
+                }
+
+                upfile.delete();
+            }
+
+            if (fileCnt < 1)
+            {
+                throw new EgovBizException("업로드된 파일이 없습니다.");
+            }
+
+        }
+        catch (FileNotFoundException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        finally
+        {
+
+        }
+
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190703
+     * 이름 : 송준빈
+     * 추가내용 : 수수료산출 상세 데이터2 조회수
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_PAY_INFO
+     * ================================================================
+     * */
+    public int getAlowDetail2Count(Map<String, Object> pmParam) {
+        return DlwPayDAO.getAlowDetail2Count(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20190703
+     * 이름 : 송준빈
+     * 추가내용 : 수수료산출 상세 데이터2 리스트
+     * 대상 테이블 : LF_DMUSER.TB_ALOW_PAY_INFO
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getAlowDetail2(Map<String, Object> pmParam) {
+        return DlwPayDAO.getAlowDetail2(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190708
+     * 이름 : 김주용
+     * 추가내용 : 만기연장회원에 대한 해약데이터 조회
+     * 대상 테이블 : 
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getMangiResnList(Map<String, ?> pmParam)throws Exception {
+		return DlwPayDAO.getMangiResnList(pmParam);
+	}
+	
+	/** ================================================================
+     * 날짜 : 20190708
+     * 이름 : 김주용
+     * 추가내용 : 만기연장회원 해약건에 대해 취소처리
+     * 대상 테이블 : 
+     * ================================================================
+     * */
+    public int updateMemberMangiDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.updateMemberMangiDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191213
+     * 이름 : 김주용
+     * 추가내용 : 해약,행사시 무승인 환불테이블 Insert 구문
+     * 대상 테이블 : TB_MEMBER_REQ_NAUTH_CNCL
+     * ================================================================
+     * */
+    public int insertNauthPayCancelResnEvnt(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.insertNauthPayCancelResnEvnt(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191216
+     * 이름 : 김주용
+     * 추가내용 : 무승인 등록 취소
+     * 대상 테이블 : TB_MEMBER_REQ_NAUTH_CNCL
+     * ================================================================
+     * */
+    public int cancelNauthpayDelete(Map<String, Object> pmParam) {
+        return DlwPayDAO.cancelNauthpayDelete(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20191216
+     * 이름 : 김주용
+     * 추가내용 : 무승인 환불
+     * 대상 테이블 : TB_MEMBER_REQ_NAUTH_CNCL
+     * ================================================================
+     * */
+    public int cancelNauthpayRefund(Map<String, Object> pmParam) {
+        return DlwPayDAO.cancelNauthpayRefund(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20200109
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 해제시 산출대상에 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+	public int insertFailUplusHoldData(Map<String, Object> pmParam) {
+		return DlwPayDAO.insertFailUplusHoldData(pmParam);
+	}
+
+	/** ================================================================
+     * 날짜 : 20200110
+     * 이름 : 송준빈
+     * 추가내용 : 산출시 KB_NO가 변경된 고객을 자동으로 리스트에 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+	public List<Map<String, Object>> getUplusHoldReleaseDataList(Map<String, ?> pmParam) throws Exception {
+		return DlwPayDAO.getUplusHoldReleaseDataList(pmParam);
+	}
+	
+	/** ================================================================
+     * 날짜 : 20200110
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 해제시 산출대상에 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int insertUplusHoldPrepaymentMemberCalc(Map<String, Object> pmParam) {
+    	return DlwPayDAO.insertUplusHoldPrepaymentMemberCalc(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20200227
+     * 이름 : 송준빈
+     * 추가내용 : 회원별 카드,CMS 결과데이터 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT, LF_DMUSER.TB_MEMBER_REQ_REFUND
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getWdrwAccntLogList(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.getWdrwAccntLogList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20200409
+     * 이름 : 김주용
+     * 추가내용 :  일일청구 카드 무승인 결과메시지 UPDATE
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_RESULT
+     * ================================================================
+     * */
+    public int updateNauthResult(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateNauthResult(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220126
+     * 이름 : 임동진
+     * 추가내용 : 만기연장 회원 조회
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getMemberMangiInfo(Map<String, Object> pmParam) throws Exception {
+        return DlwPayDAO.getMemberMangiInfo(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220207
+     * 이름 : 임동진
+     * 추가내용 : 만기연장 관리회원 등록 후 해약 정보 변경
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_MANGI_DTL
+     * ================================================================
+     * */
+    public int updateResnInfo(Map<String, ?> pmParam) throws Exception {
+        return DlwPayDAO.updateResnInfo(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220207
+     * 이름 : 김주용
+     * 추가내용 : U플러스 보류 고객 엑셀 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public void uplusHoldExcelNewUpload(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResuslt) throws Exception {
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        //LOGGER.info("---uploadToSms 서비스 - 1");
+
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*20);
+        Enumeration enm = multipartRequest.getFileNames();
+        String sKey = "";
+
+        int fileCnt	= 0;
+
+        Map<String, Object> mParam = null;
+
+        // 엑셀파일 워크북 객체 생성
+        XSSFWorkbook workbook = null;
+
+        // 시트 지정
+        XSSFSheet sheet = null;
+
+        // 로우
+        XSSFRow xrow = null;
+
+        // cell
+        XSSFCell xcell = null;
+
+        List<Map<String,Object>> lst = new ArrayList<>();
+        Map<String,Object> mRow = new HashMap<>();
+
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        try {
+
+                mParam = new HashMap<>();
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+                fileCnt++;
+                sKey = (String)enm.nextElement();
+
+                log.debug("sKey : " + sKey);
+
+                File upfile = multipartRequest.getFile(sKey);
+                String sUpFileName = upfile.getName();
+
+                log.debug("upfile.length() : " +upfile.length());
+
+                if (upfile.exists()) {
+                    log.debug("file exists");
+                } else {
+                    log.debug("file does not exists");
+                }
+
+                // 엑셀파일 워크북 객체 생성
+                workbook = new XSSFWorkbook(new FileInputStream(upfile));
+
+                sheet = workbook.getSheetAt(0);
+
+                String value;
+                int i=0, j;
+                String strRegman = "";
+
+                int rows = sheet.getPhysicalNumberOfRows();
+
+                if (rows > 10005)
+                {
+                    throw new EgovBizException("업로드정보가 10000건이 넘습니다. 전산팀에 업로드 요청 부탁드립니다.!!");
+                }
+
+                ParamUtils.addSaveParam(hmParam);
+
+                strRegman = hmParam.get("rgsr_id").toString();
+
+                log.debug("Excel Rows : " + rows);
+                
+                DlwPayDAO.deleteUplusPrepayHoldNewTmpData(hmParam); //TMP 테이블 데이터 삭제
+
+                for (i=0; i < rows; i++)
+                {
+                    xrow = sheet.getRow(i);
+                    int cells = xrow.getPhysicalNumberOfCells();
+
+                    if (i < 1)
+                    {
+                        continue;
+                    }
+                    
+                    
+                    if(cells > 3) {
+                    	throw new EgovBizException("엑셀 데이터중 열 데이터가 3개 이상 들어있습니다. \n엑셀파일 확인부탁드립니다.");
+                    }
+
+                     for(j = 0; j < cells; j++)
+                     {
+                          xcell = xrow.getCell(j);
+
+                          value = "";
+
+                        switch (xcell.getCellType())
+                        {
+                            case Cell.CELL_TYPE_BOOLEAN:
+                                value = "" + xcell.getBooleanCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_NUMERIC:
+                                value = "" + xcell.getNumericCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_STRING:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_BLANK:
+                                value = " ";
+                            break;
+
+                            default:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+                        }
+
+                        if (null != value)
+                        {
+                            value = value.trim();
+                        }
+
+                        //mRow.put("rgsr_id", strRegman);
+                        //LOGGER.debug("Excel B : " + value);
+                        switch (j)
+                        {
+                            case 0:
+                                mRow.put("accnt_no", value);
+                            break;
+
+                            case 1:
+                            	mRow.put("hold_kb_no", value);
+                            break;
+
+                            default:
+
+                            break;
+                         }
+                        mRow.put("reg_man", strRegman);
+                     }
+
+                    lst.add(mRow);
+                    listMap.setRowMaps(lst);
+                    hmParam = listMap.get(0);
+                    
+//                    int iRegYn = DlwPayDAO.existUplusPrepayHoldData(hmParam);
+//                    
+//                    if(iRegYn <= 0)
+//                    {
+//                    	DlwPayDAO.insertUplusPrepayHoldData(hmParam);
+//                    }
+                    DlwPayDAO.insertUplusPrepayHoldNewTmpData(hmParam);
+                }
+
+                upfile.delete();
+            }
+
+            if (fileCnt < 1)
+            {
+                throw new EgovBizException("업로드된 파일이 없습니다.");
+            } else {
+            	DlwPayDAO.insertUplusPrepayHoldNewData(hmParam);
+            }
+
+        }
+        catch (FileNotFoundException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        finally
+        {
+
+        }
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220816
+     * 이름 : 김주용
+     * 추가내용 : 캐시백 산출 현황 조회수
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_CASHBACK_LIST
+     * ================================================================
+     * */
+    public int getUplusCashbackDataListCount(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusCashbackDataListCount(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20220816
+     * 이름 : 김주용
+     * 추가내용 : 캐시백 산출 현황 리스트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_CASHBACK_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUplusCashbackDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusCashbackDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220816
+     * 이름 : 김주용
+     * 추가내용 : U+ 캐시백 산출 초기화
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_CASHBACK_LIST
+     * ================================================================
+     * */
+    public int updateInitUplusCashbackData(Map<String, Object> pmParam) {
+        return DlwPayDAO.updateInitUplusCashbackData(pmParam);
+    }
+
+    /** ================================================================
+     * 날짜 : 20220816
+     * 이름 : 김주용
+     * 추가내용 : U+ 캐시백 산출 TB insert
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_CASHBACK_LIST
+     * ================================================================
+     * */
+    public int insertUplusCashbackData(Map<String, Object> pmParam) {
+        return DlwPayDAO.insertUplusCashbackData(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220816
+     * 이름 : 김주용
+     * 추가내용 : 캐시백 보류 고객 엑셀 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_CASHBACK_HOLD_LIST
+     * ================================================================
+     * */
+    public void cashbackHoldExcelNewUpload(HttpServletRequest request, HttpServletResponse response, Map<String, Object> mResuslt) throws Exception {
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        //LOGGER.info("---uploadToSms 서비스 - 1");
+
+        MultipartRequest multipartRequest = new MultipartRequest(request, tempDir, 1024*1024*20);
+        Enumeration enm = multipartRequest.getFileNames();
+        String sKey = "";
+
+        int fileCnt	= 0;
+
+        Map<String, Object> mParam = null;
+
+        // 엑셀파일 워크북 객체 생성
+        XSSFWorkbook workbook = null;
+
+        // 시트 지정
+        XSSFSheet sheet = null;
+
+        // 로우
+        XSSFRow xrow = null;
+
+        // cell
+        XSSFCell xcell = null;
+
+        List<Map<String,Object>> lst = new ArrayList<>();
+        Map<String,Object> mRow = new HashMap<>();
+
+        DataSetMap listMap = new DataSetMap();
+        Map<String, Object> hmParam = new HashMap<String, Object>();
+
+        try {
+
+                mParam = new HashMap<>();
+
+            // 실제로는 단건만 처리함
+            while (enm.hasMoreElements())
+            {
+                fileCnt++;
+                sKey = (String)enm.nextElement();
+
+                log.debug("sKey : " + sKey);
+
+                File upfile = multipartRequest.getFile(sKey);
+                String sUpFileName = upfile.getName();
+
+                log.debug("upfile.length() : " +upfile.length());
+
+                if (upfile.exists()) {
+                    log.debug("file exists");
+                } else {
+                    log.debug("file does not exists");
+                }
+
+                // 엑셀파일 워크북 객체 생성
+                workbook = new XSSFWorkbook(new FileInputStream(upfile));
+
+                sheet = workbook.getSheetAt(0);
+
+                String value;
+                int i=0, j;
+                String strRegman = "";
+
+                int rows = sheet.getPhysicalNumberOfRows();
+
+                if (rows > 10005)
+                {
+                    throw new EgovBizException("업로드정보가 10000건이 넘습니다. 전산팀에 업로드 요청 부탁드립니다.!!");
+                }
+
+                ParamUtils.addSaveParam(hmParam);
+
+                strRegman = hmParam.get("rgsr_id").toString();
+
+                log.debug("Excel Rows : " + rows);
+                
+                DlwPayDAO.deleteUplusPrepayHoldNewTmpData(hmParam); //TMP 테이블 데이터 삭제
+
+                for (i=0; i < rows; i++)
+                {
+                    xrow = sheet.getRow(i);
+                    int cells = xrow.getPhysicalNumberOfCells();
+
+                    if (i < 1)
+                    {
+                        continue;
+                    }
+                    
+                    
+                    if(cells > 3) {
+                    	throw new EgovBizException("엑셀 데이터중 열 데이터가 3개 이상 들어있습니다. \n엑셀파일 확인부탁드립니다.");
+                    }
+
+                     for(j = 0; j < cells; j++)
+                     {
+                          xcell = xrow.getCell(j);
+
+                          value = "";
+
+                        switch (xcell.getCellType())
+                        {
+                            case Cell.CELL_TYPE_BOOLEAN:
+                                value = "" + xcell.getBooleanCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_NUMERIC:
+                                value = "" + xcell.getNumericCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_STRING:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+
+                            case Cell.CELL_TYPE_BLANK:
+                                value = " ";
+                            break;
+
+                            default:
+                                value = "" + xcell.getStringCellValue();
+                            break;
+                        }
+
+                        if (null != value)
+                        {
+                            value = value.trim();
+                        }
+
+                        //mRow.put("rgsr_id", strRegman);
+                        //LOGGER.debug("Excel B : " + value);
+                        switch (j)
+                        {
+                            case 0:
+                                mRow.put("accnt_no", value);
+                            break;
+
+                            case 1:
+                            	mRow.put("hold_kb_no", value);
+                            break;
+
+                            default:
+
+                            break;
+                         }
+                        mRow.put("reg_man", strRegman);
+                     }
+
+                    lst.add(mRow);
+                    listMap.setRowMaps(lst);
+                    hmParam = listMap.get(0);
+                    
+//                    int iRegYn = DlwPayDAO.existUplusPrepayHoldData(hmParam);
+//                    
+//                    if(iRegYn <= 0)
+//                    {
+//                    	DlwPayDAO.insertUplusPrepayHoldData(hmParam);
+//                    }
+                    DlwPayDAO.insertUplusPrepayHoldNewTmpData(hmParam);
+                }
+
+                upfile.delete();
+            }
+
+            if (fileCnt < 1)
+            {
+                throw new EgovBizException("업로드된 파일이 없습니다.");
+            } else {
+            	DlwPayDAO.insertgetUplusCashbackHoldNewData(hmParam);
+            }
+
+        }
+        catch (FileNotFoundException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+            throw ex;
+        }
+        finally
+        {
+
+        }
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 해제시 산출대상에 등록
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * */
+    public int insertUplusHoldCashbackMember(Map<String, Object> pmParam) {
+    	return DlwPayDAO.insertUplusHoldCashbackMember(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 삭제
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public int deleteUplusCashbackHoldDataList(Map<String, Object> pmParam) {
+    	return DlwPayDAO.deleteUplusCashbackHoldDataList(pmParam);
+    }
+    
+    /** ================================================================
+     * 날짜 : 20190529
+     * 이름 : 송준빈
+     * 추가내용 : U+ 선납전송관리 보류고객 리스트
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PRYPAY_HOLD_LIST
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getUplusCashbackHoldDataList(Map<String, Object> pmParam) {
+        return DlwPayDAO.getUplusCashbackHoldDataList(pmParam);
+    }
+}

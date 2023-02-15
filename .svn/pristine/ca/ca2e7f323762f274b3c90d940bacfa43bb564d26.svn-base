@@ -1,0 +1,2648 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwNewTypeConsMap">
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 권한 쿼리 구분
+     * 대상 테이블 : LF_DMUSER.DATA_AUTH_GRP_DTL 
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDataAthrQury" parameterType="map" resultType="String">
+        SELECT /* DlwNewTypeConsMap.getDataAthrQury */
+               NVL(FN_DATA_AUTH_COND_GEN(#{paramEmpleNo}, #{paramAs}), ' ') dataAuthQry
+          FROM DUAL
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 상담이력 탭 조회수
+     * 대상 테이블 : PS_WILLVI.TB_CONS
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getConsCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getConsCount */
+               COUNT(*)
+          FROM TB_CONS A
+          LEFT OUTER JOIN		
+
+               LF_DMUSER.MEMBER MEM
+            ON A.MEM_NO = MEM.MEM_NO
+         WHERE 1 = 1
+        <if test="cell != null and cell != ''">
+            <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... AND CELL = REPLACE(#{cell}, '-', '') -->
+                AND REPLACE(MEM.CELL, '-', '') = REPLACE(#{cell}, '-', '')
+        </if>
+        <if test="consno != null and consno != ''">
+            AND A.CONSNO = #{consno}
+        </if>
+        <if test="(mem_no != null and mem_no != '') or path_typ == 'history'">
+            AND A.MEM_NO = #{mem_no}
+        </if>
+        <if test="dt_typ != null and dt_typ != ''">
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                <if test="dt_typ == 'acpg_dttm'">
+                    AND A.ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+                </if>
+                <if test="dt_typ == 'cons_dsps_dttm'">
+                    AND A.CONS_DSPS_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+                </if>
+            </if>
+            <if test="dt_typ == 'today'">
+                AND A.CONS_DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+            </if>
+        </if>
+        <if test="cons_dspsmddl_dtpt_cd != null and cons_dspsmddl_dtpt_cd != ''">
+            AND A.CONS_DSPSMDDL_DTPT_CD = #{cons_dspsmddl_dtpt_cd}
+        </if>
+        <if test="cons_dspsmddl_dtpt_cd_list != null and cons_dspsmddl_dtpt_cd_list != ''">
+            AND A.CONS_DSPSMDDL_DTPT_CD IN (${cons_dspsmddl_dtpt_cd_list})
+        </if>
+        <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+            AND A.ACPG_CHNL_CD = #{acpg_chnl_cd}
+        </if>
+        <if test="cons_stat_cd != null and cons_stat_cd != ''">
+            AND A.CONS_STAT_CD = #{cons_stat_cd}
+        </if>
+        <if test="cons_stat_cd_list != null and cons_stat_cd_list != ''">
+            AND A.CONS_STAT_CD IN (${cons_stat_cd_list})
+        </if>
+        <if test="user_typ == 'actp_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.ACTP_ID IN(${user_id})
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="user_typ == 'chpr_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.CHPR_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="user_typ == 'amnd_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.AMND_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+            AND A.CONS_TYP1_CD = #{cons_typ1_cd}
+        </if>
+        <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+            AND A.CONS_TYP2_CD = #{cons_typ2_cd}
+        </if>
+        <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+            AND A.CONS_TYP3_CD = #{cons_typ3_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="srch_vl != null and srch_vl != ''">
+            <if test="srch_typ == 'cust_nm'">
+                <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... AND A.MEM_NM LIKE '%' || #{srch_vl} || '%' -->
+                AND MEM.MEM_NM LIKE '%' || #{srch_vl} || '%'
+            </if>
+            <if test="srch_typ == 'cons_memo_cntn'">
+                AND A.CONS_MEMO_CNTN LIKE '%' || #{srch_vl} || '%'
+            </if>
+            <if test="srch_typ == 'all'">
+                AND (A.CONS_MEMO_CNTN LIKE '%' || #{srch_vl} || '%'
+                     OR MEM.MEM_NM LIKE '%' || #{srch_vl} || '%')  <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... OR A.MEM_NM LIKE '%' || #{srch_vl} || '%') -->
+            </if>
+        </if>
+        <if test='dept_yn == "Y"'>
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 상담이력 탭 리스트 조회
+     * 대상 테이블 : PS_WILLVI.TB_CONS
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getConsList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getConsList */
+               C.*
+             , (SELECT LF_DMUSER.FN_COM_NM('S014',KSTBIT) FROM LF_DMUSER.MEM_PROD_ACCNT WHERE ACCNT_NO = C.ACCNT_NO) KSTBIT
+             , DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAY_FLAG
+             , GETCODENM('CNS060', ARS_SRVC_ADDR, CNTR_CD) AS ARS_SRVC_ADDR_NM
+             , replace(GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD), chr(0), '') AS CONS_STAT_NM
+             , replace(GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, CNTR_CD), chr(0), '') AS CONS_DSPSMDDL_DTPT_NM
+             , (TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60 AS RECRNC_LEFT_TM
+             , (CASE WHEN TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') > SYSDATE
+                          THEN TRUNC(TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) || '일 ' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE), 1) * 24), 2, 0) || ':' ||
+                          LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24, 1) * 60), 2, 0) || ':' ||
+                          LPAD(TRUNC(ROUND(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60, 1) * 60)), 2, 0)
+                     ELSE TRUNC(SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || ':' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || ':' ||
+                          LPAD(TRUNC(ROUND(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24 * 60, 1) * 60)), 2, 0)
+                END) AS RECRNC_TERM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.ACTP_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS ACTP_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.ACTP_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS ACTP_TEAM2_NM
+             , DECODE(LENGTH(C.IDN_NO), 10, 'Y', 'N') AS BUSINESS_YN
+             ,C.CHCNT
+             ,TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') SYS_DATE
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.RECRNC_DT || C.RECRNC_HRMN || '00'
+                          FROM TB_RECRNC_RESR_DTL C
+                         WHERE C.CONSNO = B.CONSNO) AS RECRNC_DTTM
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.ACTP_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS ACTP_TEAM1_CD
+                    FROM (SELECT A.CONSNO, A.CONSNO_GROP_NO, A.CONSNO_SQNO
+                               , replace(A.ARS_SRVC_ADDR,chr(0),'') ARS_SRVC_ADDR
+                               , replace(A.INCO_TLNO,chr(0),'') INCO_TLNO
+                             , replace(A.CALL_ID,chr(0),'') CALL_ID
+                             , A.MEM_NO, A.ACPG_CHNL_CD, A.ACPG_DTTM, A.ACTP_ID
+                             , A.TOTL_CONS_HR
+                             , replace(A.CLNT_NM,chr(0),'') CLNT_NM
+                             , A.CONS_TYP1_CD, A.CONS_TYP2_CD, A.CONS_TYP3_CD
+                             , replace(A.CONS_MEMO_CNTN, chr(0), '') CONS_MEMO_CNTN
+                             , A.CONS_STAT_CD, A.CONS_DSPSMDDL_DTPT_CD
+                             , replace(trim(A.CONS_DSPS_DTTM), chr(0), '') CONS_DSPS_DTTM
+                             , A.RSPS_DEPT_CD
+                             , A.CHPR_ID, A.ADMR_AMNT_YN
+                             , replace(A.ADMR_ID,chr(0),'') ADMR_ID
+                             , replace(A.ADMR_AMNT_DTTM,chr(0),'') ADMR_AMNT_DTTM
+                             , A.CONS_DSPSMDDL_DTPT_CD AS OLD_CONS_DSPSMDDL_DTPT_CD
+                             , A.CNTR_CD, A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                             , A.CONC_YN, A.EMPLE_NO, A.EMPLE_NM, A.JOIN_DT, A.CTI_CRNC_DTL_ID
+                             , replace(A.MST_KEY,chr(0),'') MST_KEY
+                             , replace(A.DTPT_KEY, chr(0),'') DTPT_KEY
+                             , A.ACCNT_NO, A.DEPT_CD
+                             , replace(A.SEX, chr(0), '') SEX
+                             , replace(A.BRTH_MON_DAY, chr(0), '') BRTH_MON_DAY
+
+                             , REPLACE(MEM.MEM_NM, chr(0),'') MEM_NM
+                             , MEM.CI_VAL
+                             , replace(MEM.HOME_TEL,chr(0),'') HOME_TEL
+                             , replace(MEM.CELL,chr(0),'') CELL
+                             , replace(MEM.WRPL_TEL,chr(0),'') WRPL_TEL
+                             , MEM.HOME_ZIP, MEM.HOME_ADDR, MEM.HOME_ADDR2
+                             , MEM.EMAIL
+                             , A.NOTE
+                             , replace(A.IDN_NO, chr(0),'') IDN_NO
+                             , A.CREDIT_RATING, A.CRDT_MNG_NO
+                             , replace(GETCODENM('CNS010', A.ACPG_CHNL_CD, A.CNTR_CD), chr(0), '') AS ACPG_CHNL_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP1_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP1_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP2_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP2_NM
+                             , (SELECT replace(C.CONS_TYP_NM, chr(0), '')
+                                  FROM TB_CONS_TYP_CD C
+                                 WHERE C.CONS_TYP_CD = A.CONS_TYP3_CD
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CONS_TYP3_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_NM
+                             , (SELECT C.TEAM_CD
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.ACTP_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS ACTP_TEAM2_CD
+                             , (SELECT replace(C.USER_NM, chr(0), '')
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.CHPR_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS CHPR_NM
+                             , (SELECT C.USER_NM
+                                  FROM TB_USER C
+                                 WHERE C.USER_ID = A.AMND_ID
+                                   AND C.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , ( SELECT COUNT(*) FROM TB_CONS_HSTR CH WHERE  CH.CNTR_CD = A.CNTR_CD AND CH.CONSNO = A.CONSNO )   CHCNT
+                          FROM TB_CONS A
+                               LEFT OUTER JOIN
+                               LF_DMUSER.MEMBER MEM
+                               ON A.MEM_NO = MEM.MEM_NO
+                         WHERE 1 = 1
+                    <if test="cell != null and cell != ''">
+            <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... AND CELL = REPLACE(#{cell}, '-', '') -->
+                AND REPLACE(MEM.CELL, '-', '') = REPLACE(#{cell}, '-', '')
+        </if>
+        <if test="consno != null and consno != ''">
+            AND A.CONSNO = #{consno}
+        </if>
+        <if test="(mem_no != null and mem_no != '') or path_typ == 'history'">
+            AND A.MEM_NO = #{mem_no}
+        </if>
+        <if test="dt_typ != null and dt_typ != ''">
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                <if test="dt_typ == 'acpg_dttm'">
+                    AND A.ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+                </if>
+                <if test="dt_typ == 'cons_dsps_dttm'">
+                    AND A.CONS_DSPS_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+                </if>
+            </if>
+            <if test="dt_typ == 'today'">
+                AND A.CONS_DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+            </if>
+        </if>
+        <if test="cons_dspsmddl_dtpt_cd != null and cons_dspsmddl_dtpt_cd != ''">
+            AND A.CONS_DSPSMDDL_DTPT_CD = #{cons_dspsmddl_dtpt_cd}
+        </if>
+        <if test="cons_dspsmddl_dtpt_cd_list != null and cons_dspsmddl_dtpt_cd_list != ''">
+            AND A.CONS_DSPSMDDL_DTPT_CD IN (${cons_dspsmddl_dtpt_cd_list})
+        </if>
+        <if test="acpg_chnl_cd != null and acpg_chnl_cd != ''">
+            AND A.ACPG_CHNL_CD = #{acpg_chnl_cd}
+        </if>
+        <if test="cons_stat_cd != null and cons_stat_cd != ''">
+            AND A.CONS_STAT_CD = #{cons_stat_cd}
+        </if>
+        <if test="cons_stat_cd_list != null and cons_stat_cd_list != ''">
+            AND A.CONS_STAT_CD IN (${cons_stat_cd_list})
+        </if>
+        <if test="user_typ == 'actp_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.ACTP_ID IN(${user_id})
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.ACTP_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="user_typ == 'chpr_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.CHPR_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="user_typ == 'amnd_id'">
+            <choose>
+                <when test="user_id != null and user_id != ''">
+                AND A.AMND_ID = #{user_id}
+                </when>
+                <when test="team2_cd != null and team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team2_cd})
+                </when>
+                <when test="team1_cd != null and team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.AMND_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{team1_cd})
+                </when>
+            </choose>
+        </if>
+        <if test="cons_typ1_cd != null and cons_typ1_cd != ''">
+            AND A.CONS_TYP1_CD = #{cons_typ1_cd}
+        </if>
+        <if test="cons_typ2_cd != null and cons_typ2_cd != ''">
+            AND A.CONS_TYP2_CD = #{cons_typ2_cd}
+        </if>
+        <if test="cons_typ3_cd != null and cons_typ3_cd != ''">
+            AND A.CONS_TYP3_CD = #{cons_typ3_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="srch_vl != null and srch_vl != ''">
+            <if test="srch_typ == 'cust_nm'">
+                <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... AND A.MEM_NM LIKE '%' || #{srch_vl} || '%' -->
+                AND MEM.MEM_NM LIKE '%' || #{srch_vl} || '%'
+            </if>
+            <if test="srch_typ == 'cons_memo_cntn'">
+                AND A.CONS_MEMO_CNTN LIKE '%' || #{srch_vl} || '%'
+            </if>
+            <if test="srch_typ == 'all'">
+                AND (A.CONS_MEMO_CNTN LIKE '%' || #{srch_vl} || '%'
+                     OR MEM.MEM_NM LIKE '%' || #{srch_vl} || '%')  <!-- 2018.05.11 TB_CONS 테이블 개인정보는 MEMBER 테이블에서... OR A.MEM_NM LIKE '%' || #{srch_vl} || '%') -->
+            </if>
+        </if>
+        <if test='dept_yn == "Y"'>
+            <if test="dataAthrQury != null and dataAthrQury != ''">
+                ${dataAthrQury}
+            </if>
+        </if>
+                    <choose>
+                        <when test="orderBy == null or orderBy == ''">
+                            ORDER BY ACPG_DTTM ASC
+                        </when>
+                        <otherwise>
+                            ORDER BY ${orderBy} ${orderDirection}
+                        </otherwise>
+                    </choose>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+        
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 상담이력 팝업 조회수
+     * 대상 테이블 : PS_WILLVI.TB_CONS
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeConsPopCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getNewTypeConsPopCount */
+               COUNT(*) AS ICNT
+        FROM (
+                 SELECT ROWNUM AS PAGE_INDX, 
+                        B.*,
+                        (
+                            SELECT C.RECRNC_DT || C.RECRNC_HRMN || '00'
+                            FROM PS_WILLVI.TB_RECRNC_RESR_DTL C
+                            WHERE C.CONSNO = B.CONSNO
+                        ) AS RECRNC_DTTM,
+                        (
+                            SELECT C.HGRN_TEAM_CD
+                            FROM PS_WILLVI.TB_CONS_TEAM C
+                            WHERE C.TEAM_CD = B.ACTP_TEAM2_CD
+                            AND C.CNTR_CD = B.CNTR_CD
+                        ) AS ACTP_TEAM1_CD
+                 FROM (
+                          SELECT A.CONSNO, 
+                                 A.CONSNO_GROP_NO, 
+                                 A.CONSNO_SQNO,
+                                 REPLACE(A.ARS_SRVC_ADDR,CHR(0),'') ARS_SRVC_ADDR,
+                                 REPLACE(A.INCO_TLNO,CHR(0),'') INCO_TLNO,
+                                 REPLACE(A.CALL_ID,CHR(0),'') CALL_ID,
+                                 A.MEM_NO,
+                                 A.ACPG_CHNL_CD,
+                                 A.ACPG_DTTM,
+                                 A.ACTP_ID,
+                                 A.TOTL_CONS_HR,
+                                 REPLACE(A.CLNT_NM,CHR(0),'') CLNT_NM,
+                                 A.CONS_TYP1_CD,
+                                 A.CONS_TYP2_CD,
+                                 A.CONS_TYP3_CD,
+                                 REPLACE(A.CONS_MEMO_CNTN, CHR(0), '') CONS_MEMO_CNTN,
+                                 A.CONS_STAT_CD,
+                                 A.CONS_DSPSMDDL_DTPT_CD,
+                                 REPLACE(TRIM(A.CONS_DSPS_DTTM), CHR(0), '') CONS_DSPS_DTTM,
+                                 A.RSPS_DEPT_CD,
+                                 A.CHPR_ID,
+                                 A.ADMR_AMNT_YN,
+                                 REPLACE(A.ADMR_ID,CHR(0),'') ADMR_ID,
+                                 REPLACE(A.ADMR_AMNT_DTTM,CHR(0),'') ADMR_AMNT_DTTM,
+                                 A.CONS_DSPSMDDL_DTPT_CD AS OLD_CONS_DSPSMDDL_DTPT_CD,
+                                 A.CNTR_CD,
+                                 A.RGSR_ID,
+                                 A.RGSN_DTTM,
+                                 A.AMND_ID,
+                                 A.AMNT_DTTM,
+                                 A.CONC_YN,
+                                 A.EMPLE_NO,
+                                 A.EMPLE_NM,
+                                 A.JOIN_DT,
+                                 A.CTI_CRNC_DTL_ID,
+                                 REPLACE(A.MST_KEY,CHR(0),'') MST_KEY,
+                                 REPLACE(A.DTPT_KEY, CHR(0),'') DTPT_KEY,
+                                 A.ACCNT_NO,
+                                 A.DEPT_CD,
+                                 REPLACE(A.SEX, CHR(0), '') SEX,
+                                 REPLACE(A.BRTH_MON_DAY, CHR(0), '') BRTH_MON_DAY,
+                                 REPLACE(MEM.MEM_NM, CHR(0),'') MEM_NM,
+                                 MEM.CI_VAL,
+                                 REPLACE(MEM.HOME_TEL,CHR(0),'') HOME_TEL,
+                                 REPLACE(MEM.CELL,CHR(0),'') CELL,
+                                 REPLACE(MEM.WRPL_TEL,CHR(0),'') WRPL_TEL,
+                                 MEM.HOME_ZIP,
+                                 MEM.HOME_ADDR,
+                                 MEM.HOME_ADDR2,
+                                 MEM.EMAIL,
+                                 A.NOTE,
+                                 REPLACE(A.IDN_NO, CHR(0),'') IDN_NO,
+                                 A.CREDIT_RATING,
+                                 A.CRDT_MNG_NO,
+                                 REPLACE(PS_WILLVI.GETCODENM('CNS010', A.ACPG_CHNL_CD, A.CNTR_CD), CHR(0), '') AS ACPG_CHNL_NM,                     
+                                 (
+                                     SELECT REPLACE(C.CONS_TYP_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_CONS_TYP_CD C
+                                     WHERE C.CONS_TYP_CD = A.CONS_TYP1_CD
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CONS_TYP1_NM,
+                                 (
+                                     SELECT REPLACE(C.CONS_TYP_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_CONS_TYP_CD C
+                                     WHERE C.CONS_TYP_CD = A.CONS_TYP2_CD
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CONS_TYP2_NM,
+                                 (
+                                     SELECT REPLACE(C.CONS_TYP_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_CONS_TYP_CD C
+                                     WHERE C.CONS_TYP_CD = A.CONS_TYP3_CD
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CONS_TYP3_NM,
+                                 (
+                                     SELECT C.USER_NM
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.ACTP_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS ACTP_NM,
+                                 (
+                                     SELECT C.TEAM_CD
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.ACTP_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS ACTP_TEAM2_CD,
+                                 (
+                                     SELECT REPLACE(C.USER_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.CHPR_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CHPR_NM,
+                                 (
+                                     SELECT C.USER_NM
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.AMND_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS AMND_NM,
+                                 ( SELECT COUNT(*) FROM PS_WILLVI.TB_CONS_HSTR CH WHERE  CH.CNTR_CD = A.CNTR_CD AND CH.CONSNO = A.CONSNO ) CHCNT
+                          FROM PS_WILLVI.TB_CONS A LEFT OUTER JOIN
+                               LF_DMUSER.MEMBER MEM ON A.MEM_NO = MEM.MEM_NO
+                          WHERE 1=1
+                          AND A.CNTR_CD = 'CCA'
+            			  AND A.MEM_NO = #{mem_no}
+                          <if test="acpg_dttm_stt != null and acpg_dttm_stt != '' and acpg_dttm_end != null and acpg_dttm_end != ''">
+                              AND A.ACPG_DTTM BETWEEN REPLACE(#{acpg_dttm_stt}, '-', '') || '000000' AND REPLACE(#{acpg_dttm_end}, '-', '') || '235959'
+                          </if>
+                          <if test="cons_typ1 != null and cons_typ1 != ''">
+                              AND CONS_TYP1_CD = #{cons_typ1}
+                          </if>
+                          <if test="cons_typ2 != null and cons_typ2 != ''">
+                              AND CONS_TYP2_CD = #{cons_typ2}
+                          </if>
+                          <if test="cons_typ3 != null and cons_typ3 != ''">
+                              AND CONS_TYP3_CD = #{cons_typ3}
+                          </if>
+                      ) B
+             ) C    
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 상담이력 팝업 리스트 조회
+     * 대상 테이블 : PS_WILLVI.TB_CONS
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeConsPopList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getNewTypeConsPopList */
+               C.*,
+               (SELECT LF_DMUSER.FN_COM_NM('S014',KSTBIT) FROM LF_DMUSER.MEM_PROD_ACCNT WHERE ACCNT_NO = C.ACCNT_NO) KSTBIT,
+               DECODE(SUBSTR(ACPG_DTTM, 1, 8), TO_CHAR(SYSDATE, 'YYYYMMDD'), 'Y', 'N') AS TODAY_FLAG,
+               PS_WILLVI.GETCODENM('CNS060', ARS_SRVC_ADDR, CNTR_CD) AS ARS_SRVC_ADDR_NM,
+               REPLACE(PS_WILLVI.GETCODENM('CNS030', CONS_STAT_CD, CNTR_CD), CHR(0), '') AS CONS_STAT_NM,
+               REPLACE(PS_WILLVI.GETCODENM('CNS020', CONS_DSPSMDDL_DTPT_CD, CNTR_CD), chr(0), '') AS CONS_DSPSMDDL_DTPT_NM,
+               (TO_DATE(RECRNC_DTTM, 'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60 AS RECRNC_LEFT_TM,
+               (
+                   CASE WHEN TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') > SYSDATE
+                        THEN TRUNC(TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) || '일 ' ||
+                             LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE), 1) * 24), 2, 0) || ':' ||
+                             LPAD(TRUNC(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24, 1) * 60), 2, 0) || ':' ||
+                             LPAD(TRUNC(ROUND(MOD((TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS') - SYSDATE) * 24 * 60, 1) * 60)), 2, 0)
+                        ELSE TRUNC(SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) || '일 ' ||
+                             LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')), 1) * 24), 2, 0) || ':' ||
+                             LPAD(TRUNC(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || ':' ||
+                             LPAD(TRUNC(ROUND(MOD((SYSDATE - TO_DATE(RECRNC_DTTM,'YYYYMMDDHH24MISS')) * 24 * 60, 1) * 60)), 2, 0)
+                   END
+               ) AS RECRNC_TERM,
+               (
+                   SELECT D.TEAM_NM
+                   FROM PS_WILLVI.TB_CONS_TEAM D
+                   WHERE D.TEAM_CD = C.ACTP_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD
+               ) AS ACTP_TEAM1_NM,
+               (
+                   SELECT D.TEAM_NM
+                   FROM PS_WILLVI.TB_CONS_TEAM D
+                   WHERE D.TEAM_CD = C.ACTP_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD
+               ) AS ACTP_TEAM2_NM,
+               DECODE(LENGTH(C.IDN_NO), 10, 'Y', 'N') AS BUSINESS_YN,
+               C.CHCNT,
+               TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') SYS_DATE
+        FROM (
+                 SELECT ROWNUM AS PAGE_INDX, 
+                        B.*,
+                        (
+                            SELECT C.RECRNC_DT || C.RECRNC_HRMN || '00'
+                            FROM PS_WILLVI.TB_RECRNC_RESR_DTL C
+                            WHERE C.CONSNO = B.CONSNO
+                        ) AS RECRNC_DTTM,
+                        (
+                            SELECT C.HGRN_TEAM_CD
+                            FROM PS_WILLVI.TB_CONS_TEAM C
+                            WHERE C.TEAM_CD = B.ACTP_TEAM2_CD
+                            AND C.CNTR_CD = B.CNTR_CD
+                        ) AS ACTP_TEAM1_CD
+                 FROM (
+                          SELECT A.CONSNO, 
+                                 A.CONSNO_GROP_NO, 
+                                 A.CONSNO_SQNO,
+                                 REPLACE(A.ARS_SRVC_ADDR,CHR(0),'') ARS_SRVC_ADDR,
+                                 REPLACE(A.INCO_TLNO,CHR(0),'') INCO_TLNO,
+                                 REPLACE(A.CALL_ID,CHR(0),'') CALL_ID,
+                                 A.MEM_NO,
+                                 A.ACPG_CHNL_CD,
+                                 A.ACPG_DTTM,
+                                 A.ACTP_ID,
+                                 A.TOTL_CONS_HR,
+                                 REPLACE(A.CLNT_NM,CHR(0),'') CLNT_NM,
+                                 A.CONS_TYP1_CD,
+                                 A.CONS_TYP2_CD,
+                                 A.CONS_TYP3_CD,
+                                 REPLACE(A.CONS_MEMO_CNTN, CHR(0), '') CONS_MEMO_CNTN,
+                                 A.CONS_STAT_CD,
+                                 A.CONS_DSPSMDDL_DTPT_CD,
+                                 REPLACE(TRIM(A.CONS_DSPS_DTTM), CHR(0), '') CONS_DSPS_DTTM,
+                                 A.RSPS_DEPT_CD,
+                                 A.CHPR_ID,
+                                 A.ADMR_AMNT_YN,
+                                 REPLACE(A.ADMR_ID,CHR(0),'') ADMR_ID,
+                                 REPLACE(A.ADMR_AMNT_DTTM,CHR(0),'') ADMR_AMNT_DTTM,
+                                 A.CONS_DSPSMDDL_DTPT_CD AS OLD_CONS_DSPSMDDL_DTPT_CD,
+                                 A.CNTR_CD,
+                                 A.RGSR_ID,
+                                 A.RGSN_DTTM,
+                                 A.AMND_ID,
+                                 A.AMNT_DTTM,
+                                 A.CONC_YN,
+                                 A.EMPLE_NO,
+                                 A.EMPLE_NM,
+                                 A.JOIN_DT,
+                                 A.CTI_CRNC_DTL_ID,
+                                 REPLACE(A.MST_KEY,CHR(0),'') MST_KEY,
+                                 REPLACE(A.DTPT_KEY, CHR(0),'') DTPT_KEY,
+                                 A.ACCNT_NO,
+                                 A.DEPT_CD,
+                                 REPLACE(A.SEX, CHR(0), '') SEX,
+                                 REPLACE(A.BRTH_MON_DAY, CHR(0), '') BRTH_MON_DAY,
+                                 REPLACE(MEM.MEM_NM, CHR(0),'') MEM_NM,
+                                 MEM.CI_VAL,
+                                 REPLACE(MEM.HOME_TEL,CHR(0),'') HOME_TEL,
+                                 REPLACE(MEM.CELL,CHR(0),'') CELL,
+                                 REPLACE(MEM.WRPL_TEL,CHR(0),'') WRPL_TEL,
+                                 MEM.HOME_ZIP,
+                                 MEM.HOME_ADDR,
+                                 MEM.HOME_ADDR2,
+                                 MEM.EMAIL,
+                                 A.NOTE,
+                                 REPLACE(A.IDN_NO, CHR(0),'') IDN_NO,
+                                 A.CREDIT_RATING,
+                                 A.CRDT_MNG_NO,
+                                 REPLACE(PS_WILLVI.GETCODENM('CNS010', A.ACPG_CHNL_CD, A.CNTR_CD), CHR(0), '') AS ACPG_CHNL_NM,                     
+                                 (
+                                     SELECT REPLACE(C.CONS_TYP_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_CONS_TYP_CD C
+                                     WHERE C.CONS_TYP_CD = A.CONS_TYP1_CD
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CONS_TYP1_NM,
+                                 (
+                                     SELECT REPLACE(C.CONS_TYP_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_CONS_TYP_CD C
+                                     WHERE C.CONS_TYP_CD = A.CONS_TYP2_CD
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CONS_TYP2_NM,
+                                 (
+                                     SELECT REPLACE(C.CONS_TYP_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_CONS_TYP_CD C
+                                     WHERE C.CONS_TYP_CD = A.CONS_TYP3_CD
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CONS_TYP3_NM,
+                                 (
+                                     SELECT C.USER_NM
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.ACTP_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS ACTP_NM,
+                                 (
+                                     SELECT C.TEAM_CD
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.ACTP_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS ACTP_TEAM2_CD,
+                                 (
+                                     SELECT replace(C.USER_NM, CHR(0), '')
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.CHPR_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS CHPR_NM,
+                                 (
+                                     SELECT C.USER_NM
+                                     FROM PS_WILLVI.TB_USER C
+                                     WHERE C.USER_ID = A.AMND_ID
+                                     AND C.CNTR_CD = A.CNTR_CD
+                                 ) AS AMND_NM,
+                                 ( SELECT COUNT(*) FROM PS_WILLVI.TB_CONS_HSTR CH WHERE  CH.CNTR_CD = A.CNTR_CD AND CH.CONSNO = A.CONSNO ) CHCNT
+                          FROM PS_WILLVI.TB_CONS A LEFT OUTER JOIN
+                               LF_DMUSER.MEMBER MEM ON A.MEM_NO = MEM.MEM_NO
+                          WHERE 1=1
+                          AND A.CNTR_CD = 'CCA'
+            			  AND A.MEM_NO = #{mem_no}
+                          <if test="acpg_dttm_stt != null and acpg_dttm_stt != '' and acpg_dttm_end != null and acpg_dttm_end != ''">
+                              AND A.ACPG_DTTM BETWEEN REPLACE(#{acpg_dttm_stt}, '-', '') || '000000' AND REPLACE(#{acpg_dttm_end}, '-', '') || '235959'
+                          </if>
+                          <if test="cons_typ1 != null and cons_typ1 != ''">
+                              AND CONS_TYP1_CD = #{cons_typ1}
+                          </if>
+                          <if test="cons_typ2 != null and cons_typ2 != ''">
+                              AND CONS_TYP2_CD = #{cons_typ2}
+                          </if>
+                          <if test="cons_typ3 != null and cons_typ3 != ''">
+                              AND CONS_TYP3_CD = #{cons_typ3}
+                          </if>
+                          ORDER BY CONSNO DESC, RGSN_DTTM DESC  
+                      ) B
+             ) C    
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 캠페인 이력 조회수
+     * 대상 테이블 : PS_WILLVI.TB_TRGT_CUST_DTPT, PS_WILLVI.TB_DPMS_RESL_HSTR
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getIbDpmsReslHstrCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getIbDpmsReslHstrCount */
+                COUNT(*)
+          FROM (SELECT *
+                  FROM TB_TRGT_CUST_DTPT TD INNER JOIN TB_DPMS_RESL_HSTR TH
+                    ON (TD.TRGT_CUST_DTPT_ID = TH.TRGT_CUST_DTPT_ID)
+                  WHERE 1=1
+                  <if test="cntr_cd != null and cntr_cd != ''">
+                AND TH.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND TH.TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND TH.CNSR_ID = #{user_id}
+            </if>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND TH.CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND TH.SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+                AND TH.TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+            </if>
+            <if test="cmpg_stt_dt != null and cmpg_stt_dt != '' and cmpg_end_dt != null and cmpg_end_dt != ''">
+                AND CMPG_STT_DT BETWEEN REPLACE(#{cmpg_stt_dt}, '-', '') AND REPLACE(#{cmpg_end_dt}, '-', '')
+            </if>
+            <if test="cmpg_prgr_stat_cd != null and cmpg_prgr_stat_cd != ''">
+                AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND TD.MEM_NO = #{mem_no}
+            </if>
+                ) B
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 캠페인 이력 리스트 조회
+     * 대상 테이블 : PS_WILLVI.TB_TRGT_CUST_DTPT, PS_WILLVI.TB_DPMS_RESL_HSTR
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getIbDpmsReslHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getIbDpmsReslHstrList */
+                C.*
+                 , GETCODENM('CAM090', C.DPMS_RESL_CD, C.CNTR_CD) AS DPMS_RESL_NM
+                 , GETCODENM('CAM100', C.DPMS_STAT_CD, C.CNTR_CD) AS DPMS_STAT_NM
+                 , GETCODENM('CAM130', C.DPMS_TLPH_DIV_CD, C.CNTR_CD) AS DPMS_TLPH_DIV_NM
+                 , (SELECT USER_NM FROM TB_USER WHERE USER_ID = C.CNSR_ID ) AS CNSR_NM
+                 , (SELECT SUB_TRGT_LIST_NM FROM TB_SUB_TRGT_LIST_DTL
+                                           WHERE SUB_TRGT_LIST_ID = C.SUB_TRGT_LIST_ID) AS SUB_TRGT_LIST_NM
+                 , (SELECT CMPG_NM FROM TB_CMPG_BASI WHERE CMPG_ID = C.CMPG_ID) AS CMPG_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , CHNG_DTTM, CNTR_CD, CMPG_ID, TRGT_LIST_ID ,MEM_NO
+                     , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD
+                     , DPMS_STAT_CD, DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT
+                     , DPMS_DTTM, PROD_JOIN_YN , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                  FROM ( SELECT TO_CHAR(TH.CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM, TH.CNTR_CD, TH.CMPG_ID, TH.TRGT_LIST_ID
+                              , TH.SUB_TRGT_LIST_ID, TH.TRGT_CUST_DTPT_ID, TH.CNSR_ID, TH.DPMS_RESL_CD , TD.MEM_NO
+                              , TH.DPMS_STAT_CD, TH.DPMS_TLPH_DIV_CD, TH.DPMS_TLNO, TH.DPMS_RESL_CNTN, TH.DPMS_TMCNT
+                              , TO_CHAR(TH.DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, TH.PROD_JOIN_YN
+                              , TH.RGSR_ID, TH.RGSN_DTTM, TH.AMND_ID, TH.AMNT_DTTM
+                          FROM TB_TRGT_CUST_DTPT TD INNER JOIN TB_DPMS_RESL_HSTR TH
+                                                            ON (TD.TRGT_CUST_DTPT_ID = TH.TRGT_CUST_DTPT_ID)
+                            WHERE 1=1
+                  <if test="cntr_cd != null and cntr_cd != ''">
+                AND TH.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND TH.TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND TH.CNSR_ID = #{user_id}
+            </if>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND TH.CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND TH.SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+                AND TH.TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+            </if>
+            <if test="cmpg_stt_dt != null and cmpg_stt_dt != '' and cmpg_end_dt != null and cmpg_end_dt != ''">
+                AND CMPG_STT_DT BETWEEN REPLACE(#{cmpg_stt_dt}, '-', '') AND REPLACE(#{cmpg_end_dt}, '-', '')
+            </if>
+            <if test="cmpg_prgr_stat_cd != null and cmpg_prgr_stat_cd != ''">
+                AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND TD.MEM_NO = #{mem_no}
+            </if>
+                             <if test="orderBy != null and orderBy != ''">
+                                 ORDER BY ${orderBy} ${orderDirection}
+                             </if>
+                        ) B
+                    ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 VOC 이력 조회수
+     * 대상 테이블 : PS.WILLVI.TB_VOC_DTL
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getVocDtlCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getVocDtlCount */
+               COUNT(*)
+          FROM TB_VOC_DTL A
+        WHERE 1=1
+        AND NVL(DEL_FG,'N') ='N'
+            <if test="voc_id != null and voc_id != ''">
+                AND VOC_ID = #{voc_id}
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND VOC_ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+            </if>
+            <choose>
+                <when test="voc_dssr_id != null and voc_dssr_id != ''">
+                AND VOC_DSSR_ID = #{voc_dssr_id}
+                </when>
+                <when test="voc_dssr_team2_cd != null and voc_dssr_team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.VOC_DSSR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{voc_dssr_team2_cd})
+                </when>
+                <when test="voc_dssr_team1_cd != null and voc_dssr_team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.VOC_DSSR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{voc_dssr_team1_cd})
+                </when>
+            </choose>
+            <if test="voc_typ_cd != null and voc_typ_cd != ''">
+                AND VOC_TYP_CD = #{voc_typ_cd}
+            </if>
+            <if test="voc_dsps_stat_cd != null and voc_dsps_stat_cd != ''">
+                AND VOC_DSPS_STAT_CD = #{voc_dsps_stat_cd}
+            </if>
+            <if test="voc_dsps_stat_cd_list != null and voc_dsps_stat_cd_list != ''">
+                AND VOC_DSPS_STAT_CD IN (${voc_dsps_stat_cd_list})
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+            <if test="hpcl_trgt_yn != null and hpcl_trgt_yn != ''">
+                AND HPCL_TRGT_YN = #{hpcl_trgt_yn}
+            </if>
+            <if test="hpcl_dssr_id != null and hpcl_dssr_id != ''">
+                AND HPCL_DSSR_ID = #{hpcl_dssr_id}
+            </if>
+            <if test="hpcl_dsps_stat_cd_list != null and hpcl_dsps_stat_cd_list != ''">
+                AND HPCL_DSPS_STAT_CD IN (${hpcl_dsps_stat_cd_list})
+            </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 VOC 이력 리스트 조회
+     * 대상 테이블 : PS.WILLVI.TB_VOC_DTL
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getVocDtlList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getVocDtlList */
+               C.*
+             , GETCODENM('CNS080', VOC_TYP_CD, CNTR_CD) AS VOC_TYP_NM
+             , GETCODENM('CNS090', VOC_IMPC_CD, CNTR_CD) AS VOC_IMPC_NM
+             , GETCODENM('CNS100', VOC_DSPS_STAT_CD, CNTR_CD) AS VOC_DSPS_STAT_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_DSSR_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_DSSR_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_DSSR_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_DSSR_TEAM2_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_ACTP_TEAM1_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_ACTP_TEAM1_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.VOC_ACTP_TEAM2_CD
+                   AND D.CNTR_CD = C.CNTR_CD) AS VOC_ACTP_TEAM2_NM
+             , (SELECT D.USER_NM
+                  FROM TB_USER D
+                 WHERE D.USER_ID = C.RGSR_ID
+                   AND D.CNTR_CD = C.CNTR_CD) AS RGSR_NM
+             , (SELECT D.USER_NM
+                  FROM TB_USER D
+                 WHERE D.USER_ID = C.AMND_ID
+                   AND D.CNTR_CD = C.CNTR_CD) AS AMND_NM
+             , (CASE WHEN HPCL_TRGT_YN = 'Y'
+                     THEN (SELECT D.USER_NM
+                             FROM TB_USER D
+                            WHERE D.USER_ID = C.HPCL_DSSR_ID
+                              AND D.CNTR_CD = C.CNTR_CD)
+                     ELSE ''
+                END) AS HPCL_DSSR_NM
+             , (CASE WHEN HPCL_TRGT_YN = 'Y'
+                     THEN GETCODENM('CNS100', C.HPCL_DSPS_STAT_CD, C.CNTR_CD)
+                     ELSE ''
+                END) AS HPCL_DSPS_STAT_NM
+             , (CASE WHEN VOC_DSPS_STAT_CD = '30' OR SYSDATE - TO_DATE(VOC_ACPG_DTTM,'YYYYMMDDHH24MISS') <![CDATA[<]]> 0
+                     THEN NULL
+                     ELSE TRUNC(SYSDATE - TO_DATE(VOC_ACPG_DTTM, 'YYYYMMDDHH24MISS')) || '일 ' ||
+                          TRUNC(MOD((SYSDATE - TO_DATE(VOC_ACPG_DTTM ,'YYYYMMDDHH24MISS')), 1) * 24) || '시간 ' ||
+                          LPAD(TRUNC(MOD((SYSDATE - TO_DATE(VOC_ACPG_DTTM, 'YYYYMMDDHH24MISS')) * 24, 1) * 60), 2, 0) || '분'
+                END) AS VOC_DSPS_TERM
+              , C.TCCONSNO
+              ,C.TCACCNT_NO
+              , (select cons_typ_nm  from TB_CONS_TYP_CD   where cons_typ_cd =  C.TCCONS_TYP3_CD)  TCCONS_TYP3_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.VOC_DSSR_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS VOC_DSSR_TEAM1_CD
+                     , (SELECT C.HGRN_TEAM_CD
+                          FROM TB_CONS_TEAM C
+                         WHERE C.TEAM_CD = B.VOC_ACTP_TEAM2_CD
+                           AND C.CNTR_CD = B.CNTR_CD) AS VOC_ACTP_TEAM1_CD
+                  FROM (SELECT VOC_ID, VOC_ACPG_CHNL_CD, MEM_NO, VOC_CUST_NM, A.CONSNO
+                             , VOC_TYP_CD, VOC_IMPC_CD, VOC_TITL, VOC_ACPG_CNTN, SMS_RPL_YN
+                             , SMS_RPL_CNPL_TLNO, TLPH_RPL_YN, TLPH_RPL_CNPL_TLNO, EMIL_RPL_YN, EMIL_RPL_ADDR
+                             , VOC_DSPS_STAT_CD, VOC_DSPS_CNTN, VOC_ACTP_ID, VOC_ACPG_DTTM, VOC_DSSR_ID
+                             , VOC_DSPS_DTTM, HPCL_TRGT_YN, HPCL_SIDO_TMCNT, HPCL_DSSR_ID, HPCL_DSPS_DTTM
+                             , HPCL_DSPS_STAT_CD, MEM_NM, VOC_ACTP_ID AS OLD_VOC_ACTP_ID
+                             , A.CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_ACTP_NM
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_ACTP_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_ACTP_TEAM2_CD
+                             , (SELECT B.USER_NM
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_DSSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_DSSR_NM
+                             , (SELECT B.TEAM_CD
+                                  FROM TB_USER B
+                                 WHERE B.USER_ID = A.VOC_DSSR_ID
+                                   AND B.CNTR_CD = A.CNTR_CD) AS VOC_DSSR_TEAM2_CD
+                             ,TC.CONSNO TCCONSNO
+                             ,TC.ACCNT_NO TCACCNT_NO
+                             ,TC.CONS_TYP3_CD TCCONS_TYP3_CD
+                          FROM TB_VOC_DTL A
+                              INNER JOIN (SELECT CNTR_CD,CONSNO,ACCNT_NO,CONS_TYP3_CD  FROM TB_CONS )TC ON TC.CNTR_CD = 'CCA' AND  A.CONSNO =TC.CONSNO
+                    WHERE 1=1 
+                    AND NVL(DEL_FG,'N') ='N'
+            <if test="voc_id != null and voc_id != ''">
+                AND VOC_ID = #{voc_id}
+            </if>
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND VOC_ACPG_DTTM BETWEEN REPLACE(#{stt_dt}, '-', '') || '000000' AND REPLACE(#{end_dt}, '-', '') || '235959'
+            </if>
+            <choose>
+                <when test="voc_dssr_id != null and voc_dssr_id != ''">
+                AND VOC_DSSR_ID = #{voc_dssr_id}
+                </when>
+                <when test="voc_dssr_team2_cd != null and voc_dssr_team2_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.VOC_DSSR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{voc_dssr_team2_cd})
+                </when>
+                <when test="voc_dssr_team1_cd != null and voc_dssr_team1_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.VOC_DSSR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{voc_dssr_team1_cd})
+                </when>
+            </choose>
+            <if test="voc_typ_cd != null and voc_typ_cd != ''">
+                AND VOC_TYP_CD = #{voc_typ_cd}
+            </if>
+            <if test="voc_dsps_stat_cd != null and voc_dsps_stat_cd != ''">
+                AND VOC_DSPS_STAT_CD = #{voc_dsps_stat_cd}
+            </if>
+            <if test="voc_dsps_stat_cd_list != null and voc_dsps_stat_cd_list != ''">
+                AND VOC_DSPS_STAT_CD IN (${voc_dsps_stat_cd_list})
+            </if>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND A.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+            <if test="hpcl_trgt_yn != null and hpcl_trgt_yn != ''">
+                AND HPCL_TRGT_YN = #{hpcl_trgt_yn}
+            </if>
+            <if test="hpcl_dssr_id != null and hpcl_dssr_id != ''">
+                AND HPCL_DSSR_ID = #{hpcl_dssr_id}
+            </if>
+            <if test="hpcl_dsps_stat_cd_list != null and hpcl_dsps_stat_cd_list != ''">
+                AND HPCL_DSPS_STAT_CD IN (${hpcl_dsps_stat_cd_list})
+            </if>
+                    <if test="orderBy != null and orderBy != ''">
+                                     ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                       ) B
+               ) C
+    <if test="excel_fg == null or excel_fg == '' or !excel_fg.equalsIgnoreCase('Y')">
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+             WHERE PAGE_INDX >= #{startLine}
+               AND PAGE_INDX <  #{endLine}
+            ]]>
+        </if>
+    </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 SMS 이력 조회수
+     * 대상 테이블 : PS.WILLVI.TB_CHAT_SNDG_HSTR
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getChatSndgHstrCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getChatSndgHstrCount */
+               COUNT(*)
+          FROM TB_CHAT_SNDG_HSTR A
+          <choose>
+             <when test = "chat_fg != null and chat_fg !='' and chat_fg.equalsIgnoreCase('Y')">
+                WHERE CNTR_CD = #{cntr_cd}
+                  AND (MEM_NO = #{mem_no} OR CELL = REPLACE(#{v_cell}, '-', ''))
+             </when>
+             <otherwise>
+                WHERE 1=1
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cell != null and cell != ''">
+                AND CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+            </if>
+            <if test="chat_sndg_div_cd != null and chat_sndg_div_cd != ''">
+                AND CHAT_SNDG_DIV_CD = #{chat_sndg_div_cd}
+            </if>
+            <if test="chat_msg_titl != null and chat_msg_titl != ''">
+                AND CHAT_MSG_TITL LIKE '%' || #{chat_msg_titl} || '%'
+            </if>
+            <if test="chat_msg_cntn != null and chat_msg_cntn != ''">
+                AND CHAT_MSG_CNTN LIKE '%' || #{chat_msg_cntn} || '%'
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+            <![CDATA[
+                AND SNDG_DTTM >= REPLACE(#{stt_dt}, '-', '') || '000000'
+            ]]>
+            </if>
+            <if test="end_dt != null and end_dt != ''">
+            <![CDATA[
+                AND SNDG_DTTM <= REPLACE(#{end_dt}, '-', '') || '235959'
+            ]]>
+            </if>
+            <if test="dt_typ == 'today'">
+                AND CONS_DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+            </if>
+            <choose>
+                <when test="sndg_chpr_id != null and sndg_chpr_id != ''">
+                AND SNDG_CHPR_ID = #{sndg_chpr_id}
+                </when>
+                <when test="team_cd != null and team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.SNDG_CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team_cd})
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.SNDG_CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+            <if test="resr_yn != null and resr_yn != ''">
+                AND RESR_YN = #{resr_yn}
+            </if>
+            <if test="cntr_rprs_tlno != null and cntr_rprs_tlno != ''">
+                AND CNTR_RPRS_TLNO = REPLACE(#{cntr_rprs_tlno}, '-', '')
+            </if>
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+            <if test="chat_sndg_stat_cd != null and chat_sndg_stat_cd != ''">
+                AND CHAT_SNDG_STAT_CD = #{chat_sndg_stat_cd}
+            </if>
+            <if test="chat_sndg_resl_cd != null and chat_sndg_resl_cd != ''">
+                <choose>
+                    <when test="chat_sndg_resl_cd == 'FAIL'">
+                AND CHAT_SNDG_RESL_CD IS NOT NULL
+                AND CHAT_SNDG_RESL_CD != '1000'
+                    </when>
+                    <otherwise>
+                AND CHAT_SNDG_RESL_CD = #{chat_sndg_resl_cd}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="chat_sndg_hstr_id != null and chat_sndg_hstr_id != ''">
+                AND CHAT_SNDG_HSTR_ID = #{chat_sndg_hstr_id}
+            </if>
+             </otherwise>
+          </choose>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 SMS 이력 리스트 조회
+     * 대상 테이블 : PS.WILLVI.TB_CHAT_SNDG_HSTR
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getChatSndgHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getChatSndgHstrList */
+               C.*
+             , CASE WHEN CHAT_SNDG_DIV_CD = '0' THEN 'SMS'
+                    WHEN CHAT_SNDG_DIV_CD = '2' THEN 'MMS'
+                    WHEN CHAT_SNDG_DIV_CD = '3' THEN 'LMS'
+                    WHEN CHAT_SNDG_DIV_CD = '4' THEN '알림톡'
+                    ELSE ''
+                END CHAT_SNDG_DIV_NM
+                    /***********************************************
+                    2017-09-26 김준호 알림톡 관련 코드값 추가 및 수정
+                    ***********************************************/
+             , CASE
+                    WHEN  C.GUBUN= 'B' THEN NVL((SELECT CD_NM FROM TB_CD T WHERE CD_SET_CD = 'MSG001' AND CD= CHAT_SNDG_STAT_CD),'알림톡실패')
+                    ELSE CASE WHEN CHAT_SNDG_STAT_CD = '3' THEN '완료'
+                          WHEN CHAT_SNDG_STAT_CD = '2' THEN '결과대기'
+                          WHEN CHAT_SNDG_STAT_CD = '1' THEN '전송대기'
+                          WHEN CHAT_SNDG_STAT_CD = 'U' THEN '전송대기'
+                          ELSE ''
+                          END
+                END CHAT_SNDG_STAT_NM
+                   /*****************************************
+                    2017-09-26 김준호 알림톡 관련 코드값 추가 및 수정
+                    *****************************************/
+             , CASE
+                  WHEN C.GUBUN = 'B' THEN NVL((SELECT CD_NM FROM TB_CD T WHERE CD_SET_CD = 'MSG002' AND (CD= CHAT_SNDG_RESL_CD OR ADTL_CD = CHAT_SNDG_RESL_CD)),'알림톡실패')
+                  ELSE CASE WHEN CHAT_SNDG_RESL_CD = '1000' THEN '성공'
+                            WHEN CHAT_SNDG_RESL_CD IS NOT NULL THEN '실패'
+                            ELSE ''
+                            END
+                END CHAT_SNDG_RESL_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM_CD) AS TEAM_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.HGRN_TEAM_CD) AS HGRN_TEAM_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                     , (SELECT C.TEAM_CD
+                          FROM TB_USER C
+                         WHERE C.USER_ID = B.SNDG_CHPR_ID
+                           AND C.CNTR_CD = B.CNTR_CD) AS TEAM_CD
+                     , (SELECT D.HGRN_TEAM_CD
+                          FROM TB_USER C
+                             , TB_CONS_TEAM D
+                         WHERE C.USER_ID = B.SNDG_CHPR_ID
+                           AND C.CNTR_CD = B.CNTR_CD
+                           AND C.TEAM_CD = D.TEAM_CD
+                           AND C.CNTR_CD = D.CNTR_CD) AS HGRN_TEAM_CD
+                  FROM (SELECT CNTR_CD, CHAT_SNDG_HSTR_ID, CELL, CHAT_SNDG_DIV_CD, CHAT_MSG_TITL
+                             , CHAT_MSG_CNTN, MSG_TRNM_SCS_YN, MSG_TRNM_FALR_RSN
+                             , TO_CHAR(SNDG_DTTM, 'YYYY-MM-DD HH24:MI') AS SNDG_DTTM
+                             , SNDG_CHPR_ID
+                             , RESR_YN, TO_CHAR(RESR_DTTM, 'YYYY-MM-DD HH24:MI') AS RESR_DTTM, CNTR_RPRS_TLNO, CONSNO, MEM_NO
+                             , MEM_NM, CMPG_ID, TRGT_LIST_ID, TRGT_CUST_ID
+                             , CHAT_SNDG_STAT_CD, CHAT_SNDG_RESL_CD
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.SNDG_CHPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS SNDG_CHPR_NM
+                             , A.GUBUN
+                          FROM (select TC.*, 'A' AS GUBUN from TB_CHAT_SNDG_HSTR TC
+                                union all
+                                select TN.*, 'B' AS GUBUN from TB_CHAT_SNDG_HSTR_NEW TN) A
+                          <choose>
+                             <when test = "chat_fg != null and chat_fg !='' and chat_fg.equalsIgnoreCase('Y')">
+                                WHERE CNTR_CD = #{cntr_cd}
+                                  AND (MEM_NO = #{mem_no} OR CELL = REPLACE(#{v_cell}, '-', ''))
+                             </when>
+                             <otherwise>
+                                 WHERE 1=1
+            <if test="cntr_cd != null and cntr_cd != ''">
+                AND CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cell != null and cell != ''">
+                AND CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+            </if>
+            <if test="chat_sndg_div_cd != null and chat_sndg_div_cd != ''">
+                AND CHAT_SNDG_DIV_CD = #{chat_sndg_div_cd}
+            </if>
+            <if test="chat_msg_titl != null and chat_msg_titl != ''">
+                AND CHAT_MSG_TITL LIKE '%' || #{chat_msg_titl} || '%'
+            </if>
+            <if test="chat_msg_cntn != null and chat_msg_cntn != ''">
+                AND CHAT_MSG_CNTN LIKE '%' || #{chat_msg_cntn} || '%'
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+            <![CDATA[
+                AND SNDG_DTTM >= REPLACE(#{stt_dt}, '-', '') || '000000'
+            ]]>
+            </if>
+            <if test="end_dt != null and end_dt != ''">
+            <![CDATA[
+                AND SNDG_DTTM <= REPLACE(#{end_dt}, '-', '') || '235959'
+            ]]>
+            </if>
+            <if test="dt_typ == 'today'">
+                AND CONS_DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+            </if>
+            <choose>
+                <when test="sndg_chpr_id != null and sndg_chpr_id != ''">
+                AND SNDG_CHPR_ID = #{sndg_chpr_id}
+                </when>
+                <when test="team_cd != null and team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.SNDG_CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team_cd})
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.SNDG_CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+            <if test="resr_yn != null and resr_yn != ''">
+                AND RESR_YN = #{resr_yn}
+            </if>
+            <if test="cntr_rprs_tlno != null and cntr_rprs_tlno != ''">
+                AND CNTR_RPRS_TLNO = REPLACE(#{cntr_rprs_tlno}, '-', '')
+            </if>
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+            <if test="chat_sndg_stat_cd != null and chat_sndg_stat_cd != ''">
+                AND CHAT_SNDG_STAT_CD = #{chat_sndg_stat_cd}
+            </if>
+            <if test="chat_sndg_resl_cd != null and chat_sndg_resl_cd != ''">
+                <choose>
+                    <when test="chat_sndg_resl_cd == 'FAIL'">
+                AND CHAT_SNDG_RESL_CD IS NOT NULL
+                AND CHAT_SNDG_RESL_CD != '1000'
+                    </when>
+                    <otherwise>
+                AND CHAT_SNDG_RESL_CD = #{chat_sndg_resl_cd}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="chat_sndg_hstr_id != null and chat_sndg_hstr_id != ''">
+                AND CHAT_SNDG_HSTR_ID = #{chat_sndg_hstr_id}
+            </if>
+                             </otherwise>
+                          </choose>
+                    <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 Encom 이력 조회수
+     * 대상 테이블 : LF_DMUSER.CNSL_MNG, LF_DMUSER.MEM_PROD_ACCNT
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwConsCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getDlwConsCount */
+               COUNT(*)
+          FROM LF_DMUSER.CNSL_MNG A
+          LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT ACCNT
+            ON A.ACCNT_NO = ACCNT.ACCNT_NO
+         WHERE A.MEM_NO = #{mem_no}
+           AND NVL(ACCNT.DEL_FG, 'N') = 'N'
+        <if test="accnt_no != null and accnt_no != ''">
+           AND A.ACCNT_NO = #{accnt_no}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 Encom 이력 리스트 조회
+     * 대상 테이블 : LF_DMUSER.CNSL_MNG, LF_DMUSER.MEM_PROD_ACCNT
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwConsList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getDlwConsList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(CNSL_DT DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+         FROM (SELECT A.SEQ
+                    , A.MEM_NO
+                    , A.ACCNT_NO
+                    , (CASE WHEN A.ACCNT_NO = '00000'
+                            THEN '기타문의'
+                            ELSE (LF_DMUSER.FN_PROD_NM((SELECT PROD_CD FROM LF_DMUSER.MEM_PROD_ACCNT WHERE MEM_PROD_ACCNT.ACCNT_NO = A.ACCNT_NO)))
+                       END) AS PROD_NM
+                    , A.CNSL_DT AS CNSL_DT
+                    , REPLACE(A.CNSL_CON, CHR(13), '') AS CNSL_CON
+                    , (SELECT (SELECT GRP_NM
+                                 FROM LF_DMUSER.COM_CD_GRP
+                                WHERE GRP_CD = GUBN
+                                  AND CON LIKE '%상담구분%')
+                         FROM LF_DMUSER.CNSL_DTL
+                        WHERE MEM_NO = A.MEM_NO
+                          AND SEQ = A.SEQ
+                          AND CNSL_SEQ = A.CNSL_SEQ
+                          AND ROWNUM = 1) AS GUBN_NM
+                    , A.CNSL_MAN
+                    , A.CALL_TEL
+                    , A.REC_PATH
+                    , A.REC_FILE
+                    , LF_DMUSER.FN_EMPLE_NM(A.CNSL_MAN) AS CNSL_MAN_NM
+                    , (SELECT DEPT_NM
+                              FROM LF_DMUSER.DEPARTMENT
+                             WHERE DEPT_CD = (SELECT DEPT_CD
+                                                FROM LF_DMUSER.EMPLOYEE
+                                               WHERE EMPLOYEE.EMPLE_NO = CNSL_MAN)) AS CNSL_MAN_DEPT_NM
+                    , A.CNSL_SEQ
+                    , CASE WHEN REG_CL = '02' AND (CD.CNSL_CON NOT LIKE '%주소:%' AND
+                                                        CD.CNSL_CON NOT LIKE '%휴대폰:%' AND
+                                                        CD.CNSL_CON NOT LIKE '%전화:%' AND
+                                                        CD.CNSL_CON NOT LIKE '%비고:%')
+                         THEN A.CNSL_CON
+                           ELSE  CD.CNSL_CON
+                      END CNSL_CON_SHOW
+                 FROM LF_DMUSER.CNSL_MNG A
+                 LEFT OUTER JOIN LF_DMUSER.MEM_PROD_ACCNT ACCNT
+                   ON A.ACCNT_NO = ACCNT.ACCNT_NO
+                    left outer join LF_DMUSER.CNSL_DTL cd on cd.MEM_NO = A.MEM_NO  AND cd.SEQ = A.SEQ AND cd.CNSL_SEQ = A.CNSL_SEQ
+                WHERE A.MEM_NO = #{mem_no}
+                  AND NVL(ACCNT.DEL_FG, 'N') = 'N'
+              <if test="accnt_no != null and accnt_no != ''">
+                  AND A.ACCNT_NO = #{accnt_no}
+              </if>
+               ) A
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 홈페이지 이력 조회수
+     * 대상 테이블 : LF_DMUSER.MB_MEM_CHNG_PTC@DMWEB, LF_DMUSER.MB_MEM_MST@DMWEB
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwlifeweyCount" parameterType="map" resultType="int">
+        SELECT /* DlwNewTypeConsMap.getDlwlifeweyCount */
+               COUNT(*)
+          from MB_MEM_CHNG_PTC@DMWEB A1
+    		 LEFT OUTER JOIN  MB_MEM_MST@DMWEB B1  ON A1.ID=B1.ID
+  			where   B1.UNQ_NO='2012035263'
+        <if test="mem_no != null and mem_no != ''">
+           AND B1.UNQ_NO = #{mem_no}
+        </if>
+    </select>
+  	  
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 홈페이지 이력 리스트 조회
+     * 대상 테이블 : LF_DMUSER.MB_MEM_CHNG_PTC@DMWEB, LF_DMUSER.MB_MEM_MST@DMWEB
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwlifeweyList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getDlwlifeweyList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(A.REG_DM DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+         FROM ( select  UNQ_NO mem_no ,  A1.reg_id REG_man  ,A1.reg_dtm REG_DM,
+			           CASE WHEN BFR_NAME <![CDATA[<>  ]]>  AFT_NAME  THEN '[회원명]:' || BFR_NAME || '>' ||  AFT_NAME ELSE '' END  || 
+			           CASE WHEN BFR_EMAIL <![CDATA[<>  ]]>  AFT_EMAIL  THEN ' [E-MAIL]:' || BFR_EMAIL || '>' ||  AFT_EMAIL ELSE '' END ||
+			           CASE WHEN BFR_HP <![CDATA[<>  ]]>  AFT_HP  THEN ' [핸드폰]:' || BFR_HP || '>' ||  AFT_HP ELSE '' END ||
+			           CASE WHEN BFR_TEL <![CDATA[<>  ]]>  AFT_TEL  THEN ' [전화]:' || BFR_TEL || '>' ||  AFT_TEL ELSE '' END ||
+			           CASE WHEN BFR_ZIPCD <![CDATA[<>  ]]>  AFT_ZIPCD  THEN ' [우편번호]:' || BFR_ZIPCD || '>' ||  AFT_ZIPCD ELSE '' END ||
+			           CASE WHEN BFR_ADR <![CDATA[<>  ]]>  AFT_ADR  THEN ' [주소]:' || BFR_ADR || '>' ||  AFT_ADR ELSE '' END ||
+			           CASE WHEN BFR_ADR_DTL <![CDATA[<>  ]]>  AFT_ADR_DTL  THEN ' [상세주소]:' || BFR_ADR_DTL || '>' ||  AFT_ADR_DTL ELSE '' END  BIGO           
+               from MB_MEM_CHNG_PTC@DMWEB A1
+  						 LEFT OUTER JOIN  MB_MEM_MST@DMWEB B1  ON A1.ID=B1.ID
+                WHERE  B1.UNQ_NO= #{mem_no}
+               ) A
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 아웃바운드정보 탭
+     * 대상 테이블 : PS_WILLVI.TB_TRGT_CUST_DTPT, PS_WILLVI.TB_DPMS_RESL_HSTR
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeTrgtCustDtptList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getNewTypeTrgtCustDtptList */
+            HSTR.RGSN_DTTM,
+            DTPT.TRGT_CUST_DTPT_ID,
+            DPMS_RESL_CNTN
+        FROM PS_WILLVI.TB_TRGT_CUST_DTPT DTPT INNER JOIN
+            PS_WILLVI.TB_DPMS_RESL_HSTR HSTR ON DTPT.TRGT_CUST_DTPT_ID = HSTR.TRGT_CUST_DTPT_ID
+        WHERE REPLACE(DTPT.CLPH_TLNO, '-', '') = REPLACE(#{v_cell}, '-', '') 
+        ORDER BY RGSN_DTTM DESC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 해약정보 탭 (해약정보_상품정보 및 가입일자에 따른 SEQ, 적용일자를 검색한다.)
+     * 대상 테이블 : LF_DMUSER.RESNSTD_M
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwResnAmtList" parameterType="map" resultType="resultMap">
+     SELECT * FROM
+        (SELECT /* DlwNewTypeConsMap.getDlwResnAmtList */
+               SEQ, M.PROD_CD, P.PROD_NM, M.MODEL_CL_CD
+             , LF_DMUSER.FN_MODEL_CL_NM(M.MODEL_CL_CD) MODEL_CL_NM
+             , M.APP_DAY AS APP_DAY
+             , P.PROD_AMT, P.EXPR_NO
+             , CASE WHEN P.SALE_CL ='Y'
+                         THEN '판매중'
+                    ELSE '판매중지'
+                END SALE_CL
+             , CASE WHEN M.USE_YN ='Y'
+                         THEN '사용'
+                    ELSE '미사용'
+                END USE_YN
+          FROM LF_DMUSER.RESNSTD_M M
+               INNER JOIN LF_DMUSER.PRODUCT P
+                       ON M.PROD_CD = P.PROD_CD
+                     WHERE P.DEL_FG ='N'
+                       AND M.PROD_CD = #{prod_cd}
+                       <if test="model_cl_cd != null and model_cl_cd != ''">
+				           AND M.MODEL_CL_CD = #{model_cl_cd}
+				       </if>
+                       AND M.APP_DAY <![CDATA[<=]]> #{join_dt} <!-- 가입일자보다 적용일이 작거나 같아야 한다. -->
+              ORDER BY APP_DAY DESC
+          )
+          WHERE ROWNUM = 1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 해약정보 탭 (대명라이프웨이 해약환급금 D 목록을 검색한다.)
+     * 대상 테이블 : LF_DMUSER.RESNSTD_D
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getResnAmtDetailList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getResnAmtDetailList */
+               *
+          FROM (SELECT <if test="orderBy != null and orderBy != ''">
+                           ROW_NUMBER() OVER(ORDER BY to_number(${orderBy}) ${orderDirection}) PAGE_INDX,
+                       </if>
+                       <if test="orderBy == null or orderBy == ''">
+                           ROW_NUMBER() OVER(ORDER BY NO ASC) PAGE_INDX,
+                       </if>
+                       X.*
+                  FROM (SELECT M.PROD_CD
+                             , D.NO AS RESN_SEQ
+                             , ROUND(TO_NUMBER(RESN_AMT),0) AS RESN_AMT
+                             , D.NO
+                          /*   , ISNULL(CONVERT(DECIMAL(10,0), ROUND(CONVERT(NUMERIC, RESN_AMT) / (SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO <![CDATA[<=]]>  D.NO) * 100,1,1)), 100.0) AS AMT_PER  */
+                          /* , nvl( TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO   <![CDATA[<=]]>   D.NO) )* 100,0)),100) AS AMT_PER */
+                          /* 2017.09.26 상품코드 : 19, 상품분류 : 0356 일경우 추가 */
+                           , (CASE WHEN M.PROD_CD = '19' AND #{model_cl_cd} = '0356' THEN
+                                         (SELECT TO_NUMBER(PCT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = '^9' AND NO = D.NO)
+                         /* 2017.10.23 상품코드 : M1 일경우 추가 */
+                                   WHEN M.PROD_CD = 'M1' THEN
+                                         (SELECT TO_NUMBER(PCT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = '^1' AND NO = D.NO)
+                                   WHEN M.PROD_CD = 'ZA' THEN
+                                         (RESN_AMT / (SELECT SUM(CASE WHEN SEQ = 1 THEN END_NO*MONTH_PAY_AMT
+                                                                     WHEN SEQ = 2 THEN (END_NO-ST_NO+1)*MONTH_PAY_AMT
+                                                                ELSE 0 END)
+                                                     FROM LF_DMUSER.PRODUCT_DTL
+                                                     WHERE PROD_CD = M.PROD_CD))*100
+                                   WHEN M.PROD_CD = 'ZB' THEN
+                                        (RESN_AMT / (SELECT PROD_AMT FROM LF_DMUSER.PRODUCT WHERE PROD_CD = M.PROD_CD))*100
+                                   WHEN M.PROD_CD = 'ZC' THEN
+                                        (RESN_AMT / (SELECT PROD_AMT FROM LF_DMUSER.PRODUCT WHERE PROD_CD = M.PROD_CD))*100
+                                   WHEN M.PROD_CD = 'OA' THEN 
+                                       CASE WHEN D.NO >= 119 AND D.NO <![CDATA[<]]> 134 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'KZ' THEN 
+                                       CASE WHEN D.NO >= 119 AND D.NO <![CDATA[<]]> 134 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'ZE' THEN 
+                                       CASE WHEN D.NO >= 1 AND D.NO <![CDATA[<]]> 49 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'ZF' THEN 
+                                       CASE WHEN D.NO >= 1 AND D.NO <![CDATA[<]]> 25 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                   WHEN M.PROD_CD = 'ZG' THEN 
+                                       CASE WHEN D.NO >= 1 AND D.NO <![CDATA[<]]> 49 THEN 85
+                                           ELSE NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO  <![CDATA[<=]]>  D.NO) ) * 100,0)),100)
+                                       END
+                                    ELSE
+                                         NVL(TO_NUMBER(round( TO_NUMBER(RESN_AMT) /  ((SELECT SUM(AMT) FROM LF_DMUSER.PRODUCT_NO_DATA WHERE PROD_CD = P.PROD_CD AND NO <![CDATA[<=]]> D.NO) )* 100,0)),100)
+                               END) AMT_PER
+                        FROM LF_DMUSER.RESNSTD_D D
+                       INNER JOIN LF_DMUSER.RESNSTD_M M
+                          ON M.SEQ = D.MST_SEQ
+                        LEFT OUTER JOIN LF_DMUSER.PRODUCT_NO_DATA P
+                          ON P.PROD_CD = M.PROD_CD
+                         AND P.NO = D.NO
+                       WHERE D.MST_SEQ = #{mst_seq}
+                       ) X
+                ) Z
+     <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+         <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+         ]]>
+     </if>
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 해약정보 탭 (납입이력(상조부금) 정보를 검색한다.)
+     * 대상 테이블 : LF_DMUSER.PAY_MNG
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwPayMngList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectPayMngList -->
+
+        SELECT /* DlwNewTypeConsMap.getDlwPayMngList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(ORDER BY A.NO DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+         FROM (<![CDATA[
+                SELECT A.ACCNT_NO, A.SEQ, A.NO, A.PAY_AMT, A.PAY_MTHD
+                    , A.STAT, A.DC_AMT_SEQ, C.DC_AMT, A.RC_STAT
+                    , '상조부금' AS PYIN_TYP
+                    , nvl(A.PAY_DAY,'') AS PAY_DAY
+                    , LF_DMUSER.FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+                    , CASE WHEN A.STAT = 0
+                                THEN '정상'
+                           ELSE (CASE WHEN A.STAT = '1'
+                                           THEN '선납'
+                                      ELSE '연체'
+                                  END)
+                        END AS STAT_NM
+                    , substr( add_months(B.JOIN_DT, -1),0,7)  AS MON_NO
+                    , CASE WHEN A.PAY_MTHD ='04'
+                                THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                               THEN WR.APP_DT
+                                          ELSE A.WDRW_INV_DT
+                                      END
+                           WHEN A.PAY_MTHD ='06'
+                                THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                               THEN CWR.APP_DT
+                                          ELSE  A.WDRW_INV_DT
+                                      END
+                           ELSE ''
+                       END AS APP_DT
+                    , CASE WHEN (substr(A.PAY_DAY,1, 6) = NVL((SELECT CM.CLOSE_DT
+                                                                                       FROM LF_DMUSER.CLOSE_MNG CM
+                                                                                      WHERE CM.DEL_FG = 'N'
+                                                                                        AND substr((A.PAY_DAY), 1,4)||'/'||substr((A.PAY_DAY), 5,2) =CM.CLOSE_DT),''))
+                            AND (substr((A.PAY_DAY), 1,4)||'/'||substr((A.PAY_DAY), 5,2) NOT IN (SELECT  CER.CLOSE_DT
+                                                                                     FROM LF_DMUSER.CLOSE_EDT_REQ CER
+                                                                                    WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                                      AND CER.CLOSE_CL = '0001'
+                                                                                      AND CER.EDT_YN = 'Y'
+                                                                                      AND CER.DEL_FG = 'N'
+                                                                                 GROUP BY CER.CLOSE_DT))
+                           THEN 'N'
+                           ELSE 'Y'
+                      END EDT_YN
+                 FROM LF_DMUSER.PAY_MNG A
+                INNER JOIN LF_DMUSER.MEM_PROD_ACCNT B
+                           ON A.ACCNT_NO = B.ACCNT_NO
+           LEFT OUTER JOIN LF_DMUSER.DC_AMT_REG C
+                           ON A.ACCNT_NO = C.ACCNT_NO
+                          AND A.DC_AMT_SEQ = C.SEQ
+                          AND C.DEL_FG = 'N'
+                          AND A.NO = (SELECT MAX(NO)
+                                        FROM LF_DMUSER.PAY_MNG
+                                       WHERE ACCNT_NO = A.ACCNT_NO
+                                         AND DC_AMT_SEQ = C.SEQ)
+                 LEFT OUTER JOIN (
+
+
+                           select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                           (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                           (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                           group by a.accnt_no , a.inv_no
+
+
+                          ) WR
+                           ON WR.ACCNT_NO = B.ACCNT_NO
+                          AND (A.NO <= WR.INV_NO
+                               AND A.NO > WR.PREV_INV_NO)
+                          AND A.DEL_FG = 'N'
+                 LEFT outer JOIN (
+
+                                select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = '201202000960' and stat = '04' ) a left outer join
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = '201202000960' and stat = '04' ) b on a.inv_no > b.inv_no
+                               group by a.accnt_no , a.inv_no
+
+                          ) CWR
+                           ON CWR.ACCNT_NO = B.ACCNT_NO
+                          AND (A.NO <= CWR.INV_NO
+                               AND A.NO > CWR.PREV_INV_NO)
+                WHERE A.DEL_FG = 'N'
+                  AND A.ACCNT_NO = #{accnt_no}
+               ]]> 
+               ) A
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 납입이력 탭
+     * 대상 테이블 : LF_DMUSER.PAY_MNG, LF_DMUSER.PAY_MNG_DTL, LF_DMUSER.PAY_MNG_DTL1
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwPayMngAllList" parameterType="map" resultType="resultMap">    	
+			SELECT  
+			    	/*DlwNewTypeConsMap.getDlwPayMngAllList*/
+			    	 MAIN.*,
+				     (TRUE_PAY_AMT + RELAT_PAY_AMT + ADD_PAY_AMT) AS TOT_AMT,
+				     TO_CHAR(ADD_MONTHS(JOIN_DT, NO -1),'YYYYMMDD') AS MON_NO,
+				     (
+				         CASE WHEN STAT = 0 THEN '정상'    
+				              WHEN STAT = 1 THEN '선납'
+				         ELSE '연체'
+				         END
+				     ) AS STAT_NM,
+		             CASE WHEN TRUE_PAY_AMT > 0 THEN PAY_DAY1 
+		                  WHEN TRUE_PAY_AMT = 0 AND RELAT_PAY_AMT > 0 THEN PAY_DAY2
+		             ELSE PAY_DAY3
+		             END AS PAY_DAY,
+		             CASE WHEN TRUE_PAY_AMT > 0 THEN LF_DMUSER.FN_COM_NM('01', MAIN.PAY_MTHD1) 
+		                  WHEN TRUE_PAY_AMT = 0 AND RELAT_PAY_AMT > 0 THEN LF_DMUSER.FN_COM_NM('01', MAIN.PAY_MTHD2)
+		             ELSE LF_DMUSER.FN_COM_NM('01', MAIN.PAY_MTHD3)
+		             END AS PAY_MTHD_NM             
+			 FROM
+			 (
+			     SELECT
+			         ACCNT_NO,
+			         NO,
+			         MAX(JOIN_DT) AS JOIN_DT,
+			         MAX((CASE WHEN PAY_GNB = 'PM' THEN PAY_AMT ELSE 0 END)) AS TRUE_PAY_AMT,
+			         MAX((CASE WHEN PAY_GNB = 'PM1' THEN PAY_AMT ELSE 0 END)) AS RELAT_PAY_AMT,
+			         MAX((CASE WHEN PAY_GNB = 'PM2' THEN PAY_AMT ELSE 0 END)) AS ADD_PAY_AMT,
+			         MIN((CASE WHEN PAY_GNB = 'PM' THEN PAY_DAY ELSE '99999999' END)) AS PAY_DAY1,
+		             MIN((CASE WHEN PAY_GNB = 'PM1' THEN PAY_DAY ELSE '99999999' END)) AS PAY_DAY2,
+		             MIN((CASE WHEN PAY_GNB = 'PM2' THEN PAY_DAY ELSE '99999999' END)) AS PAY_DAY3,
+			         MIN((CASE WHEN PAY_GNB = 'PM' THEN STAT ELSE 9 END)) AS STAT,
+			         MIN((CASE WHEN PAY_GNB = 'PM' THEN PAY_MTHD ELSE '99' END)) AS PAY_MTHD1,
+		             MIN((CASE WHEN PAY_GNB = 'PM1' THEN PAY_MTHD ELSE '99' END)) AS PAY_MTHD2,
+		             MIN((CASE WHEN PAY_GNB = 'PM2' THEN PAY_MTHD ELSE '99' END)) AS PAY_MTHD3,
+			         ROW_NUMBER() OVER(ORDER BY NO DESC, PAY_DAY DESC) AS PAGE_INDX
+			     FROM
+			     (
+			         SELECT 
+			             MPA.ACCNT_NO,
+			             MPA.JOIN_DT,
+			             'PM' AS PAY_GNB,
+			             PM.PAY_MTHD,
+			             PM.STAT, 
+			             PM.NO,
+			             PM.PAY_AMT,
+			             PM.PAY_DAY
+			         FROM LF_DMUSER.MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+			             LF_DMUSER.PAY_MNG PM ON MPA.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N' 
+			         WHERE 1=1
+			         AND MPA.ACCNT_NO = #{accnt_no}
+			         AND MPA.DEL_FG = 'N'
+			         
+			         UNION ALL
+			         
+			         SELECT 
+			             MPA.ACCNT_NO,
+			             MPA.JOIN_DT,
+			             'PM1' AS PAY_GNB,
+			             PM.PAY_MTHD,
+			             PM.STAT,
+			             PM.NO,
+			             PM.PAY_AMT,
+			             PM.PAY_DAY
+			         FROM LF_DMUSER.MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+			             LF_DMUSER.PAY_MNG_DTL PM ON MPA.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N' 
+			         WHERE 1=1	         
+			         AND MPA.ACCNT_NO = #{accnt_no}
+			         AND MPA.DEL_FG = 'N'
+			         
+			         UNION ALL
+			         
+			         SELECT 
+			             MPA.ACCNT_NO,
+			             MPA.JOIN_DT,
+			             'PM2' AS PAY_GNB,
+			             PM.PAY_MTHD,
+			             PM.STAT,
+			             PM.NO,
+			             PM.PAY_AMT,
+			             PM.PAY_DAY
+			         FROM LF_DMUSER.MEM_PROD_ACCNT MPA LEFT OUTER JOIN
+			             LF_DMUSER.PAY_MNG_DTL1 PM ON MPA.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N' 
+			         WHERE 1=1
+			         AND MPA.ACCNT_NO = #{accnt_no}
+			         AND MPA.DEL_FG = 'N'
+			     )
+			     GROUP BY ACCNT_NO, NO, PAY_DAY
+			     HAVING NO > 0
+			 ) MAIN 
+    			     
+    </select>
+    
+     	<!-- 
+        SELECT /* DlwNewTypeConsMap.getDlwPayMngAllList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(ORDER BY NO DESC, PAY_DAY DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+          FROM (SELECT NO, MON_NO, PAY_DAY
+                     , nvl(SUM(CASE WHEN PMT_GB = 'A' THEN PAY_AMT ELSE 0 END), 0) AS TRUE_PAY_AMT
+                     , nvl(SUM(CASE WHEN PMT_GB = 'B' THEN PAY_AMT ELSE 0 END), 0) AS RELAT_PAY_AMT
+                     , nvl(SUM(CASE WHEN PMT_GB = 'C' THEN PAY_AMT ELSE 0 END), 0) AS ADD_PAY_AMT
+                     , nvl(SUM(PAY_AMT), 0) AS TOT_AMT
+                     , PAY_MTHD
+                     , LF_DMUSER.FN_COM_NM('01', PAY_MTHD) AS PAY_MTHD_NM
+                     , STAT
+                     , (CASE WHEN STAT = 0
+                             THEN '정상'
+                             WHEN STAT = 1
+                             THEN '선납'
+                             ELSE '연체'
+                        END) AS STAT_NM
+                     , APP_DT
+        <![CDATA[
+                  FROM (SELECT 'A' AS PMT_GB
+                              ,a.no
+                              ,a.pay_day
+                              ,a.pay_amt
+                              ,a.pay_mthd
+                              ,a.stat
+                          /*    ,substring(convert(varchar,dateadd(mm, no-1, b.join_dt),120), 0,8) as mon_no  */
+                              ,  to_char(ADD_MONTHS(b.join_dt, no -1),'YYYYMMDD') as MON_NO
+                              , CASE WHEN a.pay_mthd ='04' then case when a.wdrw_inv_dt is null then wr.app_dt else a.wdrw_inv_dt end
+                                  WHEN a.pay_mthd ='06' then case when a.wdrw_inv_dt is null then cwr.app_dt else a.wdrw_inv_dt end
+                                  ELSE null
+                                  END as app_dt
+                        FROM   LF_DMUSER.PAY_MNG a
+                              INNER JOIN LF_DMUSER.MEM_PROD_ACCNT b  ON a.ACCNT_NO = b.ACCNT_NO
+                              LEFT OUTER JOIN LF_DMUSER.DC_AMT_REG c ON a.ACCNT_NO = c.ACCNT_NO
+                              AND a.DC_AMT_SEQ = c.SEQ   AND c.DEL_FG = 'N'
+                              AND a.NO = (select max(no) from LF_DMUSER.PAY_MNG where accnt_no = a.ACCNT_NO and dc_amt_seq = c.SEQ)
+                              LEFT OUTER JOIN
+                              (
+                               select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                               (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                               (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                               group by a.accnt_no , a.inv_no
+                               )wr on wr.accnt_no=b.accnt_no and (a.no <= wr.inv_no and a.no > wr.prev_inv_no)  AND a.DEL_FG = 'N'
+                              LEFT OUTER JOIN
+                              (
+                              select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                               group by a.accnt_no , a.inv_no
+                            )
+                               cwr on cwr.accnt_no=b.accnt_no and (a.no <= cwr.inv_no and a.no > cwr.prev_inv_no)
+                        WHERE  a.del_fg = 'N'
+                              and a.accnt_no = #{accnt_no}
+
+                        UNION ALL
+
+                        SELECT 'B' AS PMT_GB
+                              ,a.no
+                              ,a.pay_day
+                              ,a.pay_amt
+                              ,a.pay_mthd
+                              ,a.stat
+                            /*  ,substring(convert(varchar,dateadd(mm, no-1, b.join_dt),120), 0,8) as mon_no */
+                              , TO_CHAR(ADD_MONTHS(b.join_dt,no -1),'YYYYMMDD') as MON_NO
+                              , CASE WHEN a.pay_mthd ='04' then case when a.wdrw_inv_dt is null then wr.app_dt else a.wdrw_inv_dt end
+                                  WHEN a.pay_mthd ='06' then case when a.wdrw_inv_dt is null then cwr.app_dt else a.wdrw_inv_dt end
+                                  ELSE null
+                                  END as app_dt
+                        FROM  LF_DMUSER.PAY_MNG_DTL a
+                              INNER JOIN LF_DMUSER.MEM_PROD_ACCNT b
+                              ON a.ACCNT_NO = b.ACCNT_NO
+                              LEFT OUTER JOIN
+                              (
+                                  select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                               )wr on wr.accnt_no=b.accnt_no and (a.no <= wr.inv_no and a.no > wr.prev_inv_no)
+                              LEFT OUTER JOIN
+                              (
+                                   select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                               )cwr on cwr.accnt_no=b.accnt_no and (a.no <= cwr.inv_no and a.no > cwr.prev_inv_no)
+                        WHERE  a.del_fg = 'N'
+                              and a.accnt_no = #{accnt_no}
+
+                        UNION ALL
+
+                        SELECT 'C' AS PMT_GB
+                              ,a.no
+                              ,a.pay_day
+                              ,a.pay_amt
+                              ,a.pay_mthd
+                              ,a.stat
+                               /* ,substring(convert(varchar,dateadd(mm, no-1, b.join_dt),120), 0,8) as mon_no */
+
+                              ,TO_CHAR(ADD_MONTHS(b.join_dt,no -1), 'YYYYMMDD') as MON_NO
+                              , CASE WHEN a.pay_mthd ='04' then case when a.wdrw_inv_dt is null then wr.app_dt else a.wdrw_inv_dt end
+                                  WHEN a.pay_mthd ='06' then case when a.wdrw_inv_dt is null then cwr.app_dt else a.wdrw_inv_dt end
+                                  ELSE null
+                                  END as app_dt
+                        FROM  LF_DMUSER.PAY_MNG_DTL1 a
+                              INNER JOIN LF_DMUSER.MEM_PROD_ACCNT b
+                              ON a.ACCNT_NO = b.ACCNT_NO
+                              LEFT OUTER JOIN
+                              (
+                               select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                                )wr on wr.accnt_no=b.accnt_no  and (a.no <= wr.inv_no and a.no > wr.prev_inv_no)
+                              LEFT JOIN
+                              (
+                                  select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from LF_DMUSER.card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                               )cwr on cwr.accnt_no=b.accnt_no and (a.no <= cwr.inv_no and a.no > cwr.prev_inv_no)
+                        WHERE  a.del_fg = 'N'
+                              and a.accnt_no = #{accnt_no}
+                       ) A
+                 GROUP BY NO, MON_NO, PAY_DAY, PAY_MTHD, STAT, APP_DT
+               ) A
+        ]]>
+         -->
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 결제정보 탭
+     * 대상 테이블 : LF_DMUSER.NEW_CANCL_APP, LF_DMUSER.CARD_NEW_CANCL_APP
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwPymnHstrList" parameterType="map" resultType="resultMap">
+    
+    SELECT
+    	/* DlwNewTypeConsMap.getDlwPymnHstrList */ 
+    	*
+	FROM
+	(
+	    SELECT 
+	        CMS.ACCNT_NO AS CMS_ACCNT,
+	        SUBSTR(CMS.APP_DT,1,8) APP_DT,
+            TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT,
+	        CMS.APP_CL,
+	        LF_DMUSER.FN_COM_NM('17',CMS.APP_CL) ||'(CMS)' APP_CL_NM,
+	        CMS.BANK_CD,
+	        '('|| CMS.BANK_CD ||') ' || LF_DMUSER.FN_COM_NM('63',CMS.BANK_CD) BANK_NM,
+	        BANK_ACCNT_NO,
+	        CMS.INV_TG_DT,
+	        NVL(CMS.BIRTH,'') IDN_NO,    
+	        '' AS EXPIRE_DATE,
+	        (SELECT ICHAE_DT FROM LF_DMUSER.CMS_MEM WHERE 1=1 AND DEL_FG = 'N' AND ACCNT_NO = CMS.ACCNT_NO) AS ICHAE_DT,
+	        UPD_DM 
+	    FROM LF_DMUSER.NEW_CANCL_APP CMS
+	    WHERE 1=1
+	    AND CMS.ACCNT_NO =  #{accnt_no}
+	
+	    UNION ALL 
+	
+	    SELECT 
+	        CARD.ACCNT_NO AS CMS_ACCNT,
+	        SUBSTR(CARD.APP_DT,1,8) AS APP_DT,   
+            TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT,
+	        CARD.APP_CL, 
+	        LF_DMUSER.FN_COM_NM('17',CARD.APP_CL) || '(Card)' APP_CL_NM,
+	        CARD.CARD_CD,
+            CASE WHEN NVL(INI_YN,'N') = 'N' THEN LF_DMUSER.FN_COM_NM('0120',CARD.CARD_CD)
+            ELSE LF_DMUSER.FN_COM_NM('0196',CARD.CARD_CD) END AS CARD_NM,   
+	        CARD_NO,    
+	        CARD.INV_TG_DT,
+	        CARD.CARD_BIRTH,
+	        CARD.EXPIRE_DATE,
+	        (SELECT PAY_DT FROM LF_DMUSER.CARD_MEM WHERE 1=1 AND ACCNT_NO = CARD.ACCNT_NO AND DEL_FG = 'N' ) AS ICHAE_DT,
+	        UPD_DM 
+	    FROM LF_DMUSER.CARD_NEW_CANCL_APP CARD
+	    WHERE 1=1
+	    AND CARD.ACCNT_NO =  #{accnt_no}
+	
+	    UNION ALL
+	
+	    SELECT 
+	        CMS.ACCNT_NO AS CMS_ACCNT,
+	        SUBSTR(CMS.APP_DT,1,8) APP_DT,
+            TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT,
+	        CMS.APP_CL,
+	        LF_DMUSER.FN_COM_NM('17',CMS.APP_CL) ||'(CMS)' APP_CL_NM,
+	        CMS.BANK_CD,
+	        '('|| CMS.BANK_CD ||') ' || LF_DMUSER.FN_COM_NM('63',CMS.BANK_CD) BANK_NM,
+	        BANK_ACCNT_NO,
+	        CMS.INV_TG_DT,
+	        NVL(CMS.BIRTH,'') IDN_NO,    
+	        '' AS EXPIRE_DATE,
+	        (SELECT ICHAE_DT FROM LF_DMUSER.CMS_MEM WHERE 1=1 AND DEL_FG = 'N' AND ACCNT_NO = CMS.ACCNT_NO) AS ICHAE_DT,
+	        UPD_DM 
+	    FROM LF_DMUSER.NEW_CANCL_APP CMS  
+	    WHERE 1=1
+	    AND CMS.ACCNT_NO IN (SELECT ACCNT_NO_DBL  FROM LF_DMUSER.TB_ACCNT_DOUBLE WHERE ACCNT_NO =  #{accnt_no})
+	
+	    UNION ALL 
+	
+	    SELECT 
+	        CARD.ACCNT_NO AS CMS_ACCNT,
+	        SUBSTR(CARD.APP_DT,1,8) AS APP_DT, 
+            TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT,
+	        CARD.APP_CL, 
+	        LF_DMUSER.FN_COM_NM('17',CARD.APP_CL) || '(Card)' APP_CL_NM,
+	        CARD.CARD_CD,
+            CASE WHEN NVL(INI_YN,'N') = 'N' THEN LF_DMUSER.FN_COM_NM('0120',CARD.CARD_CD)
+            ELSE LF_DMUSER.FN_COM_NM('0196',CARD.CARD_CD) END AS CARD_NM,   
+	        CARD_NO,    
+	        CARD.INV_TG_DT,
+	        CARD.CARD_BIRTH,
+	        CARD.EXPIRE_DATE,
+	        (SELECT PAY_DT FROM LF_DMUSER.CARD_MEM WHERE 1=1 AND ACCNT_NO = CARD.ACCNT_NO AND DEL_FG = 'N' ) AS ICHAE_DT,
+	        UPD_DM 
+	    FROM LF_DMUSER.CARD_NEW_CANCL_APP CARD
+	    WHERE 1=1
+	    AND CARD.ACCNT_NO IN (SELECT ACCNT_NO_DBL  FROM LF_DMUSER.TB_ACCNT_DOUBLE WHERE ACCNT_NO =  #{accnt_no})
+	)
+	ORDER BY UPD_DM DESC 
+    
+    
+    <!-- 
+    SELECT /* DlwNewTypeConsMap.getDlwPymnHstrList */
+           A.*,
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+            </when>
+            <otherwise>
+                ROW_NUMBER() OVER(ORDER BY A.UPD_DM DESC) PAGE_INDX
+            </otherwise>
+        </choose>
+      FROM (SELECT SEQ, ACCNT_NO
+                 , substr(APP_DT,1,8) APP_DT
+                 ,   TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT
+                 , APP_CL, LF_DMUSER.FN_COM_NM('17',APP_CL) ||'(CMS)' APP_CL_NM
+                 , BANK_CD, '('|| BANK_CD ||') ' || LF_DMUSER.FN_COM_NM('63',BANK_CD) BANK_NM
+               /*  ,  CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, BANK_ACCNT_NO)) BANK_ACCNT_NO */
+                 , BANK_ACCNT_NO  BANK_ACCNT_NO
+                 , INV_TG_DT, NVL(BIRTH,'') IDN_NO, UPD_DM, '' AS EXPIRE_DATE,
+                 (SELECT ICHAE_DT FROM LF_DMUSER.CMS_MEM CMS WHERE 1=1 AND DEL_FG = 'N' AND CMS.ACCNT_NO = A.ACCNT_NO) AS ICHAE_DT
+              FROM LF_DMUSER.NEW_CANCL_APP A 
+             WHERE ACCNT_NO = #{accnt_no}
+               AND STAT = '04'
+
+         UNION ALL
+
+            SELECT SEQ, A.ACCNT_NO, substr(APP_DT,1,8) APP_DT
+                 , TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT
+                 , APP_CL, LF_DMUSER.FN_COM_NM('17',APP_CL) || '(Card)' APP_CL_NM
+                 , CARD_CD, LF_DMUSER.FN_COM_NM('0120',CARD_CD) CARD_NM
+                 /*, CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, CARD_NO)) CARD_NO   */
+                 , CARD_NO  CARD_NO
+                 , INV_TG_DT, CARD_BIRTH, UPD_DM, EXPIRE_DATE,
+                 (SELECT PAY_DT FROM LF_DMUSER.CARD_MEM CARD WHERE 1=1 AND DEL_FG = 'N' AND CARD.ACCNT_NO = A.ACCNT_NO) AS ICHAE_DT
+              FROM LF_DMUSER.CARD_NEW_CANCL_APP A
+             INNER JOIN (SELECT MPA.ACCNT_NO
+                              , MEM.BRTH_MON_DAY BRTHMONDAY
+                             /* , ISNULL(CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, IDN_NO)), '') IDNNO */
+                             , IDN_NO  IDN_NO
+                           FROM LF_DMUSER.MEM_PROD_ACCNT MPA
+                          INNER JOIN LF_DMUSER.MEMBER MEM
+                                ON MPA.MEM_NO = MEM.MEM_NO
+                          WHERE MPA.ACCNT_NO = #{accnt_no}) TBL
+                   ON A.ACCNT_NO = TBL.ACCNT_NO) A
+ 	-->                   
+    </select>
+    
+     <!-- ================================================================
+     * 날짜 : 20190911
+     * 이름 : 송준빈
+     * 추가내용 : 회원 기본정보 조회
+     * 대상 테이블 : LF_DMUSER.MEM_PROD_ACCNT
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwMemProdAccntList" parameterType="map" resultType="resultMap">
+    	SELECT 
+    		ACCNT_NO,
+    		ACCNT_NOTE,
+    		ACOYEN_YN,
+    		ACO_ERR,
+    		ACO_REBIT,
+    		APPFM_IMG_PATH,
+    		APPFM_NO,
+    		B2B_COMP_CD,
+    		B2B_EMPLE_CI,
+    		B2B_EMPLE_NO,
+    		BACCNT_FG,
+    		BANK_ACCNT_NO,
+    		BEFORE_DC_CNT,
+    		BEF_EMPLE_CD,
+    		CERTF_RCV_CHK,
+    		CL_NM1,
+    		CL_NM2,
+    		COMPT_DT,
+    		CRDT_MNG_NO,
+    		DCKIND,
+    		DED_NO,
+    		DEL_FG,
+    		EMPLE_NO,
+    		ID_NO,
+    		INSPL_ADDR,
+    		INSPL_ADDR2,
+    		INSPL_PHONE,
+    		INSPL_ZIP,
+    		INSPL_ZIP_OLD,
+    		JA_SUBSCRPT_YN,
+    		JOIN_CL,
+    		JOIN_DT,
+    		JOIN_MTV,
+    		JOIN_PROD,
+    		KB_NO,
+    		KSTBIT,
+    		KYDATE,
+    		LAST_SND_PAY_NO,
+    		LG_SHOP_INFO,
+    		LS_SND_EMPLE_NO,
+    		LS_SND_END_YN,
+    		LS_SND_RSLT,
+    		LS_SND_RSLT_DT,
+    		MAIN_CONTRACT,
+    		MARKT_AGR_YN,
+    		MEMBERSHIP_YN,
+    		MEM_NO,
+    		M_OCB_YN,
+    		NEW_CHAN_GUNSU,
+    		NEW_YN,
+    		OCB_GUBN,
+    		OCB_POINT_YN,
+    		OCB_REG_YN,
+    		OLD_MID,
+    		ORDER_NUM,
+    		ORG_JOIN_GUNSU,
+    		PAY_GUBUN,
+    		PAY_MTHD,
+    		PAY_PERD,
+    		PAY_STAT_1NO,
+    		POST_MTR_RCV,
+    		PRC_DT,
+    		PROD_CD,
+    		PROD_KIND,
+    		PROD_MODEL_CD,
+    		PROD_MODEL_KIND,
+    		PROG_SEQ,
+    		RAND_NUM,
+    		REAL_LOTTERY_NO,
+    		RECOMMEND_EMPLE_NO,
+    		REG_DM,
+    		REG_MAN,
+    		RESORT_MEM_GUBUN,
+    		RESORT_MEM_NM,
+    		RESORT_MEM_NO,
+    		RESORT_NO,
+    		SEQ_LOTTERY_NO,
+    		SM_SHOP_INFO,
+    		TR_MEM_NO,
+    		UPD_DM,
+    		UPD_MAN
+    	FROM LF_DMUSER.MEM_PROD_ACCNT
+    	WHERE 1=1 
+    	AND DEL_FG = 'N'
+    	AND ACCNT_NO = #{accnt_no}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 과거청구이력 탭
+     * 대상 테이블 : LF_DMUSER.WDRW_REQ, LF_DMUSER.CARD_WDRW_REQ
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getDlwAskHstrList" parameterType="map" resultType="resultMap">
+    SELECT /* DlwNewTypeConsMap.getDlwAskHstrList */
+           A.*,
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+            </when>
+            <otherwise>
+                ROW_NUMBER() OVER(ORDER BY A.INV_DT2 DESC) PAGE_INDX
+            </otherwise>
+        </choose>
+      FROM (SELECT  /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ INV_DT INV_DT
+                 , INV_GUNSU, WDRW_REQ_AMT, STAT
+                 , CASE WHEN STAT = '03'  THEN '불능(' || LF_DMUSER.FN_COM_NM('15',IMPS_CD) ||')'
+                        WHEN STAT =  '05' THEN '취소'
+                        WHEN STAT =  '04' THEN '완료'
+                        WHEN STAT =  '01' THEN '신청전'
+                        WHEN STAT =  '02' THEN '신청중'
+                    END AS STAT_NM
+                 , IMPS_CD, LF_DMUSER.FN_COM_NM('15',IMPS_CD) IMPS_NM
+                 , '(CMS)' || BANK_FILIN_BRKDN AS BANK_FILIN_BRKDN
+                 , INV_DT INV_DT2
+              FROM LF_DMUSER.WDRW_REQ
+             WHERE ACCNT_NO = #{accnt_no}
+
+         UNION ALL
+
+            SELECT /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ INV_DT INV_DT
+                 , INV_GUNSU, WDRW_REQ_AMT, STAT
+                 , LF_DMUSER.FN_COM_NM('18',STAT) STATNM
+                 , IMPS_CD
+                 , CASE WHEN EXP_FG = 'F'
+                             AND (IMPS_CD = ''
+                                  OR IMPS_CD IS NULL)
+                             AND STAT = '04'
+                             THEN '카드결제 성공'
+                        ELSE (CASE WHEN INV_DT <![CDATA[<]]> '20140213'
+                                        THEN  LF_DMUSER.FN_COM_NM('0121',IMPS_CD)
+                                   ELSE LF_DMUSER.FN_COM_NM('0166',IMPS_CD)
+                               END)
+                    END IMPS_NM
+                  , '(Card)' || BANK_FILIN_BRKDN AS BANK_FILIN_BRKDN
+                  , INV_DT INV_DT2
+               FROM LF_DMUSER.CARD_WDRW_REQ C
+              WHERE ACCNT_NO = #{accnt_no}) A
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 회원고객정보 탭 (청구이력)
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_REQ, LF_DMUSER.TB_MEMBER_WDRW_RESULT
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getMainWdrwLogList" parameterType="map" resultType="resultMap">
+    	SELECT 
+    		/* DlwNewTypeConsMap.getMainWdrwLogList */ 
+		    REQ.ACCNT_NO,
+		    REQ.MEM_NO,
+		    REQ.REQ_BIT,
+		    REQ.TRUE_CNT,                                         
+		    REQ.REQ_PAY_NO,                                       
+		    REQ.REG_DM,  
+		    REQ.PAY_BIT,
+		    REQ.ICHAE_NO, 
+		    REQ.REQ_DAY,
+		    REQ.PAY_AMT,
+		    REQ.RESULT_KEY,
+		    REQ.TID,
+		    RESULT_KIND,
+		    RESULT_CD,
+		    AUTH_DT,
+		    AUTH_CD,
+		    REQ.ICHAE_CD,
+		    TO_CHAR(RFD.CANCEL_DT, 'YYYYMMDD') AS CANCEL_DT,
+		    ETC,
+		    REQ.DEL_FG,
+		    REQ.PAY_MTHD,
+		    CASE WHEN REQ.PAY_MTHD = '04'  THEN LF_DMUSER.FN_COM_NM('15', REQ.RESULT_CD)
+		    WHEN REQ.PAY_MTHD = '06'  THEN REQ.RESULT_MSG
+		    ELSE '' END AS RESULT_MSG,
+		    CASE WHEN REQ.AUTH_YN = 'N' AND REQ.PAY_MTHD = '06' THEN '무승인'
+		    WHEN NVL(REQ.AUTH_YN, 'Y') = 'Y' AND REQ.PAY_MTHD = '06' THEN '유승인'
+		    ELSE '' END AS AUTH_NM,
+		    CASE WHEN REQ.INI_YN = 'Y' THEN '이니시스'
+		    ELSE '' END INI_YN,    
+		    NVL(EMP.EMPLE_NM, REQ_REG_MAN) AS REG_MAN 
+		FROM LF_DMUSER.VIEW_MEMBER_WDRW_REQ REQ 
+		     LEFT OUTER JOIN LF_DMUSER.TB_MEMBER_REQ_REFUND RFD ON REQ.ACCNT_NO = RFD.ACCNT_NO 
+		                                        AND REQ.REQ_DAY = RFD.REQ_DAY 
+		                                        AND REQ.RESULT_KEY = RFD.RESULT_KEY 
+		                                        AND RFD.DEL_FG = 'N'
+		     LEFT OUTER JOIN  LF_DMUSER.EMPLOYEE EMP ON REQ.REQ_REG_MAN = EMP.EMPLE_NO 
+		WHERE REQ.ACCNT_NO = #{accnt_no}
+			AND NVL(REQ.DEL_FG,'Y') != 'Y'
+		ORDER BY REQ.REQ_DAY DESC, REQ_PAY_NO DESC, REG_DM DESC
+    	<!-- 
+        SELECT /* DlwNewTypeConsMap.getMainWdrwLogList */
+               *
+          FROM (SELECT ROW_NUMBER() OVER(ORDER BY REQ_DAY DESC, REG_DM DESC, ACCNT_NO) PAGE_INDX,
+                       X.*
+                  FROM (
+          					SELECT REQ.ACCNT_NO,
+                                   REQ.MEM_NO,
+                                   REQ_BIT,
+                                   TRUE_CNT,                                            /* 실납입횟수 */
+                                   REQ.REQ_PAY_NO,                                          /* 청구회차 */
+                                   TO_CHAR(REQ.REG_DM, 'YYYYMMDDHH24MISS') AS REG_DM,   /* 결과입력시간*/
+                                   PAY_BIT,
+                                   REQ.ICHAE_NO,
+                                   REQ.REQ_DAY,
+                                   PAY_AMT,
+                                   REQ.RESULT_KEY,
+                                   REQ.TID,
+                                   REQ.RESULT_KIND,
+                                   REQ.RESULT_CD,
+                                   AUTH_DT,
+                                   AUTH_CD,
+                                   REQ.ICHAE_CD,
+                                   TO_CHAR(RFD.CANCEL_DT, 'YYYYMMDD') AS CANCEL_DT,
+                                   REQ.ETC,
+                                   REQ.DEL_FG,
+                                     REQ.PAY_MTHD,
+                                   CASE WHEN REQ.PAY_MTHD = '04'  THEN LF_DMUSER.FN_COM_NM('15', REQ.RESULT_CD)
+                                        WHEN REQ.PAY_MTHD = '06'  THEN REQ.RESULT_MSG
+                                   ELSE '' END AS RESULT_MSG,
+                                   CASE WHEN REQ.AUTH_YN = 'N' AND REQ.PAY_MTHD = '06' THEN '무승인'
+                                        WHEN NVL(REQ.AUTH_YN, 'Y') = 'Y' AND REQ.PAY_MTHD = '06' THEN '유승인'
+                                        ELSE '' END AS AUTH_NM,
+                                   CASE WHEN REQ.INI_YN = 'Y' THEN '이니시스'
+                                        ELSE '' END INI_YN,
+                                   (
+                                       SELECT  
+                                           COUNT(*) 
+                                       FROM LF_DMUSER.TB_MEMBER_WDRW_REQ VREQ
+                                       WHERE 1=1 
+                                       AND VREQ.ACCNT_NO = #{accnt_no}
+                                       AND VREQ.PAY_MTHD = '07' 
+                                       AND VREQ.DEL_FG = 'R' 
+                                   ) AS VRTL_REQ_PAY_NO
+                              FROM LF_DMUSER.VIEW_MEMBER_WDRW_REQ REQ LEFT OUTER JOIN
+                                LF_DMUSER.TB_MEMBER_REQ_REFUND RFD  ON REQ.ACCNT_NO = RFD.ACCNT_NO AND REQ.REQ_DAY = RFD.REQ_DAY AND REQ.RESULT_KEY = RFD.RESULT_KEY AND RFD.DEL_FG = 'N'
+                             WHERE 1=1
+                                 AND REQ.ACCNT_NO = #{accnt_no}
+                                 AND REQ.RESULT_KIND != '05' 
+                                 AND REQ.DEL_FG != 'Y'
+                    ) X
+                ) Z
+                 -->
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 LGUPLUS 선납입정보 탭
+     * 대상 테이블 : LF_DMUSER.TB_UPLUS_PREPAY_LIST
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeLgUplusPrepayList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getNewTypeLgUplusPrepayList */
+            UPL.CALC_MONTH,                      
+            UPL.DTL_NO,
+            UPL.DTL_PAY_AMT,
+            UPR.PREPAY_YN,
+            UPR.PREPAY_REASON,
+            UPR.RSLT_REG_DTTM 
+        FROM LF_DMUSER.TB_UPLUS_PREPAY_LIST UPL LEFT OUTER JOIN
+            LF_DMUSER.TB_UPLUS_PREPAY_RESULT UPR ON UPL.CALC_MONTH = UPR.CALC_MONTH AND UPL.FILE_NO = UPR.FILE_NO AND UPL.ACCNT_NO = UPR.ACCNT_NO AND UPL.DTL_NO = UPR.DTL_NO
+        WHERE 1=1
+         AND UPL.ACCNT_NO = #{accnt_no}
+         AND UPL.DEL_FG = 'N'
+        ORDER BY UPL.CALC_MONTH DESC
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 입금전체현황 탭
+     * 대상 테이블 : LF_DMUSER.PAY_TOT_INFO_VIEW
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypePayTotInfoList" parameterType="map" resultType="resultMap">
+        WITH PAY_TOT_INFO /* DlwNewTypeConsMap.getNewTypePayTotInfoList */
+        AS
+        (
+            SELECT * 
+            FROM LF_DMUSER.PAY_TOT_INFO_VIEW
+            WHERE ACCNT_NO = #{accnt_no}
+        )
+
+      SELECT 
+            '당월정보' AS GBN ,
+            TO_CHAR(MON_TRUE_CNT) AS TRUE_CNT,
+            TO_CHAR(MON_TRUE_AMT) AS TRUE_AMT,
+            TO_CHAR(MON_REL_CNT) AS REL_CNT,
+            TO_CHAR(MON_REL_AMT) AS REL_AMT,
+            TO_CHAR(MON_ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(MON_ADD_AMT) AS ADD_AMT,
+            TO_CHAR(NVL(MON_TRUE_AMT, 0) + NVL(MON_REL_AMT, 0) + NVL(MON_ADD_AMT, 0)) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '납입정보' AS GBN ,
+            TO_CHAR(TRUE_CNT) AS TRUE_CNT,
+            TO_CHAR(NVL(TRUE_AMT,0)) AS TRUE_AMT,
+            TO_CHAR(REL_CNT) AS REL_CNT,
+            TO_CHAR(NVL(REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(NVL(ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR(NVL(TRUE_AMT, 0) + NVL(REL_AMT, 0) + NVL(ADD_AMT, 0)) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '미납정보' AS GBN ,
+            TO_CHAR(MON_TRUE_CNT - TRUE_CNT) AS TRUE_CNT,
+            TO_CHAR(MON_TRUE_AMT - NVL(TRUE_AMT,0)) AS TRUE_AMT,
+            TO_CHAR(MON_REL_CNT - REL_CNT) AS REL_CNT,
+            TO_CHAR(MON_REL_AMT - NVL(REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(MON_ADD_CNT - ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(MON_ADD_AMT - NVL(ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR((NVL(MON_TRUE_AMT, 0) - NVL(TRUE_AMT, 0)) + (NVL(MON_REL_AMT, 0) - NVL(REL_AMT, 0)) + ( NVL(MON_ADD_AMT, 0) - NVL(ADD_AMT, 0))) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '납입상태' AS GBN ,
+            TO_CHAR(STAT_TRUE),
+            '',
+            TO_CHAR(STAT_REL),
+            '',
+            TO_CHAR(STAT_ADD),
+            '',
+            '' AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '만기정보' AS GBN ,
+            TO_CHAR(MAN_TRUE_CNT) || TO_CHAR(NEW_CHAN_INFO)  AS TRUE_CNT,
+            TO_CHAR(NVL(MAN_TRUE_AMT,0)) || TO_CHAR(NEW_CHAN_INFO2) AS TRUE_AMT,
+            TO_CHAR(MAN_REL_CNT) AS REL_CNT,
+            TO_CHAR(NVL(MAN_REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(MAN_ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(NVL(MAN_ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR(NVL(MAN_TRUE_AMT, 0) + NVL(MAN_REL_AMT, 0) + NVL(MAN_ADD_AMT, 0)) || TO_CHAR(NEW_CHAN_INFO2) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI
+
+        UNION ALL
+
+        SELECT 
+            '잔여정보' AS GBN ,
+            TO_CHAR(MAN_TRUE_CNT - (TRUE_CNT + NEW_CHAN_GUNSU)) AS TRUE_CNT,
+            TO_CHAR(NVL(MAN_TRUE_AMT,0) - (NVL(TRUE_AMT,0) + NVL(NEW_CHAN_AMT,0))) AS TRUE_AMT,
+            TO_CHAR(MAN_REL_CNT - REL_CNT) AS REL_CNT,
+            TO_CHAR(NVL(MAN_REL_AMT,0) - NVL(REL_AMT,0)) AS REL_AMT,
+            TO_CHAR(MAN_ADD_CNT - ADD_CNT) AS ADD_CNT,            
+            TO_CHAR(NVL(MAN_ADD_AMT,0) - NVL(ADD_AMT,0)) AS ADD_AMT,
+            TO_CHAR( NVL(MAN_TRUE_AMT, 0) - (NVL(TRUE_AMT, 0) + NVL(NEW_CHAN_AMT, 0)) + 
+                    (NVL(MAN_REL_AMT, 0) - NVL(REL_AMT, 0)) + 
+                    (NVL(MAN_ADD_AMT, 0) - NVL(ADD_AMT, 0))
+                   ) AS SUM_AMT
+        FROM PAY_TOT_INFO PTI 
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190918
+     * 이름 : 송준빈
+     * 추가내용 : 상품 회차별 납입액
+     * 대상 테이블 : LF_DMUSER.PRODUCT_DTL
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeProductDtl" parameterType="map" resultType="resultMap">
+        SELECT
+        	PROD_CD,
+			SEQ,
+			ST_NO,
+			END_NO,
+			MONTH_PAY_AMT,
+			ALLT_AMT,
+			ADD_AMT,
+			NVL(MONTH_PAY_AMT, 0) + NVL(ALLT_AMT, 0) + NVL(ADD_AMT, 0) AS TOT_AMT,
+			REG_DM,
+			REG_MAN
+		FROM LF_DMUSER.PRODUCT_DTL
+		WHERE 1=1 
+		AND PROD_CD = #{prod_cd}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190918
+     * 이름 : 송준빈
+     * 추가내용 : 상품 회차별 납입액(NXX상품군)
+     * 대상 테이블 : LF_DMUSER.PRODUCT
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeProductDtlNxx" parameterType="map" resultType="resultMap">
+        SELECT 
+        	PROD_CD,
+    		1 AS SEQ,
+    		1 AS ST_NO,
+    		EXPR_NO AS END_NO,
+    		MON_PAY_AMT AS MONTH_PAY_AMT,
+    		0 AS ALLT_AMT,
+    		0 AS ADD_AMT,
+    		MON_PAY_AMT AS TOT_AMT,
+    		REG_DM,
+    		REG_MAN
+		FROM LF_DMUSER.PRODUCT
+		WHERE PROD_CD = #{prod_cd}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190719
+     * 이름 : 송준빈
+     * 추가내용 : 고객 부가서비스정보 탭
+     * 대상 테이블 :  LF_DMUSER.PROD_OPT_SVC_MST, LF_DMUSER.PROD_OPT_SVC_DTL
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getNewTypeProdOptSvcList" parameterType="map" resultType="resultMap">
+        
+        SELECT  /* DlwNewTypeConsMap.getNewTypeProdOptSvcList */
+		    TBL.ACCNT_NO,
+		    TBL.APP_NO,
+		    (SELECT SVC_NM FROM LF_DMUSER.OPT_SVC WHERE SEQ = POSD.OPT_SVC_CD) SVC_D_NM,
+		    TBL.SEQ,
+		    INVOICE_NO,
+		    ADDRESSEE,
+		    SEND_DT,
+		    SIH.ISU_NO,
+		    SIH.ISU_DT    
+		FROM
+		(
+		    SELECT
+		        MPA.ACCNT_NO,
+		        POSM.APP_NO,
+		        POSM.SEQ,
+		        POSM.MEM_CL,
+		        CASE WHEN PAY_GUBUN = '00' THEN 'L' 
+		             WHEN LENGTH(PAY_GUBUN) = 1 THEN 'L'
+		        ELSE 'T' END AS PAY_GUBUN
+		    FROM LF_DMUSER.MEM_PROD_ACCNT MPA INNER JOIN
+		         LF_DMUSER.PROD_OPT_SVC_MST POSM ON POSM.PROD_CD = MPA.PROD_CD AND NVL(USE_YN,'Y') = 'Y' 
+		    WHERE MPA.ACCNT_NO =  #{accnt_no}
+		) TBL  INNER JOIN
+		    LF_DMUSER.PROD_OPT_SVC_DTL POSD ON TBL.SEQ = POSD.SEQ AND PAY_GUBUN = TBL.MEM_CL LEFT OUTER JOIN
+		    LF_DMUSER.MEM_PROD_ACCNT_SVC SVC ON TBL.ACCNT_NO = SVC.ACCNT_NO AND TBL.SEQ = SVC.SEQ LEFT OUTER JOIN
+		    LF_DMUSER.SVC_ISU_HIST SIH ON TBL.ACCNT_NO = SIH.ACCNT_NO AND TBL.SEQ = SIH.SEQ AND POSD.OPT_SVC_CD = SIH.OPTSVC_SEQ 
+		WHERE MEM_CL = PAY_GUBUN
+		ORDER BY SEND_DT ASC, APP_NO DESC 
+		            
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20200324
+     * 이름 : 김주용
+     * 추가내용 : 회원고객정보 탭 (청구이력)
+     * 대상 테이블 : LF_DMUSER.TB_MEMBER_WDRW_EXCEPTION
+     * ================================================================
+     * -->
+    <select id="DlwNewTypeConsMap.getMainWdrwExceList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwNewTypeConsMap.getMainWdrwExceList */
+            '0001' AS EXCEPT_GBN, 
+            MES.ACCNT_NO,
+            1 AS PAGE_INDX,
+            TO_CHAR(MES.REG_DM, 'YYYYMMDD') AS REQ_DAY,
+            MES.REG_DM,
+            CASE WHEN MES.SPECIAL_BIT = '01' THEN '임의지정'
+                WHEN MES.SPECIAL_BIT = '02' THEN '격월납'
+                WHEN MES.SPECIAL_BIT = '03' THEN '산출취소'
+                ELSE '기타사항'
+            END AS REG_REASON,
+            MES.SPECIAL_ETC  
+        FROM LF_DMUSER.TB_MEMBER_EXT_SPECIAL MES
+        WHERE 1=1 
+        AND MES.DEL_FG = 'N'
+        AND MES.ACCNT_NO = #{accnt_no}
+        
+        UNION ALL
+        
+        SELECT 
+            '0002' AS EXCEPT_GBN,
+            MWE.ACCNT_NO,
+            ROW_NUMBER() OVER(ORDER BY MWE.REQ_DAY DESC, MWE.REG_DM DESC, MWE.ACCNT_NO) AS PAGE_INDX,
+            MWE.REQ_DAY,
+            MWE.REG_DM,
+            'CMS청구',
+            MWE.REG_REASON            
+        FROM LF_DMUSER.TB_MEMBER_WDRW_EXCEPTION MWE
+        WHERE 1=1 
+        AND MWE.ACCNT_NO = #{accnt_no}
+    </select>
+</mapper>

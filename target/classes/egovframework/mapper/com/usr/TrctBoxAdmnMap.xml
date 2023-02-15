@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TrctBoxAdmnMap">
+
+    <sql id="TrctBoxAdmnMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trct_box_id != null and trct_box_id != ''">
+                AND TRCT_BOX_ID = #{trct_box_id}
+            </if>
+            <if test="trct_cons_sctr_cd != null and trct_cons_sctr_cd != ''">
+                AND TRCT_CONS_SCTR_CD = #{trct_cons_sctr_cd}
+            </if>
+            <if test="trct_trgt_div_cd != null and trct_trgt_div_cd != ''">
+                AND TRCT_TRGT_DIV_CD = #{trct_trgt_div_cd}
+            </if>
+            <if test="not_trct_trgt_div_cd != null and not_trct_trgt_div_cd != ''">
+                AND TRCT_TRGT_DIV_CD != #{not_trct_trgt_div_cd}
+            </if>
+            <if test="trct_typ_cd != null and trct_typ_cd != ''">
+                AND TRCT_TYP_CD = #{trct_typ_cd}
+            </if>
+            <if test="trct_box_nm != null and trct_box_nm != ''">
+                AND TRCT_BOX_NM LIKE '%' ||  #{trct_box_nm} || '%'
+            </if>
+            <if test="trct_rsps_bswr_cntn != null and trct_rsps_bswr_cntn != ''">
+                AND TRCT_RSPS_BSWR_CNTN LIKE '%' || #{trct_rsps_bswr_cntn} || '%'
+            </if>
+            <if test="use_yn != null and use_yn != ''">
+                AND USE_YN = #{use_yn}
+            </if>
+            <if test="searchValue != null and searchValue != ''">
+                <if test="searchType == 'trct_box_nm'">
+                    AND TRCT_BOX_NM LIKE '%' || #{searchValue} || '%'
+                </if>
+
+                <if test="searchType == 'user_nm'">
+                    AND TRCT_BOX_ID IN
+                               (SELECT TRCT_BOX_ID
+                                  FROM TB_TRCT_CHPR_ADMN
+                                 WHERE USER_ID IN
+                                          (SELECT USER_ID
+                                             FROM TB_USER
+                                            WHERE USER_NM LIKE '%'|| #{searchValue} ||'%') )
+                </if>
+           </if>
+        </where>
+    </sql>
+
+    <select id="TrctBoxAdmnMap.getTrctBoxAdmnCount" parameterType="map" resultType="int">
+        SELECT /* TrctBoxAdmnMap.getTrctBoxAdmnCount */
+               COUNT(*)
+          FROM TB_TRCT_BOX_ADMN
+        <include refid="TrctBoxAdmnMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="TrctBoxAdmnMap.getTrctBoxAdmnList" parameterType="map" resultType="resultMap">
+        SELECT /* TrctBoxAdmnMap.getTrctBoxAdmnList */
+               *
+          FROM (SELECT C.*
+              <if test="trct_chpr_yn != null and trct_chpr_yn != ''">
+                , (CASE WHEN EXISTS (SELECT 'Y'
+                                       FROM TB_TRCT_CHPR_ADMN TCA
+                                      WHERE TCA.TRCT_BOX_ID = C.TRCT_BOX_ID)
+                             THEN 'Y'
+                        ELSE 'N'
+                    END)AS TRCT_CHPR_YN
+            </if>
+          FROM (SELECT ROWNUM AS PAGE_INDX, B.*
+                  FROM (SELECT TRCT_BOX_ID, TRCT_CONS_SCTR_CD, TRCT_TRGT_DIV_CD, TRCT_BOX_NM, TRCT_RSPS_BSWR_CNTN
+                             , USE_YN, RGSN_DTTM, AMNT_DTTM, SMS_MSG_ID, EMIL_FXFR_ID, TRCT_TYP_CD
+                             , GETCODENM('USR080', TRCT_CONS_SCTR_CD, CNTR_CD) AS TRCT_CONS_SCTR_NM
+                             , GETCODENM('USR090', TRCT_TRGT_DIV_CD, CNTR_CD) AS TRCT_TRGT_DIV_NM
+                             , GETCODENM('USR100', TRCT_TYP_CD, CNTR_CD) AS TRCT_TYP_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.RGSR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.AMND_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS AMND_NM
+                             , (SELECT EMIL_TITL
+                                  FROM TB_EMIL_FXFR_ADMN
+                                 WHERE EMIL_FXFR_ID = A.EMIL_FXFR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS EMIL_TITL
+                             , (SELECT CHAT_MSG_CNTN
+                                  FROM TB_CHAT_CNTS_ADMN
+                                 WHERE CHAT_CNTS_ID = A.SMS_MSG_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS CHAT_MSG_CNTN
+                             , (SELECT CHAT_MSG_TITL
+                                  FROM TB_CHAT_CNTS_ADMN
+                                 WHERE CHAT_CNTS_ID = A.SMS_MSG_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS CHAT_MSG_TITL
+                          FROM TB_TRCT_BOX_ADMN A
+                        <include refid="TrctBoxAdmnMap.selectCondition_fragment"/>
+                        <if test="orderBy == null or orderBy == ''">
+                              ORDER BY AMNT_DTTM DESC
+                        </if>
+                        <if test="orderBy != null and orderBy != ''">
+                              ORDER BY ${orderBy} ${orderDirection}
+                        </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+        )
+        <if test="trct_chpr_yn != null and trct_chpr_yn != ''">
+            WHERE TRCT_CHPR_YN = #{trct_chpr_yn}
+        </if>
+    </select>
+
+    <select id="TrctBoxAdmnMap.getTrctBoxAdmnListForScreenData" parameterType="map" resultType="resultMap">
+        SELECT /* TrctBoxAdmnMap.getTrctBoxAdmnListForScreenData */
+               TRCT_BOX_ID, TRCT_CONS_SCTR_CD, TRCT_TRGT_DIV_CD, TRCT_BOX_NM, TRCT_RSPS_BSWR_CNTN
+             , USE_YN, SMS_MSG_ID, EMIL_FXFR_ID, TRCT_TYP_CD
+          FROM TB_TRCT_BOX_ADMN
+         WHERE USE_YN = 'Y'
+         ORDER BY TRCT_BOX_NM
+    </select>
+
+    <insert id="TrctBoxAdmnMap.insertTrctBoxAdmn" parameterType="map">
+        <selectKey keyProperty="trct_box_id" resultType="String" order="BEFORE">
+            SELECT 'TTB' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT INTO /* TrctBoxAdmnMap.insertTrctBoxAdmn */
+                    TB_TRCT_BOX_ADMN
+                    (TRCT_BOX_ID, TRCT_CONS_SCTR_CD, TRCT_TRGT_DIV_CD, TRCT_BOX_NM, TRCT_RSPS_BSWR_CNTN
+                   , USE_YN, EMIL_FXFR_ID, SMS_MSG_ID, TRCT_TYP_CD
+                   , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+             VALUES (#{trct_box_id}, #{trct_cons_sctr_cd}, #{trct_trgt_div_cd}, #{trct_box_nm}, #{trct_rsps_bswr_cntn}
+                   , #{use_yn}, #{emil_fxfr_id}, #{sms_msg_id}, #{trct_typ_cd}
+                   , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="TrctBoxAdmnMap.updateTrctBoxAdmn" parameterType="map">
+        UPDATE /* TrctBoxAdmnMap.updateTrctBoxAdmn */
+               TB_TRCT_BOX_ADMN
+           SET TRCT_CONS_SCTR_CD = #{trct_cons_sctr_cd}
+             , TRCT_TYP_CD = #{trct_typ_cd}
+             , TRCT_TRGT_DIV_CD = #{trct_trgt_div_cd}
+             , TRCT_BOX_NM = #{trct_box_nm}
+             , TRCT_RSPS_BSWR_CNTN = #{trct_rsps_bswr_cntn}
+             , EMIL_FXFR_ID = #{emil_fxfr_id}
+             , SMS_MSG_ID = #{sms_msg_id}
+             , USE_YN = #{use_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE TRCT_BOX_ID = #{trct_box_id}
+    </update>
+
+    <delete id="TrctBoxAdmnMap.deleteTrctBoxAdmn" parameterType="map">
+        DELETE /* TrctBoxAdmnMap.deleteTrctBoxAdmn */
+          FROM TB_TRCT_BOX_ADMN
+        WHERE TRCT_BOX_ID = #{trct_box_id}
+    </delete>
+
+
+    <select id="TrctBoxAdmnMap.getTrctBox" parameterType="String" resultType="resultMap">
+        SELECT /* TrctBoxAdmnMap.getTrctBox */
+               C.*
+          FROM (SELECT A.*, B.USER_NM, B.EMIL_ADDR, B.CLPH_NO
+                  FROM (SELECT A.*
+                             , (CASE
+                                   WHEN A.EMIL_FXFR_ID IS NULL OR A.EMIL_FXFR_ID='' OR B.EMIL_NOTI_YN='N' THEN 'N'
+                                   ELSE 'Y'
+                                   END) AS EMIL_YN
+                                , (CASE
+                                   WHEN A.SMS_MSG_ID IS NULL OR A.SMS_MSG_ID='' OR B.SMS_MSG_NOTI_YN='N' THEN 'N'
+                                   ELSE 'Y'
+                                   END) AS SMS_YN
+                                , B.USER_ID
+                          FROM (SELECT B.TRCT_BOX_ID, B.EMIL_FXFR_ID, B.SMS_MSG_ID, B.CNTR_CD
+                                     , C.EMIL_TITL, C.EMIL_CNTN, C.EMIL_HTML_CNTN
+                                     , D.CHAT_MSG_TITL, D.CHAT_MSG_CNTN, D.DPMS_TLNO, D.IMG_URL_ADDR
+                                  FROM (SELECT *
+                                          FROM TB_TRCT_BOX_ADMN A
+                                        WHERE TRCT_BOX_ID = #{trct_box_id}
+                                        ) B
+                                  LEFT JOIN TB_EMIL_FXFR_ADMN C ON B.EMIL_FXFR_ID = C.EMIL_FXFR_ID AND B.CNTR_CD = C.CNTR_CD
+                                  LEFT JOIN TB_CHAT_CNTS_ADMN D ON B.SMS_MSG_ID = D.CHAT_CNTS_ID AND B.CNTR_CD = D.CNTR_CD
+                               )A, TB_TRCT_CHPR_ADMN B
+                         WHERE A.TRCT_BOX_ID = B.TRCT_BOX_ID
+                           AND A.CNTR_CD = B.CNTR_CD
+                       ) A LEFT JOIN TB_USER B
+                    ON A.USER_ID = B.USER_ID AND A.CNTR_CD = B.CNTR_CD
+               ) C
+    </select>
+
+    <select id="TrctBoxAdmnMap.getTrctBoxWithUserId" parameterType="map" resultType="resultMap">
+        SELECT /* TrctBoxAdmnMap.getTrctBoxWithUserId */
+                *
+          FROM (SELECT A.*, B.USER_NM, B.EMIL_ADDR, B.CLPH_NO
+                  FROM (SELECT A.*
+                             , (CASE
+                                   WHEN A.EMIL_FXFR_ID IS NULL OR A.EMIL_FXFR_ID='' THEN 'N'
+                                   ELSE 'Y'
+                                   END) AS EMIL_YN
+                                , (CASE
+                                   WHEN A.SMS_MSG_ID IS NULL OR A.SMS_MSG_ID='' THEN 'N'
+                                   ELSE 'Y'
+                                   END) AS SMS_YN
+                          FROM (SELECT B.TRCT_BOX_ID, B.EMIL_FXFR_ID, B.SMS_MSG_ID, B.CNTR_CD
+                                      , C.EMIL_TITL, C.EMIL_CNTN, C.EMIL_HTML_CNTN
+                                      , D.CHAT_MSG_TITL, D.CHAT_MSG_CNTN, D.DPMS_TLNO, D.IMG_URL_ADDR
+                                  FROM (SELECT *
+                                          FROM TB_TRCT_BOX_ADMN A
+                                        WHERE TRCT_BOX_ID = #{trct_box_id}
+                                        ) B
+                                    LEFT JOIN TB_EMIL_FXFR_ADMN C ON B.EMIL_FXFR_ID = C.EMIL_FXFR_ID AND B.CNTR_CD = C.CNTR_CD
+                                    LEFT JOIN TB_CHAT_CNTS_ADMN D ON B.SMS_MSG_ID = D.CHAT_CNTS_ID AND B.CNTR_CD = D.CNTR_CD
+                               )A
+                       ) A,
+                       (SELECT *
+                          FROM TB_USER
+                         WHERE USER_ID = #{user_id}
+                       ) B
+               ) A
+    </select>
+</mapper>

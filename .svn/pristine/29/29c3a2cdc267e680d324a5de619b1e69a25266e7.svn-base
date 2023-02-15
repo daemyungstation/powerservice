@@ -1,0 +1,476 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="DL422201P02" classname="srch_prod_pop" inheritanceid="" position="absolute 0 0 800 500" titletext="녹취파일개별업로드(NEW)" scrollbars="none" visible="true" onload="DL422201P02_onload">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 0 800 500"/>
+        <Grid id="grd_list" taborder="4" binddataset="ds_uploadFileList" useinputpanel="false" position="absolute 8 64 789 459" visible="true" autofittype="col" cellsizingtype="col">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="50"/>
+                <Column size="250"/>
+                <Column size="470"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="NO"/>
+                <Cell col="1" text="파일명"/>
+                <Cell col="2" text="업로드결과"/>
+              </Band>
+              <Band id="body">
+                <Cell expr="currow + 1"/>
+                <Cell col="1" style="align:left;" text="bind:file_name"/>
+                <Cell col="2" style="align:left;" text="bind:msg"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="stc_30" text="파일 개별 업로드" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 285 28"/>
+        <Button id="btn_close" taborder="1" text="종료" onclick="btn_close_onclick" position2="absolute r:10 w:53 t:468 h:21" positiontype="position2"/>
+        <Button id="btn_upload" taborder="3" text="업로드" position2="absolute r:66 w:63 t:468 h:21" positiontype="position2" onclick="btn_upload_onclick"/>
+        <Button id="btn_add" taborder="5" text="추가" position2="absolute r:74 w:53 t:39 h:21" positiontype="position2" onclick="btn_add_onclick"/>
+        <Button id="btn_del" taborder="6" text="제거" position2="absolute r:13 w:53 t:39 h:21" positiontype="position2" onclick="btn_del_onclick"/>
+        <Button id="btn_reset" taborder="12" text="파일목록 지우기" position2="absolute r:132 w:113 t:468 h:21" positiontype="position2" onclick="btn_reset_onclick"/>
+        <Button id="btn_excel" taborder="13" text="엑셀" position2="absolute r:248 w:63 t:468 h:21" positiontype="position2" onclick="btn_excel_onclick" enable="false"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_uploadFileList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="file_path" type="STRING" size="256"/>
+          <Column id="file_name" type="STRING" size="256"/>
+          <Column id="file_size" type="STRING" size="256"/>
+          <Column id="msg" type="STRING" size="256"/>
+          <Column id="file_id" type="STRING" size="256"/>
+          <Column id="upload_yn" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var xEmpleNo = "";
+var xAccntNo = "";
+var xSvcPath = "";
+var xArrFiles = new Array();
+var xUploadResult = true;
+var xFileFilter = "audio files (*.wav;*.mp3;*.ogg;)|*.wav;*.mp3;*.ogg"; // 이미지 파일만 저장 가능
+var xHasPerm = true;
+
+/***************************************************************************
+ * 함  수  명		: DL422201P02_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function DL422201P02_onload(obj:Form, e:LoadEventInfo)
+{
+	xSvcPath = gfn_getServiceUrl("fileUrl");
+	xEmpleNo = gfn_getUserInfo("user_id");
+	
+	fn_init();
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_callBack()
+ * 기      능		: 콜백함수
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) 
+{
+	if (errcd != 0) 
+	{
+	    switch (svcid) 
+	    {
+  			case "selectDlwCode":
+				
+			break;
+	    }
+		return false;
+	}
+	else
+	{
+		switch (svcid) 
+		{
+			case "selectDlwCode":
+				
+			break;
+		}
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_init()
+ * 기      능		: 화면 초기화함수
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function fn_init()
+{
+	btn_upload.enable = true;
+	ds_uploadFileList.clearData();
+	
+	xAccntNo = pAccntNo;
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_addFile()
+ * 기      능		: 녹취파일 추가
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function fn_addFile()
+{
+	var sFilePath;
+	var sFileName;
+	var nFileSize;
+	var nRow;
+	var objContents;	
+	var sFilter = xFileFilter;
+	var fileDialog = objects["fileDialog"];
+	
+	if (gfn_isEmpty(sFilter)) 
+	{
+		sFilter = "All (*.*)|*.*";
+	}
+	
+ 	if (fileDialog == null)
+ 	{
+		fileDialog = new FileDialog();
+	}
+	
+	fileDialog.defaultextention = true;
+	fileDialog.filter = sFilter;
+
+	var arrFileList = fileDialog.open("파일 추가", FileDialog.MULTILOAD);
+
+	if (!arrFileList)
+	{
+		return false;
+	}
+	
+	var nArrIdx = xArrFiles.length;
+	
+	for (var idx = 0; idx < arrFileList.length; idx++) 
+	{
+		nRow = ds_uploadFileList.findRow("file_name", arrFileList[idx].filename);
+		
+		if (nRow > -1) 
+		{
+			application.alert("중복되는 파일명이 있습니다.\n File Name : " + arrFileList[idx].filename);
+		} 
+		else 
+		{
+			xArrFiles[nArrIdx] = arrFileList[idx];
+			nArrIdx++;
+			arrFileList[idx].open(VirtualFile.openRead| VirtualFile.openBinary);
+			sFilePath = arrFileList[idx].path;
+			sFileName = arrFileList[idx].filename;
+			nFileSize = arrFileList[idx].getFileSize();
+			arrFileList[idx].close();
+			
+			var nRowCnt = ds_uploadFileList.getRowCount();
+			var nSeq = ds_uploadFileList.addRow();
+			
+			ds_uploadFileList.setColumn(nSeq, "file_path", sFilePath);
+			ds_uploadFileList.setColumn(nSeq, "file_name", sFileName);
+			ds_uploadFileList.setColumn(nSeq, "file_size", nFileSize);
+			ds_uploadFileList.setColumn(nSeq, "upload_yn", "N");
+		}
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_delete()
+ * 기      능		: 녹취파일 삭제
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function fn_delete() 
+{
+	if (ds_uploadFileList.getRowCount() < 1) 
+	{
+		alert("삭제할 파일이 없습니다.");
+		return;
+	} 
+	else 
+	{
+		ds_uploadFileList.deleteRow(ds_uploadFileList.rowposition);
+	}
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_preUpload(), fn_upload()
+ * 기      능		: 추가된 파일 업로드
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function fn_preUpload()
+{
+    var nCnt = ds_uploadFileList.getCaseCount("upload_yn == 'N'");
+    /*
+    if (gfn_isEmpty(xEmpleNo))
+    {
+		alert("업로드 권한이 없습니다.");
+		return false;
+    }
+    */
+    
+    if(nCnt < 1)
+    {
+        alert("저장할 파일이 없습니다.");
+        return false;
+    }
+
+    return true;
+}
+
+function fn_upload(sSizeLimit)
+{
+	if (!fn_preUpload())
+	{
+		return false;
+	}
+	
+	btn_upload.enable = false;
+	
+	var bResult;
+	var sAttBdlNo = "";
+	var nSeq = 0;
+	var nFileSize:int = 0;
+	var nTotalFileSize:int = 0;
+	var sSizeLimitYN = "";
+	
+	for (var idx = 0; idx < ds_uploadFileList.getRowCount(); idx++) 
+	{
+		nFileSize = ds_uploadFileList.getColumn(idx, "file_size");
+		nTotalFileSize += nFileSize;
+	}
+	
+	if(gfn_isEmpty(sSizeLimit)) 
+	{
+		sSizeLimitYN = "Y";
+	} 
+	else 
+	{
+		sSizeLimitYN = sSizeLimit;
+	}
+	
+	if (sSizeLimitYN == "Y") 
+	{
+		if (nTotalFileSize > (1 * 1024 * 1024 * 10) ) // 1M 이상의 첨부파일은 경고메시지 출력후 전송
+		{
+			bResult = confirm("총 10MB 이상의 대용량 파일 전송시에는\n전송시간이 다소 오래 걸릴 수 있습니다.\n" +
+				    "현재 첨부파일의 용량은 [ " + Math.round(nTotalFileSize / 1024) + "KB ] 입니다.\n\n" +
+				    "계속 진행하시겠습니까?\n");
+				    
+			if (bResult == false) 
+			{
+				return false;
+			}
+		}		
+	}
+	sWorkMode = "UPLOAD";
+	
+ 	httpObjectInput = objects["httpObject"];
+
+ 	if (httpObjectInput == null) 
+ 	{
+		httpObjectInput = new HttpObject();
+		httpObjectInput.onstatus.setHandler(HttpObject_onstatus);
+		httpObjectInput.onload.setHandler(gfn_httpObject_onload);
+	}
+	
+	httpObjectInput.asyncflag = true; /* CY_TRUE : 동기, CY_FALSE : 비동기 */
+	httpObjectInput.timeout = 180;
+	httpObjectInput.retry  	= 0;
+	
+	xUploadResult = true;
+	
+	for (var idx = 0; idx < xArrFiles.length; idx++) 
+	{	
+		if (!xHasPerm)
+		{
+			break;
+		}
+		
+		nRow = ds_uploadFileList.findRow("file_name", xArrFiles[idx].filename);
+		
+		if (nRow > -1) 
+		{
+            if (ds_uploadFileList.getColumn(nRow, "upload_yn") != "Y") 
+            {
+				var sFileName = ds_uploadFileList.getColumn(idx, "file_name");
+				bResult = httpObjectInput.upload(xSvcPath +"dlw/accntRecord/pop/uploadRecData?emple_no=" + xEmpleNo + "&accnt_no=" + xAccntNo, FileDialog.LOAD, xArrFiles[idx], false);
+
+				if(bResult == false) 
+				{
+					xUploadResult = false;
+					return false;
+				}
+			}
+		}
+	}
+	
+	if (xHasPerm) 
+	{
+		if (xUploadResult == true) 
+		{
+			alert("파일을 업로드하였습니다. 파일별 상태는 업로드 결과를 참조하시기 바랍니다.");
+		}
+	} 
+	else 
+	{
+		alert("업로드 권한이 없습니다.");
+	}
+	
+	return true;
+}
+
+/***************************************************************************
+ * 함  수  명		: fn_setUploadResult()
+ * 기      능		: 파일 업로드 결과
+ * 수  정  일       : 2020.07.31
+ ***************************************************************************/
+function fn_setUploadResult(errCd, errMsg) 
+{
+	if (gfn_isEmpty(errMsg)) 
+	{
+		return false;
+	}
+	
+	var arrMsg = errMsg.split("|");
+	var fileNm = arrMsg[0];
+	var errMsg = arrMsg[1];
+	
+	for (var idx = 0; idx < ds_uploadFileList.getRowCount(); ++idx) 
+	{
+		if (ds_uploadFileList.getColumn(idx, "file_name") == fileNm) 
+		{	
+			if (errCd < 0) 
+			{
+				ds_uploadFileList.setColumn(idx, "msg", "실패-" + errMsg);
+			} 
+			else 
+			{
+				ds_uploadFileList.setColumn(idx, "msg", "성공");
+			}
+		}
+	}
+}
+
+
+/* 컴포넌트 이벤트 */
+function btn_add_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_addFile();
+}
+
+function btn_del_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_delete();
+}
+
+function btn_excel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (ds_uploadFileList.getRowCount() > 0) 
+	{
+		gfn_exportGridToExcel(grd_list, "업로드결과_" + gfn_getTodayFull() + "");
+	} 
+	else 
+	{
+		alert("다운로드 할 결과가 없습니다.");
+	}
+}
+
+function btn_reset_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_init();
+}
+
+function btn_upload_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_upload();
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+/*  파일업로드 완료이벤트  */
+function HttpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo)
+{
+	trace("HttpObject onload()    e.errormsg:: " + e.errormsg + " : " + e.errorcode);
+}
+
+/*  파일업로드/다운로드 진행정보 표시  */
+function HttpObject_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo)
+{
+	//prg_output.pos = e.status;
+}
+
+/*  파일업로드 완료이벤트  */
+/*
+function FileDownload00_onload(obj:FileDownload,  e:FileDownloadLoadEventInfo)
+{
+	
+}
+*/
+
+/*  파일업로드/다운로드 진행정보 표시  */
+/*
+function httpObjectInput_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo)
+{
+	//prg_output.pos = e.status;
+}
+*/
+
+
+/*  파일업로드 완료이벤트  */
+function gfn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo)
+{
+	trace("----------------------- gfn_httpObject_onload : errorcode = " + e.errorcode + "\t" + "errormsg = " + e.errormsg);
+
+	fn_setUploadResult(e.errorcode, e.errormsg);
+	
+	if (e.errorcode == 0) 
+	{
+		ds_uploadFileList.setColumn(nRow, "upload_yn", "Y");
+		ds_uploadFileList.setColumn(nRow, "file_id", e.errormsg);
+	} 
+	else if (e.errorcode < 0) 
+	{
+		// alert("첨부파일 업로드가 실패했습니다.");
+		if (e.errormsg.indexOf("업로드 권한이 없습니다.") >= 0) 
+		{
+			xHasPerm = false;
+			for (var idx = 0; idx < ds_uploadFileList.getRowCount(); ++idx) 
+			{
+				ds_uploadFileList.setColumn(idx, "msg", "업로드 권한이 없습니다.");
+			}
+		}
+	}
+	
+	if (ds_uploadFileList.rowposition >= ds_uploadFileList.getRowCount() -1) 
+	{
+		btn_excel.enable = true;
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

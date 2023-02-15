@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="srch_empl_pop" classname="srch_empl_pop" inheritanceid="" position="absolute 0 0 800 600" titletext="고객계약서PDF보기" onload="Addr_api_onload" onactivate="PS992000_onactivate">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 -1 800 600"/>
+        <Button id="btn_Close" taborder="1" onclick="btn_close_onclick" class="btn_popupClose" position="absolute 768 5 788 24"/>
+        <Static id="stc_30" text="전자서명증서" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <WebBrowser id="WebBrowser00" text="WebBrowser00" position="absolute 4 36 797 597" anchor="default" taborder="2" useautobitmapcache="1"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_inqCndt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="emple_no" type="STRING" size="10"/>
+          <Column id="emple_nm" type="STRING" size="50"/>
+          <Column id="grpEmpYn" type="STRING" size="256"/>
+          <Column id="orderBy" type="STRING" size="256"/>
+          <Column id="orderDirection" type="STRING" size="256"/>
+          <Column id="sController" type="STRING" size="256"/>
+          <Column id="dsName" type="STRING" size="256"/>
+          <Column id="not_in_emple_no" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_empl" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list_tmp" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_ret" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="page_indx" type="STRING" size="6"/>
+          <Column id="emple_no" type="STRING" size="100"/>
+          <Column id="emple_nm" type="STRING" size="100"/>
+          <Column id="dept_cd" type="STRING" size="100"/>
+          <Column id="dept_nm" type="STRING" size="256"/>
+          <Column id="cell" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_sin_addr" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="post" type="STRING" size="256"/>
+          <Column id="addr" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/**************************************************************************
+ [ PART 1 ]공통 js 파일 include
+***************************************************************************/
+include "LIB::lib_All.xjs";
+
+var gv_empl_nm = "";
+var gv_pageTyp = "";
+var gv_typ = "";
+
+var fv_not_in_emple_no = "";
+
+/**************************************************************************
+ [ PART 2 ] Form에서 사용될 전역변수를 선언
+**************************************************************************/
+var tc_empl = 0;
+
+/***************************************************************************
+ * 함  수  명		: Empl_onload()
+ * 기      능		: 폼 onload이벤트 
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function Addr_api_onload(obj:Form, e:LoadEventInfo)
+{
+	var parentPdfFileName = pdfFileName;
+	var sServiceUrl = application.services["SVC"].url;
+	
+	if (sServiceUrl.indexOf("61.39.175.220") >= 0) { // 외부
+		var URL = "http://61.39.175.220:8080/nice/" + parentPdfFileName;
+	} else if (sServiceUrl.indexOf("https://devdlcc.com") >= 0) { 
+		var URL = "https://devdlcc.com:8443/nice/" + parentPdfFileName; 
+	} else if (sServiceUrl.indexOf("http://dmdlcc.com") >= 0) {
+		var URL = "http://dmdlcc.com:8080/nice/" + parentPdfFileName;
+	} else if (sServiceUrl.indexOf("https://dmdlcc.com") >= 0) { 
+		var URL = "https://dmdlcc.com:8443/nice/" + parentPdfFileName; // 운영
+	} else if (sServiceUrl.indexOf("61.39.175.227") >= 0) {
+		var URL = "http://61.39.175.227:8080/nice/" + parentPdfFileName; // 대명 DLCC 개발
+	} else if (sServiceUrl.indexOf("127.0.0.1") >= 0) {
+		var URL = "http://127.0.0.1:8080/nice/" + parentPdfFileName;     // LOCAL TEST 
+	} else{ // 내부
+		var URL = "http://192.168.10.61:8080/nice/" + parentPdfFileName;
+	}	
+	 //운영 : /media/dmrecord2/nice, 
+	 //개발 /media/nice
+	 //URL은 https://dmdlcc.com:8443/ 부를때 /app/ 임. 이걸 어찌한다..???
+	
+	WebBrowser00.url = URL; //pdf url링크 
+}
+
+/***************************************************************************
+ * 함  수  명		: btn_close_onclick()
+ * 기      능		: x 버튼 이벤트
+ * 수  정  일      : 2016.01.21 
+ ***************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}]]></Script>
+  </Form>
+</FDL>

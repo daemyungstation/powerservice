@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="PgmIndvFnctAthrMap">
+    <sql id="PgmIndvFnctAthrMap.selectCondition_fragment">
+        <if test="athr_cd != null and athr_cd != ''">
+            AND A.ATHR_CD = #{athr_cd}
+        </if>
+        <if test="gds_cd != null and gds_cd != ''">
+            AND A.GDS_CD = #{gds_cd}
+        </if>
+        <if test="cntr_cd != null and cntr_cd != ''">
+            AND A.CNTR_CD = #{cntr_cd}
+        </if>
+        <if test="pgm_cd != null and pgm_cd != ''">
+            AND A.PGM_CD = #{pgm_cd}
+        </if>
+    </sql>
+
+    <insert id="PgmIndvFnctAthrMap.insertPgmIndvFnctAthr" parameterType="map">
+        <selectKey keyProperty="pgm_indv_fnct_athr_id" resultType="String" order="BEFORE">
+            SELECT 'IFA' || TO_CHAR(SYSDATE, 'YYYYMMDD') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+            INSERT /* PgmIndvFnctAthrMap.insertPgmIndvFnctAthr */
+              INTO TB_PGM_INDV_FNCT_ATHR
+                   ( PGM_INDV_FNCT_ATHR_ID
+                   , PGM_INDV_FNCT_ID
+                   , PGM_CD
+                   , GDS_CD
+                   , ATHR_CD
+                   , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+            VALUES ( #{pgm_indv_fnct_athr_id}
+                   , #{pgm_indv_fnct_id}
+                   , #{pgm_cd}
+                   , #{gds_cd}
+                   , #{athr_cd}
+                   , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <select id="PgmIndvFnctAthrMap.getPgmIndvFnctAthrAddList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmIndvFnctAthrMap.getPgmIndvFnctAthrAddList */
+               A.PGM_INDV_FNCT_NM, A.PGM_INDV_FNCT_CNTN, A.CNPN_ID,
+               A.PGM_INDV_FNCT_ID, A.PGM_CD, A.GDS_CD
+          FROM TB_PGM_INDV_FNCT A
+         WHERE A.GDS_CD = #{gds_cd}
+           AND A.CNTR_CD =  #{cntr_cd}
+           AND A.PGM_CD =  #{pgm_cd}
+           AND NOT EXISTS (SELECT 'Y'
+                             FROM TB_PGM_INDV_FNCT_ATHR B
+                            WHERE B.GDS_CD = A.GDS_CD
+                              AND B.PGM_INDV_FNCT_ID  = A.PGM_INDV_FNCT_ID
+                              AND B.PGM_CD = #{pgm_cd}
+                              AND B.CNTR_CD = A.CNTR_CD
+                              AND B.ATHR_CD = #{athr_cd})
+        <if test="orderBy != null and orderBy != ''">
+      ORDER BY ${orderBy} ${orderDirection}
+        </if>
+    </select>
+
+        <select id="PgmIndvFnctAthrMap.getPgmIndvFnctAthrList" parameterType="map" resultType="resultMap">
+        SELECT /* PgmIndvFnctAthrMap.getPgmIndvFnctAthrList */
+               *
+          FROM (SELECT A.CNTR_CD, A.PGM_INDV_FNCT_ATHR_ID , A.PGM_INDV_FNCT_ID
+                     , A.PGM_CD, A.GDS_CD, A.ATHR_CD, DECODE(A.AMNT_YN,'Y',1,0) AS AMNT_YN
+                     , A.RGSR_ID, A.RGSN_DTTM, A.AMND_ID, A.AMNT_DTTM
+                     , B.PGM_INDV_FNCT_NM, B.PGM_INDV_FNCT_CNTN, B.CNPN_ID
+                     , (SELECT U.USER_NM
+                          FROM TB_USER U
+                         WHERE U.USER_ID = A.RGSR_ID
+                           AND U.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT U.USER_NM
+                          FROM TB_USER U
+                         WHERE U.USER_ID = A.AMND_ID
+                           AND U.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                  FROM TB_PGM_INDV_FNCT_ATHR A
+                     , TB_PGM_INDV_FNCT B
+                 WHERE A.PGM_INDV_FNCT_ID = B.PGM_INDV_FNCT_ID
+                   AND A.CNTR_CD = B.CNTR_CD
+                <include refid="PgmIndvFnctAthrMap.selectCondition_fragment"/>
+                <if test="menu_flag == null">
+                    <if test="orderBy != null and orderBy != ''">
+                          ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                    <if test="orderBy == null or orderBy == ''">
+                          ORDER BY B.PGM_INDV_FNCT_NM ASC
+                    </if>
+                </if>
+               )
+    </select>
+
+    <delete id="PgmIndvFnctAthrMap.deletePgmIndvFnctAthr" parameterType="map">
+        DELETE /* PgmIndvFnctAthrMap.deletePgmIndvFnctAthr */
+          FROM TB_PGM_INDV_FNCT_ATHR
+         WHERE CNTR_CD = #{cntr_cd}
+        <if test="gds_cd != null and gds_cd != ''">
+           AND GDS_CD = #{gds_cd}
+        </if>
+        <if test="athr_cd != null and athr_cd != ''">
+           AND ATHR_CD = #{athr_cd}
+        </if>
+        <if test="pgm_cd != null and pgm_cd != ''">
+            AND PGM_CD = #{pgm_cd}
+        </if>
+        <if test="pgm_indv_fnct_id != null and pgm_indv_fnct_id != ''">
+            AND PGM_INDV_FNCT_ID = #{pgm_indv_fnct_id}
+        </if>
+    </delete>
+
+    <update id="PgmIndvFnctAthrMap.updatePgmIndvFnctAthr" parameterType="map">
+        UPDATE /* PgmAthrMap.updatePgmAthr */
+               TB_PGM_INDV_FNCT_ATHR
+           SET AMNT_YN = #{amnt_yn}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+         WHERE PGM_INDV_FNCT_ATHR_ID = #{pgm_indv_fnct_athr_id}
+    </update>
+
+</mapper>

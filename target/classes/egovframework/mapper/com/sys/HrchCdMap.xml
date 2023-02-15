@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="HrchCdMap">
+
+    <sql id="HrchCdMap.selectCondition_fragment">
+        WHERE HRCH_TYP_CD = #{hrch_typ_cd}
+          AND CNTR_CD = #{cntr_cd}
+       <choose>
+            <when test="hrch_cd == null or hrch_cd == ''">
+                <choose>
+                    <when test="hgrn_hrch_cd == null or hgrn_hrch_cd == ''">
+                    AND (HGRN_HRCH_CD = '' OR HGRN_HRCH_CD IS NULL)
+                    </when>
+                    <otherwise>
+                    AND HGRN_HRCH_CD = #{hgrn_hrch_cd}
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                AND HGRN_HRCH_CD = #{hrch_cd}
+            </otherwise>
+        </choose>
+        <if test="hrch_cd_lvl_cnt != null and hrch_cd_lvl_cnt != ''">
+            AND HRCH_CD_LVL_CNT = #{hrch_cd_lvl_cnt}
+        </if>
+    </sql>
+
+    <select id="HrchCdMap.getHrchCdCount" parameterType="map" resultType="int">
+        SELECT /* HrchCdMap.getHrchCdCount */
+               COUNT(*)
+          FROM TB_HRCH_CD A
+        <include refid="HrchCdMap.selectCondition_fragment"/>
+    </select>
+
+    <select id="HrchCdMap.getHrchCdList" parameterType="map" resultType="resultMap">
+        SELECT /* HrchCdMap.getHrchCdList */
+               ROWNUM AS PAGE_INDX, B.*
+          FROM (SELECT HRCH_TYP_CD, HRCH_CD, CNTR_CD, HGRN_HRCH_CD, HRCH_CD_NM
+                     , HRCH_CD_LVL_CNT, HRCH_CD_EXPI, HRCH_CD_SQNC, HRCH_ADTL_CD, HRCH_ADTL_CD_NM
+                     , USE_YN
+                     , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.RGSR_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS RGSR_NM
+                     , (SELECT B.USER_NM
+                          FROM TB_USER B
+                         WHERE B.USER_ID = A.AMND_ID
+                           AND B.CNTR_CD = A.CNTR_CD) AS AMND_NM
+                     , (SELECT B.CD_NM
+                          FROM TB_CD B
+                         WHERE B.CD_SET_CD = 'SYS020'
+                           AND B.CD = A.HRCH_TYP_CD
+                           AND B.CNTR_CD = A.CNTR_CD) AS HRCH_TYP_CD_NM
+                     , (SELECT B.HRCH_CD_NM
+                          FROM TB_HRCH_CD B
+                         WHERE B.HRCH_TYP_CD = A.HRCH_TYP_CD
+                           AND B.HRCH_CD = A.HGRN_HRCH_CD
+                           AND B.CNTR_CD = A.CNTR_CD) AS HGRN_HRCH_CD_NM
+                  FROM TB_HRCH_CD A
+        <include refid="HrchCdMap.selectCondition_fragment" />
+        <if test="orderBy != null and orderBy != ''">
+              ORDER BY ${orderBy} ${orderDirection}
+        </if>
+               ) B
+    </select>
+
+    <select id="HrchCdMap.getHrchCdTree" parameterType="map" resultType="resultMap">
+        SELECT /* HrchCdMap.getHrchCdTree */
+               HRCH_TYP_CD, HRCH_CD, CNTR_CD, HGRN_HRCH_CD, HRCH_CD_NM
+             , HRCH_CD_LVL_CNT, HRCH_CD_SQNC
+             , (SELECT (CASE WHEN COUNT(*) > 0 THEN 'TRUE' END)
+                  FROM TB_HRCH_CD B
+                 WHERE B.CNTR_CD = A.CNTR_CD
+                   AND B.HRCH_TYP_CD = A.HRCH_TYP_CD
+                   AND B.HGRN_HRCH_CD = A.HRCH_CD) AS HASCHILDREN
+             , (SELECT B.CD_NM
+                  FROM TB_CD B
+                 WHERE B.CD_SET_CD = 'SYS020'
+                   AND B.CD = A.HRCH_TYP_CD
+                   AND B.CNTR_CD = A.CNTR_CD) AS HRCH_TYP_CD_NM
+          FROM (SELECT * FROM TB_HRCH_CD WHERE HRCH_TYP_CD = #{hrch_typ_cd} AND CNTR_CD = #{cntr_cd}) A
+
+            START WITH HGRN_HRCH_CD  IS NULL
+            CONNECT BY PRIOR HRCH_CD = HGRN_HRCH_CD
+           ORDER SIBLINGS  BY A.HRCH_CD_LVL_CNT, A.HRCH_CD_SQNC
+
+         <!-- WHERE HRCH_TYP_CD = #{hrch_typ_cd}
+           AND CNTR_CD = #{cntr_cd}
+        <choose>
+            <when test="hrch_cd == null or hrch_cd == ''">
+           AND (HGRN_HRCH_CD = '' OR HGRN_HRCH_CD IS NULL)
+            </when>
+            <otherwise>
+           AND HGRN_HRCH_CD = #{hrch_cd}
+            </otherwise>
+        </choose>
+        <if test="use_yn != null and use_yn != ''">
+           AND USE_YN = #{use_yn}
+        </if>
+      ORDER BY HRCH_CD_SQNC ASC -->
+    </select>
+
+    <select id="HrchCdMap.getHrchCdMaxSequence" parameterType="map" resultType="int">
+        SELECT /* HrchCdMap.getHrchCdMaxSequence */
+               NVL(MAX(HRCH_CD_SQNC), 0)
+          FROM TB_HRCH_CD
+         WHERE HRCH_TYP_CD = #{hrch_typ_cd}
+           AND CNTR_CD = #{cntr_cd}
+        <choose>
+            <when test="hgrn_hrch_cd == null or hgrn_hrch_cd == ''">
+           AND (HGRN_HRCH_CD = '' OR HGRN_HRCH_CD IS NULL)
+            </when>
+            <otherwise>
+           AND HGRN_HRCH_CD = #{hgrn_hrch_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="HrchCdMap.getHrchCdDuplicateCount" parameterType="map" resultType="int">
+        SELECT /* HrchCdMap.getHrchCdDuplicateCount */
+               COUNT(*)
+          FROM TB_HRCH_CD
+         WHERE CNTR_CD = #{cntr_cd}
+           AND HRCH_TYP_CD = #{hrch_typ_cd}
+           AND HRCH_CD_SQNC = #{hrch_cd_sqnc}
+           AND HRCH_CD != #{hrch_cd}
+        <choose>
+            <when test="hgrn_hrch_cd == null or hgrn_hrch_cd == ''">
+           AND (HGRN_HRCH_CD = '' OR HGRN_HRCH_CD IS NULL)
+            </when>
+            <otherwise>
+           AND HGRN_HRCH_CD = #{hgrn_hrch_cd}
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="HrchCdMap.insertHrchCd" parameterType="map">
+        INSERT /* HrchCdMap.insertHrchCd */
+          INTO TB_HRCH_CD
+               (HRCH_TYP_CD, HRCH_CD, CNTR_CD, HGRN_HRCH_CD, HRCH_CD_NM
+              , HRCH_CD_LVL_CNT, HRCH_CD_EXPI, HRCH_CD_SQNC, HRCH_ADTL_CD, HRCH_ADTL_CD_NM
+              , USE_YN
+              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES (#{hrch_typ_cd}, #{hrch_cd}, #{cntr_cd}, #{hgrn_hrch_cd}, #{hrch_cd_nm}
+              , #{hrch_cd_lvl_cnt}, #{hrch_cd_expi}, #{hrch_cd_sqnc}, #{hrch_adtl_cd}, #{hrch_adtl_cd_nm}
+              , #{use_yn}
+              , #{rgsr_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+    </insert>
+
+    <update id="HrchCdMap.updateHrchCd" parameterType="map">
+        UPDATE /* HrchCdMap.updateHrchCd */
+               TB_HRCH_CD
+           SET HRCH_CD_NM = #{hrch_cd_nm}
+             , HRCH_CD_LVL_CNT = #{hrch_cd_lvl_cnt}
+             , HRCH_CD_EXPI = #{hrch_cd_expi}
+             , HRCH_CD_SQNC = #{hrch_cd_sqnc}
+             , USE_YN = #{use_yn}
+             , HRCH_ADTL_CD = #{hrch_adtl_cd}
+             , HRCH_ADTL_CD_NM = #{hrch_adtl_cd_nm}
+             , AMND_ID = #{amnd_id}
+             , AMNT_DTTM = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+        WHERE HRCH_CD = #{hrch_cd}
+          AND HRCH_TYP_CD = #{hrch_typ_cd}
+          AND CNTR_CD = #{cntr_cd}
+    </update>
+
+    <delete id="HrchCdMap.deleteHrchCd" parameterType="map">
+        DELETE /* HrchCdMap.deleteHrchCd */
+          FROM TB_HRCH_CD
+         WHERE CNTR_CD = #{cntr_cd}
+           AND HRCH_TYP_CD = #{hrch_typ_cd}
+           AND HRCH_CD IN (SELECT HRCH_CD
+                             FROM TB_HRCH_CD
+                            START WITH CNTR_CD = #{cntr_cd}
+                                   AND HRCH_TYP_CD = #{hrch_typ_cd}
+                                   AND HRCH_CD = #{hrch_cd}
+                          CONNECT BY PRIOR HRCH_CD = HGRN_HRCH_CD)
+    </delete>
+
+    <update id = "HrchCdMap.updateHrchCdSequence" parameterType="map">
+    <![CDATA[
+        UPDATE /* HrchCdMap.updateHrchCdSequence */
+               TB_HRCH_CD
+           SET HRCH_CD_SQNC =
+                   (CASE HRCH_CD WHEN #{clscd} THEN ${hrch_cd_sqnc}
+                                 ELSE (CASE SIGN(${hrch_cd_sqnc_old} - ${hrch_cd_sqnc}) WHEN -1 THEN HRCH_CD_SQNC - 1
+                                                                                        WHEN  1 THEN HRCH_CD_SQNC + 1
+                                       END)
+                    END)
+         WHERE HRCH_CD_SQNC <= (CASE SIGN(${hrch_cd_sqnc_old} - ${hrch_cd_sqnc}) WHEN  1 THEN ${hrch_cd_sqnc_old}
+                                                                                 WHEN -1 THEN ${hrch_cd_sqnc}
+                                END)
+           AND HRCH_CD_SQNC >= (CASE SIGN(${hrch_cd_sqnc_old} - ${hrch_cd_sqnc}) WHEN  1 THEN ${hrch_cd_sqnc}
+                                                                                 WHEN -1 THEN ${hrch_cd_sqnc_old}
+                                END)
+           AND HRCH_TYP_CD = #{hrch_typ_cd}
+           AND HRCH_CD_LVL_CNT = #{hrch_cd_lvl_cnt}
+           AND CNTR_CD = #{cntr_cd}
+    ]]>
+        <choose>
+            <when test="hgrn_hrch_cd == null or hgrn_hrch_cd == ''">
+           AND (HGRN_HRCH_CD = '' OR HGRN_HRCH_CD IS NULL)
+            </when>
+            <otherwise>
+           AND HGRN_HRCH_CD = #{hgrn_hrch_cd}
+            </otherwise>
+        </choose>
+    </update>
+
+    <select id="HrchCdMap.getClscdDropDownList" parameterType="map" resultType="resultMap">
+           SELECT /* HrchCdMap.getClscdDropDownList */
+               HRCH_TYP_CD, HRCH_CD_NM, HRCH_CD, HGRN_HRCH_CD, HRCH_CD_LVL_CNT, HRCH_CD_SQNC
+               ,HRCH_ADTL_CD ,HRCH_ADTL_CD_NM
+          FROM TB_HRCH_CD
+         WHERE USE_YN = 'Y'
+           AND CNTR_CD = #{cntr_cd}
+        <if test="hrch_typ_cd != null and hrch_typ_cd != ''">
+           AND HRCH_TYP_CD = #{hrch_typ_cd}
+        </if>
+        <!-- <choose>
+            <when test="hgrn_hrch_cd != null and hgrn_hrch_cd != ''">
+           AND HGRN_HRCH_CD = #{hgrn_hrch_cd}
+            </when>
+            <otherwise>
+           AND (HGRN_HRCH_CD = '' OR HGRN_HRCH_CD IS NULL)
+            </otherwise>
+        </choose> -->
+         ORDER BY HRCH_CD_SQNC
+    </select>
+
+    <select id="HrchCdMap.getHrchCdListByStringArray" resultType="resultMap">
+        SELECT /* HrchCdMap.getHrchCdListByStringArray */
+               HRCH_TYP_CD, HRCH_CD, CNTR_CD, HGRN_HRCH_CD, HRCH_CD_NM
+             , HRCH_CD_LVL_CNT, HRCH_CD_EXPI, HRCH_CD_SQNC, HRCH_ADTL_CD, HRCH_ADTL_CD_NM
+          FROM TB_HRCH_CD
+         WHERE USE_YN = 'Y'
+           AND HRCH_TYP_CD IN
+        <foreach collection="array" item="item" separator="," close=")" open="(">
+               #{item}
+        </foreach>
+      ORDER BY HRCH_CD_SQNC ASC
+    </select>
+
+</mapper>

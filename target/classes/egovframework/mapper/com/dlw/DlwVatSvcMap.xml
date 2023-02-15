@@ -1,0 +1,1433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwVatSvcMap">
+<select id="DlwVatSvcMap.selectVatSvcList_New" parameterType="map" resultType="resultMap">
+	SELECT /* DlwVatSvcMap.selectVatSvcList */
+	      A2.*
+	FROM (
+				SELECT A1.*,
+			      <choose>
+			          <when test="orderBy != null and orderBy != ''">
+			              ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+			          </when>
+			          <otherwise>
+			              ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX,
+			          </otherwise>
+			      </choose>
+			      	MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS TOTAL_CNT
+		        FROM
+				(
+				    SELECT 
+				        '' AS CHK,        
+				        CASE WHEN ISUHIST.ISU_DT IS NULL OR ISUHIST.ISU_DT = '' THEN '' 
+				        ELSE CASE WHEN NVL(ISUHIST.VALID_SVC, '01') != '02' THEN '유효' ELSE '무효' END
+				        END VALIDSVC_NM ,                       /* 쿠폰상태 */    
+				        (MB.MEM_NM || ' 귀하') AS MEM_NM,       /* 회원명   */
+				        MB.MEM_NM AS ORG_MEM_NM,		        /* 회원명 */
+				        PD.PROD_NM,			                    /* 상품명 */
+				        MPA.JOIN_DT,	                        /* 가입일 */
+				        MB.CELL,                                /* 연락처  */
+				        MB.HOME_ZIP,	                        /* 우편번호 */
+				        REPLACE(REPLACE(REPLACE(MB.HOME_ADDR  , CHR(10), ' '), CHR(13), ' '), CHR(9), ' ') AS HOME_ADDR,     /* 주소 */
+				        REPLACE(REPLACE(REPLACE(MB.HOME_ADDR2 , CHR(10), ' '), CHR(13), ' '), CHR(9), ' ') AS HOME_ADDR_DTL, /* 상세주소 */
+				        REPLACE(REPLACE(REPLACE(CASE WHEN MPA.POST_MTR_RCV = '02' THEN MB.WRPL_ADDR ELSE MB.HOME_ADDR END, CHR(10), ' '), CHR(13), ' '), CHR(9), ' ') AS HOME_ADDR1,	/* 주소1 */
+				        REPLACE(REPLACE(REPLACE(CASE WHEN MPA.POST_MTR_RCV = '02' THEN MB.WRPL_ADDR2 ELSE MB.HOME_ADDR2 END, CHR(10), ' '), CHR(13), ' '), CHR(9), ' ') AS HOME_ADDR2,	/* 상세주소 */    
+				        RS.RESN_ACPT_DAY AS RSN_DT,             /* 해약일자 */
+				        EV.EVENT_PROC_DAY AS EVENT_DAY,	        /* 장례/행사일 */
+				        OPTSVC.SVC_NM, 	                        /* 서비스종류 */
+				        CASE WHEN OPTMST.APP_NO = 0 THEN '후방' ELSE '전방' END BF_NM,	/* 전후방구분 */
+				        NVL(ISUHIST.ISU_DT,'') AS ISU_DT,	    /* 발급일 */
+				        
+				        
+				        REPLACE(REPLACE(CASE WHEN ISUHIST.OPTSVC_SEQ = NULL OR  ISUHIST.OPTSVC_SEQ='' THEN '' ELSE  FN_GETMEMSVCISUNO(MPA.ACCNT_NO,ISUHIST.OPTSVC_SEQ) END, CHR(13), ''), CHR(10), '')  ISU_NO2,	/* 발급번호 */
+				        FN_NEW_ISU_NO(ISUHIST.ISU_COUPON_TP, ISUHIST.ISU_NO) AS ISU_NO,
+				        ISUHIST.ISU_NO AS ORG_ISU_NO,
+				        MPA.NEW_CHAN_GUNSU, 		            /* 특별할인 */
+				        MPA.RESORT_MEM_NM, 		                /* 리조트회원명 */
+				        MPA.RESORT_MEM_NO, 		                /* 리조트회원번호 */
+				        CASE WHEN MPA.PAY_GUBUN = '01' THEN '회원(기명)' WHEN MPA.PAY_GUBUN = '02' THEN '회원(무기명)' ELSE '비회원' END PAY_GUBUN,		/* 회원구분 */
+				        FN_EMPLE_NM(ISUHIST.REG_MAN) ISU_MAN,	            /* 발급자 */
+				        ISUHIST.INVOICE_NO, 	                            /* 등기 및 송장번호 */
+				        ISUHIST.ADDRESSEE, 	                                /* 택배사 */
+				        ISUHIST.SEND_DT,                                    /* 발송일 */
+				        REPLACE(ISUHIST.ADDR_NOTE, CHR(13), ' ') ADDR_NOTE,	/* 비고 */
+				        PM.NO AS PAY_CNT,		                            /* 납입회차 */
+				        PM.PAY_DAY, 			                            /* 최종납입일자 */
+				        OPTDTL.ISU_CNT, 		                            /* 발급매수 */
+				        OPTDTL.OPT_SVC_CD,		                            /* 서비스코드 */
+				        ISUHIST.DTL_SEQ,		                            /* 리스트 여기까지사용 */
+				        
+				        MB.MEM_NO,										    /* 고유번호 */
+				        MPA.ACCNT_NO,									    /* 회원번호 */
+				        SVC.SEQ,
+				        OPTSVC.NO_CRT_YN,
+				        NVL(ISUHIST.VALID_SVC, '01') VALID_SVC,
+				        FN_EMPLE_NM(MPA.EMPLE_NO) AS EMPLENM,			    /* 담당자 */
+				        MPA.EMPLE_NO, 						                /* 담당자번호 */
+				        FN_DEPT_NM((SELECT DEPT_CD FROM EMPLOYEE WHERE EMPLE_NO = MPA.EMPLE_NO)) AS EMPLEDEPTNM,	/* 담당자소속 */
+				        MB.CELL PHONE,	                                    /* 핸드폰 */
+				        OPTSVC.CRT_NO,
+				        OPTSVC.PRT_FILE_NM,
+				        MPA.PROD_CD,        
+				        CASE WHEN (NVL(OPTMST.END_DT,'99991231') >= MPA.JOIN_DT AND OPTMST.START_DT <![CDATA[<=]]> MPA.JOIN_DT ) THEN '사용' ELSE '중지' END USEYN, /* 사용 */
+				        ISUHIST.ISU_COUPON_TP,                              /* KEY구분 */
+				        ISUHIST.COUPON_DTL_NO,                              /* 쿠폰상세 키 */
+				        (SELECT COUNT(*) FROM PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS MAX_CNT,
+				        ((SELECT COUNT(*) FROM PRODUCT_NO_DATA WHERE PROD_CD = MPA.PROD_CD) - MPA.NEW_CHAN_GUNSU) AS MAN_CNT,
+				        OPTMST.APP_NO,
+				        MPA.KSTBIT
+				    FROM PROD_OPT_SVC_MST OPTMST INNER JOIN
+				        MEM_PROD_ACCNT_SVC SVC ON SVC.SEQ = OPTMST.SEQ  INNER JOIN
+				        PAY_MNG PM ON SVC.ACCNT_NO = PM.ACCNT_NO AND PM.DEL_FG = 'N'
+				        
+						<if test="srch_type == '01' ">	<!-- 검색조건-입금일자 -->
+							AND OPTMST.APP_NO = PM.NO
+						</if>
+										
+						
+						<if test="srch_type == '03' ">	<!-- 검색조건-행사일자 -->
+							 AND OPTMST.APP_NO = 0 
+						</if>	
+														
+				        INNER JOIN 
+				
+				        MEM_PROD_ACCNT MPA ON SVC.ACCNT_NO = MPA.ACCNT_NO AND MPA.DEL_FG = 'N' INNER JOIN
+				        MEMBER MB ON MPA.MEM_NO = MB.MEM_NO AND MB.DEL_FG = 'N' LEFT OUTER JOIN
+				        RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'     LEFT OUTER JOIN
+				        EVENT EV ON MPA.ACCNT_NO = EV.ACCNT_NO AND EV.DEL_FG = 'N' INNER JOIN
+				        PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD INNER JOIN
+				        PROD_OPT_SVC_DTL OPTDTL ON OPTDTL.SEQ = OPTMST.SEQ INNER JOIN 
+				        OPT_SVC OPTSVC ON OPTSVC.SEQ = OPTDTL.OPT_SVC_CD AND OPTSVC.SVC_CL != '009' 
+				        
+				        <if test="accnt_stat1 == '01' "> <!-- 검색조건-추출 -->
+				         	LEFT OUTER JOIN
+				        </if>
+				        
+				        <if test="accnt_stat1 == '02' "> <!-- 검색조건-이력 -->
+				         	INNER JOIN
+				        </if>				        				        
+				        (
+				            SELECT            
+				                ACCNT_NO,
+				                SEQ,
+				                DTL_SEQ,
+				                VALID_SVC,
+				                ADDR_NOTE,
+				                INVOICE_NO,
+				                SEND_DT,
+				                ADDRESSEE,
+				                ISU_DT,
+				                OPTSVC_SEQ,
+				                REG_MAN,
+				                ISU_NO,
+				                ISU_COUPON_TP,
+				                COUPON_DTL_NO
+				            FROM SVC_ISU_HIST /* 부가서비스 발급이력관리 */
+				        ) ISUHIST  ON ISUHIST.ACCNT_NO = SVC.ACCNT_NO AND ISUHIST.SEQ =  SVC.SEQ AND ISUHIST.OPTSVC_SEQ = OPTDTL.OPT_SVC_CD  
+				     WHERE 1=1
+				     	<if test="accnt_no != null and accnt_no != ''">
+				     	    AND SVC.ACCNT_NO = #{accnt_no}
+				     	</if>
+				     	
+						<if test="bfCl == '01' ">
+						 	AND OPTMST.APP_NO > 0		/* 전/후방구분-전방 */   	
+						</if>
+						
+						<if test="bfCl == '02' ">
+						 	AND OPTMST.APP_NO = 0		/* 전/후방구분-후방 */   	
+						</if>
+						
+						<if test="isuCl == '01' ">
+						    AND ISUHIST.ISU_DT IS NOT NULL		/* 발급구분-발급 */
+						</if>			
+												
+						<if test="isuCl == '02' ">
+						     AND ISUHIST.ISU_DT IS NULL 				/* 발급구분-미발급 */
+						</if>
+						
+                        <if test="svcCl != null and svcCl != ''">
+                            AND OPTDTL.OPT_SVC_CD = #{svcCl}	/* 부가서비스 */
+                        </if>
+                        	
+                        <if test="accnt_stat1 == '01' "> <!-- 검색조건-추출 -->
+                            AND PM.PAY_DAY BETWEEN #{stt_dt} AND #{end_dt}
+				            AND NOT (PD.PROD_CD = '19' AND MPA.NEW_CHAN_GUNSU = 11 AND OPTMST.APP_NO = 0 AND OPTSVC.SEQ = '0016')
+				            
+				           	<if test="srch_type == '03' ">	<!-- 검색조건-행사일자 -->
+							 	AND EV.EVENT_COMP_DAY BETWEEN #{stt_dt} AND #{end_dt}
+							</if>	
+                        </if>	
+                        
+                        <if test="accnt_stat1 == '02' "> <!-- 검색조건-이력 -->
+				           	<if test="srch_type == '01' ">	<!-- 검색조건-입금일자 -->
+							 	AND PM.PAY_DAY BETWEEN #{stt_dt} AND #{end_dt}
+							</if>	
+							
+				           	<if test="srch_type == '02' ">	<!-- 검색조건-발급일자 -->
+							 	AND ISUHIST.ISU_DT BETWEEN #{stt_dt} AND #{end_dt}
+							</if>	
+																		            
+				           	<if test="srch_type == '03' ">	<!-- 검색조건-행사일자 -->
+							 	AND EV.EVENT_COMP_DAY BETWEEN #{stt_dt} AND #{end_dt}
+							</if>	
+                        </if>	
+				) A1 
+				WHERE 1=1
+		        <if test="accnt_stat1 == '01' "> <!-- 검색조건-추출 -->
+                          AND USEYN != '중지'				            
+		           	<if test="srch_type == '03' ">	<!-- 검색조건-행사일자 -->
+					 	AND PAY_CNT = MAN_CNT  
+					</if>	
+                </if>	
+		        <if test="accnt_stat1 == '02' "> <!-- 검색조건-이력 -->
+		            	AND ((PAY_CNT = MAN_CNT AND APP_NO = 0) OR (PAY_CNT != MAN_CNT AND APP_NO = PAY_CNT))
+		            	<if test="isuNo != null and isuNo != ''">
+		            		AND A1.ISU_NO LIKE '%#{isuNo}%' /* 부가서비스 */
+		            	</if>
+                </if>
+         	) A2
+	       <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+	        <![CDATA[
+	        WHERE PAGE_INDX >= #{startLine}
+	          AND PAGE_INDX < #{endLine}
+	        ]]>
+	        </if>
+</select>
+    
+    
+    
+
+
+
+ <select id="DlwVatSvcMap.selectVatSvcList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectVatSvcList -->
+        SELECT /* DlwVatSvcMap.selectVatSvcList */
+                A2.*
+          FROM (SELECT A1.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                   FROM
+                   (
+                        SELECT
+                                '' as chk
+                              , case when isuHist.ISU_DT is null or isuHist.ISU_DT = ''
+                                     then ''
+                                     else case when NVL(isuHist.VALID_SVC, '01') != '02' then '유효'
+                                                  else '무효'
+                                          end
+                                end validsvc_nm	/* 쿠폰상태 */
+                            , (mem.mem_nm || ' 귀하') as mem_nm					/* 회원명 */
+                            , mem.mem_nm as org_mem_nm				/* 회원명 */
+                            , prod.prod_nm			/* 상품명 */
+                            , accnt.JOIN_DT	/* 가입일 */
+                            , mem.CELL cell		/* 연락처  */
+                            , mem.home_zip	/* 우편번호 */
+                            <!-- 상세주소 마스킹을 위해 분리 - 2018.02.20 -->
+                            <!-- , replace(replace(replace(mem.home_addr || ' ' ||  mem.home_addr2 , chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr /* 주소 */  -->
+                            , replace(replace(replace(mem.home_addr  , chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr     /* 주소 */
+                            , replace(replace(replace(mem.home_addr2 , chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr_dtl /* 상세주소 */
+                            , replace(replace(replace(case 	when accnt.post_mtr_rcv = '02'  then mem.wrpl_addr
+                                     else  mem.home_addr
+                                end, chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr1	/* 주소1 */
+                            , replace(replace(replace(case when accnt.post_mtr_rcv = '02' then mem.wrpl_addr2
+                                     else mem.home_addr2
+                                end, chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr2	/* 상세주소 */
+                            , case when d.ACCNT_NO is not null then d.RESN_ACPT_DAY end as rsn_dt /* 해약일자 */
+                            , case when event.ACCNT_NO is not null then event.EVENT_PROC_DAY end as event_day	/* 장례/행사일 */
+                            , optsvc.svc_nm 	/* 서비스종류 */
+                            , case when svc.APP_NO = 0 then '후방'
+                                   else '전방'
+                              end bf_nm	/* 전후방구분 */
+                            , NVL(isuHist.ISU_DT,'') as isu_dt	/* 발급일 */
+                            , replace(replace(case 	when isuHist.optsvc_seq = null or  isuHist.optsvc_seq='' then ''
+                                    else  FN_GetMemSvcIsuNo(accnt.accnt_no,isuHist.optsvc_seq)
+                              end, chr(13), ''), chr(10), '')  isu_no2	/* 발급번호 */
+                            , FN_NEW_ISU_NO(isuHist.ISU_COUPON_TP, isuHist.isu_no) AS isu_no
+                            , isuHist.isu_no AS org_isu_no
+                            , accnt.new_chan_gunsu 		/* 특별할인 */
+                            , accnt.resort_mem_nm 		/* 리조트회원명 */
+                            , accnt.resort_mem_no 		/* 리조트회원번호 */
+                            , case when accnt.pay_gubun = '01' then '회원(기명)'
+                                   when accnt.pay_gubun = '02' then '회원(무기명)'
+                                   else '비회원'
+                              end pay_gubun		/* 회원구분 */
+                            , fn_emple_nm(isuHist.REG_MAN) isu_man	/* 발급자 */
+                            , isuHist.invoice_no 	/* 등기 및 송장번호 */
+                            , isuHist.addressee 	/* 택배사 */
+                            , isuHist.SEND_DT   /* 발송일 */
+                            , replace(isuHist.ADDR_NOTE, chr(13), ' ') addr_note	/* 비고 */
+                            , pay.no as pay_cnt		/* 납입회차 */
+                            , pay.pay_day 			/* 최종납입일자 */
+                            , svcDtl.isu_cnt 		/* 발급매수 */
+                            , svcDtl.opt_svc_cd		/* 서비스코드 */
+                            , isuHist.DTL_SEQ		/* 리스트 여기까지사용 */
+                            , mem.mem_no										/* 고유번호 */
+                            , accnt.accnt_no									/* 회원번호 */
+                            , accntSvc.seq
+                            , optsvc.no_crt_yn
+                            , NVL(isuHist.VALID_SVC, '01') valid_svc
+                            , FN_EMPLE_NM(accnt.emple_no) as empleNm			/* 담당자 */
+                            , accnt.emple_no 						/* 담당자번호 */
+                            , FN_DEPT_NM((select dept_cd from EMPLOYEE where emple_no = ACCNT.emple_no)) as empleDeptNm	/* 담당자소속 */
+                            , mem.CELL phone	/* 핸드폰 */
+                            , optsvc.crt_no
+                            , optsvc.prt_File_Nm
+                            , accnt.prod_cd 			/* 상품코드 */
+
+                            , case when (NVL(svc.end_dt,'99991231') >= accnt.join_dt and svc.start_dt &lt;= accnt.join_dt )
+                                   then '사용'
+                                   else '중지'
+                              end useYn /* 사용 */
+                            ,isuHist.ISU_COUPON_TP  /* key구분 */
+                            ,isuHist.COUPON_DTL_NO  /* 쿠폰상세 키 */
+                            ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                        FROM mem_prod_accnt accnt	/* 회원별 상품정보 */
+                        INNER JOIN pay_mng pay /* 입금관리 */
+                          ON accnt.accnt_no = pay.accnt_no
+                         AND pay.DEL_FG = 'N'
+                        INNER JOIN member mem /* 회원정보 */
+                          on mem.MEM_NO = accnt.MEM_NO
+                        INNER JOIN mem_prod_accnt_svc accntSvc /* 회원별 상품이력_부가서비스 */
+                          on accntSvc.accnt_no = accnt.accnt_no
+                          <!-- 사용하지 않는 부가서비스 항목도 체크 되어있다면 불러오도록 한다.(부가서비스 마스터(가칭) )
+                          INNER JOIN PROD_OPT_SVC_MST svc
+                            on use_yn = 'Y' and svc.seq = accntSvc.seq
+                           -->
+                        INNER JOIN PROD_OPT_SVC_MST svc /* 상품별 부가서비스 마스터 */
+                            ON svc.seq = accntSvc.seq
+<!-- 2017.01.05 리조트 회원도 조회가 되어야 함으로 해당 조건 삭제(협의 방수진매니저)
+                           AND svc.MEM_CL = 'L'
+ -->
+                            AND SUBSTR(pay.ACCNT_NO,5,2) = svc.PROD_CD
+
+                    <if test="accnt_stat1 == '01' ">	<!-- 추출기준 -->
+
+                        <if test="srch_type == '01' ">
+                            AND pay.NO = svc.APP_NO		/* 검색조건-입금일자 */
+                        </if>
+                        <if test="srch_type == '03' ">	<!-- 행사기준 -->
+                            AND pay.NO = (
+                                          SELECT MAX(NO)
+                                            FROM PAY_MNG
+                                           WHERE accnt_no = accnt.accnt_no
+                                             AND del_fg = 'N')	/* 검색조건-행사일자 */
+
+                        </if>
+                    </if>
+                    <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                            AND pay.NO = (
+                                          SELECT MAX(NO)
+                                            FROM PAY_MNG
+                                           WHERE accnt_no = accnt.accnt_no
+                                             AND del_fg = 'N')
+                    </if>
+
+                        INNER JOIN prod_opt_svc_dtl svcDtl /* 상품별 부가서비스 상세 */
+                            ON svcDtl.seq = svc.seq
+                        INNER JOIN product prod /* 상품 */
+                            ON accnt.prod_cd = prod.prod_cd
+                        INNER JOIN opt_svc optsvc /* 미정 */
+                            ON optsvc.seq = svcDtl.opt_svc_cd
+                           AND optsvc.svc_cl != '009'
+
+                    <if test="accnt_stat1 == '01' ">	<!-- 추출기준 -->
+                        LEFT OUTER JOIN
+                    </if>
+                    <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                        INNER JOIN
+                    </if>
+
+                                         (
+                                            select ACCNT_NO
+                                                  ,SEQ
+                                                  ,DTL_SEQ
+                                                  ,VALID_SVC
+                                                  ,ADDR_NOTE
+                                                  ,INVOICE_NO
+                                                  ,SEND_DT
+                                                  ,ADDRESSEE
+                                                  ,ISU_DT
+                                                  ,OPTSVC_SEQ
+                                                  ,REG_MAN
+                                                  ,ISU_NO
+                                                  ,ISU_COUPON_TP
+                                                  ,COUPON_DTL_NO
+                                           from SVC_ISU_HIST /* 부가서비스 발급이력관리 */
+                                         ) isuHist
+                                        on isuHist.accnt_no = accntSvc.accnt_no
+                                        and isuHist.seq =  accntSvc.seq
+                                        and isuHist.optsvc_seq = svcDtl.opt_svc_cd
+
+                          LEFT OUTER JOIN event  /* 행사 */
+                            ON event.ACCNT_NO = accnt.ACCNT_NO
+                           AND SUBSTR(event.ACCNT_NO,5,2) = svc.PROD_CD
+                           AND event.DEL_FG = 'N'
+                          LEFT OUTER JOIN rescission d /* 해약 */
+                            ON d.ACCNT_NO = accnt.ACCNT_NO
+                           AND d.DEL_FG = 'N'
+                          WHERE 1=1  and accnt.DEL_FG = 'N'
+                         <!-- AND ROWNUM &lt;= 10000  -->
+                          <!-- 수정 : 일반상품이면서 사업자인 경우 제외 최혜영씨 요청 BY LBK_2013_10_08 -->
+                          <!--
+                              AND NOT ( prod.PROD_NM NOT LIKE '%법인%' AND LENGTH(MEM.IDN_NO) = 10 )
+                          -->
+
+                          <!-- 수정 : 사용하지 않게된 부가서비스의 경우 체크가 되어있더라도 가입일자가 mst의 start_dt~end_dt 내여야지 조회되도록 수정 -->
+                            AND
+                            (
+                             ((NVL(svc.end_dt, '99991231') >= accnt.join_dt and svc.start_dt &lt;= accnt.join_dt ))
+                            )
+
+                            <!-- (19상품 AND 특별할인 11회 AND 후방 AND 서비스코드=0016) 제외 -->
+                            AND NOT (PROD.PROD_CD = '19' AND accnt.NEW_CHAN_GUNSU = 11 AND svc.APP_NO = 0 AND optsvc.SEQ = '0016')
+                            <!-- 사업자 제외 -->
+                            <!-- 수정 : 법인상품의 경우 사업자라도 부가서비스 발급되어야함. by lbk_2013_04_09 -->
+                            <!-- 수정 : 법인, 일반 상품 구분없이 무조건 발급  by lbk_2013_04_18 -->
+                            <!-- 조회 순서를 구좌번호순으로 정렬 2013.01.16 임병근-->
+
+                        <if test="accnt_stat1 == '01' ">	<!-- 추출기준 -->
+                            AND ((svc.APP_NO != 0)
+                                    or
+                                (svc.APP_NO = 0 and (event.accnt_no is not null) and (fn_yen_che(event.accnt_no) = '만기'))
+                            )
+
+
+                            <if test="srch_type == '01'">	<!-- 검색조건-입금일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                   AND pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                </if>
+                            </if>
+
+
+                            <if test="srch_type == '03'">	<!-- 검색조건-행사일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                    AND (prod.EXPR_NO = '1' /* 일시납상품 무조건 포함 */
+                                        OR
+                                        pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                    )
+                                    AND event.EVENT_COMP_DAY between #{stt_dt} and #{end_dt}	/* 행사기준:행사종료일자 */
+                                    AND svc.APP_NO = 0		/* 전/후방구분-후방 */
+                                </if>
+                            </if>
+                        </if>
+
+
+                        <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                            <if test="srch_type == '01'">	<!-- 검색조건-입금일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                   AND pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                </if>
+                            </if>
+
+                            <if test="srch_type == '02'">	<!-- 검색조건-발급일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                   AND isuHist.ISU_DT between #{stt_dt} and #{end_dt}	/* 검색조건-발급일자 */
+                                </if>
+                            </if>
+
+                            <if test="srch_type == '03'">	<!-- 검색조건-행사일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                    AND (prod.EXPR_NO = '1' /* 일시납상품 무조건 포함 */
+                                        OR
+                                        pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                    )
+
+                                    AND event.EVENT_COMP_DAY between #{stt_dt} and #{end_dt}	/* 검색조건-행사종료일자 */
+                                    AND svc.APP_NO = 0		/* 전/후방구분-후방 */
+                                </if>
+                            </if>
+                        </if>
+
+                        <if test="accnt_no != null and accnt_no != ''">
+                            AND accnt.accnt_no like #{accnt_no} || '%'	/* 회원번호 */
+                        </if>
+
+
+                        <if test="bfCl != null and bfCl != ''">
+                            <if test="bfCl == '01'">
+                                AND svc.APP_NO > 0		/* 전/후방구분-전방 */
+                            </if>
+                            <if test="bfCl == '02'">
+                                AND svc.APP_NO = 0		/* 전/후방구분-후방 */
+                            </if>
+                        </if>
+
+
+                        <!-- 발급구분 : 만기거나  납입회차가 부가서비스 제공  회차보다 크거나 같아야 한다. -->
+
+                        <if test="isuCl == null or isuCl == ''">
+                            AND (pay.no >= svc.APP_NO or prod.expr_no = (accnt.new_chan_gunsu || (select NVL(max(no),0) from pay_mng where accnt_no = accnt.accnt_no and del_fg='N')))
+                            <!-- 청약철회 제외 -->
+                            AND NVL(d.resn_cl, '00') != '02'	/* 발급구분-전체 */
+
+                        </if>
+
+                        <if test="isuCl == '01'">
+                            AND isuHist.ISU_DT IS NOT NULL	/* 발급구분-발급 */
+
+                        </if>
+
+                        <if test="isuCl == '02'">
+                            AND (pay.no >= svc.APP_NO or prod.expr_no = (accnt.new_chan_gunsu || (select NVL(max(no),0) from pay_mng where accnt_no = accnt.accnt_no and del_fg='N')))
+                            <!-- 청약철회 제외 -->
+                            AND NVL(d.resn_cl, '00') != '02'	/* 발급구분-미발급 */
+                            <!-- 추출기준 발급일자가 있어도 회차 도래시 추출 가능해야 함으로 발급일자 is null 조건을 넣으면 안됨 -->
+                            AND isuHist.ISU_DT IS NULL
+                        </if>
+
+
+                        <if test="svcCl != null and svcCl != ''">
+                            AND svcDtl.opt_svc_cd = #{svcCl}	/* 부가서비스 */
+                        </if>
+
+                        <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                            <if test="ressChk != null and ressChk != ''">
+                                <if test="ressChk == 'Y'.toString()">
+                                    AND (d.resn_acpt_day IS NOT NULL or d.resn_acpt_day = '' or d.resn_acpt_day is null)  /* 해약포함 */
+                                </if>
+                            </if>
+                        </if>
+
+                        <if test="isuNo != null and isuNo != ''">
+                            AND ((isuHist.ISU_NO like '%' || #{isuNo} || '%') OR (
+                                                                                    isuHist.ISU_NO IN (
+                                                                                       SELECT COUPON_INH_NO
+                                                                                         FROM COUPON_INFO_MST MST
+                                                                                        WHERE ((MST.COUPON_NO1 LIKE '%' || #{isuNo} || '%') OR (MST.COUPON_NO2 LIKE '%' || #{isuNo} || '%'))
+                                                                                    )
+                                                                                 )
+
+                            )	/* 쿠폰번호 */
+                        </if>
+
+
+
+                        <if test="validSvc != null and validSvc != ''">
+                            AND isuHist.VALID_SVC = #{validSvc}	/* 쿠폰상태 */
+                        </if>
+
+                        <if test="accnt_stat1 == '01' "> <!-- 추출기준 -->
+                            and isuHist.ISU_DT IS NULL
+                        </if>
+
+                    ) A1
+                ) A2
+           <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+            order by A2.isu_no
+
+        </if>
+
+        <!-- ORDER BY isuNo, prod.prod_nm, accnt.accnt_no  -->
+    </select>
+
+
+
+
+    <select id="DlwVatSvcMap.selectVatSvcList_BACK11" parameterType="map" resultType="resultMap">
+
+
+        <!-- DM sql-id : selectVatSvcList -->
+        SELECT A2.*
+          FROM (SELECT A1.*,
+                <choose>
+                    <when test="orderBy != null and orderBy != ''">
+                        ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                    </when>
+                    <otherwise>
+                        ROW_NUMBER() OVER(ORDER BY ACCNT_NO) AS PAGE_INDX
+                    </otherwise>
+                </choose>
+                   FROM
+                   (
+                        SELECT
+                                '' as chk
+                              , case when isuHist.ISU_DT is null or isuHist.ISU_DT = ''
+                                     then ''
+                                     else case when NVL(isuHist.VALID_SVC, '01') != '02' then '유효'
+                                                  else '무효'
+                                          end
+                                end validsvc_nm	/* 쿠폰상태 */
+                            , (mem.mem_nm || ' 귀하') as mem_nm					/* 회원명 */
+                            , mem.mem_nm as org_mem_nm				/* 회원명 */
+                            , prod.prod_nm			/* 상품명 */
+                            , accnt.JOIN_DT	/* 가입일 */
+                            , mem.CELL cell		/* 연락처  */
+                            , mem.home_zip	/* 우편번호 */
+                            , replace(replace(replace(mem.home_addr || ' ' ||  mem.home_addr2 , chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr /* 주소 */
+                            , replace(replace(replace(case 	when accnt.post_mtr_rcv = '02'  then mem.wrpl_addr
+                                     else  mem.home_addr
+                                end, chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr1	/* 주소1 */
+                            , replace(replace(replace(case when accnt.post_mtr_rcv = '02' then mem.wrpl_addr2
+                                     else mem.home_addr2
+                                end, chr(10), ' '), chr(13), ' '), chr(9), ' ') as home_addr2	/* 상세주소 */
+                            , case when d.ACCNT_NO is not null then d.RESN_ACPT_DAY end as rsn_dt /* 해약일자 */
+                            , case when event.ACCNT_NO is not null then event.EVENT_PROC_DAY end as event_day	/* 장례/행사일 */
+                            , optsvc.svc_nm 	/* 서비스종류 */
+                            , case when svc.APP_NO = 0 then '후방'
+                                   else '전방'
+                              end bf_nm	/* 전후방구분 */
+                            , NVL(isuHist.ISU_DT,'') as isu_dt	/* 발급일 */
+                            , replace(replace(case 	when isuHist.optsvc_seq = null or  isuHist.optsvc_seq='' then ''
+                                    else  FN_GetMemSvcIsuNo(accnt.accnt_no,isuHist.optsvc_seq)
+                              end, chr(13), ''), chr(10), '')  isu_no2	/* 발급번호 */
+                            , FN_NEW_ISU_NO(isuHist.ISU_COUPON_TP, isuHist.isu_no) AS isu_no
+                            , isuHist.isu_no AS org_isu_no
+                            , accnt.new_chan_gunsu 		/* 특별할인 */
+                            , accnt.resort_mem_nm 		/* 리조트회원명 */
+                            , accnt.resort_mem_no 		/* 리조트회원번호 */
+                            , case when accnt.pay_gubun = '01' then '회원(기명)'
+                                   when accnt.pay_gubun = '02' then '회원(무기명)'
+                                   else '비회원'
+                              end pay_gubun		/* 회원구분 */
+                            , fn_emple_nm(isuHist.REG_MAN) isu_man	/* 발급자 */
+                            , isuHist.invoice_no 	/* 등기 및 송장번호 */
+                            , isuHist.addressee 	/* 택배사 */
+                            , isuHist.SEND_DT   /* 발송일 */
+                            , replace(isuHist.ADDR_NOTE, chr(13), ' ') addr_note	/* 비고 */
+                            , pay.no as pay_cnt		/* 납입회차 */
+                            , pay.pay_day 			/* 최종납입일자 */
+                            , svcDtl.isu_cnt 		/* 발급매수 */
+                            , svcDtl.opt_svc_cd		/* 서비스코드 */
+                            , isuHist.DTL_SEQ		/* 리스트 여기까지사용 */
+                            , mem.mem_no										/* 고유번호 */
+                            , accnt.accnt_no									/* 회원번호 */
+                            , accntSvc.seq
+                            , optsvc.no_crt_yn
+                            , NVL(isuHist.VALID_SVC, '01') valid_svc
+                            , FN_EMPLE_NM(accnt.emple_no) as empleNm			/* 담당자 */
+                            , accnt.emple_no 						/* 담당자번호 */
+                            , FN_DEPT_NM((select dept_cd from EMPLOYEE where emple_no = ACCNT.emple_no)) as empleDeptNm	/* 담당자소속 */
+                            , mem.CELL phone	/* 핸드폰 */
+                            , optsvc.crt_no
+                            , optsvc.prt_File_Nm
+                            , accnt.prod_cd 			/* 상품코드 */
+
+                            , case when (NVL(svc.end_dt,'99991231') >= accnt.join_dt and svc.start_dt &lt;= accnt.join_dt )
+                                   then '사용'
+                                   else '중지'
+                              end useYn /* 사용 */
+                            ,isuHist.ISU_COUPON_TP  /* key구분 */
+                            ,isuHist.COUPON_DTL_NO  /* 쿠폰상세 키 */
+                            ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                        FROM mem_prod_accnt accnt	/* 회원별 상품정보 */
+                        INNER JOIN pay_mng pay /* 입금관리 */
+                          ON accnt.accnt_no = pay.accnt_no
+                         AND pay.DEL_FG = 'N'
+                        INNER JOIN member mem /* 회원정보 */
+                          on mem.MEM_NO = accnt.MEM_NO
+                        INNER JOIN mem_prod_accnt_svc accntSvc /* 회원별 상품이력_부가서비스 */
+                          on accntSvc.accnt_no = accnt.accnt_no
+                          <!-- 사용하지 않는 부가서비스 항목도 체크 되어있다면 불러오도록 한다.(부가서비스 마스터(가칭) )
+                          INNER JOIN PROD_OPT_SVC_MST svc
+                            on use_yn = 'Y' and svc.seq = accntSvc.seq
+                           -->
+                        INNER JOIN PROD_OPT_SVC_MST svc /* 미정 */
+                            ON svc.seq = accntSvc.seq
+<!-- 2017.01.05 리조트 회원도 조회가 되어야 함으로 해당 조건 삭제(협의 방수진매니저)
+                           AND svc.MEM_CL = 'L'
+ -->
+
+                    <if test="accnt_stat1 == '01' ">	<!-- 추출기준 -->
+                            AND SUBSTR(pay.ACCNT_NO,5,2) = svc.PROD_CD
+
+                        <if test="srch_type == '01' ">
+                            AND pay.NO = svc.APP_NO		/* 검색조건-입금일자 */
+                        </if>
+                        <if test="srch_type == '03' ">	<!-- 행사기준 -->
+                            AND pay.NO = (
+                                          SELECT MAX(NO)
+                                            FROM PAY_MNG
+                                           WHERE accnt_no = accnt.accnt_no
+                                             AND del_fg = 'N')	/* 검색조건-행사일자 */
+
+                        </if>
+                    </if>
+                    <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                            AND pay.NO = (
+                                          SELECT MAX(NO)
+                                            FROM PAY_MNG
+                                           WHERE accnt_no = accnt.accnt_no
+                                             AND del_fg = 'N')
+                    </if>
+
+
+                        INNER JOIN prod_opt_svc_dtl svcDtl /* 미정 */
+                            ON svcDtl.seq = svc.seq
+                        INNER JOIN product prod /* 상품 */
+                            ON accnt.prod_cd = prod.prod_cd
+                        INNER JOIN opt_svc optsvc /* 미정 */
+                            ON optsvc.seq = svcDtl.opt_svc_cd
+                           AND optsvc.svc_cl != '009'
+
+                    <if test="accnt_stat1 == '01' ">	<!-- 추출기준 -->
+                        LEFT OUTER JOIN
+                    </if>
+                    <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                        INNER JOIN
+                    </if>
+
+                                         (
+                                            select ACCNT_NO
+                                                  ,SEQ
+                                                  ,DTL_SEQ
+                                                  ,VALID_SVC
+                                                  ,ADDR_NOTE
+                                                  ,INVOICE_NO
+                                                  ,SEND_DT
+                                                  ,ADDRESSEE
+                                                  ,ISU_DT
+                                                  ,OPTSVC_SEQ
+                                                  ,REG_MAN
+                                                  ,ISU_NO
+                                                  ,ISU_COUPON_TP
+                                                  ,COUPON_DTL_NO
+                                           from SVC_ISU_HIST /* 부가서비스 발급이력관리 */
+                                         ) isuHist
+                                        on isuHist.accnt_no = accntSvc.accnt_no
+                                        and isuHist.seq =  accntSvc.seq
+                                        and isuHist.optsvc_seq = svcDtl.opt_svc_cd
+
+
+                          LEFT OUTER JOIN event  /* 행사 */
+                            ON event.ACCNT_NO = accnt.ACCNT_NO
+                           AND SUBSTR(event.ACCNT_NO,5,2) = svc.PROD_CD
+                          LEFT OUTER JOIN rescission d /* 해약 */
+                            ON d.ACCNT_NO = accnt.ACCNT_NO
+                           AND d.DEL_FG = 'N'
+                          WHERE 1=1  and accnt.DEL_FG = 'N'
+                         <!-- AND ROWNUM &lt;= 10000  -->
+                          <!-- 수정 : 일반상품이면서 사업자인 경우 제외 최혜영씨 요청 BY LBK_2013_10_08 -->
+                          <!--
+                              AND NOT ( prod.PROD_NM NOT LIKE '%법인%' AND LENGTH(MEM.IDN_NO) = 10 )
+                          -->
+
+                          <!-- 수정 : 사용하지 않게된 부가서비스의 경우 체크가 되어있더라도 가입일자가 mst의 start_dt~end_dt 내여야지 조회되도록 수정 -->
+                            AND
+                            (
+                             ((NVL(svc.end_dt, '99991231') >= accnt.join_dt and svc.start_dt &lt;= accnt.join_dt ))
+                            )
+
+                            <!-- (19상품 AND 특별할인 11회 AND 후방 AND 서비스코드=0016) 제외 -->
+                            AND NOT (PROD.PROD_CD = '19' AND accnt.NEW_CHAN_GUNSU = 11 AND svc.APP_NO = 0 AND optsvc.SEQ = '0016')
+                            <!-- 사업자 제외 -->
+                            <!-- 수정 : 법인상품의 경우 사업자라도 부가서비스 발급되어야함. by lbk_2013_04_09 -->
+                            <!-- 수정 : 법인, 일반 상품 구분없이 무조건 발급  by lbk_2013_04_18 -->
+                            <!-- 조회 순서를 구좌번호순으로 정렬 2013.01.16 임병근-->
+
+                        <if test="accnt_stat1 == '01' ">	<!-- 추출기준 -->
+                            AND ((svc.APP_NO != 0)
+                                    or
+                                (svc.APP_NO = 0 and (event.accnt_no is not null) and (fn_yen_che(event.accnt_no) = '만기'))
+                            )
+
+
+                            <if test="srch_type == '01'">	<!-- 검색조건-입금일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                   AND pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                </if>
+                            </if>
+
+
+                            <if test="srch_type == '03'">	<!-- 검색조건-행사일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                    AND (prod.EXPR_NO = '1' /* 일시납상품 무조건 포함 */
+                                        OR
+                                        pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                    )
+                                    AND event.EVENT_COMP_DAY between #{stt_dt} and #{end_dt}	/* 행사기준:행사종료일자 */
+                                    AND svc.APP_NO = 0		/* 전/후방구분-후방 */
+                                </if>
+                            </if>
+                        </if>
+
+
+                        <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                            <if test="srch_type == '01'">	<!-- 검색조건-입금일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                   AND pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                </if>
+                            </if>
+
+                            <if test="srch_type == '02'">	<!-- 검색조건-발급일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                   AND isuHist.ISU_DT between #{stt_dt} and #{end_dt}	/* 검색조건-발급일자 */
+                                </if>
+                            </if>
+
+                            <if test="srch_type == '03'">	<!-- 검색조건-행사일자 -->
+                                <if test="(stt_dt != null and stt_dt != '') and (end_dt != null and end_dt != '')">
+                                    AND (prod.EXPR_NO = '1' /* 일시납상품 무조건 포함 */
+                                        OR
+                                        pay.pay_day between #{stt_dt} and #{end_dt}	/* 검색조건-입금일자 */
+                                    )
+
+                                    AND event.EVENT_COMP_DAY between #{stt_dt} and #{end_dt}	/* 검색조건-행사종료일자 */
+                                    AND svc.APP_NO = 0		/* 전/후방구분-후방 */
+                                </if>
+                            </if>
+                        </if>
+
+                        <if test="accnt_no != null and accnt_no != ''">
+                            AND accnt.accnt_no like #{accnt_no} || '%'	/* 회원번호 */
+                        </if>
+
+
+                        <if test="bfCl != null and bfCl != ''">
+                            <if test="bfCl == '01'">
+                                AND svc.APP_NO > 0		/* 전/후방구분-전방 */
+                            </if>
+                            <if test="bfCl == '02'">
+                                AND svc.APP_NO = 0		/* 전/후방구분-후방 */
+                            </if>
+                        </if>
+
+
+                        <!-- 발급구분 : 만기거나  납입회차가 부가서비스 제공  회차보다 크거나 같아야 한다. -->
+
+                        <if test="isuCl == null or isuCl == ''">
+                            AND (pay.no >= svc.APP_NO or prod.expr_no = (accnt.new_chan_gunsu || (select NVL(max(no),0) from pay_mng where accnt_no = accnt.accnt_no and del_fg='N')))
+                            <!-- 청약철회 제외 -->
+                            AND NVL(d.resn_cl, '00') != '02'	/* 발급구분-전체 */
+
+                        </if>
+
+                        <if test="isuCl == '01'">
+                            AND isuHist.ISU_DT IS NOT NULL	/* 발급구분-발급 */
+
+                        </if>
+
+                        <if test="isuCl == '02'">
+                            AND (pay.no >= svc.APP_NO or prod.expr_no = (accnt.new_chan_gunsu || (select NVL(max(no),0) from pay_mng where accnt_no = accnt.accnt_no and del_fg='N')))
+                            <!-- 청약철회 제외 -->
+                            AND NVL(d.resn_cl, '00') != '02'	/* 발급구분-미발급 */
+                            <!-- 추출기준 발급일자가 있어도 회차 도래시 추출 가능해야 함으로 발급일자 is null 조건을 넣으면 안됨 -->
+                            AND isuHist.ISU_DT IS NULL
+                        </if>
+
+
+                        <if test="svcCl != null and svcCl != ''">
+                            AND svcDtl.opt_svc_cd = #{svcCl}	/* 부가서비스 */
+                        </if>
+
+                        <if test="accnt_stat1 == '02' ">	<!-- 이력기준 -->
+                            <if test="ressChk != null and ressChk != ''">
+                                <if test="ressChk == 'Y'.toString()">
+                                    AND (d.resn_acpt_day IS NOT NULL or d.resn_acpt_day = '' or d.resn_acpt_day is null)  /* 해약포함 */
+                                </if>
+                            </if>
+                        </if>
+
+                        <if test="isuNo != null and isuNo != ''">
+                            AND isuHist.ISU_NO like #{isuNo} || '%'	/* 쿠폰번호 */
+                        </if>
+
+                        <if test="validSvc != null and validSvc != ''">
+                            AND isuHist.VALID_SVC = #{validSvc}	/* 쿠폰상태 */
+                        </if>
+
+                        <if test="accnt_stat1 == '01' "> <!-- 추출기준 -->
+                            and isuHist.ISU_DT IS NULL
+                        </if>
+
+                    ) A1
+                ) A2
+           <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+            ]]>
+            order by A2.isu_no
+
+        </if>
+
+        <!-- ORDER BY isuNo, prod.prod_nm, accnt.accnt_no  -->
+    </select>
+
+
+    <select id="DlwVatSvcMap.selectMemProdAccntSvc" parameterType="map" resultType="resultMap">
+    /* sql-life.xml [구좌별 부가서비스 조회] ID : life.selectMemProdAccntSvc 작성자 : 이금례  */
+        SELECT  accntSvc.accnt_no
+                , accntSvc.dtl_seq
+                   , accntSvc.seq
+                   , (select mem_no from mem_prod_accnt where accnt_no = accntSvc.accnt_no ) as mem_no
+        FROM mem_prod_accnt_svc accntSvc
+        INNER JOIN prod_opt_svc_dtl svcDtl ON accntSvc.seq = svcDtl.seq  and svcDtl.opt_svc_cd = #{optsvc_seq}
+        INNER JOIN PROD_OPT_SVC_MST svcMst ON svcMst.seq = svcDtl.seq
+        WHERE accntSvc.accnt_no = #{accnt_no}
+          AND svcMst.APP_NO = #{no}
+    </select>
+
+
+    <select id="DlwVatSvcMap.selectSvcIssueHist" parameterType="map" resultType="resultMap">
+        SELECT ACCNT_NO
+             , DTL_SEQ
+             , SEQ
+          FROM SVC_ISU_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+           AND OPTSVC_SEQ = #{optsvc_seq}
+    </select>
+
+    <select id="DlwVatSvcMap.selectSvcAccntNoHist" parameterType="map" resultType="resultMap">
+        /* 저장되어 있는 회원번호별 부가서비스관리 이력 조회 */
+        SELECT ACCNT_NO
+             , DTL_SEQ
+             , SEQ
+             , OPTSVC_SEQ
+          FROM SVC_ISU_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+         ORDER BY DTL_SEQ
+    </select>
+
+
+    <select id="DlwVatSvcMap.selectMemProdAccntSvcTot" parameterType="map" resultType="resultMap">
+        /* 저장되어 있는 회원번호별 전체 부가서비스 이력 조회 */
+        SELECT  ACCNT_SVC.ACCNT_NO
+                ,ACCNT_SVC.DTL_SEQ
+                ,ACCNT_SVC.SEQ
+                ,SVC_DTL.OPT_SVC_CD
+        FROM MEM_PROD_ACCNT_SVC ACCNT_SVC
+              ,PROD_OPT_SVC_DTL SVC_DTL
+        WHERE ACCNT_SVC.SEQ = SVC_DTL.SEQ
+        AND ACCNT_NO = #{accnt_no}
+        ORDER BY ACCNT_SVC.DTL_SEQ
+    </select>
+
+    <select id="DlwVatSvcMap.selectSvcExceptIssueHist" parameterType="map" resultType="resultMap">
+        select accnt_no
+             , dtl_seq
+             , seq
+          from dbo.SVC_ISU_HIST_EXCEPT
+         where ACCNT_NO = #{accnt_no}
+           and OPTSVC_SEQ = #{optsvc_seq}
+    </select>
+
+    <!-- 등록 중복 체크 -->
+    <select id="DlwVatSvcMap.selectDupIsuNo" parameterType="map" resultType="string">
+        SELECT /* DlwVatSvcMap.selectDupIsuNo */
+               CASE WHEN COUNT(ACCNT_NO) <![CDATA[>]]> 0
+                    THEN 'F'
+                    ELSE 'T'
+                END AS CHFG
+          FROM SVC_ISU_HIST
+         WHERE OPTSVC_SEQ = #{optsvc_seq}
+           AND ISU_NO = #{isu_no}
+    </select>
+
+    <select id="selectCrtNo" parameterType="map" resultType="string">
+        /* sql-life.xml [쿠폰일련번호 생성 (SVC_CD가 0001인 것)] ID : life.selectCrtNo 작성자:이금례*/
+        SELECT
+            CRT_NO_FIXED||CRT_NO AS CRT_NO
+         FROM
+        (
+            SELECT
+                    REPLACE(CRT_NO_FIXED,CHR(0),'') AS CRT_NO_FIXED
+                   , (CASE WHEN LENGTH(REPLACE(CRT_NO,' ',''))  = 1 OR LENGTH(REPLACE(CRT_NO,' ',''))  = 0 OR LENGTH(REPLACE(CRT_NO,' ','')) IS NULL THEN LPAD('1',6,'0')
+                                   ELSE CRT_NO END) AS CRT_NO
+             FROM OPT_SVC
+             WHERE seq = #{optsvc_seq}
+        )
+    </select>
+
+    <select id="dupNoChk" parameterType="map" resultType="string">
+        SELECT ISU_NO
+          FROM SVC_ISU_HIST
+         WHERE OPTSVC_SEQ = #{optsvc_seq}
+           AND ISU_NO = #{isu_no}
+    </select>
+
+    <select id="selectCrtNoPerDaySearch" parameterType="map" resultType="string">
+        /* sql-life.xml [당일에 해당하는 쿠폰번호 있는지 확인] ID : life.selectCrtNoPerDaySearch 작성자:임병근*/
+        SELECT SVC_CD
+          FROM COUPON_NO_MNG_PER_DAY
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+    </select>
+
+    <select id="selectOtherCrtNoPerDay" parameterType="map" resultType="string">
+        /* sql-life.xml [쿠폰일련번호 생성 (SVC_CD = 0014)] ID : life.selectOtherCrtNoPerDay 작성자:임병근*/
+
+        SELECT
+        <if test="optsvc_seq == '0014'">
+            'DM(N)-' || ISU_DT || LPAD(NVL(ISU_SEQ,0)+1, 3,'0')
+        </if>
+        <if test="optsvc_seq == '0015'">
+            'DM(S)-' || ISU_DT || LPAD(NVL(ISU_SEQ,0)+1, 3,'0')
+        </if>
+          FROM COUPON_NO_MNG_PER_DAY
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+    </select>
+
+    <select id="selectCrtNoSearch" parameterType="map" resultType="string">
+        /* sql-life.xml [당년,월에 해당하는 쿠폰번호 있는지 확인] ID : life.selectCrtNoSearch 작성자:임병근*/
+         select SVC_CD
+          from COUPON_NO_MNG
+         where SVC_CD = #{optsvc_seq}
+           and ISU_YEAR = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+           and ISU_MONTH = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+    </select>
+
+
+    <select id="selectOtherCrtNo" parameterType="map" resultType="string">
+        /* sql-life.xml [쿠폰일련번호 생성 (SVC_CD가 0001인 것 제외)] ID : life.selectOtherCrtNo 작성자:임병근*/
+        SELECT CNM.ISU_YEAR || '-' || CNM.ISU_MONTH || '-' || (CASE WHEN OS.crt_No_Fixed IS NULL OR OS.crt_No_Fixed = '' THEN '0' ELSE OS.crt_No_Fixed END) || LPAD(REPLACE(CNM.ISU_SEQ,CHR(0),'0')+1,5,'0')
+          FROM COUPON_NO_MNG CNM
+         INNER JOIN OPT_SVC OS ON CNM.SVC_CD = OS.SEQ
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_YEAR = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+           AND ISU_MONTH = SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+    </select>
+
+
+    <select id="DlwVatSvcMap.selectSvcList" parameterType="map" resultType="resultMap">
+        SELECT SEQ
+             , SVC_NM
+          FROM OPT_SVC
+         WHERE SEQ = #{optsvc_seq}
+    </select>
+
+    <delete id="DlwVatSvcMap.deleteSvcIsuHist" parameterType="map" >
+        /* sql-life.xml [부가서비스 발급내역  삭제] ID : life.deleteSvcIsuHist 작성자 : 이금례  */
+        DELETE FROM SVC_ISU_HIST
+         WHERE ACCNT_NO = #{accnt_no}
+           AND DTL_SEQ = #{dtl_seq}
+    </delete>
+
+
+    <insert id="DlwVatSvcMap.insertSvcIsuHist" parameterType="map" >
+        <selectKey keyProperty="dtlSeq" resultType="String" order="BEFORE">
+            select nvl(max(dtl_seq),0)+1 as dtlSeq
+            from Svc_Isu_Hist
+            where accnt_no = #{accnt_no}
+        </selectKey>
+
+        INSERT INTO Svc_Isu_Hist (
+                accnt_no
+                ,dtl_seq
+                ,seq
+                ,optsvc_seq
+            <if test="svcCl == 'MMS'">
+                ,isu_no
+            </if>
+            <if test="svcCl != 'MMS'">
+                ,isu_no
+            </if>
+                ,isu_dt
+                ,reg_man
+                ,reg_dt
+            <if test="svcCl == 'MMS'">
+                ,SND_STAT
+            </if>
+            <if test="svcCl == 'MMS'">
+                ,FAIL_REASON
+            </if>
+            <if test="svcCl != 'MMS'">
+
+                <if test="invoice_no != null and invoice_no != ''">
+                    ,INVOICE_NO
+                </if>
+                <if test="addressee != null and addressee != ''">
+                    ,ADDRESSEE
+                </if>
+                <if test="send_dt != null and send_dt != ''">
+                    ,SEND_DT
+                </if>
+                <if test="addr_note != null and addr_note != ''">
+                    ,ADDR_NOTE
+                </if>
+                ,VALID_SVC
+            </if>
+                ,PRN_CNT
+                ,ISU_COUPON_TP
+                ,COUPON_DTL_NO
+                )
+          VALUES(
+                 #{accnt_no}
+                ,#{dtlSeq}
+                ,#{seq}
+                ,#{optsvc_seq}
+
+            <if test="svc_cl == 'MMS'">
+                ,CASE WHEN LEFT(#{isu_no}, 2) = '오류' THEN '' ELSE #{isu_no} END
+            </if>
+            <if test="svc_cl != 'MMS'">
+                ,#{isu_no}
+            </if>
+            <if test="isu_dt == null or isu_dt == ''">
+                ,TO_CHAR(SYSDATE,'YYYYMMDD')
+            </if>
+            <if test="isu_dt != null and isu_dt != ''">
+                ,#{isu_dt}
+            </if>
+                ,#{reg_man}
+                ,SYSDATE
+            <if test="svcCl == 'MMS'">
+                ,CASE WHEN LEFT(#{isu_no}, 2) = '오류' THEN '0002' ELSE '0001' END
+            </if>
+            <if test="svcCl == 'MMS'">
+                ,CASE WHEN LEFT(#{isu_no}, 2) = '오류' THEN REPLACE(REPLACE(#{isu_no}, '오류(', ''), ')', '') ELSE '' END
+            </if>
+            <if test="svcCl != 'MMS'">
+
+                <if test="invoice_no != null and invoice_no != ''">
+                    ,#{invoice_no}
+                </if>
+                <if test="addressee != null and addressee != ''">
+                    ,#{addressee}
+                </if>
+                <if test="send_dt != null and send_dt != ''">
+                    ,#{send_dt}
+                </if>
+                <if test="addr_note != null and addr_note != ''">
+                    ,#{addr_note}
+                </if>
+                ,'01'
+            </if>
+                ,0
+                ,#{isu_coupon_tp}
+                ,#{coupon_dtl_no}
+            )
+    </insert>
+
+    <insert id="DlwVatSvcMap.insertConsulDetail" parameterType="map" >
+        /* sql-life.xml [상담내역 Detail 등록] ID : life.insertConsulDetail 작성자 : 장희주  */
+        INSERT INTO CNSL_DTL
+                (
+                     SEQ
+                   , MEM_NO
+                   , CNSL_SEQ
+                   , GUBN
+                   , CNSL_CD
+                   , CNSL_CON
+                   , REG_DM
+                   , REG_MAN
+                   , UPD_DM
+                   , UPD_MAN
+                ) VALUES (
+                    #{seq}
+                   ,#{mem_no}
+                   ,#{cnsl_seq}
+                   ,#{gubn}
+                   ,#{cnsl_cd}
+                   ,#{cnsl_dtl_con}
+                   ,SYSDATE
+                   ,#{reg_man}
+                   ,SYSDATE
+                   ,#{reg_man}
+                 )
+
+    </insert>
+
+
+    <insert id="DlwVatSvcMap.insertCouponNoPerDayYMS" parameterType="map" >
+
+        /* sql-life.xml [나무병원 쿠폰일련번호 삽입(SVC_CD = 0014)] ID : life.insertCouponNoPerDayYMS 작성자 : 임병근  */
+        INSERT INTO COUPON_NO_MNG_PER_DAY (
+           SVC_CD
+          ,ISU_DT
+          ,ISU_SEQ
+        ) VALUES (
+           #{optsvc_seq}
+          ,TO_CHAR(SYSDATE,'YYYYMMDD')
+          ,#{isu_no}
+        )
+    </insert>
+
+    <insert id="DlwVatSvcMap.insertCouponNoYM" parameterType="map" >
+        /* sql-life.xml [쿠폰일련번호 삽입(SVC_CD가 0001인 것 제외)] ID : life.insertCouponNoYM 작성자 : 임병근  */
+        INSERT INTO COUPON_NO_MNG (
+           SVC_CD
+          ,ISU_YEAR
+          ,ISU_MONTH
+          ,ISU_SEQ
+        ) VALUES (
+           #{optsvc_seq}
+          ,	SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,4),-2)
+          ,	SUBSTR(SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6),-2)
+          ,'00000'
+        )
+    </insert>
+
+
+    <insert id="DlwVatSvcMap.insertVatSvcInvalid" parameterType="map">
+        /* sql-life.xml [부가서비스 무효화] ID : life.vatSvcInvalid 작성자 : 임병근  */
+        <selectKey keyProperty="dtlSeq" resultType="String" order="BEFORE">
+            select nvl(max(dtl_seq),0)+1 as dtlSeq
+            from Svc_Isu_Hist
+            where accnt_no = #{accnt_no}
+        </selectKey>
+
+        INSERT INTO Svc_Isu_Hist (
+                 ACCNT_NO
+                ,DTL_SEQ
+                ,SEQ
+                ,OPTSVC_SEQ
+                ,ISU_DT
+                ,REG_MAN
+                ,REG_DT
+                ,VALID_SVC
+                ,PRN_CNT
+               ) VALUES (
+                 #{accnt_no}
+                ,#{dtlSeq}
+                ,#{seq}
+                ,#{optsvc_seq}
+                ,TO_CHAR(SYSDATE,'YYYYMMDD')
+                ,#{reg_man}
+                ,SYSDATE
+                ,'02'
+                ,0
+           )
+    </insert>
+
+
+    <update id="DlwVatSvcMap.updateVatSvcInvalid" parameterType="map" >
+        /* 객실 무효화  */
+        UPDATE SVC_ISU_HIST
+           SET VALID_SVC = '02'
+         WHERE ACCNT_NO = #{accnt_no}
+           AND DTL_SEQ = #{dtl_seq}
+    </update>
+
+    <update id="DlwVatSvcMap.updateOtherCrtNoPerDay1" parameterType="map" >
+        /* sql-life.xml [나무병원(SVC_CD = 0014) 당일 발급정보가 있으면 업데이트] ID : life.updateOtherCrtNoPerDay1 작성자 : 임병근 */
+        UPDATE COUPON_NO_MNG_PER_DAY
+           SET ISU_SEQ = SUBSTR(#{isu_no},-3)
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+    </update>
+
+    <update id="DlwVatSvcMap.updateOtherCrtNo" parameterType="map" >
+        /* sql-life.xml [쿠폰일련번호 수정(SVC_CD가 0001인 것 제외)] ID : life.updateOtherCrtNo 작성자 : 임병근 */
+        UPDATE COUPON_NO_MNG
+           SET ISU_SEQ = SUBSTR(#{isu_no},-5)
+         WHERE SVC_CD = #{optsvc_seq}
+           AND ISU_YEAR = SUBSTR(#{isu_no},1,2)
+           AND ISU_MONTH = SUBSTR(SUBSTR(#{isu_no},1,5),-2)
+    </update>
+
+    <update id="DlwVatSvcMap.updateCrtNo" parameterType="map" >
+        /* sql-life.xml [쿠폰일련번호 수정] ID : life.updateOnlineMemberCmsInfo 작성자 : 이금례  */
+        UPDATE opt_svc
+           SET crt_no = NVL(crt_no, 0) + 1
+         WHERE seq = #{optsvc_seq}
+
+    </update>
+
+
+
+
+    <update id="DlwVatSvcMap.updateVatSvc" parameterType="map" >
+
+        <if test="menu == 'EX'">
+            UPDATE SVC_ISU_HIST_EXCEPT
+              SET UPD_MAN = #{upd_man}
+                , UPD_DT = SYSDATE
+                , INVOICE_NO = #{invoice_no}
+            <if test="send_dt != null and send_dt != ''">
+                , SEND_DT = #{send_dt}
+            </if>
+            <if test="send_dt == null or send_dt == ''">
+                , SEND_DT = null
+            </if>
+                , ADDRESSEE = #{addressee}
+                , ADDR_NOTE = #{addr_note}
+                , VALID_SVC = #{valid_svc}
+            WHERE ACCNT_NO = #{accnt_no}
+              AND dtl_SEQ = #{dtl_seq}
+        </if>
+        <if test="menu != 'EX'">
+            UPDATE SVC_ISU_HIST
+              SET UPD_MAN = #{upd_man}
+                , UPD_DT = SYSDATE
+                , INVOICE_NO = #{invoice_no}
+            <if test="send_dt != null and send_dt != ''">
+                , SEND_DT = #{send_dt}
+            </if>
+            <if test="send_dt == null or send_dt == ''">
+                , SEND_DT = null
+            </if>
+                , ADDRESSEE = #{addressee}
+                , ADDR_NOTE = #{addr_note}
+                , VALID_SVC = #{valid_svc}
+            WHERE ACCNT_NO = #{accnt_no}
+              AND dtl_SEQ = #{dtl_seq}
+        </if>
+    </update>
+
+
+    <!-- 상담내역 마스터 등록 selectKey 조회 -->
+    <select id="DlwVatSvcMap.selectKeyInsertConsulMng" parameterType="map" resultType="resultMap">
+        SELECT	 seq
+                ,cnsl_seq
+                ,(seq || '|' || cnsl_seq) AS skey
+        FROM
+        (
+            SELECT
+                    (SELECT NVL(MAX(seq),0)+1
+                       FROM CNSL_MNG
+                      WHERE MEM_NO = #{mem_no} ) AS seq
+                   ,(SELECT NVL(MAX(CNSL_SEQ),0)+ 1
+                          FROM CNSL_MNG
+                      WHERE MEM_NO = #{mem_no}
+                        AND ACCNT_NO = #{accnt_no}) AS cnsl_seq
+              FROM DUAL
+        )
+    </select>
+
+    <insert id="DlwVatSvcMap.insertConsulMng" parameterType="map" >
+        /* sql-life.xml [상담내역 마스터 등록] ID : life.insertConsulMng 작성자 : 장희주  || 수정 : 김원진 */
+        INSERT INTO CNSL_MNG
+           ( SEQ
+           , MEM_NO
+           , CNSL_SEQ
+           , ACCNT_NO
+           , CNSL_DT
+           , CNSL_CON
+           , REG_CL
+           , CNSL_MAN
+        <if test="call_tel != null and call_tel != ''">
+           , CALL_TEL
+        </if>
+        <if test="rec_file != null and rec_file != ''">
+           , REC_FILE
+        </if>
+        <if test="rec_path != null and rec_path != ''">
+           , REC_PATH
+        </if>
+        <if test="cti_id != null and cti_id != ''">
+           , CTI_ID
+        </if>
+           , REG_DM
+           , REG_MAN
+           , UPD_DM
+           , UPD_MAN
+        ) VALUES (
+            fn_split(#{skey},1,'|')
+           ,#{mem_no}
+           ,fn_split(#{skey},2,'|')
+           ,#{accnt_no}
+
+       <if test="cnsl_dt == null or cnsl_dt == ''">
+           ,SYSDATE
+       </if>
+       <if test="cnsl_dt != null and cnsl_dt != ''">
+           ,#{cnsl_dt}
+       </if>
+           ,#{cnsl_mng_con}
+           ,(CASE WHEN #{cnsl_mng_con} = '행사취소 정보' OR
+                       #{cnsl_mng_con} = '철회취소 정보' OR
+                       #{cnsl_mng_con} = '해약등록 정보' OR
+                       #{cnsl_mng_con} = 'SMS전송내역 정보' OR
+                       #{cnsl_mng_con} = '담당자 변경' 	OR
+                       #{cnsl_mng_con} = '행사등록 정보' 	OR
+                       #{cnsl_mng_con} = '증서발급 정보' 	OR
+                       #{cnsl_mng_con} = '양도양수 정보' 	OR
+                       #{cnsl_mng_con} = 'CMS등록' 		OR
+                       #{cnsl_mng_con} = 'CMS해지' 		OR
+                       #{cnsl_mng_con} = '해약취소 정보' 	OR
+                       #{cnsl_mng_con} = '회원정보수정 정보' OR
+                       #{cnsl_mng_con} = '해약수정 정보' OR
+                       #{cnsl_mng_con} = '철회수정 정보' OR
+                       #{cnsl_mng_con} = '무환급해약수정 정보' OR
+                       #{cnsl_mng_con} = '철회등록 정보' THEN '02'
+                  ELSE '01'
+             END)
+           ,#{cnsl_man}
+       <if test="call_tel != null and call_tel != ''">
+           ,#{call_tel}
+       </if>
+       <if test="rec_file != null and rec_file != ''">
+           ,#{rec_file}
+       </if>
+       <if test="rec_path != null and rec_path != ''">
+           ,#{rec_path}
+       </if>
+       <if test="cti_id != null and cti_id != ''">
+           ,#{cti_id}
+       </if>
+           , SYSDATE
+           , #{reg_man}
+           , SYSDATE
+           , #{upd_man}
+        )
+    </insert>
+
+
+    <insert id="DlwVatSvcMap.insertExcelUploadErr" parameterType="map">
+        /* sql-std.xml [엑셀업로드 오류건 등록] ID : life.insertExcelUploadErr 작성자:이금례  */
+        INSERT INTO ERR_HIST
+                (
+                      seq
+                    , Err_Cl
+               <if test="err_val1 != null and err_val1 != ''">
+                   ,Err_Val1
+               </if>
+               <if test="err_val2 != null and err_val2 != ''">
+                   ,Err_Val2
+               </if>
+               <if test="err_val3 != null and err_val3 != ''">
+                   ,Err_Val3
+               </if>
+               <if test="err_val4 != null and err_val4 != ''">
+                   ,Err_Val4
+               </if>
+               <if test="err_text != null and err_text != ''">
+                   ,Err_Text
+               </if>
+                    , reg_dt
+                    , reg_man
+                    , upd_dt
+                    , upd_man
+                )
+        SELECT
+                      a.seq
+                       , #{err_cl}
+               <if test="err_val1 != null and err_val1 != ''">
+                       ,#{err_val1}
+               </if>
+               <if test="err_val2 != null and err_val2 != ''">
+                       ,#{err_val2}
+               </if>
+               <if test="err_val3 != null and err_val3 != ''">
+                       ,#{err_val3}
+               </if>
+               <if test="err_val4 != null and err_val4 != ''">
+                       ,#{err_val4}
+               </if>
+               <if test="err_text != null and err_text != ''">
+                       ,#{err_text}
+               </if>
+                    , SYSDATE
+                    , #{rgsr_id}
+                    , SYSDATE
+                    , #{rgsr_id}
+        FROM
+                (	SELECT	NVL(max(seq),0)+1 AS seq
+                       FROM  	ERR_HIST
+                       WHERE	err_cl = #{err_cl}	) a
+    </insert>
+
+
+    <update id="DlwVatSvcMap.updateCallCenterVatSvcHist" parameterType="map" >
+        /* 부가서비스 이력 상담관리와 동기화 update */
+        UPDATE SVC_ISU_HIST
+           SET SEQ = #{seq}
+         WHERE ACCNT_NO = #{accnt_no}
+           AND DTL_SEQ = #{dtl_seq}
+           AND OPTSVC_SEQ = #{optsvc_seq}
+    </update>
+
+</mapper>

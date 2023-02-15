@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwHanaCardMngMap">
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 전송 관리
+     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+     * ================================================================
+     * -->
+       <select id="DlwHanaCardMngMap.getHanaSendList" parameterType="map" resultType="resultMap">
+			SELECT 
+				/* DlwHanaCardMngMap.getHanaSendList */
+			    SEND_DT,
+			    FILE_NM,
+			    SEND_LOC,
+			    SEND_STAT,
+			    FILE_INFO,
+			    ROW_CNT,
+			    REG_MAN,
+			    REG_DM 
+			FROM LF_DMUSER.TB_HANA_SEND_INFO
+			WHERE 1=1
+				AND SEND_DT BETWEEN SUBSTR(#{send_dt},0,6) || '01' AND LAST_DAY(SUBSTR(#{send_dt},0,6) || '01') 
+			ORDER BY SEND_DT DESC, REG_DM DESC
+       </select>  
+       
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 전송 이력 저장
+     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO     
+     * ================================================================
+     * -->
+
+    <insert id="DlwHanaCardMngMap.insertHanaRecieveHistory" parameterType="map">
+		
+		/* DlwHanaCardMngMap.insertHanaRecieveHistory  */
+		INSERT INTO LF_DMUSER.TB_HANA_SEND_INFO
+		(
+			SEND_DT,
+			FILE_NM,
+			SEND_LOC,
+			SEND_STAT,
+			FILE_INFO,
+			ROW_CNT,
+			REG_MAN,
+			REG_DM,
+			PAY_MON,
+			DEL_FG			
+		)
+		
+		VALUES 
+		(
+			#{send_dt},
+			#{file_nm},
+			#{send_loc},
+			#{send_stat}, 
+			#{file_info},
+			#{row_cnt},
+			#{reg_man},
+			SYSDATE,
+			#{pay_mon},
+			'N'
+		)
+        
+    </insert>
+    
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 발급 회원정보 수
+     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+     * ================================================================
+     * -->
+       <select id="DlwHanaCardMngMap.getHanaMemCount" parameterType="map" resultType="int">
+			SELECT 
+				/* DlwHanaCardMngMap.getHanaMemCount */
+			    COUNT(*)
+			FROM LF_DMUSER.TB_HANA_MEMBER
+			WHERE 1=1
+			AND SEND_DT BETWEEN SUBSTR(#{send_dt},0,6) || '01' AND LAST_DAY(SUBSTR(#{send_dt},0,6) || '01') 
+		    <if test="mem_nm != null and mem_nm != ''">
+				AND MEM_NM = #{mem_nm} 
+			</if>
+			
+			<if test="card_birth != null and card_birth != ''">
+				AND CARD_BIRTH = #{card_birth} 
+			</if>
+			
+			<if test="cell != null and cell != ''">
+				AND CELL = #{cell} 
+			</if>			
+       </select>  
+       
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 전송 관리
+     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+     * ================================================================
+     * -->
+       <select id="DlwHanaCardMngMap.getHanaMemList" parameterType="map" resultType="resultMap">
+			SELECT 
+				/* DlwHanaCardMngMap.getHanaMemList */
+				*
+			FROM LF_DMUSER.TB_HANA_MEMBER
+			WHERE 1=1
+			AND SEND_DT BETWEEN SUBSTR(#{send_dt},0,6) || '01' AND LAST_DAY(SUBSTR(#{send_dt},0,6) || '01') 
+		    <if test="mem_nm != null and mem_nm != ''"> 
+				AND MEM_NM = #{mem_nm} 
+			</if>
+			
+			<if test="card_birth != null and card_birth != ''">
+				AND CARD_BIRTH = #{card_birth} 
+			</if>
+			
+			<if test="cell != null and cell != ''">
+				AND CELL = #{cell} 
+			</if>
+       </select>   
+       
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 발급정보 등록
+     * 대상 테이블 : LF_DMUSER.TB_HANA_MEMBER   
+     * ================================================================
+     * -->
+    <insert id="DlwHanaCardMngMap.insertHanaMember" parameterType="map">
+		
+		/* DlwHanaCardMngMap.insertHanaMember  */
+		INSERT INTO LF_DMUSER.TB_HANA_MEMBER
+		(
+		    CARD_SEQ,
+		    HANA_NO,
+		    CI_VAL,
+		    CARD_NO,
+		    EXPIRE_DT,
+		    MEM_NM,
+		    CARD_BIRTH,
+		    CELL,
+		    CARD_DT,
+		    CARD_STAT,
+		    SEND_DT,
+		    SEND_TIME,
+		    DEL_FG,
+		    REG_MAN,
+		    REG_DM,
+		    CARD_TRANS
+		)
+		
+		VALUES 
+		(
+		    #{card_seq},
+		    TRIM(#{hana_no}),
+		    TRIM(#{ci_val}),
+		    TRIM(#{card_no}),
+		    TRIM(#{expire_dt}),
+		    TRIM(#{mem_nm}),
+		    TRIM(#{card_birth}),
+		    TRIM(#{cell}),
+		    #{card_dt},
+		    #{card_stat},
+		    #{send_dt},
+		    #{send_time},
+		    'N',
+		    #{reg_man},
+		    SYSDATE,
+		    #{card_trans}
+		)
+        
+    </insert>    
+    
+     <!-- ================================================================
+	     * 날짜 : 20230210
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드 전월실적 대상자 등록
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_MEMBER
+     * ================================================================
+     * -->
+    <insert id="DlwHanaCardMngMap.insertHanaPayments" parameterType="map">
+		
+		/* DlwHanaCardMngMap.insertHanaMember  */
+		INSERT INTO TB_HANA_PAYMENTS
+		(
+		    PAY_SEQ,
+		    HANA_NO,
+		    CI_VAL,
+		    PAY_MON,
+		    PAY_AMT,
+		    REG_MAN,
+		    REG_DM,
+		    UPD_MAN,
+		    UPD_DM,		    
+		    DEL_FG,
+		    CTN
+		)
+		
+		VALUES 
+		(
+		    #{card_seq},
+		    TRIM(#{hana_no}),
+		    TRIM(#{ci_val}),		    
+		    TRIM(#{pay_mon}),
+		    TRIM(#{pay_amt}),		    
+		    #{reg_man},
+		    SYSDATE,
+		    #{reg_man},
+		    SYSDATE,
+		    'N', 
+		    ''
+		)
+        
+    </insert>  
+    
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+	     * 추가내용 : 하나카드혜택정보관리
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_PAYMENTS
+     * ================================================================
+     * -->
+       <select id="DlwHanaCardMngMap.getHanaPayCount" parameterType="map" resultType="int">
+			SELECT 
+				/* DlwHanaCardMngMap.getHanaPayCount */
+			    COUNT(*)
+			FROM TB_HANA_PAYMENTS HP LEFT OUTER JOIN
+                 TB_HANA_MEMBER_DAMO HM ON HP.CI_VAL = HM.CI_VAL AND HM.DEL_FG = 'N' LEFT OUTER JOIN
+			     (
+			         SELECT 
+			            PAY_SEQ,
+			            PAY_GBN,
+			            PAY_VAL,
+			            REG_DM,
+			            REG_MAN,
+			            DEL_FG,
+			            ROW_NUMBER() OVER(PARTITION BY PAY_SEQ ORDER BY PAY_GBN DESC) AS LVL
+			        FROM TB_HANA_PAYMENTS_HSTR
+			     ) HPH ON HP.PAY_SEQ = HPH.PAY_SEQ  AND HPH.DEL_FG = 'N'
+			    <if test="detail_list == 0">
+					AND HPH.LVL = 1 
+				</if>
+			     
+			WHERE 1=1
+			AND HP.PAY_MON = #{send_dt} 
+			AND HP.DEL_FG = 'N'
+			
+			<if test="mem_nm != null and mem_nm != ''"> 
+				AND MEM_NM = #{mem_nm} 
+			</if>
+			
+			<if test="card_birth != null and card_birth != ''">
+				AND CARD_BIRTH = #{card_birth} 
+			</if>
+			
+			<if test="cell != null and cell != ''">
+				AND CELL = #{cell}  
+			</if>
+       </select>  
+       
+     <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+	     * 추가내용 : 하나카드혜택정보관리
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_PAYMENTS
+     * ================================================================
+     * -->
+       <select id="DlwHanaCardMngMap.getHanaPayList" parameterType="map" resultType="resultMap">
+		 SELECT 
+				/* DlwHanaCardMngMap.getHanaPayList */
+			    HP.PAY_SEQ,
+			    HP.HANA_NO,
+			    HP.CI_VAL,
+                HM.MEM_NM,
+                HM.CARD_BIRTH,
+                HM.CELL,
+			    HP.PAY_MON,
+			    HP.PAY_AMT,
+			    NVL(HPH.PAY_GBN,'00') AS PAY_GBN, 
+			    HPH.PAY_VAL,
+			    HPH.ETC_INFO,
+			    HPH.REG_MAN,
+			    HPH.REG_DM    
+			FROM TB_HANA_PAYMENTS HP LEFT OUTER JOIN
+                 TB_HANA_MEMBER_DAMO HM ON HP.CI_VAL = HM.CI_VAL AND HM.DEL_FG = 'N' LEFT OUTER JOIN 
+			     (
+			         SELECT 
+			            PAY_SEQ,
+			            PAY_GBN,
+			            PAY_VAL,
+			            REG_DM,
+			            REG_MAN,
+			            ETC_INFO,
+			            DEL_FG,
+			            ROW_NUMBER() OVER(PARTITION BY PAY_SEQ ORDER BY PAY_GBN DESC) AS LVL
+			        FROM TB_HANA_PAYMENTS_HSTR 
+			     ) HPH ON HP.PAY_SEQ = HPH.PAY_SEQ AND HPH.DEL_FG = 'N'
+			    <if test="detail_list == 0">
+					AND HPH.LVL = 1
+				</if>
+			     
+			WHERE 1=1
+			AND HP.PAY_MON = #{send_dt} 
+			AND HP.DEL_FG = 'N'
+			
+			<if test="mem_nm != null and mem_nm != ''"> 
+				AND MEM_NM = #{mem_nm} 
+			</if>
+			
+			<if test="card_birth != null and card_birth != ''">
+				AND CARD_BIRTH = #{card_birth} 
+			</if>
+			
+			<if test="cell != null and cell != ''">
+				AND CELL = #{cell} 
+			</if>
+			
+			ORDER BY PAY_SEQ ASC, PAY_GBN DESC
+			
+       </select>
+       
+            <!-- ================================================================
+     * 날짜 : 20230111
+     * 이름 : 임동진
+     * 추가내용 : 하나카드 발급정보 등록
+     * 대상 테이블 : LF_DMUSER.TB_HANA_MEMBER   
+     * ================================================================
+     * -->
+
+    <update id="DlwHanaCardMngMap.updateHanaPaySendInfo" parameterType="map">
+			UPDATE LF_DMUSER.TB_HANA_PAYMENTS
+			SET SEND_DT = SYSDATE, 
+			      SEND_STAT = 'Y', 
+			      UPD_MAN = #{reg_man}, 
+			      UPD_DM = SYSDATE
+			WHERE PAY_MON = #{pay_mon} 
+    </update>            
+
+     <!-- ================================================================
+	     * 날짜 : 20230210
+	     * 이름 : 임동진
+	     * 추가내용 : 하나카드혜택현재상태
+	     * 대상 테이블 : LF_DMUSER.TB_HANA_SEND_INFO
+     * ================================================================
+     * -->
+       <select id="DlwHanaCardMngMap.getHanaPayProcessStat" parameterType="map" resultType="String">
+			SELECT 
+			    MAX(SEND_STAT) 
+			FROM LF_DMUSER.TB_HANA_SEND_INFO
+			WHERE 1=1
+			AND PAY_MON = #{send_dt}	
+			AND SEND_STAT != 99
+			AND DEL_FG = 'N'
+       </select>  
+</mapper>

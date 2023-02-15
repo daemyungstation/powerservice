@@ -1,0 +1,354 @@
+package powerservice.business.dlw.service.impl;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import kr.co.nicepay.module.lite.NicePayWebConnector;
+
+import org.springframework.stereotype.Service;
+
+import powerservice.business.dlw.service.DlwMemPayMthdService;
+import powerservice.business.dlw.service.DlwNewTypeMainPopService;
+import powerservice.business.sys.service.BasVlService;
+import powerservice.common.util.CommonUtils;
+import powerservice.common.util.INICISPay;
+import powerservice.common.util.NicePayProcess;
+import powerservice.core.util.ParamUtils;
+import egovframework.rte.fdl.cmmn.EgovAbstractServiceImpl;
+
+@Service
+public class DlwMemPayMthdServiceImpl extends EgovAbstractServiceImpl implements DlwMemPayMthdService{
+	
+	@Resource
+    public DlwMemPayMthdDAO DlwMemPayMthdDAO;
+	
+    @Resource
+    public BasVlService basVlService;
+    
+    /**
+     * 고객-구좌 정보를 검색한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 고객-구좌 정보 목록
+     * @throws Exception
+     */
+    public List<Map<String, Object>> getMemPayMthdList(Map<String, ?> pmParam) throws Exception {
+    	String sPay_mthd = pmParam.get("pay_mthd").toString();
+    	List<Map<String, Object>> rtnList  = null;
+    	if(sPay_mthd.equals("CMS")){
+    		rtnList  = DlwMemPayMthdDAO.getMemPayMthdList(pmParam);
+    	} else {
+    		rtnList  = DlwMemPayMthdDAO.getMemPayMthdListCard(pmParam);
+    	}
+        return rtnList;
+    }
+    
+    /** ================================================================
+     * 날짜 : 20220608
+     * 이름 : 김주용
+     * 추가내용 : 고객구좌 이력
+     * 대상 테이블 : LF_DMUSER.NEW_CANCL_APP, LF_DMUSER.CARD_NEW_CANCL_APP
+     * ================================================================
+     * */
+    public List<Map<String, Object>> getDlwPymnHstrList(Map<String, ?> pmParam) throws Exception {
+        return DlwMemPayMthdDAO.getDlwPymnHstrList(pmParam);
+    }
+	
+    /**
+     * Card 정보 업데이트
+     * 
+     * 
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public void updateCardMemInfo(Map<String, ?> pmParam) throws Exception {
+
+        DlwMemPayMthdDAO.updateCardMemInfo(pmParam);
+    }      
+	
+    /**
+     * 대명라이프웨이의 CMS 부가서비스(신규,해지)를 등록한다.
+     * 나이스프로세스
+     * @param pmParam 검색 조건
+     * @return 등록결과
+     * @throws Exception
+     */
+    public String insertDlwAccntCard(Map<String, Object> pmParam) throws Exception {
+        String rslt = "";
+        
+        //관계 값이 본인이 아닐 경우 승인값 대리납으로 변경
+        String relVal = pmParam.get("reltn").toString();
+        
+        String sCardYn = pmParam.get("card_yn").toString();
+        String billKeyArr[] = new String[5];	//빌키
+        
+        
+        /***********************************************************************************************************
+        * 카드 신청 등록 시 본인 확인 부분 ( 생년월일 + 카드번호등으로 본인 확인 )
+        /***********************************************************************************************************/
+        NicePayProcess nicepay = new NicePayProcess();        
+        String sPayFilePath = basVlService.getBasVlAsString("pay_file_path", (String) pmParam.get("cntr_cd"));
+        
+        ParamUtils.addCenterParam(pmParam);
+
+        nicepay.setNicePayHome(sPayFilePath+"/web_site/nicelog");
+        //nicepay.setNicePayHome("c:/web_site/nicelog");
+        nicepay.setGoodsName((String)pmParam.get("prod_cd"));
+        nicepay.setMoid((String)pmParam.get("accnt_no"));
+        nicepay.setBuyerName((String)pmParam.get("mem_nm"));
+        nicepay.setBuyerTel((String)pmParam.get("cell"));
+        nicepay.setBuyerEmail((String)pmParam.get("email"));
+        nicepay.setCardNumber((String)pmParam.get("card_no"));
+        nicepay.setExpYear((String)pmParam.get("exp_year"));
+        nicepay.setExpMonth((String)pmParam.get("exp_mon"));
+        nicepay.setIdno((String)pmParam.get("idn_no"));
+
+        //승인요청
+        NicePayWebConnector connector = nicepay.requestCardMemAuth();
+        String resultCode = connector.getResultData("ResultCode");
+        String resultMsg = connector.getResultData("ResultMsg");
+        String cardCode = connector.getResultData("CardCode");
+        String cardName = connector.getResultData("CardName");
+
+        System.out.println("resultCode : " + resultCode);
+        System.out.println("resultMsg : " + resultMsg);
+        System.out.println("cardCode : " + cardCode);
+        System.out.println("cardName : " + cardName);
+
+        // 정상여부
+        if(!"0000".equals(resultCode) && (!"5012".equals(resultCode))) {
+            //정상결과 아닐경우 결과코드 출력
+            rslt = "[NG] " + resultMsg;            
+            return rslt;
+        }
+        
+        /***********************************************************************************************************
+        * 카드 정보가 본인이 확인 된 경우 빌키 생성
+        /***********************************************************************************************************/
+        billKeyArr = billKeyCreate(pmParam);
+        pmParam.put("bidRtCd", billKeyArr[0]);
+        pmParam.put("bid", billKeyArr[1]);
+        pmParam.put("bidMsg", billKeyArr[2]);      
+        
+        
+        
+        if(!"F100".equals(billKeyArr[0])) {
+        	rslt = "[NG] ]빌키 생성 시 오류[275줄] >> : " + billKeyArr[0].toString();
+        	return rslt;
+        }
+        
+        /***********************************************************************************************************/
+
+        if(sCardYn.equals("NONE")){
+        	DlwMemPayMthdDAO.insertDlwCardLog(pmParam); // CARD 정보등록
+        	DlwMemPayMthdDAO.insertDlwCardMmbr(pmParam);     // CARD 회원 신규등록
+        } else {
+        	DlwMemPayMthdDAO.insertDlwCardLog(pmParam); // CARD 정보등록
+        	DlwMemPayMthdDAO.updateDlwCardMmbr(pmParam);     // CARD 기존 회원정보 수정        	        	
+        }
+        
+        //관계 값이 본인이 아닐 경우 승인값 대리납으로 변경
+        if (!relVal.equals("20")){
+        	DlwMemPayMthdDAO.updateHpCall(pmParam); 
+        	DlwMemPayMthdDAO.insertHpCallHist(pmParam); // 승인 히스토리 등록
+        }
+        
+        rslt = "[OK] 정상적으로 카드신청되었습니다.";
+        
+        return rslt;
+    }
+
+    public String deleteDlwAccntCard(Map<String, Object> pmParam) throws Exception {
+		String rslt = "delete";
+	    DlwMemPayMthdDAO.insertDlwCardLog(pmParam);	  // 카드 로그정보등록	    
+	    DlwMemPayMthdDAO.deleteDlwCardMember(pmParam);     // 카드 회원정보 해지   
+		return rslt;
+    }
+    
+    /**
+     * CMS 정보 업데이트
+     * 
+     * 
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public void updateCmsMemInfo(Map<String, ?> pmParam) throws Exception {
+
+        DlwMemPayMthdDAO.updateCmsMemInfo(pmParam);
+    }  
+    
+    public String deleteDlwAccntCms(Map<String, Object> pmParam) throws Exception {
+		String rslt = "delete";
+	    DlwMemPayMthdDAO.insertDlwCmsLog(pmParam);	  // CMS 로그정보등록	    
+	    DlwMemPayMthdDAO.deleteDlwCmsMmbr(pmParam);     // CMS 회원정보 해지   
+		return rslt;
+    }
+    
+    /**
+     * 대명라이프웨이의 CMS 부가서비스(신규,해지)를 등록한다.
+     *
+     * @param pmParam 검색 조건
+     * @return 등록결과
+     * @throws Exception
+     */
+    public String insertDlwAccntCms(Map<String, Object> pmParam) throws Exception {
+        String rslt = pmParam.get("cms_yn").toString();
+        
+        //관계 값이 본인이 아닐 경우 승인값 대리납으로 변경
+        String relVal = pmParam.get("reltn").toString();
+        
+        if(rslt.equals("NONE")){
+        	DlwMemPayMthdDAO.insertDlwCmsLog(pmParam); // CMS 정보등록
+        	DlwMemPayMthdDAO.insertDlwCmsMmbr(pmParam);     // CMS 회원 신규등록
+        } else {
+        	
+        	System.out.println(pmParam);        	
+        	DlwMemPayMthdDAO.insertDlwCmsLog(pmParam); // CMS 정보등록
+        	DlwMemPayMthdDAO.updateDlwCmsMmbr(pmParam);     // CMS 기존 회원정보 수정        	        	
+        }
+        //관계 값이 본인이 아닐 경우 승인값 대리납으로 변경
+        if (!relVal.equals("20")){
+        	DlwMemPayMthdDAO.updateHpCall(pmParam); 
+        	DlwMemPayMthdDAO.insertHpCallHist(pmParam); // 승인 히스토리 등록
+        }
+        return rslt;
+    }
+    
+    /**
+     * 대명라이프웨이 CMS 신청 실패 로그 등록
+     *
+     * @param pmParam 검색 조건
+     * @return 등록결과
+     * @throws Exception
+     */
+    public void insertDlwCmsHistoryLogs(Map<String, ?> pmParam) throws Exception {
+    	DlwMemPayMthdDAO.insertDlwCmsHistoryLogs(pmParam);;
+    }
+    
+    /**
+     * NicePay Card 빌키 생성
+     *
+     * @param pmParam 검색 조건
+     * @return 빌키생성 정보
+     * @throws Exception
+     */
+    public String[] billKeyCreate(Map<String, Object> pmParam) throws Exception {
+        String rtVal[] = new String[5];
+        NicePayProcess nicepay = new NicePayProcess();
+        String prod_cd = (String)pmParam.get("prod_cd");
+        String menu_gbn = (String)pmParam.get("menu_gbn");
+        String email = "lifeway@daemyung.com";
+        String tmpEmail = CommonUtils.checkNull((String)pmParam.get("email"));
+
+        /*20180723 37회 SDP카드변경 이슈로 인한 추가*/
+        String pay_No = (String)pmParam.get("pay_no");
+
+        if("".equals(tmpEmail)) {
+            email = tmpEmail;
+        }
+
+        Map<String, Object> hm = new HashMap<String, Object>();
+        hm.put("prod_cd", prod_cd);
+
+        /*20180723 37회 SDP카드변경 이슈로 인한 추가*/
+        hm.put("pay_no", pay_No);
+
+        if(menu_gbn != null) {
+            hm.put("menu_gbn", menu_gbn);
+        } else {
+            hm.put("menu_gbn", "");
+        }
+
+        //nicepay = niceBillSetting(hm);
+
+        nicepay = niceBillSetting(hm,"billKeyCreate");
+        nicepay.setMoid((String)pmParam.get("accnt_no"));
+        nicepay.setBuyerName((String)pmParam.get("mem_nm"));
+        nicepay.setBuyerEmail(email);
+        nicepay.setBuyerTel((String)pmParam.get("cell"));
+        nicepay.setGoodsName((String)pmParam.get("prod_nm"));
+        nicepay.setCardNumber((String)pmParam.get("card_no"));
+        nicepay.setExpYear((String)pmParam.get("exp_year"));
+        nicepay.setExpMonth((String)pmParam.get("exp_mon"));
+        nicepay.setCardIdNo("");
+        nicepay.setCardPw("");
+        nicepay.setIdno((String)pmParam.get("idn_no"));
+
+        NicePayWebConnector result = nicepay.requestBillKey();
+        for(int i = 0; i < 5; i++) {
+            rtVal[i] = "";
+        }
+        rtVal[0] = result.getResultData("ResultCode");
+        rtVal[1] = result.getResultData("BID");
+        rtVal[2] = result.getResultData("ResultMsg");
+        rtVal[3] = result.getResultData("CardCode");
+        rtVal[4] = result.getResultData("CardName");
+        return rtVal;
+    }
+    
+    public NicePayProcess niceBillSetting(Map<String, Object> pmParam, String gbn) throws Exception {
+        NicePayProcess nicepay = new NicePayProcess();
+
+        ParamUtils.addCenterParam(pmParam);
+
+        String sPayFilePath = basVlService.getBasVlAsString("pay_file_path", (String) pmParam.get("cntr_cd"));
+
+        nicepay.setNicePayHome(sPayFilePath+"/web_site/nicelog");
+        //nicepay.setNicePayHome("c:/web_site/nicelog");
+
+        String menu_gbn = String.valueOf(pmParam.get("menu_gbn"));
+        String prod_cd = String.valueOf(pmParam.get("prod_cd"));
+        String bid = String.valueOf(pmParam.get("bid"));
+
+        //int pay_No = Integer.valueOf(String.valueOf(pmParam.get("pay_no"))).intValue();
+
+        //MID 및 KEY값 DB에서 가져오기
+        String strMidKey = DlwMemPayMthdDAO.getAccntMid(pmParam);
+        String mid = strMidKey.substring(0,10);  //mid
+        String key = strMidKey.substring(10);	 //key
+
+        System.out.println("bid      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + bid);
+        System.out.println("menu_gbn xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + menu_gbn);
+        System.out.println("mid      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + mid);
+        System.out.println("key      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx>  :" + key);
+
+        nicepay.setMID(mid);
+        nicepay.setMerchantKey(key);
+
+        return nicepay;
+    }
+    
+    /**
+     * 상담 정보를 등록한다.
+     *
+     * @param pmParam 상담 정보
+     * @throws Exception
+     */
+    public String insertCons(Map<String, Object> pmParam) throws Exception {
+    	
+        String sKey = "";
+        int nResult = 0;
+        
+        nResult = DlwMemPayMthdDAO.insertCons(pmParam);
+        
+        return sKey;
+    }
+    
+    /**
+     * 납입방법 업데이트
+     * 
+     * 
+     * @param pmParam 검색 조건
+     * @return
+     * @throws Exception
+     */
+    public void updateAccntPayMthd(Map<String, ?> pmParam) throws Exception {
+
+        DlwMemPayMthdDAO.updateAccntPayMthd(pmParam);
+    }
+}

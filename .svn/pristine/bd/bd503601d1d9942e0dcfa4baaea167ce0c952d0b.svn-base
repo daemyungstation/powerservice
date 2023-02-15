@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOverallStatusMap">   
+    
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 조회 조회건수
+     * 대상 테이블 : LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+     * ================================================================
+     * -->
+    <select id="DlwOverallStatusMap.getOverallStatusCount" parameterType="map" resultType="int">
+        SELECT /* DlwOverallStatusMap.getOverallStatusCount */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+        WHERE 1=1
+        <if test="ext_dt != null and ext_dt != ''">
+            AND EXT_DT = #{ext_dt}
+        </if>
+        <if test="file_type != null and file_type != ''">
+            AND FILE_TYPE = #{file_type}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 조회 조회리스트
+     * 대상 테이블 : LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+     * ================================================================
+     * -->
+    <select id="DlwOverallStatusMap.getOverallStatusList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOverallStatusMap.getOverallStatusList */
+            MAIN_TBL.*
+        FROM
+        (
+            SELECT
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX,
+                EXT_DT,
+                FILE_TYPE,
+                FILE_PATH,
+                FILE_NAME,
+                DNLD_DM,
+                DNLD_MAN,
+                REG_DM,
+                REG_MAN,
+                DEL_FG,
+                '' AS DOWN_BUTTON
+            FROM LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+            WHERE 1=1
+            <if test="ext_dt != null and ext_dt != ''">
+                AND EXT_DT = #{ext_dt}
+            </if>
+            <if test="file_type != null and file_type != ''">
+                AND FILE_TYPE = #{file_type}
+            </if>
+        ) MAIN_TBL
+        WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+            AND PAGE_INDX <![CDATA[>=]]> #{startLine}
+            AND PAGE_INDX <![CDATA[<]]> #{endLine}
+        </if>
+    </select>
+
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 다운로드시행자 업데이트
+     * 대상 테이블 : LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+     * ================================================================
+     * -->
+    <update id="DlwOverallStatusMap.updateOverallStatusDownLoadEmplFileList" parameterType="map">
+        UPDATE /* DlwOverallStatusMap.updateOverallStatusDownLoadEmplFileList */
+            LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+        SET DNLD_DM  = SYSDATE,
+            DNLD_MAN = #{rgsr_id}
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND EXT_DT = #{ext_dt}
+        AND FILE_TYPE = #{file_type}
+    </update>
+
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 다운로드시행자 이력정보 등록
+     * 대상 테이블 : LF_DMUSER.TB_MBID_CSV_DNDL_HIST
+     * ================================================================
+     * -->
+    <insert id="DlwOverallStatusMap.insertOverallStatusDownLoadEmplHist"  parameterType="map">
+        INSERT INTO /* DlwOverallStatusMap.insertOverallStatusDownLoadEmplHist */
+            LF_DMUSER.TB_MBID_CSV_DNDL_HIST(EXT_DT, FILE_TYPE, DNLD_SEQ, DNLD_DM, DNLD_MAN, REG_DM, REG_MAN, DEL_FG)
+        VALUES (#{ext_dt}, #{file_type}, (SELECT NVL(MAX(DNLD_SEQ) , 0) + 1 FROM LF_DMUSER.TB_MBID_CSV_DNDL_HIST WHERE 1=1 AND EXT_DT = #{ext_dt} AND FILE_TYPE = #{file_type}),
+            SYSDATE, #{rgsr_id}, SYSDATE, #{rgsr_id}, 'N')
+    </insert>
+
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 처리일자 조회
+     * 대상 테이블 : LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+     * ================================================================
+     * -->
+    <select id="DlwOverallStatusMap.getOverallStatusBatchDay" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOverallStatusMap.getOverallStatusBatchDay */
+            BAT_PROC_DT,
+            BAT_CAL_YN,
+            BASE_MONTH,
+			JOIN_ST_DT,
+			JOIN_ED_DT,
+            REG_MAN,
+            REG_DM,
+            DEL_FG
+        FROM LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND SUBSTR(BAT_PROC_DT,1,6) = #{ext_req_month}
+        ORDER BY BAT_PROC_DT, BAT_CAL_YN
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 유효성 체크
+     * 대상 테이블 : LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+     * ================================================================
+     * -->
+    <select id="DlwOverallStatusMap.validationOverallStatusFile" parameterType="map" resultType="int">
+        SELECT /* DlwOverallStatusMap.validationOverallStatusFile */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND BAT_PROC_DT = #{bat_proc_dt}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 처리일자 등록
+     * 대상 테이블 : LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+     * ================================================================
+     * -->
+    <insert id="DlwOverallStatusMap.insertOverallStatusBatchDay" parameterType="map">
+        INSERT INTO /* DlwOverallStatusMap.insertOverallStatusBatchDay */
+            LF_DMUSER.TB_STATUS_FILE_BATCH_DAY(BAT_PROC_DT, BAT_CAL_YN, BASE_MONTH, JOIN_ST_DT, JOIN_ED_DT, REG_MAN, REG_DM, DEL_FG)
+        VALUES(#{bat_proc_dt}, #{bat_cal_yn}, SUBSTR(#{base_month}, 0, 6), #{join_st_dt}, #{join_ed_dt}, #{reg_man}, SYSDATE, 'N')
+    </insert>
+
+    <!-- ================================================================
+     * 날짜 : 20210204
+     * 이름 : 김주용
+     * 추가내용 : 일일종합현황데이터 처리일자 삭제
+     * 대상 테이블 : LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+     * ================================================================
+     * -->
+    <delete id="DlwOverallStatusMap.deleteOverallStatusBatchDay" parameterType="map">
+        UPDATE /* DlwOverallStatusMap.deleteOverallStatusBatchDay */
+            LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+        SET DEL_FG = 'Y'
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND BAT_PROC_DT = #{bat_proc_dt}
+    </delete>
+    
+    <!-- ================================================================
+     * 날짜 : 20190213
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 엑셀파일 배치일자 조회
+     * 대상 테이블 :
+     * ================================================================
+     * -->
+    <select id="DlwOverallStatusMap.getOverallStatusExcelBatchDay" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOverallStatusMap.getOverallStatusExcelBatchDay */
+            BAT_PROC_DT,
+            BAT_CAL_YN,
+            BASE_MONTH,
+			JOIN_ST_DT,
+			JOIN_ED_DT,
+			TO_CHAR(LAST_DAY(BASE_MONTH || '01'), 'YYYYMMDD') AS LAST_DAY,
+            REG_MAN,
+            REG_DM,
+            DEL_FG
+        FROM LF_DMUSER.TB_STATUS_FILE_BATCH_DAY
+        WHERE 1=1
+        AND DEL_FG = 'N'
+        AND BAT_CAL_YN = 'Y'
+        AND BAT_PROC_DT = #{bat_proc_dt}
+        ORDER BY BAT_PROC_DT, BAT_CAL_YN
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20181211
+     * 이름 : 송준빈
+     * 추가내용 : 일일청구기준데이터 File 목록 INSERT
+     * 대상 테이블 : LF_DMUSER.TB_MBID_STATUS_FILE_LIST
+     * ================================================================
+     * -->
+    <insert id="DlwOverallStatusMap.insertOverallStatusExcelFileList"  parameterType="map">
+        INSERT INTO /* DlwOverallStatusMap.insertOverallStatusExcelFileList */
+            LF_DMUSER.TB_MBID_STATUS_FILE_LIST(EXT_DT, FILE_TYPE, FILE_PATH, FILE_NAME, DNLD_DM, DNLD_MAN, REG_DM, REG_MAN, DEL_FG)
+        VALUES (#{ext_dt}, #{file_type}, #{file_path}, #{file_name}, '', '', SYSDATE, 'SYSTEM[MBID]', 'N')
+    </insert>
+    
+    <select id="DlwOverallStatusMap.selectTotStatusCount" parameterType="map" resultType="int">
+        /* DlwOverallStatusMap.selectTotStatusCount */
+        SELECT count(*)
+          FROM LF_DMUSER.MEMBER MEM INNER JOIN
+               LF_DMUSER.MEM_PROD_ACCNT MPA ON MEM.MEM_NO = MPA.MEM_NO AND MPA.DEL_FG = 'N' AND MPA.JOIN_DT <![CDATA[<=]]> #{join_ed_dt} AND MPA.JOIN_DT <![CDATA[>=]]> #{join_st_dt}
+                    INNER JOIN
+               LF_DMUSER.PRODUCT PROD ON MPA.PROD_CD = PROD.PROD_CD
+                    INNER JOIN
+               LF_DMUSER.EMPLOYEE EMP ON EMP.EMPLE_NO = MPA.EMPLE_NO
+        WHERE 1=1
+          AND MEM.DEL_FG = 'N'
+          <if test="prod_cd != null and prod_cd != ''">
+          AND MPA.PROD_CD = #{prod_cd}
+          </if>
+    </select>
+</mapper>

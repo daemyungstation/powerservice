@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwHsResultMap">
+
+
+    <select id="DlwHsResultMap.selectHsResultList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectCouponInfoList -->
+        SELECT A1.*
+             FROM
+             (
+                /* [홈쇼핑관리] : 홈쇼핑 실적현황 조회 */
+                SELECT
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY ORDER_NUM DESC) AS PAGE_INDX
+                      </otherwise>
+                  </choose>
+                  ,AA.*
+                  FROM
+                  (
+                    SELECT BB.B2B_COMP_CD
+                            , 1 as totcnt
+                            ,TFM.TOT_COST
+                            ,( SELECT SUM(TOT_COST)    FROM  TV_FORMAT_MST WHERE 1=1
+                                AND FORMAT_DT =TFM.FORMAT_DT	/* 평성일자 */
+
+                             ) TOTHAP
+                            ,TFM.FORMAT_DT
+                            ,TFM.TV_CD
+                             ,BB.ORDER_NUM
+                             ,B2B.COM_NM
+                             <!-- ,FN_COM_NM('S015',TFM.TV_CD) ||','||  SUBSTR(TFM.FORMAT_DT,-6) ||','|| SUBSTR(FORMAT_STT_TM,1,2)||':'|| -->
+                                <!-- SUBSTR(FORMAT_STT_TM,3,2) || '~' || SUBSTR(FORMAT_END_TM,1,2)||':'||  SUBSTR(FORMAT_END_TM,3,2)   AS GUBUN -->
+
+                                <!-- 구분표현방식 변경 - 2018.09.21 -->
+                                <!-- ex) CJ오쇼핑+,2018-09-17,00:00~00:00 -->
+                            ,   FN_COM_NM('S015',TFM.TV_CD) || ','
+                                || SUBSTR(TFM.FORMAT_DT, 1, 4) || '-'
+                                || SUBSTR(TFM.FORMAT_DT, 5, 2) || '-'
+                                || SUBSTR(TFM.FORMAT_DT, 7, 2) || ','
+                                || SUBSTR(SUBSTR('0000'||TO_CHAR(TFM.FORMAT_STT_TM),-4), 1, 2) || ':'
+                                || SUBSTR(SUBSTR('0000'||TO_CHAR(TFM.FORMAT_STT_TM),-4), 3, 2) || '~'
+                                || SUBSTR(SUBSTR('0000'||TO_CHAR(TFM.FORMAT_END_TM),-4), 1, 2) || ':'
+                                || SUBSTR(SUBSTR('0000'||TO_CHAR(TFM.FORMAT_END_TM),-4), 3, 2)
+                                AS GUBUN
+
+
+                             ,  SUBSTR(FORMAT_STT_TM,1,2)||':'||  SUBSTR(FORMAT_STT_TM,3,2) || '~' || SUBSTR(FORMAT_END_TM,1,2)||':'||  SUBSTR(FORMAT_END_TM,3,2)   AS FORMAT_TM
+                             , DTL.CALL_CNT  FINAL_CALL
+                             ,BB.CNT
+                             , TRUNC( (BB.CNT / DTL.CALL_CNT) * 100,1)  AS cnt_p /* 접수율 */
+                             ,( SELECT COUNT(*) FROM MEM_PROD_ACCNT
+                                WHERE ORDER_NUM=BB.ORDER_NUM
+                                      AND B2B_COMP_CD = BB.B2B_COMP_CD
+                                      AND ACCNT_NO IN (SELECT ACCNT_NO  FROM PAY_MNG WHERE DEL_FG='N')
+                                      AND ACCNT_NO NOT IN (SELECT ACCNT_NO  FROM RESCISSION WHERE DEL_FG='N' AND RESN_CL ='02')
+                                      ) AS cul_cnt
+                              ,
+                              TRUNC((( SELECT COUNT(*) FROM MEM_PROD_ACCNT
+                                WHERE ORDER_NUM=BB.ORDER_NUM
+                                      AND B2B_COMP_CD = BB.B2B_COMP_CD
+                                      AND ACCNT_NO IN (SELECT ACCNT_NO  FROM PAY_MNG WHERE DEL_FG='N')
+                                      AND ACCNT_NO NOT IN (SELECT ACCNT_NO  FROM RESCISSION WHERE DEL_FG='N' AND RESN_CL ='02')
+                                      ) /    DTL.CALL_CNT   )  * 100,1) AS CUL_CNT_P
+                             ,( SELECT COUNT(*) FROM MEM_PROD_ACCNT WHERE ORDER_NUM=BB.ORDER_NUM AND B2B_COMP_CD = BB.B2B_COMP_CD AND PROD_CD IN (SELECT PROD_CD FROM PRODUCT WHERE PROD_CL ='01')) AS sangjo_a
+                             ,
+                              <!-- TRUNC( (( SELECT COUNT(*) FROM MEM_PROD_ACCNT
+                                WHERE ORDER_NUM=BB.ORDER_NUM AND B2B_COMP_CD = BB.B2B_COMP_CD
+                                        AND PROD_CD IN (SELECT PROD_CD FROM PRODUCT WHERE PROD_CL ='01')) /   DTL.CALL_CNT   )  * 100,1) --> '' AS sangjo_a_p
+                             ,( SELECT COUNT(*) FROM MEM_PROD_ACCNT WHERE ORDER_NUM=BB.ORDER_NUM AND B2B_COMP_CD = BB.B2B_COMP_CD AND PROD_CD IN (SELECT PROD_CD FROM PRODUCT WHERE PROD_CL ='03')) AS sangjo_b
+                             ,<!-- TRUNC((( SELECT COUNT(*) FROM MEM_PROD_ACCNT
+                                WHERE ORDER_NUM=BB.ORDER_NUM AND B2B_COMP_CD = BB.B2B_COMP_CD
+                                        AND PROD_CD IN (SELECT PROD_CD FROM PRODUCT WHERE PROD_CL ='03')) /  DTL.CALL_CNT ) * 100,1)  --> ''  AS sangjo_b_p
+                              , MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                             FROM (
+                              SELECT B2B_COMP_CD,order_num,COUNT(order_num) CNT
+                              FROM MEM_PROD_ACCNT  MPA
+                              WHERE SUBSTR(order_num,1,2) IN (SELECT C_CD FROM TV_FORMAT_MST)
+                              GROUP BY  B2B_COMP_CD,order_num )BB
+                                 LEFT OUTER JOIN B2BCOMCD B2B ON BB.B2B_COMP_CD=B2B.COM_CD
+                                 INNER JOIN TV_FORMAT_MST TFM ON BB.ORDER_NUM= TFM.C_CD || SUBSTR(FORMAT_DT,-6)
+                                 INNER JOIN TV_FORMAT_DTL DTL ON   TFM.FORMAT_SEQ = DTL.FORMAT_SEQ AND BB.B2B_COMP_CD=DTL.B2BCODE
+                 ) AA
+                 WHERE 1 =1
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND AA.FORMAT_DT BETWEEN #{stt_dt} AND #{end_dt}	/* 평성일자 */
+            </if>
+            <if test="tv_cd != null and tv_cd != ''">
+                AND AA.TV_CD = #{tv_cd}  /* 쿠폰종류 */
+            </if >
+
+        ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+
+    </select>
+
+
+
+    <select id="DlwHsResultMap.selectHsProdList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectHsProdList -->
+        SELECT A1.*
+             FROM
+             (
+                /* [홈쇼핑관리] : 홈쇼핑 상품현황 조회 */
+                SELECT
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY PROD_CD,PROD_B,PROD_N) AS PAGE_INDX
+                      </otherwise>
+                  </choose>
+                  ,AA.*
+                  , (SELECT PROD_NM FROM PRODUCT WHERE PROD_CD = AA.PROD_CD ) PROD_NM
+                   , MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                  FROM
+                  (
+                  select AA.PROD_CD,PROD_B,PROD_N
+                              ,count(aa.prod_Cd) JCNT
+
+                            <!-- ,SUM(case when  AA.ORDER_DT >' ' then 1  else  0 end ) ORDER_DT
+                                ,SUM(case when  AA.DELIVERY_DT >' ' then 1  else  0 end )  F_DELIVERY_DT
+                                ,SUM(case when  AA.ORDER_DT >' ' and  nvl(AA.DELIVERY_DT,' ') =' ' then 1  else  0 end  ) E_DELIVERY_DT  -->
+                                <!--  2018.08.28 발주,설치,미설치 조회시 청약철회 카운트는 미포함 요청 -->
+                              ,SUM(CASE WHEN AA.ORDER_DT > ' ' THEN 1 ELSE 0 END )
+                                - SUM(CASE WHEN AA.ORDER_DT > ' ' AND RESN_CL = '02' THEN 1 ELSE 0 END ) AS ORDER_DT
+                              ,SUM(CASE WHEN AA.DELIVERY_DT > ' ' THEN 1 ELSE 0 END )
+                                - SUM(CASE WHEN AA.DELIVERY_DT > ' ' AND RESN_CL = '02' THEN 1 ELSE 0 END ) AS F_DELIVERY_DT
+                              ,SUM(CASE WHEN AA.ORDER_DT > ' ' AND NVL(AA.DELIVERY_DT,' ') = ' ' THEN 1 ELSE 0 END )
+                                - SUM(CASE WHEN AA.ORDER_DT > ' ' AND NVL(AA.DELIVERY_DT,' ') = ' ' AND RESN_CL = '02' THEN 1 ELSE 0 END ) AS E_DELIVERY_DT
+                               -- ,max(rownum) t3
+                            from (
+                    select MPA.prod_cd,
+                        (SELECT MODEL_CL_NM  FROM PRODUCT_MODEL_CL_CD WHERE MODEL_CL_CD = MPA.PROD_MODEL_KIND) prod_b,
+                        (SELECT PMD.MODEL_NM FROM PRODUCT_MODEL_MST PMM
+                                        INNER JOIN   PRODUCT_MODEL_DTL PMD ON PMM.SEQ = PMD.SEQ AND PMM.DEL_FG = 'N'
+                        WHERE PROD_CD = MPA.PROD_CD  AND PROD_KIND = MPA.PROD_MODEL_KIND AND MODEL_CD = PROD_MODEL_CD ) AS prod_n
+                                 ,  DI.CONFIRM_DT  /*승인일자*/
+                                 ,  DI.DELIVERY_DT /*배송일자*/
+                                 ,  DI.ORDER_DT    /*발주일자*/
+                                 ,  RS.RESN_CL     /*해약구분*/
+                    from mem_prod_accnt  MPA
+                        left outer join  DELIVERY_INFO DI ON MPA.ACCNT_NO=DI.ACCNT_NO
+                        left outer join  product pd on mpa.prod_cd=pd.prod_cd
+                        LEFT OUTER JOIN  RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N'
+                     where 1=1
+                    <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                        AND MPA.join_dt BETWEEN #{stt_dt} AND #{end_dt}	/* 가입일자 */
+                    </if>
+                    <if test="prodcd != null and prodcd != ''">
+                        AND MPA.PROD_CD IN( ${prodcd} )
+                    </if>
+                    <if test="nsnum != null and nsnum != ''">
+                        AND MPA.ORDER_NUM = #{nsnum}
+                    </if>
+                    <if test="sectionthr != null and sectionthr != ''">
+                        AND PD.section_thr = #{sectionthr}
+                    </if>
+                    ) aa
+                    group by  aa.PROD_CD,PROD_B,PROD_N
+
+                 ) AA
+                     WHERE 1=1
+
+        ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+
+      <if test="startLine == null">
+          ORDER BY PROD_CD,PROD_B,PROD_N
+      </if>
+
+    </select>
+
+
+</mapper>

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DpmsReslHstrMap">
+    <sql id="DpmsReslHstrMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                TH.CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="trgt_list_id != null and trgt_list_id != ''">
+                AND TH.TRGT_LIST_ID = #{trgt_list_id}
+            </if>
+            <if test="user_id != null and user_id != ''">
+                AND TH.CNSR_ID = #{user_id}
+            </if>
+            <if test="cmpg_id != null and cmpg_id != ''">
+                AND TH.CMPG_ID = #{cmpg_id}
+            </if>
+            <if test="sub_trgt_list_id != null and sub_trgt_list_id != ''">
+                AND TH.SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+            </if>
+            <if test="trgt_cust_dtpt_id != null and trgt_cust_dtpt_id != ''">
+                AND TH.TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+            </if>
+            <if test="cmpg_stt_dt != null and cmpg_stt_dt != '' and cmpg_end_dt != null and cmpg_end_dt != ''">
+                AND CMPG_STT_DT BETWEEN REPLACE(#{cmpg_stt_dt}, '-', '') AND REPLACE(#{cmpg_end_dt}, '-', '')
+            </if>
+            <if test="cmpg_prgr_stat_cd != null and cmpg_prgr_stat_cd != ''">
+                AND CMPG_PRGR_STAT_CD = #{cmpg_prgr_stat_cd}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND TD.MEM_NO = #{mem_no}
+            </if>
+        </where>
+    </sql>
+
+    <select id="DpmsReslHstrMap.getDpmsReslHstrCount" parameterType="map" resultType="int">
+        SELECT /* DpmsReslHstrMap.getDpmsReslHstrCount */
+                COUNT(*)
+          FROM (SELECT *
+                  FROM TB_DPMS_RESL_HSTR TH
+                  <include refid="DpmsReslHstrMap.selectCondition_fragment"/>
+                ) B
+    </select>
+
+    <select id="DpmsReslHstrMap.getIbDpmsReslHstrCount" parameterType="map" resultType="int">
+        SELECT /* DpmsReslHstrMap.getIbDpmsReslHstrCount */
+                COUNT(*)
+          FROM (SELECT *
+                  FROM TB_TRGT_CUST_DTPT TD INNER JOIN TB_DPMS_RESL_HSTR TH
+                    ON (TD.TRGT_CUST_DTPT_ID = TH.TRGT_CUST_DTPT_ID)
+                  <include refid="DpmsReslHstrMap.selectCondition_fragment"/>
+                ) B
+    </select>
+
+    <select id="DpmsReslHstrMap.getIbDpmsReslHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslHstrMap.getIbDpmsReslHstrList */
+                C.*
+                 , GETCODENM('CAM090', C.DPMS_RESL_CD, C.CNTR_CD) AS DPMS_RESL_NM
+                 , GETCODENM('CAM100', C.DPMS_STAT_CD, C.CNTR_CD) AS DPMS_STAT_NM
+                 , GETCODENM('CAM130', C.DPMS_TLPH_DIV_CD, C.CNTR_CD) AS DPMS_TLPH_DIV_NM
+                 , (SELECT USER_NM FROM TB_USER WHERE USER_ID = C.CNSR_ID ) AS CNSR_NM
+                 , (SELECT SUB_TRGT_LIST_NM FROM TB_SUB_TRGT_LIST_DTL
+                                           WHERE SUB_TRGT_LIST_ID = C.SUB_TRGT_LIST_ID) AS SUB_TRGT_LIST_NM
+                 , (SELECT CMPG_NM FROM TB_CMPG_BASI WHERE CMPG_ID = C.CMPG_ID) AS CMPG_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , CHNG_DTTM, CNTR_CD, CMPG_ID, TRGT_LIST_ID ,MEM_NO
+                     , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD
+                     , DPMS_STAT_CD, DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT
+                     , DPMS_DTTM, PROD_JOIN_YN , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                  FROM ( SELECT TO_CHAR(TH.CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM, TH.CNTR_CD, TH.CMPG_ID, TH.TRGT_LIST_ID
+                              , TH.SUB_TRGT_LIST_ID, TH.TRGT_CUST_DTPT_ID, TH.CNSR_ID, TH.DPMS_RESL_CD , TD.MEM_NO
+                              , TH.DPMS_STAT_CD, TH.DPMS_TLPH_DIV_CD, TH.DPMS_TLNO, TH.DPMS_RESL_CNTN, TH.DPMS_TMCNT
+                              , TO_CHAR(TH.DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, TH.PROD_JOIN_YN
+                              , TH.RGSR_ID, TH.RGSN_DTTM, TH.AMND_ID, TH.AMNT_DTTM
+                          FROM TB_TRGT_CUST_DTPT TD INNER JOIN TB_DPMS_RESL_HSTR TH
+                                                            ON (TD.TRGT_CUST_DTPT_ID = TH.TRGT_CUST_DTPT_ID)
+                            <include refid="DpmsReslHstrMap.selectCondition_fragment"/>
+                             <if test="orderBy != null and orderBy != ''">
+                                 ORDER BY ${orderBy} ${orderDirection}
+                             </if>
+                        ) B
+                    ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="DpmsReslHstrMap.getDpmsReslHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* DpmsReslHstrMap.getDpmsReslHstrList */
+                C.*
+                , GETCODENM('CAM090', C.DPMS_RESL_CD, C.CNTR_CD) AS DPMS_RESL_NM
+                , GETCODENM('CAM100', C.DPMS_STAT_CD, C.CNTR_CD) AS DPMS_STAT_NM
+                , GETCODENM('CAM130', C.DPMS_TLPH_DIV_CD, C.CNTR_CD) AS DPMS_TLPH_DIV_NM
+                , (SELECT USER_NM FROM TB_USER WHERE USER_ID = C.CNSR_ID ) AS CNSR_NM
+                , (SELECT SUB_TRGT_LIST_NM FROM TB_SUB_TRGT_LIST_DTL
+                                                        WHERE SUB_TRGT_LIST_ID = C.SUB_TRGT_LIST_ID) AS SUB_TRGT_LIST_NM
+                , (SELECT CMPG_NM FROM TB_CMPG_BASI WHERE CMPG_ID = C.CMPG_ID) AS CMPG_NM
+              FROM (SELECT ROWNUM AS PAGE_INDX
+                     , CHNG_DTTM, CNTR_CD, CMPG_ID, TRGT_LIST_ID
+                     , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD
+                     , DPMS_STAT_CD, DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT
+                     , DPMS_DTTM, PROD_JOIN_YN , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, RESERVE_PROC_DT, RESERVE_PROC_TM
+                     , DPMS_GBN_CD
+                  FROM ( SELECT TO_CHAR(CHNG_DTTM, 'YYYYMMDDHH24MISS') AS CHNG_DTTM, CNTR_CD, CMPG_ID, TRGT_LIST_ID
+                              , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD
+                              , DPMS_STAT_CD, DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT
+                              , TO_CHAR(DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, PROD_JOIN_YN
+                              , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, RESERVE_PROC_DT, RESERVE_PROC_TM
+                              , DPMS_GBN_CD
+                           FROM TB_DPMS_RESL_HSTR TH
+                   <include refid="DpmsReslHstrMap.selectCondition_fragment"/>
+                   <if test="orderBy != null and orderBy != ''">
+                       ORDER BY ${orderBy} ${orderDirection}
+                   </if>
+                        ) B
+                    ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+            WHERE PAGE_INDX >= #{startLine}
+              AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="DpmsReslHstrMap.insertDpmsReslHstr" parameterType="map">
+        INSERT /* DpmsReslHstrMap.insertDpmsReslHstr */
+          INTO TB_DPMS_RESL_HSTR
+             ( CHNG_DTTM, CNTR_CD, CMPG_ID, TRGT_LIST_ID, CTI_CRNC_DTL_ID
+             , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD, DPMS_STAT_CD,DPMS_GBN_CD
+             , DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT, PROD_JOIN_YN
+             , DPMS_DTTM, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM, RESERVE_PROC_DT, RESERVE_PROC_TM)
+        SELECT SYSTIMESTAMP, CNTR_CD, CMPG_ID, TRGT_LIST_ID, CTI_CRNC_DTL_ID
+             , SUB_TRGT_LIST_ID, TRGT_CUST_DTPT_ID, CNSR_ID, DPMS_RESL_CD, DPMS_STAT_CD,DPMS_GBN_CD
+             , DPMS_TLPH_DIV_CD, DPMS_TLNO, DPMS_RESL_CNTN, DPMS_TMCNT, PROD_JOIN_YN
+             , TO_CHAR(DPMS_DTTM, 'YYYYMMDDHH24MISS') AS DPMS_DTTM, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+             , RESERVE_PROC_DT, RESERVE_PROC_TM
+          FROM TB_TRGT_CUST_ALCT
+         WHERE SUB_TRGT_LIST_ID = #{sub_trgt_list_id}
+           AND CNSR_ID = #{user_id}
+           AND CMPG_ID = #{cmpg_id}
+           AND TRGT_CUST_DTPT_ID = #{trgt_cust_dtpt_id}
+    </insert>
+</mapper>

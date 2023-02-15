@@ -1,0 +1,163 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="curtmrCode" classname="Div_goodsCode" inheritanceid="" position="absolute 0 0 72 21" titletext="월력" onload="frm_onload">
+    <Layouts>
+      <Layout>
+        <MaskEdit id="mae_ym" taborder="0" type="string" mask="####-##" position="absolute 0 0 72 21" style="padding:0 25 0 5;align:left middle;" onkeydown="mae_ym_onkeydown" ontextchanged="mae_ym_ontextchanged" onlbuttondown="mae_ym_onlbuttondown"/>
+        <Button id="btn_monthCal" taborder="1" class="btn_workSrcPop" position="absolute 57 4 71 18" onclick="btn_monthCal_onclick" style="background:transparent URL('theme://images\btn_CalDropP.png');"/>
+      </Layout>
+    </Layouts>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[/*********************************************
+ * 화면명 : 월력
+ * 작성자 : 정출연
+ * 작성일 : 2017.02.20 
+ * 변경이력 : 
+*/
+
+include "LIB::lib_All.xjs";
+
+var fv_sEnterKeyDownCallBack 	= ""; // 조회 후 콜백 함수명
+var fv_sSetDateCallBack 		= ""; // 날짜 선택 후 콜백 함수명
+
+function frm_onload(obj:Form, e:LoadEventInfo) {
+	//
+}
+
+function btn_monthCal_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_showGetMonth(mae_ym);
+}
+
+function fn_showGetMonth(objDate)
+{
+	var objPopupDiv;
+	var sPopupDivNm = "_pdv_Month";
+	var bRet = isValidObject(sPopupDivNm);
+	
+	if(!bRet) {
+		objPopupDiv = new PopupDiv;  
+		objPopupDiv.init(sPopupDivNm, 0, 0, 165, 185);
+		this.addChild(sPopupDivNm, objPopupDiv); 
+		objPopupDiv.style 	= "background:transparent;border:0 none #808080ff;";
+		objPopupDiv.show(); 
+		
+		objPopupDiv.url = "COMM::Comm_Month.xfdl";
+	} else {
+		objPopupDiv = eval(sPopupDivNm);		
+		
+		objPopupDiv.fn_cancelSelect();
+		objPopupDiv.fn_setValue(_getDate());
+	}
+
+	var rtn = objPopupDiv.trackPopupByComponent(objDate, 0, objDate.position.height+1);
+	
+	objDate.value = rtn;
+	
+	if ( "" != fv_sSetDateCallBack ) {
+		eval(fv_sSetDateCallBack + "()");
+	}
+}
+
+function setDate(sYm) {
+	if (undefined == sYm || null == sYm) {
+		sYm = "";
+	}
+	sYm = gfn_trim(sYm);
+	sYm = sYm.replace("-", "");
+	sYm = sYm.replace("/", "");
+	sYm = sYm.substr(0,6);
+	mae_ym.value = sYm;
+	
+	if ( "" != fv_sSetDateCallBack ) {
+		eval(fv_sSetDateCallBack + "()");
+	}
+}
+
+function getDate() {
+	var sYm = mae_ym.value;
+	sYm = gfn_trim(sYm);
+	return sYm;
+}
+
+// Comm_Month 내에서 호출
+function _getDate() {
+	var sYm = mae_ym.value;
+	sYm = gfn_trim(sYm);	
+	var sToday = gfn_getToday();
+	
+	if (gfn_isEmpty(sYm)) {
+		sYm = sToday;
+		sYm = sYm.substr(0,6);
+	} else {		
+		sYm = sYm.replace("-", "");
+		sYm = sYm.replace("/", "");
+		sYm = sYm.substr(0,6);
+	}
+	
+	var yy = gfn_trim(sYm.substr(0,4));
+	var mm = gfn_trim(sYm.substr(4,2));
+	
+	if (yy.length != 4 || !/^[0-9]+$/.test(yy)) {
+		yy = sToday.substr(0,4);
+		mm = sToday.substr(4,2);
+	}
+	else if (mm.length != 2 || !/^[0-9]+$/.test(mm)) {
+		yy = sToday.substr(0,4);
+		mm = sToday.substr(4,2);
+	}
+	
+	// var cDate = new Date(parseInt(yy),parseInt(mm)-1,1,1,1,1);
+	var cDate = yy + "" + mm + "01";
+	
+	return cDate;
+}
+
+function mae_ym_onkeydown(obj:MaskEdit, e:KeyEventInfo)
+{
+	if (e.keycode == 13 && "" != fv_sEnterKeyDownCallBack) {
+		eval(fv_sEnterKeyDownCallBack + "()");
+	}
+}
+
+function setEnterKeyDown(sHandler) {
+	fv_sEnterKeyDownCallBack = sHandler;
+}
+
+function setDateCallback(sHandler) {
+	trace("setDateCallback> 1");
+	fv_sSetDateCallBack = sHandler;
+}
+
+function setFocus() {
+	mae_ym.setFocus();
+}
+
+function isValid() {
+	var dt = mae_ym.value;
+	if (!/^[0-9]+$/.test(dt)) return false;
+		
+	var mm = parseInt(dt.substr(4,2));
+	if (mm < 0 || mm > 12) {
+		return false;
+	}
+	return true;
+}
+
+function mae_ym_ontextchanged(obj:MaskEdit,  e:TextChangedEventInfo)
+{
+	if (isValid()) {
+		if ( "" != fv_sSetDateCallBack ) {
+			eval(fv_sSetDateCallBack + "()");
+		}
+	}
+}
+
+function mae_ym_onlbuttondown(obj:MaskEdit, e:MouseEventInfo)
+{
+	obj.setSelect(0,-1);
+}
+]]></Script>
+  </Form>
+</FDL>

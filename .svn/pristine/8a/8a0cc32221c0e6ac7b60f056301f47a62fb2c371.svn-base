@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="MN01030201" classname="팝업가이드" inheritanceid="" position="absolute 0 0 304 85" titletext="OCB 포인트 산출" onload="PS220104_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="stc_31" class="sta_popupBg1" enable="false" position="absolute 0 0 304 85"/>
+        <Button id="btn_close" taborder="1" onclick="btn_onclick" class="btn_popupClose" position="absolute 274 8 294 27"/>
+        <Static id="stc_30" text="OCB포인트 산출" class="sta_popupTitle" transparenthittest="true" position="absolute 10 8 185 28"/>
+        <Button id="btn_mst1" taborder="4" text="산출하기" onclick="btn_onclick" class="btn_WF_Common" visible="true" position="absolute 183 48 289 68" tooltiptext="저장" style="padding:0 0 0 0;"/>
+        <Static id="stc_28" text="OCB 산출월 " class="sta_workSrcLabel1" position="absolute 20 48 104 68"/>
+        <Calendar id="cal_stt_dt" taborder="6" dateformat="yyyy-MM" editformat="yyyy-MM" onchanged="cal_00_onchanged" oneditclick="cal_00_oneditclick" position="absolute 104 48 182 68"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_trans_info" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="strSvcID" type="STRING" size="256"/>
+          <Column id="strURL" type="STRING" size="256"/>
+          <Column id="strInDatasets" type="STRING" size="256"/>
+          <Column id="strOutDatasets" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_basVlInfo" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="bas_vl_id" type="STRING" size="256"/>
+          <Column id="bas_vl_nm" type="STRING" size="256"/>
+          <Column id="bas_vl" type="STRING" size="256"/>
+          <Column id="bas_vl_expi" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/***************************************************************************
+ * Program ID    : PS.xfdl
+ * Program Name  : 우수상담사례 수정
+ * Author        : 정 훈
+ * Created On    : 2016.02.
+ * 개    요 	 :
+ *
+ * =========================================================================
+ * 변경일자     수정자       내    용
+ * =========================================================================
+ * 2016.0    정   훈      최초작성
+ 
+ **************************************************************************/
+
+
+/********************************************************************************************/
+/* 1. Include Library include                                                               */
+/********************************************************************************************/
+include "LIB::lib_All.xjs";
+
+
+
+
+/********************************************************************************************/
+/* 2. Form 관련(onload 및 Form 이벤트,전역변수,초기화) 처리                         	*/
+/********************************************************************************************/
+
+
+//온로드
+function PS220104_onload(obj:Form, e:LoadEventInfo)
+{
+
+	gfn_getList("basVl", "month_unpy_mnge_click", null, null, "BasVl", "ds_basVlInfo");  // 공통코드조회
+	cal_stt_dt.value=gfn_getToday();
+	
+}
+
+
+
+
+/********************************************************************************************/
+/* 3. Callback(gfn_Transaction 호출 후 처리내용)                                   		*/
+/********************************************************************************************/
+function fn_callBack(svcid, errcd, errmsg) {
+    if (errcd != 0) {
+		trace("errcd  :   " +errcd +"   \n errmsg   :   "+ errmsg +"    \n svcid   :   "+ svcid)
+		trace(errcd);
+		return false;
+	} else {
+		switch(svcid){
+			case "mst1" ://당월미납 가져오기
+				alert("작업 완료");
+			break;		
+		}
+	}
+}
+/********************************************************************************************/
+/**   4. Validation 처리                                                                   	*/
+/********************************************************************************************/
+//저장전
+function fn_preSavaData(){
+	if(cbo_cnsr_id.value == null || cbo_cnsr_id.value =''){
+		alert("변경할 상담사를 선택하세요");
+		return false;
+	}
+	
+	return true;
+}
+
+
+/********************************************************************************************/
+/**   5. 서비스 호출(gfn_Transaction)                                                   	*/
+/********************************************************************************************/
+//상담사 배정리스트 저장
+function fn_btn_mst1(){
+
+    var szSvcid       = "mst1";
+    var szController  = "/cmpg/extc-trgt/mst1";
+    var szInDs        = "";
+    var szOutDs       = "";
+    var szParam       = "ichae_dt="+cbo_ichae_dt.value;
+    var szRetCallback = "fn_callBack";
+
+    // 트랜젝션 공통함수 호출
+    gfn_transaction(this, szSvcid, szController, szInDs, szOutDs, szParam, szRetCallback,true);
+}
+
+/********************************************************************************************/
+/**   6. 사용자 함수                                                                   	*/
+/********************************************************************************************/
+//현재 할당되어있는 상담사 제외
+function fn_deleteUser(){
+	for(i =0 ; ds_selectUserAssign.rowcount > i; i++){
+		if(ds_selectUserAssign.getColumn(i, 'user_id') == user_id){
+			ds_selectUserAssign.deleteRow(i);
+			break;
+		}
+	}
+}
+
+/********************************************************************************************/
+/**   7. 이벤트(Event) Function                                                          	*/
+/********************************************************************************************/
+
+//버튼클릭이벤트
+function btn_onclick(obj:Button,  e:ClickEventInfo)
+{
+	switch(obj){
+		case btn_close://닫기버튼
+			close();
+		break;
+		
+		case btn_mst1://당월미납 가져오기		
+			if(confirm("OCB산출을 하시겠습니까?")){
+				fn_btn_mst1();
+			}
+		break;
+		
+		
+		default :
+		alert("obj를 확인하세요.")
+		break;
+	}
+}
+
+
+
+
+
+]]></Script>
+  </Form>
+</FDL>

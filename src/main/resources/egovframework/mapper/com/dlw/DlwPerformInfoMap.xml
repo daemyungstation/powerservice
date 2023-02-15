@@ -1,0 +1,427 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwPerformInfoMap">
+    
+    <!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 마감처리 산출여부 확인
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwPerformInfoMap.getInsertPerformConfirm" parameterType="map" resultType="int">
+        SELECT /* DlwPerformInfoMap.getInsertPerformConfirm */
+            COUNT(*) AS ICNT
+        FROM LF_DMUSER.TB_RECORD_MAIN
+        WHERE 1=1
+        AND RECORD_DT = #{stt_reg_dt}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 마감처리 산출
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <insert id="DlwPerformInfoMap.insertPerformInfo" parameterType="map">
+        /* DlwPerformInfoMap.insertPerformInfo */
+        INSERT INTO LF_DMUSER.TB_RECORD_MAIN(RECORD_DT, RECORD_GBN, YYYYMM, SECTION_THR, SECTION_T, CNT_01, CNT_02, CNT_03)
+        SELECT 
+            TBL_MAIN.RECORD_DT,
+            TBL_MAIN.RECORD_GBN,
+            TBL_MAIN.YYYYMM,
+            TBL_MAIN.SECTION_THR,
+            TBL_MAIN.SECTION_T,
+            TBL_MAIN.CNT_01,      
+            TBL_MAIN.CNT_02,
+            TBL_MAIN.CNT_03
+        FROM 
+        (
+            /*      [001] 실적 접수 + 출금    */
+            SELECT    
+                #{stt_reg_dt} AS RECORD_DT,
+                'PAY' AS RECORD_GBN,      
+                YYYYMM,    
+                SECTION_THR,
+                SECTION_T,
+                CNT AS CNT_01,      
+                (JOIN_CNT - RESN_CNT) AS CNT_02,
+                (JOIN_CNT - (RESN_CNT + YEN_CNT)) AS CNT_03
+            FROM
+            (
+                SELECT
+                    TO_CHAR(MPA.REG_DM,'YYYYMM') AS YYYYMM,
+                    PD.SECTION_THR,
+                    PD.SECTION_T,         
+                    COUNT(MPA.ACCNT_NO) AS CNT,
+                    SUM(CASE WHEN MPA.KSTBIT != '01' THEN 1 ELSE 0 END) AS JOIN_CNT,
+                    SUM(CASE WHEN RS.RESN_CL IN ('02','04') THEN 1 ELSE 0 END) AS RESN_CNT,
+                    SUM(CASE WHEN (MPA.KSTBIT = '02' AND (MBID.MONTH_COUNT -1) - MBID.TRUE_CNT >=3) THEN 1 ELSE 0 END) AS YEN_CNT
+                FROM MEM_PROD_ACCNT MPA INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD LEFT OUTER JOIN
+                    RESCISSION RS ON MPA.ACCNT_NO = RS.ACCNT_NO AND RS.DEL_FG = 'N' INNER JOIN
+                    TB_MEMBER_BASIC_INFO_DAY MBID ON MBID.ACCNT_NO = MPA.ACCNT_NO
+                WHERE 1=1
+                    AND MPA.DEL_FG = 'N'
+                    AND MPA.REG_DM <![CDATA[<]]> #{stt_reg_dt}
+                GROUP BY TO_CHAR(MPA.REG_DM,'YYYYMM'), PD.SECTION_THR,PD.SECTION_T
+            )
+        
+            UNION ALL
+        
+            /*      [002] 행사    */
+            SELECT
+                #{stt_reg_dt} AS RECORD_DT,
+                'EVT' AS RECORD_GBN,  
+                YYYYMM,
+                SECTION_THR,
+                SECTION_T,
+                CNT AS CNT_01,
+                EVENT_CNT AS CNT_02,      
+                CHANGE_CNT AS CNT_03
+            FROM
+            (
+                SELECT 
+                    SUBSTR(EV.EVENT_COMP_DAY,0,6) AS YYYYMM,
+                    PD.SECTION_THR,
+                    PD.SECTION_T,         
+                    COUNT(EV.ACCNT_NO) AS CNT,
+                    SUM(CASE WHEN EV.SORT = '01' THEN 1 ELSE 0 END) AS EVENT_CNT,
+                    SUM(CASE WHEN TO_CHAR(MPA.REG_DM,'YYYYMMDD') = EV.EVENT_REG_DAY THEN 1 ELSE 0 END) AS CHANGE_CNT
+                FROM EVENT EV INNER JOIN
+                    MEM_PROD_ACCNT MPA ON EV.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+                WHERE 1=1
+                    AND EV.DEL_FG = 'N'
+                    AND EVENT_COMP_DAY <![CDATA[<]]> #{stt_reg_dt}
+                GROUP BY SUBSTR(EV.EVENT_COMP_DAY,0,6) , PD.SECTION_THR,PD.SECTION_T  
+            )
+        
+            UNION ALL
+        
+            /*      [003] 해약    */
+            SELECT
+                #{stt_reg_dt} AS RECORD_DT,
+                'RSS' AS RECORD_GBN,  
+                YYYYMM,
+                SECTION_THR,
+                SECTION_T,
+                CNT AS CNT_01,
+                RESN_CNT AS CNT_02,      
+                RESN2_CNT AS CNT_03
+            FROM
+            (
+               SELECT 
+                    SUBSTR(RS.RESN_PROC_DAY,0,6) AS YYYYMM,
+                    PD.SECTION_THR,
+                    PD.SECTION_T,         
+                    COUNT(RS.ACCNT_NO) AS CNT,
+                    SUM(CASE WHEN RS.RESN_CL IN ('02','04') THEN 1 ELSE 0 END) AS RESN_CNT,
+                    SUM(CASE WHEN RS.RESN_CL IN ('01','03') THEN 1 ELSE 0 END) AS RESN2_CNT
+                FROM RESCISSION RS INNER JOIN
+                    MEM_PROD_ACCNT MPA ON RS.ACCNT_NO = MPA.ACCNT_NO INNER JOIN
+                    PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+                WHERE 1=1
+                    AND RS.DEL_FG = 'N'
+                    AND RESN_PROC_DAY <![CDATA[<]]> #{stt_reg_dt}
+                GROUP BY SUBSTR(RS.RESN_PROC_DAY,0,6), PD.SECTION_THR, PD.SECTION_T  
+            )
+        ) TBL_MAIN
+    </insert>
+    
+	<!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 주간보고 조회 수
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwPerformInfoMap.getPerformInfoWeekCount" parameterType="map" resultType="int">
+        SELECT /* DlwPerformInfoMap.getPerformInfoWeekCount */
+            COUNT(*) AS ICNT
+        FROM 
+        (
+            SELECT 
+                '스페셜라이프(SPE)' AS SPE_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN SPE ELSE 0 END) AS SPE_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN SPE ELSE 0 END) AS SPE_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN SPE ELSE 0 END) AS SPE_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN SPE ELSE 0 END) AS SPE_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN SPE ELSE 0 END) AS SPE_05,
+                
+                '홈쇼핑(HSP)' AS HSP_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN HSP ELSE 0 END) AS HSP_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN HSP ELSE 0 END) AS HSP_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN HSP ELSE 0 END) AS HSP_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN HSP ELSE 0 END) AS HSP_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN HSP ELSE 0 END) AS HSP_05,
+                
+                'B2B기타(E_B)' AS E_B_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN E_B ELSE 0 END) AS E_B_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN E_B ELSE 0 END) AS E_B_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN E_B ELSE 0 END) AS E_B_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN E_B ELSE 0 END) AS E_B_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN E_B ELSE 0 END) AS E_B_05,
+                
+                'SDP(SDP)' AS SDP_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN SDP ELSE 0 END) AS SDP_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN SDP ELSE 0 END) AS SDP_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN SDP ELSE 0 END) AS SDP_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN SDP ELSE 0 END) AS SDP_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN SDP ELSE 0 END) AS SDP_05,
+                
+                'LGU(LGU)' AS LGU_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN LGU ELSE 0 END) AS LGU_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN LGU ELSE 0 END) AS LGU_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN LGU ELSE 0 END) AS LGU_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN LGU ELSE 0 END) AS LGU_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN LGU ELSE 0 END) AS LGU_05,
+                
+                'B2C기타(E_C)' AS E_C_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN E_C ELSE 0 END) AS E_C_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN E_C ELSE 0 END) AS E_C_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN E_C ELSE 0 END) AS E_C_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN E_C ELSE 0 END) AS E_C_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN E_C ELSE 0 END) AS E_C_05,
+                
+                '온라인(ONL)' AS ONL_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN ONL ELSE 0 END) AS ONL_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN ONL ELSE 0 END) AS ONL_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN ONL ELSE 0 END) AS ONL_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN ONL ELSE 0 END) AS ONL_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN ONL ELSE 0 END) AS ONL_05    
+            FROM
+            (
+                SELECT 
+                    YYYYMM,
+                    SUM((CASE WHEN SECTION_THR IN ('0010') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS SDP,
+                    SUM((CASE WHEN SECTION_THR IN ('0008') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS LGU,
+                    SUM((CASE WHEN SECTION_THR IN ('0027','0029') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS SPE,
+                    SUM((CASE WHEN SECTION_THR IN ('0020') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS HSP,
+                    SUM((CASE WHEN SECTION_THR IN ('0032','0023','0024') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS ONL,                    
+                    SUM((CASE WHEN SECTION_THR IN ('0006','0022','0030','0017') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS E_C,
+                    SUM((CASE WHEN SECTION_THR NOT IN ('0010','0008','0017','0029','0020','0032','0006','0022','0023','0024','0027','0030') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS E_B
+                FROM LF_DMUSER.TB_RECORD_MAIN
+                WHERE 1=1
+                AND RECORD_DT = #{stt_reg_dt}
+                AND YYYYMM BETWEEN #{pre_year_start_month} AND #{cur_end_month}
+                GROUP BY YYYYMM
+            )
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 주간보고 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwPerformInfoMap.getPerformInfoWeekList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwPerformInfoMap.getPerformInfoWeekList */
+            MAIN_TBL.*
+        FROM 
+        (
+            SELECT 
+                '스페셜라이프(SPE)' AS SPE_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN SPE ELSE 0 END) AS SPE_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN SPE ELSE 0 END) AS SPE_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN SPE ELSE 0 END) AS SPE_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN SPE ELSE 0 END) AS SPE_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN SPE ELSE 0 END) AS SPE_05,
+                
+                '홈쇼핑(HSP)' AS HSP_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN HSP ELSE 0 END) AS HSP_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN HSP ELSE 0 END) AS HSP_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN HSP ELSE 0 END) AS HSP_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN HSP ELSE 0 END) AS HSP_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN HSP ELSE 0 END) AS HSP_05,
+                
+                'B2B기타(E_B)' AS E_B_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN E_B ELSE 0 END) AS E_B_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN E_B ELSE 0 END) AS E_B_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN E_B ELSE 0 END) AS E_B_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN E_B ELSE 0 END) AS E_B_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN E_B ELSE 0 END) AS E_B_05,
+                
+                'SDP(SDP)' AS SDP_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN SDP ELSE 0 END) AS SDP_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN SDP ELSE 0 END) AS SDP_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN SDP ELSE 0 END) AS SDP_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN SDP ELSE 0 END) AS SDP_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN SDP ELSE 0 END) AS SDP_05,
+                
+                'LGU(LGU)' AS LGU_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN LGU ELSE 0 END) AS LGU_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN LGU ELSE 0 END) AS LGU_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN LGU ELSE 0 END) AS LGU_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN LGU ELSE 0 END) AS LGU_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN LGU ELSE 0 END) AS LGU_05,
+                
+                'B2C기타(E_C)' AS E_C_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN E_C ELSE 0 END) AS E_C_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN E_C ELSE 0 END) AS E_C_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN E_C ELSE 0 END) AS E_C_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN E_C ELSE 0 END) AS E_C_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN E_C ELSE 0 END) AS E_C_05,
+                
+                '온라인(ONL)' AS ONL_NM,
+                SUM(CASE WHEN YYYYMM = #{pre_year_month} THEN ONL ELSE 0 END) AS ONL_01,
+                SUM(CASE WHEN YYYYMM = #{pre_pre_month} THEN ONL ELSE 0 END) AS ONL_02,
+                SUM(CASE WHEN YYYYMM = #{cur_month} THEN ONL ELSE 0 END) AS ONL_03,
+                SUM(CASE WHEN YYYYMM BETWEEN #{pre_year_start_month} AND #{pre_year_end_month} THEN ONL ELSE 0 END) AS ONL_04,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} THEN ONL ELSE 0 END) AS ONL_05    
+            FROM
+            (
+                SELECT 
+                    YYYYMM,
+                    SUM((CASE WHEN SECTION_THR IN ('0010') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS SDP,
+                    SUM((CASE WHEN SECTION_THR IN ('0008') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS LGU,
+                    SUM((CASE WHEN SECTION_THR IN ('0027','0029') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS SPE,
+                    SUM((CASE WHEN SECTION_THR IN ('0020') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS HSP,
+                    SUM((CASE WHEN SECTION_THR IN ('0032','0023','0024') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS ONL,                    
+                    SUM((CASE WHEN SECTION_THR IN ('0006','0022','0030','0017') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS E_C,
+                    SUM((CASE WHEN SECTION_THR NOT IN ('0010','0008','0017','0029','0020','0032','0006','0022','0023','0024','0027','0030') AND RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END)) AS E_B
+                FROM LF_DMUSER.TB_RECORD_MAIN
+                WHERE 1=1
+                AND RECORD_DT = #{stt_reg_dt}
+                AND YYYYMM BETWEEN #{pre_year_start_month} AND #{cur_end_month}
+                GROUP BY YYYYMM
+            )
+        ) MAIN_TBL
+        WHERE 1=1
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 전체실적 조회
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwPerformInfoMap.getPerformInfoTotList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwPerformInfoMap.getPerformInfoTotList */
+            TOT_REG,
+            TOT_JOIN,
+            YEAR_JOIN,
+            (TOT_TRUE - TOT_RSS) AS TOT_UJI
+        FROM
+        (
+            SELECT 
+                SUM(CASE WHEN RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END) AS TOT_REG,
+                SUM(CASE WHEN RECORD_GBN = 'PAY' THEN CNT_02 ELSE 0 END) AS TOT_JOIN,
+                SUM(CASE WHEN RECORD_GBN = 'PAY' THEN CNT_03 ELSE 0 END) AS TOT_TRUE,
+                SUM(CASE WHEN YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month} AND RECORD_GBN = 'PAY' THEN CNT_02 ELSE 0 END) AS YEAR_JOIN,
+                SUM(CASE WHEN RECORD_GBN = 'RSS' THEN CNT_03 ELSE 0 END) AS TOT_RSS,
+                SUM(CASE WHEN RECORD_GBN = 'EVT' THEN (CNT_01 + CNT_02) ELSE 0 END) AS TOT_EVT
+            FROM LF_DMUSER.TB_RECORD_MAIN
+            WHERE 1=1 
+            AND RECORD_DT = #{stt_reg_dt}
+        )				
+    </select>
+        
+    <!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 월간접수실적 조회 수
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwPerformInfoMap.getPerformInfoMonthCount" parameterType="map" resultType="int">
+        SELECT /* DlwPerformInfoMap.getPerformInfoMonthCount */
+            COUNT(*) AS ICNT
+        FROM
+        (
+            SELECT 
+                SECTION_THR,
+                SECTION_T,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '01' THEN RECORD_01 ELSE 0 END) AS MONTH01,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '02' THEN RECORD_01 ELSE 0 END) AS MONTH02,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '03' THEN RECORD_01 ELSE 0 END) AS MONTH03,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '04' THEN RECORD_01 ELSE 0 END) AS MONTH04,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '05' THEN RECORD_01 ELSE 0 END) AS MONTH05,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '06' THEN RECORD_01 ELSE 0 END) AS MONTH06,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '07' THEN RECORD_01 ELSE 0 END) AS MONTH07,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '08' THEN RECORD_01 ELSE 0 END) AS MONTH08,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '09' THEN RECORD_01 ELSE 0 END) AS MONTH09,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '10' THEN RECORD_01 ELSE 0 END) AS MONTH10,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '11' THEN RECORD_01 ELSE 0 END) AS MONTH11,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '12' THEN RECORD_01 ELSE 0 END) AS MONTH12
+            FROM
+            (
+                SELECT 
+                    YYYYMM,
+                    SECTION_THR,
+                    SECTION_T,
+                    SUM(CASE WHEN RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END ) AS RECORD_01
+                FROM LF_DMUSER.TB_RECORD_MAIN
+                WHERE  1=1
+                AND RECORD_DT = #{stt_reg_dt}
+                AND YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month}
+                GROUP BY YYYYMM, SECTION_THR, SECTION_T
+            )
+            GROUP BY SECTION_THR, SECTION_T
+        )
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20201209
+     * 이름 : 송준빈
+     * 추가내용 : 실적현황 월간접수실적 조회 리스트
+     * 대상 테이블 : LF_DMUSER.TB_RECORD_MAIN
+     * ================================================================
+     * -->
+    <select id="DlwPerformInfoMap.getPerformInfoMonthList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwPerformInfoMap.getPerformInfoMonthList */
+            NVL(FN_COM_NM('0189', SECTION_THR), '알수없음 : ' || SECTION_THR) AS SECTION_NM,
+            DECODE(SECTION_T,'0001','비채권','채권') AS SECTION2_NM,
+            MONTH01,
+            MONTH02,
+            MONTH03,
+            MONTH04,
+            MONTH05,
+            MONTH06,
+            MONTH07,
+            MONTH08,
+            MONTH09,
+            MONTH10,
+            MONTH11,
+            MONTH12
+        FROM
+        (
+            SELECT 
+                SECTION_THR,
+                SECTION_T,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '01' THEN RECORD_01 ELSE 0 END) AS MONTH01,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '02' THEN RECORD_01 ELSE 0 END) AS MONTH02,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '03' THEN RECORD_01 ELSE 0 END) AS MONTH03,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '04' THEN RECORD_01 ELSE 0 END) AS MONTH04,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '05' THEN RECORD_01 ELSE 0 END) AS MONTH05,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '06' THEN RECORD_01 ELSE 0 END) AS MONTH06,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '07' THEN RECORD_01 ELSE 0 END) AS MONTH07,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '08' THEN RECORD_01 ELSE 0 END) AS MONTH08,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '09' THEN RECORD_01 ELSE 0 END) AS MONTH09,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '10' THEN RECORD_01 ELSE 0 END) AS MONTH10,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '11' THEN RECORD_01 ELSE 0 END) AS MONTH11,
+                SUM(CASE WHEN SUBSTR(YYYYMM,5,2) = '12' THEN RECORD_01 ELSE 0 END) AS MONTH12
+            FROM
+            (
+                SELECT 
+                    YYYYMM,
+                    SECTION_THR,
+                    SECTION_T,
+                    SUM(CASE WHEN RECORD_GBN = 'PAY' THEN CNT_01 ELSE 0 END ) AS RECORD_01
+                FROM LF_DMUSER.TB_RECORD_MAIN
+                WHERE  1=1
+                AND RECORD_DT = #{stt_reg_dt}
+                AND YYYYMM BETWEEN #{cur_start_month} AND #{cur_end_month}
+                GROUP BY YYYYMM, SECTION_THR, SECTION_T
+            )
+            GROUP BY SECTION_THR, SECTION_T
+        )
+        ORDER BY SECTION_THR, SECTION_T
+    </select>
+</mapper>

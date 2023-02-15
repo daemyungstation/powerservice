@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCmsHstrMap">
+
+    <!-- 입금전표조회 - 납입내역(상조부금) -->
+    <select id="DlwCmsHstrMap.getDlwPayMngList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectPayMngList -->
+
+        SELECT /* DlwCmsHstrMap.getDlwPayMngList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(ORDER BY A.NO DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+         FROM (<![CDATA[
+                SELECT A.ACCNT_NO, A.SEQ, A.NO, A.PAY_AMT, A.PAY_MTHD
+                    , A.STAT, A.DC_AMT_SEQ, C.DC_AMT, A.RC_STAT
+                    , '상조부금' AS PYIN_TYP
+                    , nvl(A.PAY_DAY,'') AS PAY_DAY
+                    , FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+                    , CASE WHEN A.STAT = 0
+                                THEN '정상'
+                           ELSE (CASE WHEN A.STAT = '1'
+                                           THEN '선납'
+                                      ELSE '연체'
+                                  END)
+                        END AS STAT_NM
+                    , substr( add_months(B.JOIN_DT, -1),0,7)  AS MON_NO
+                    , CASE WHEN A.PAY_MTHD ='04'
+                                THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                               THEN WR.APP_DT
+                                          ELSE A.WDRW_INV_DT
+                                      END
+                           WHEN A.PAY_MTHD ='06'
+                                THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                               THEN CWR.APP_DT
+                                          ELSE  A.WDRW_INV_DT
+                                      END
+                           ELSE ''
+                       END AS APP_DT
+                    , CASE WHEN (substr(A.PAY_DAY,1, 6) = NVL((SELECT CM.CLOSE_DT
+                                                                                       FROM CLOSE_MNG CM
+                                                                                      WHERE CM.DEL_FG = 'N'
+                                                                                        AND substr((A.PAY_DAY), 1,4)||'/'||substr((A.PAY_DAY), 5,2) =CM.CLOSE_DT),''))
+                            AND (substr((A.PAY_DAY), 1,4)||'/'||substr((A.PAY_DAY), 5,2) NOT IN (SELECT  CER.CLOSE_DT
+                                                                                     FROM CLOSE_EDT_REQ CER
+                                                                                    WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                                      AND CER.CLOSE_CL = '0001'
+                                                                                      AND CER.EDT_YN = 'Y'
+                                                                                      AND CER.DEL_FG = 'N'
+                                                                                 GROUP BY CER.CLOSE_DT))
+                           THEN 'N'
+                           ELSE 'Y'
+                      END EDT_YN
+                 FROM PAY_MNG A
+                INNER JOIN MEM_PROD_ACCNT B
+                           ON A.ACCNT_NO = B.ACCNT_NO
+           LEFT OUTER JOIN DC_AMT_REG C
+                           ON A.ACCNT_NO = C.ACCNT_NO
+                          AND A.DC_AMT_SEQ = C.SEQ
+                          AND C.DEL_FG = 'N'
+                          AND A.NO = (SELECT MAX(NO)
+                                        FROM PAY_MNG
+                                       WHERE ACCNT_NO = A.ACCNT_NO
+                                         AND DC_AMT_SEQ = C.SEQ)
+                 LEFT OUTER JOIN (
+
+
+                           select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                           (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                           (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                           group by a.accnt_no , a.inv_no
+
+
+                          ) WR
+                           ON WR.ACCNT_NO = B.ACCNT_NO
+                          AND (A.NO <= WR.INV_NO
+                               AND A.NO > WR.PREV_INV_NO)
+                          AND A.DEL_FG = 'N'
+                 LEFT outer JOIN (
+
+                                select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = '201202000960' and stat = '04' ) a left outer join
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = '201202000960' and stat = '04' ) b on a.inv_no > b.inv_no
+                               group by a.accnt_no , a.inv_no
+
+                          ) CWR
+                           ON CWR.ACCNT_NO = B.ACCNT_NO
+                          AND (A.NO <= CWR.INV_NO
+                               AND A.NO > CWR.PREV_INV_NO)
+                WHERE A.DEL_FG = 'N'
+                  AND A.ACCNT_NO = #{accnt_no}
+               ]]>
+               ) A
+    </select>
+
+    <!-- 입금전표조회 - 납입내역(결합상품할부원금) -->
+    <select id="DlwCmsHstrMap.getDlwPayMngDtlList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectPayMngDtlList -->
+
+
+        SELECT /* DlwCmsHstrMap.getDlwPayMngDtlList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(ORDER BY A.NO DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+          FROM (<![CDATA[
+               SELECT A.ACCNT_NO, A.SEQ, A.NO, A.PAY_AMT, A.PAY_MTHD
+                    , A.STAT, '결합상품할부원금' AS PYIN_TYP
+                    , CONVERT(VARCHAR,A.PAY_DAY,112) AS PAY_DAY
+                    , FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+                    , CASE WHEN A.STAT = 0
+                                THEN '정상'
+                           ELSE (CASE WHEN A.STAT = '1'
+                                           THEN '선납'
+                                      ELSE '연체'
+                                  END)
+                        END AS STAT_NM
+                    , SUBSTRING(CONVERT(VARCHAR,DATEADD(MM, NO-1, B.JOIN_DT),112), 0,7) AS MON_NO
+                    , CASE WHEN A.PAY_MTHD ='04'
+                                THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                               THEN WR.APP_DT
+                                          ELSE CONVERT(VARCHAR, A.WDRW_INV_DT, 112)
+                                      END
+                           WHEN A.PAY_MTHD ='06'
+                                THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                               THEN CWR.APP_DT
+                                          ELSE CONVERT(VARCHAR, A.WDRW_INV_DT, 112)
+                                      END
+                                ELSE ''
+                            END AS APP_DT
+                    , CASE WHEN (LEFT(CONVERT(VARCHAR, A.PAY_DAY, 111), 7) = nvl((SELECT CM.CLOSE_DT
+                                                                                       FROM CLOSE_MNG CM
+                                                                                      WHERE CM.DEL_FG = 'N'
+                                                                                        AND LEFT(CONVERT(VARCHAR, A.PAY_DAY, 111), 7) = CM.CLOSE_DT), ''))
+                            AND (LEFT(CONVERT(VARCHAR, A.PAY_DAY, 111), 7) NOT IN (SELECT CER.CLOSE_DT
+                                                                                     FROM CLOSE_EDT_REQ CER
+                                                                                    WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                                      AND CER.CLOSE_CL = '0001'
+                                                                                      AND CER.EDT_YN = 'Y'
+                                                                                      AND CER.DEL_FG = 'N'
+                                                                                 GROUP BY CER.CLOSE_DT))
+                           THEN 'N'
+                           ELSE 'Y'
+                       END EDT_YN
+                 FROM PAY_MNG_DTL A
+                INNER JOIN MEM_PROD_ACCNT B
+                           ON A.ACCNT_NO = B.ACCNT_NO
+                 LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(CONVERT(VARCHAR, INV_DT, 112)) AS APP_DT
+                                 , ISNULL((SELECT MAX(B.INV_NO)
+                                             FROM WDRW_REQ B
+                                            WHERE B.ACCNT_NO = A.ACCNT_NO
+                                              AND B.INV_NO < A.INV_NO
+                                              AND STAT ='04'), 0) PREV_INV_NO
+                              FROM WDRW_REQ A
+                             WHERE ACCNT_NO = #{accnt_no}
+                               AND STAT = '04'
+                          GROUP BY ACCNT_NO, INV_NO) WR
+                           ON WR.ACCNT_NO = B.ACCNT_NO
+                          AND (A.NO <= WR.INV_NO
+                               AND A.NO > WR.PREV_INV_NO)
+                 LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(CONVERT(VARCHAR, INV_DT, 112)) AS APP_DT
+                                 , nvl((SELECT MAX(B.INV_NO)
+                                             FROM CARD_WDRW_REQ B
+                                            WHERE B.ACCNT_NO = A.ACCNT_NO
+                                              AND B.INV_NO < A.INV_NO
+                                              AND STAT ='04'), 0) PREV_INV_NO
+                              FROM CARD_WDRW_REQ A
+                             WHERE ACCNT_NO = #{accnt_no}
+                               AND STAT = '04'
+                          GROUP BY ACCNT_NO, INV_NO) CWR
+                           ON CWR.ACCNT_NO = B.ACCNT_NO
+                          AND (A.NO <= CWR.INV_NO
+                               AND A.NO > CWR.PREV_INV_NO)
+                WHERE  A.DEL_FG = 'N'
+                  AND A.ACCNT_NO = #{accnt_no}
+               ]]>
+               ) A
+    </select>
+
+    <!-- 입금전표조회 - 납입내역(결합상품추가부담금) -->
+    <select id="DlwCmsHstrMap.getDlwPayMngDtl1List" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-life.selectPayMngDtl1List -->
+
+
+        SELECT /* DlwCmsHstrMap.getDlwPayMngDtl1List */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(ORDER BY A.NO DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+          FROM (<![CDATA[
+                SELECT A.ACCNT_NO, A.SEQ, A.NO, A.PAY_AMT, A.PAY_MTHD
+                     , A.STAT, '결합상품추가부담금' AS PYIN_TYP
+                     , CONVERT(VARCHAR,A.PAY_DAY,112) AS PAY_DAY
+                     , FN_COM_NM('01', A.PAY_MTHD) AS PAY_MTHD_NM
+                     , CASE WHEN A.STAT = 0
+                                 THEN '정상'
+                            ELSE (CASE WHEN A.STAT = '1'
+                                            THEN '선납'
+                                       ELSE '연체'
+                             END)
+                        END AS STAT_NM
+                     , SUBSTRING(CONVERT(VARCHAR,DATEADD(MM, NO-1, B.JOIN_DT),112), 0,7) AS MON_NO
+                     , CASE WHEN A.PAY_MTHD ='04'
+                                 THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                                THEN WR.APP_DT
+                                           ELSE CONVERT(VARCHAR, A.WDRW_INV_DT, 112)
+                                       END
+                            WHEN A.PAY_MTHD ='06'
+                                 THEN CASE WHEN A.WDRW_INV_DT IS NULL
+                                                THEN CWR.APP_DT
+                                           ELSE CONVERT(VARCHAR, A.WDRW_INV_DT, 112)
+                                       END
+                            ELSE ''
+                       END AS APP_DT
+                     , CASE WHEN (LEFT(CONVERT(VARCHAR, A.PAY_DAY, 111), 7) = ISNULL((SELECT CM.CLOSE_DT
+                                                                                        FROM CLOSE_MNG CM
+                                                                                       WHERE CM.DEL_FG = 'N'
+                                                                                         AND LEFT(CONVERT(VARCHAR, A.PAY_DAY, 111), 7) = CM.CLOSE_DT), ''))
+                             AND (LEFT(CONVERT(VARCHAR, A.PAY_DAY, 111), 7) NOT IN (SELECT CER.CLOSE_DT
+                                                                                      FROM CLOSE_EDT_REQ CER
+                                                                                     WHERE CER.ACCNT_NO = A.ACCNT_NO
+                                                                                       AND CER.CLOSE_CL = '0001'
+                                                                                       AND CER.EDT_YN = 'Y'
+                                                                                       AND CER.DEL_FG = 'N'
+                                                                                  GROUP BY CER.CLOSE_DT))
+                                 THEN 'N'
+                            ELSE 'Y'
+                        END EDT_YN
+                  FROM PAY_MNG_DTL1 A
+                 INNER JOIN MEM_PROD_ACCNT B
+                       ON A.ACCNT_NO = B.ACCNT_NO
+                  LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(CONVERT(VARCHAR, INV_DT, 112)) AS APP_DT
+                                  , ISNULL((SELECT MAX(B.INV_NO)
+                                              FROM WDRW_REQ B
+                                             WHERE B.ACCNT_NO = A.ACCNT_NO
+                                               AND B.INV_NO < A.INV_NO
+                                               AND STAT ='04'), 0) PREV_INV_NO
+                               FROM WDRW_REQ A
+                              WHERE ACCNT_NO = #{accnt_no}
+                                AND STAT ='04'
+                           GROUP BY ACCNT_NO, INV_NO) WR
+                       ON WR.ACCNT_NO = B.ACCNT_NO
+                      AND (A.NO <= WR.INV_NO
+                      AND A.NO > WR.PREV_INV_NO)
+                  LEFT JOIN (SELECT ACCNT_NO, INV_NO, MAX(CONVERT(VARCHAR, INV_DT, 112)) AS APP_DT
+                                  , ISNULL((SELECT MAX(B.INV_NO)
+                                              FROM CARD_WDRW_REQ B
+                                             WHERE B.ACCNT_NO = A.ACCNT_NO
+                                               AND B.INV_NO < A.INV_NO
+                                               AND STAT ='04'), 0) PREV_INV_NO
+                               FROM CARD_WDRW_REQ A
+                              WHERE ACCNT_NO = #{accnt_no}
+                                AND STAT ='04'
+                           GROUP BY ACCNT_NO, INV_NO) CWR
+                       ON CWR.ACCNT_NO = B.ACCNT_NO
+                      AND (A.NO <= CWR.INV_NO
+                           AND A.NO > CWR.PREV_INV_NO)
+                 WHERE  A.DEL_FG = 'N'
+                   AND A.ACCNT_NO = #{accnt_no}
+               ]]>
+               ) A
+    </select>
+
+    <!-- 입금전표조회 - 납입내역(상조부금 + 결합상품할부원금 + 결합상품추가부담금) -->
+    <select id="DlwCmsHstrMap.getDlwPayMngAllList" parameterType="map" resultType="resultMap">
+
+
+        SELECT /* DlwCmsHstrMap.getDlwPayMngAllList */
+               A.*,
+            <choose>
+                <when test="orderBy != null and orderBy != ''">
+                    ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+                </when>
+                <otherwise>
+                    ROW_NUMBER() OVER(ORDER BY NO DESC, PAY_DAY DESC) AS PAGE_INDX
+                </otherwise>
+            </choose>
+          FROM (SELECT NO, MON_NO, PAY_DAY
+                     , nvl(SUM(CASE WHEN PMT_GB = 'A' THEN PAY_AMT ELSE 0 END), 0) AS TRUE_PAY_AMT
+                     , nvl(SUM(CASE WHEN PMT_GB = 'B' THEN PAY_AMT ELSE 0 END), 0) AS RELAT_PAY_AMT
+                     , nvl(SUM(CASE WHEN PMT_GB = 'C' THEN PAY_AMT ELSE 0 END), 0) AS ADD_PAY_AMT
+                     , nvl(SUM(PAY_AMT), 0) AS TOT_AMT
+                     , PAY_MTHD
+                     , FN_COM_NM('01', PAY_MTHD) AS PAY_MTHD_NM
+                     , STAT
+                     , (CASE WHEN STAT = 0
+                             THEN '정상'
+                             WHEN STAT = 1
+                             THEN '선납'
+                             ELSE '연체'
+                        END) AS STAT_NM
+                     , APP_DT
+        <![CDATA[
+                  FROM (SELECT 'A' AS PMT_GB
+                              ,a.no
+                              ,a.pay_day
+                              ,a.pay_amt
+                              ,a.pay_mthd
+                              ,a.stat
+                          /*    ,substring(convert(varchar,dateadd(mm, no-1, b.join_dt),120), 0,8) as mon_no  */
+                              ,  to_char(ADD_MONTHS(b.join_dt, no -1),'YYYYMMDD') as MON_NO
+                              , CASE WHEN a.pay_mthd ='04' then case when a.wdrw_inv_dt is null then wr.app_dt else a.wdrw_inv_dt end
+                                  WHEN a.pay_mthd ='06' then case when a.wdrw_inv_dt is null then cwr.app_dt else a.wdrw_inv_dt end
+                                  ELSE null
+                                  END as app_dt
+                        FROM   PAY_MNG a
+                              INNER JOIN MEM_PROD_ACCNT b  ON a.ACCNT_NO = b.ACCNT_NO
+                              LEFT OUTER JOIN DC_AMT_REG c ON a.ACCNT_NO = c.ACCNT_NO
+                              AND a.DC_AMT_SEQ = c.SEQ   AND c.DEL_FG = 'N'
+                              AND a.NO = (select max(no) from PAY_MNG where accnt_no = a.ACCNT_NO and dc_amt_seq = c.SEQ)
+                              LEFT OUTER JOIN
+                              (
+                               select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                               (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                               (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                               group by a.accnt_no , a.inv_no
+                               )wr on wr.accnt_no=b.accnt_no and (a.no <= wr.inv_no and a.no > wr.prev_inv_no)  AND a.DEL_FG = 'N'
+                              LEFT OUTER JOIN
+                              (
+                              select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                               (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                               group by a.accnt_no , a.inv_no
+                            )
+                               cwr on cwr.accnt_no=b.accnt_no and (a.no <= cwr.inv_no and a.no > cwr.prev_inv_no)
+                        WHERE  a.del_fg = 'N'
+                              and a.accnt_no = #{accnt_no}
+
+                        UNION ALL
+
+                        SELECT 'B' AS PMT_GB
+                              ,a.no
+                              ,a.pay_day
+                              ,a.pay_amt
+                              ,a.pay_mthd
+                              ,a.stat
+                            /*  ,substring(convert(varchar,dateadd(mm, no-1, b.join_dt),120), 0,8) as mon_no */
+                              , TO_CHAR(ADD_MONTHS(b.join_dt,no -1),'YYYYMMDD') as MON_NO
+                              , CASE WHEN a.pay_mthd ='04' then case when a.wdrw_inv_dt is null then wr.app_dt else a.wdrw_inv_dt end
+                                  WHEN a.pay_mthd ='06' then case when a.wdrw_inv_dt is null then cwr.app_dt else a.wdrw_inv_dt end
+                                  ELSE null
+                                  END as app_dt
+                        FROM  PAY_MNG_DTL a
+                              INNER JOIN MEM_PROD_ACCNT b
+                              ON a.ACCNT_NO = b.ACCNT_NO
+                              LEFT OUTER JOIN
+                              (
+                                  select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                               )wr on wr.accnt_no=b.accnt_no and (a.no <= wr.inv_no and a.no > wr.prev_inv_no)
+                              LEFT OUTER JOIN
+                              (
+                                   select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                               )cwr on cwr.accnt_no=b.accnt_no and (a.no <= cwr.inv_no and a.no > cwr.prev_inv_no)
+                        WHERE  a.del_fg = 'N'
+                              and a.accnt_no = #{accnt_no}
+
+                        UNION ALL
+
+                        SELECT 'C' AS PMT_GB
+                              ,a.no
+                              ,a.pay_day
+                              ,a.pay_amt
+                              ,a.pay_mthd
+                              ,a.stat
+                               /* ,substring(convert(varchar,dateadd(mm, no-1, b.join_dt),120), 0,8) as mon_no */
+
+                              ,TO_CHAR(ADD_MONTHS(b.join_dt,no -1), 'YYYYMMDD') as MON_NO
+                              , CASE WHEN a.pay_mthd ='04' then case when a.wdrw_inv_dt is null then wr.app_dt else a.wdrw_inv_dt end
+                                  WHEN a.pay_mthd ='06' then case when a.wdrw_inv_dt is null then cwr.app_dt else a.wdrw_inv_dt end
+                                  ELSE null
+                                  END as app_dt
+                        FROM  PAY_MNG_DTL1 a
+                              INNER JOIN MEM_PROD_ACCNT b
+                              ON a.ACCNT_NO = b.ACCNT_NO
+                              LEFT OUTER JOIN
+                              (
+                               select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ * from wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                                )wr on wr.accnt_no=b.accnt_no  and (a.no <= wr.inv_no and a.no > wr.prev_inv_no)
+                              LEFT JOIN
+                              (
+                                  select a.accnt_no , a.inv_no , max(b.inv_dt) app_dt , max(b.inv_no) prev_inv_no from
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) a left outer join
+                                   (select /*+INDEX(card_wdrw_req IDX_CARD_WDRW_REQ_ACCNT_STAT) */ * from card_wdrw_req where accnt_no = #{accnt_no} and stat = '04' ) b on a.inv_no > b.inv_no
+                                   group by a.accnt_no , a.inv_no
+                               )cwr on cwr.accnt_no=b.accnt_no and (a.no <= cwr.inv_no and a.no > cwr.prev_inv_no)
+                        WHERE  a.del_fg = 'N'
+                              and a.accnt_no = #{accnt_no}
+                       ) A
+                 GROUP BY NO, MON_NO, PAY_DAY, PAY_MTHD, STAT, APP_DT
+               ) A
+        ]]>
+    </select>
+
+    <!-- 해약정보 조회 - SEQ TOP 1 -->
+    <select id="DlwCmsHstrMap.getDlwResnAmtList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-system.selectResnAmtList -->
+
+     SELECT * FROM
+        (SELECT /* DlwCmsHstrMap.getDlwResnAmtList */
+               SEQ, M.PROD_CD, P.PROD_NM, M.MODEL_CL_CD
+             , FN_MODEL_CL_NM(M.MODEL_CL_CD) MODEL_CL_NM
+             , M.APP_DAY AS APP_DAY
+             , P.PROD_AMT, P.EXPR_NO
+             , CASE WHEN P.SALE_CL ='Y'
+                         THEN '판매중'
+                    ELSE '판매중지'
+                END SALE_CL
+             , CASE WHEN M.USE_YN ='Y'
+                         THEN '사용'
+                    ELSE '미사용'
+                END USE_YN
+          FROM RESNSTD_M M
+               INNER JOIN PRODUCT P
+                       ON M.PROD_CD = P.PROD_CD
+                     WHERE P.DEL_FG ='N'
+                       AND M.PROD_CD = #{prod_cd}
+                       AND M.APP_DAY <![CDATA[<=]]> #{join_dt} <!-- 가입일자보다 적용일이 작거나 같아야 한다. -->
+              ORDER BY APP_DAY DESC
+          )
+          WHERE ROWNUM = 1
+    </select>
+
+    <!-- 결제정보 : 개별목록 신청내역 (CMS+Card) -->
+    <select id="DlwCmsHstrMap.getDlwPymnHstrList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-cms.selectCMSRegHistoryByGun -->
+    <!-- DM sql-id : sql-cms.selectCardRegHistoryByGun -->
+
+
+    SELECT /* DlwCmsHstrMap.getDlwPymnHstrList */
+           A.*,
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+            </when>
+            <otherwise>
+                ROW_NUMBER() OVER(ORDER BY A.UPD_DM DESC) PAGE_INDX
+            </otherwise>
+        </choose>
+      FROM (SELECT SEQ, ACCNT_NO
+                 , substr(APP_DT,1,8) APP_DT
+                 ,   TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT
+                 , APP_CL, FN_COM_NM('17',APP_CL) ||'(CMS)' APP_CL_NM
+                 , BANK_CD, '('|| BANK_CD ||') ' || FN_COM_NM('63',BANK_CD) BANK_NM
+               /*  ,  CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, BANK_ACCNT_NO)) BANK_ACCNT_NO */
+                 , BANK_ACCNT_NO  BANK_ACCNT_NO
+                 , INV_TG_DT, NVL(BIRTH,'') IDN_NO, UPD_DM
+              FROM NEW_CANCL_APP
+             WHERE ACCNT_NO = #{accnt_no}
+               AND STAT = '04'
+
+         UNION ALL
+
+            SELECT SEQ, A.ACCNT_NO, substr(APP_DT,1,8) APP_DT
+                 , TO_CHAR(UPD_DM,'YYYYMMDD') REG_DT
+                 , APP_CL, FN_COM_NM('17',APP_CL) || '(Card)' APP_CL_NM
+                 , CARD_CD, FN_COM_NM('0120',CARD_CD) CARD_NM
+                 /*, CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, CARD_NO)) CARD_NO   */
+                 , CARD_NO  CARD_NO
+                 , INV_TG_DT, CARD_BIRTH, UPD_DM
+              FROM CARD_NEW_CANCL_APP A
+             INNER JOIN (SELECT MPA.ACCNT_NO
+                              , MEM.BRTH_MON_DAY BRTHMONDAY
+                             /* , ISNULL(CONVERT(VARCHAR(MAX), DECRYPTBYKEYAUTOCERT( CERT_ID('CertKeyProtect'), NULL, IDN_NO)), '') IDNNO */
+                             , IDN_NO  IDN_NO
+                           FROM MEM_PROD_ACCNT MPA
+                          INNER JOIN MEMBER MEM
+                                ON MPA.MEM_NO = MEM.MEM_NO
+                          WHERE MPA.ACCNT_NO = #{accnt_no}) TBL
+                   ON A.ACCNT_NO = TBL.ACCNT_NO) A
+    </select>
+
+    <!-- 청구내역 : 개별목록 청구내역 (CMS+Card) -->
+    <select id="DlwCmsHstrMap.getDlwAskHstrList" parameterType="map" resultType="resultMap">
+    <!-- DM sql-id : sql-cms.selectCMSWdrwHistoryByGun -->
+    <!-- DM sql-id : sql-cms.selectCardWdrwHistoryByGun -->
+
+
+    SELECT /* DlwCmsHstrMap.getDlwAskHstrList */
+           A.*,
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                ROW_NUMBER() OVER(ORDER BY ${orderBy} ${orderDirection}) AS PAGE_INDX
+            </when>
+            <otherwise>
+                ROW_NUMBER() OVER(ORDER BY A.INV_DT2 DESC) PAGE_INDX
+            </otherwise>
+        </choose>
+      FROM (SELECT  /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ INV_DT INV_DT
+                 , INV_GUNSU, WDRW_REQ_AMT, STAT
+                 , CASE WHEN STAT = '03'  THEN '불능(' || FN_COM_NM('15',IMPS_CD) ||')'
+                        WHEN STAT =  '05' THEN '취소'
+                        WHEN STAT =  '04' THEN '완료'
+                        WHEN STAT =  '01' THEN '신청전'
+                        WHEN STAT =  '02' THEN '신청중'
+                    END AS STAT_NM
+                 , IMPS_CD, FN_COM_NM('15',IMPS_CD) IMPS_NM
+                 , '(CMS)' || BANK_FILIN_BRKDN AS BANK_FILIN_BRKDN
+                 , INV_DT INV_DT2
+              FROM WDRW_REQ
+             WHERE ACCNT_NO = #{accnt_no}
+
+         UNION ALL
+
+            SELECT /*+INDEX(wdrw_req IDX_WDRW_REQ_ACCNT_STAT) */ INV_DT INV_DT
+                 , INV_GUNSU, WDRW_REQ_AMT, STAT
+                 , FN_COM_NM('18',STAT) STATNM
+                 , IMPS_CD
+                 , CASE WHEN EXP_FG = 'F'
+                             AND (IMPS_CD = ''
+                                  OR IMPS_CD IS NULL)
+                             AND STAT = '04'
+                             THEN '카드결제 성공'
+                        ELSE (CASE WHEN INV_DT <![CDATA[<]]> '20140213'
+                                        THEN  FN_COM_NM('0121',IMPS_CD)
+                                   ELSE FN_COM_NM('0166',IMPS_CD)
+                               END)
+                    END IMPS_NM
+                  , '(Card)' || BANK_FILIN_BRKDN AS BANK_FILIN_BRKDN
+                  , INV_DT INV_DT2
+               FROM CARD_WDRW_REQ C
+              WHERE ACCNT_NO = #{accnt_no}) A
+    </select>
+
+</mapper>

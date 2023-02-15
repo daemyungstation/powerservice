@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwCouponInfoMap">
+
+
+    <select id="DlwCouponInfoMap.selectCouponInfoList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectCouponInfoList -->
+        SELECT A1.*
+             FROM
+             (
+                /* [쿠폰정보관리] : 쿠폰정보관리 조회 */
+                SELECT
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY MST.${orderBy} ${orderDirection}) AS PAGE_INDX
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY COUPON_INH_NO) AS PAGE_INDX
+                      </otherwise>
+                  </choose>
+                    ,'' as chk
+                    ,MST.COUPON_INH_NO		/* 쿠폰고유번호 */
+                    ,SVC.SVC_NM AS COUPON_TP_NM			/* 쿠폰종류명 */
+                    ,MST.COUPON_TP		/* 쿠폰코드 */
+                    ,MST.COUPON_NO1		/* 쿠폰번호1 */
+                    ,MST.COUPON_NO2		/* 쿠폰번호2 */
+                    ,TO_CHAR(MST.ISU_DT,'YYYYMMDD') AS ISU_DT	/* 발급일자 */
+                    ,DECODE(MST.USE_YN,'Y','사용','미사용') AS USE_YN_NM	/* 사용여부 */
+                    ,MST.USE_YN AS USE_YN	/* 사용여부 */
+                    ,DTL.ACCNT_NO		/* 회원번호 */
+                    ,DTL.MEM_NM			/* 회원명 */
+                    ,TO_CHAR(DTL.PROV_DT,'YYYYMMDD') AS PROV_DT	/* 지급일자 */
+                    ,TO_CHAR(DTL.RECOV_DT,'YYYYMMDD') AS RECOV_DT	/* 회수일자 */
+                    ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+               FROM COUPON_INFO_MST MST
+               INNER JOIN OPT_SVC SVC
+                 ON MST.COUPON_TP = SVC.SEQ
+               LEFT OUTER JOIN
+               (
+                       SELECT DTL1.PROV_DT
+                             ,DTL1.RECOV_DT
+                             ,DTL1.ACCNT_NO
+                             ,DTL1.COUPON_INH_NO
+                             ,DTL1.COUPON_DTL_NO
+                             ,MEM.MEM_NM
+                         FROM COUPON_INFO_DTL DTL1
+                         INNER JOIN MEM_PROD_ACCNT ACCNT /* 회원별 상품정보 */
+                           ON ACCNT.ACCNT_NO = DTL1.ACCNT_NO
+                         INNER JOIN MEMBER MEM /* 회원정보 */
+                           ON MEM.MEM_NO = ACCNT.MEM_NO
+                         WHERE DTL1.NOTE_CD IS NULL
+                           AND DTL1.COUPON_DTL_NO =
+                                                (
+                                                    SELECT MAX(COUPON_DTL_NO)
+                                                        FROM COUPON_INFO_DTL
+                                                     WHERE  COUPON_INH_NO = DTL1.COUPON_INH_NO
+                                                )
+
+               ) DTL
+                 ON MST.COUPON_INH_NO = DTL.COUPON_INH_NO
+              WHERE 1=1
+            <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                AND TO_CHAR(MST.ISU_DT, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}	/* 등록일자 */
+            </if>
+            <if test="coupon_no != null and coupon_no != ''">
+                AND ((MST.COUPON_NO1 LIKE '%' || #{coupon_no} || '%') OR (MST.COUPON_NO2 LIKE '%' || #{coupon_no} || '%'))
+            </if>
+            <if test="coupon_tp != null and coupon_tp != ''">
+                AND MST.COUPON_TP = #{coupon_tp}  /* 쿠폰종류 */
+            </if>
+            <if test="accnt_no != null and accnt_no != ''">
+                AND DTL.ACCNT_NO like #{accnt_no} || '%'	/* 회원번호 */
+            </if>
+
+
+            <!-- if test="mem_nm != null and mem_nm != ''">
+                AND DTL.ACCNT_NO IN (
+                                        SELECT ACCNT.ACCNT_NO
+                                          FROM MEM_PROD_ACCNT ACCNT /* 회원별 상품정보 */
+                                         INNER JOIN MEMBER MEM /* 회원정보 */
+                                            ON MEM.MEM_NO = ACCNT.MEM_NO
+                                           AND MEM.MEM_NM LIKE '%' || #{mem_nm}|| '%'	/* 회원명 */
+                                       )
+            </if-->
+        ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+      ORDER BY COUPON_INH_NO DESC
+
+    </select>
+
+
+    <select id="DlwCouponInfoMap.selectCouponStatList" parameterType="map" resultType="resultMap">
+
+        <!-- DM sql-id : selectCouponStatList -->
+        SELECT A1.*
+             FROM
+             (
+                /* [쿠폰현황] : 쿠폰현황 조회 */
+                SELECT
+                  <choose>
+                      <when test="orderBy != null and orderBy != ''">
+                          ROW_NUMBER() OVER(ORDER BY A.${orderBy} ${orderDirection}) AS PAGE_INDX
+                      </when>
+                      <otherwise>
+                          ROW_NUMBER() OVER(ORDER BY COUPON_TP) AS PAGE_INDX
+                      </otherwise>
+                  </choose>
+                      ,COUPON_TP		/* 쿠폰코드 */
+                      ,COUPON_TP_NM		/* 쿠폰종류명 */
+                      ,(USE_CNT + NOT_USE_CNT) AS TOT_CNT	/* 총수량 */
+                      ,USE_CNT			/* 사용수량 */
+                      ,NOT_USE_CNT		/* 잔여수량 */
+                      ,MAX(ROWNUM) OVER(ORDER BY ROWNUM DESC) AS total_cnt
+                FROM
+                (
+                  SELECT
+                         MST.COUPON_TP        /* 쿠폰코드 */
+                        ,MAX(SVC.SVC_NM) AS COUPON_TP_NM			/* 쿠폰종류명 */
+                        ,SUM(CASE WHEN MST.USE_YN = 'Y' THEN 1 ELSE 0 END ) AS USE_CNT
+                        ,SUM(CASE WHEN MST.USE_YN != 'Y' THEN 1 ELSE 0 END ) AS NOT_USE_CNT
+                   FROM COUPON_INFO_MST MST
+                  INNER JOIN OPT_SVC SVC
+                     ON MST.COUPON_TP = SVC.SEQ
+                  WHERE 1=1
+                <if test="stt_dt != null and stt_dt != '' and end_dt != null and end_dt != ''">
+                    AND TO_CHAR(MST.ISU_DT, 'YYYYMMDD') BETWEEN #{stt_dt} AND #{end_dt}	/* 등록일자 */
+                </if>
+                <if test="coupon_no != null and coupon_no != ''">
+                    AND ((MST.COUPON_NO1 LIKE '%' || #{coupon_no} || '%') OR (MST.COUPON_NO2 LIKE '%' || #{coupon_no} || '%'))
+                </if>
+                <if test="coupon_tp != null and coupon_tp != ''">
+                    AND MST.COUPON_TP = #{coupon_tp}  /* 쿠폰종류 */
+                </if>
+                <if test="accnt_no != null and accnt_no != ''">
+                    AND MST.COUPON_INH_NO IN (
+                                                SELECT DTL.COUPON_INH_NO
+                                                  FROM COUPON_INFO_DTL DTL /* 쿠폰정보 DTL */
+                                                 WHERE 1=1
+                                                   AND DTL.ACCNT_NO LIKE '%' || #{accnt_no}|| '%'	/* 회원번호 */
+                                              )
+                </if>
+                  GROUP BY MST.COUPON_TP
+                ) A
+        ) A1
+      <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+          <![CDATA[
+          WHERE PAGE_INDX >= #{startLine}
+            AND PAGE_INDX < #{endLine}
+          ]]>
+      </if>
+      ORDER BY COUPON_TP
+
+    </select>
+
+
+    <select id="DlwCouponInfoMap.selectCouponDetail" parameterType="map" resultType="resultMap">
+          SELECT /* 쿠폰정보 상세조회 */
+                '' as dml_mode
+                ,COUPON_INH_NO		/* 쿠폰고유번호 */
+                ,COUPON_TP			/* 쿠폰종류 */
+                ,COUPON_NO1			/* 쿠폰번호1 */
+                ,COUPON_NO2			/* 쿠폰번호2 */
+                ,TO_CHAR(ISU_DT,'YYYYMMDD')	AS ISU_DT			/* 발급일자 */
+                ,USE_YN				/* 사용여부 */
+           FROM COUPON_INFO_MST
+          WHERE COUPON_INH_NO = #{coupon_inh_no}
+    </select>
+
+    <select id="DlwCouponInfoMap.selectCouponTpSearch" parameterType="map" resultType="resultMap">
+          SELECT /* 쿠폰종류 별 조회 */
+                 COUPON_INH_NO		/* 쿠폰고유번호 */
+                ,COUPON_TP			/* 쿠폰종류 */
+                ,COUPON_NO1			/* 쿠폰번호1 */
+                ,COUPON_NO2			/* 쿠폰번호2 */
+                ,TO_CHAR(ISU_DT,'YYYYMMDD')	AS ISU_DT 		/* 발급일자 */
+                ,USE_YN				/* 사용여부 */
+           FROM COUPON_INFO_MST
+          WHERE COUPON_TP = #{coupon_tp}
+            AND USE_YN != 'Y'
+            AND ROWNUM = 1
+          ORDER BY COUPON_INH_NO
+    </select>
+
+
+    <select id="DlwCouponInfoMap.selectCouponHist" parameterType="map" resultType="resultMap">
+        SELECT /* 쿠폰상세 이력조회 DlwCouponInfoMap.selectCouponHist  */
+             MST.COUPON_INH_NO		/* 쿠폰고유번호 */
+            ,SVC.SVC_NM AS COUPON_TP_NM			/* 쿠폰종류명 */
+            ,MST.COUPON_TP		/* 쿠폰코드 */
+            ,MST.COUPON_NO1		/* 쿠폰번호1 */
+            ,MST.COUPON_NO2		/* 쿠폰번호2 */
+            ,TO_CHAR(MST.ISU_DT,'YYYYMMDD') AS ISU_DT	/* 발급일자 */
+            ,DTL.ACCNT_NO	/* 회원번호 */
+            ,DTL.MEM_NM		/* 회원명 */
+            ,TO_CHAR(DTL.PROV_DT,'YYYYMMDD') AS PROV_DT	/* 지급일자 */
+            ,TO_CHAR(DTL.RECOV_DT,'YYYYMMDD') AS RECOV_DT	/* 회수일자 */
+            ,FN_COM_NM('S011',DTL.NOTE_CD) AS NOTE_NM	/* 사유 */
+            ,DECODE(DTL.USE_YN,'Y','사용','미사용') AS USE_YN	/* 사용여부 */
+            ,DTL.COUPON_DTL_NO
+        FROM COUPON_INFO_MST MST
+       INNER JOIN OPT_SVC SVC
+          ON MST.COUPON_TP = SVC.SEQ
+       INNER JOIN
+       (
+           SELECT DTL1.PROV_DT
+                 ,DTL1.RECOV_DT
+                 ,DTL1.ACCNT_NO
+                 ,DTL1.COUPON_INH_NO
+                 ,DTL1.COUPON_DTL_NO
+                 ,DTL1.USE_YN
+                 ,MEM.MEM_NM
+                 ,DTL1.NOTE_CD
+             FROM COUPON_INFO_DTL DTL1
+            LEFT OUTER JOIN MEM_PROD_ACCNT ACCNT /* 회원별 상품정보 */
+               ON ACCNT.ACCNT_NO = DTL1.ACCNT_NO
+            LEFT OUTER JOIN MEMBER MEM /* 회원정보 */
+               ON MEM.MEM_NO = ACCNT.MEM_NO
+            WHERE DTL1.COUPON_INH_NO = #{coupon_inh_no}
+       ) DTL
+          ON MST.COUPON_INH_NO = DTL.COUPON_INH_NO
+        WHERE MST.COUPON_INH_NO = #{coupon_inh_no}
+        ORDER BY DTL.COUPON_DTL_NO DESC
+    </select>
+
+
+    <select id="DlwCouponInfoMap.selectDupCouponNo" parameterType="map" resultType="string">
+        SELECT	/* 쿠폰중복 체크  */
+              COUNT(*) AS CNT
+          FROM COUPON_INFO_MST
+         WHERE 1=1
+           AND ((COUPON_NO1 = #{coupon_no} ) OR (COUPON_NO2 = #{coupon_no} ))
+    </select>
+
+
+    <select id="DlwCouponInfoMap.selectKeyCouponMst" parameterType="map" resultType="String">
+        SELECT TO_CHAR(SYSDATE,'YYYYMMDD')||LPAD(COUPON_INFO_MST_SEQ.NEXTVAL,6,'0') AS coupon_inh_no
+        FROM DUAL
+    </select>
+
+    <insert id="DlwCouponInfoMap.insertCouponInfoMst" parameterType="map" >
+        /* 쿠폰정보 등록  */
+        INSERT INTO COUPON_INFO_MST (
+             COUPON_INH_NO		/* 쿠폰고유번호 */
+            , COUPON_TP			/* 쿠폰종류 */
+            , COUPON_NO1		/* 쿠폰번호1 */
+            , COUPON_NO2		/* 쿠폰번호2 */
+            , ISU_DT			/* 발급일자 */
+            , USE_YN			/* 사용여부 */
+            , REG_ID			/* 등록자 */
+            , REG_DATE			/* 등록일 */
+            , UPD_ID			/* 수정자 */
+            , UPD_DATE			/* 수정일 */
+        ) VALUES (
+               #{coupon_inh_no}	/* 쿠폰고유번호 */
+            ,  #{coupon_tp}		/* 쿠폰종류 */
+            ,  #{coupon_no1}	/* 쿠폰번호1 */
+            ,  #{coupon_no2}	/* 쿠폰번호2 */
+            ,  #{isu_dt}		/* 발급일자 */
+            ,  'N'				/* 사용여부 */
+            ,  #{reg_id}		/* 등록자 */
+            ,  SYSDATE			/* 등록일 */
+            ,  #{upd_id}		/* 수정자 */
+            ,  SYSDATE			/* 수정일 */
+        )
+
+    </insert>
+
+
+    <update id="DlwCouponInfoMap.updateCouponInfoMst" parameterType="map" >
+        /* 쿠폰정보 수정  */
+        UPDATE COUPON_INFO_MST SET
+              COUPON_TP = #{coupon_tp}		/* 쿠폰종류 */
+            , COUPON_NO1 = #{coupon_no1}	/* 쿠폰번호1 */
+            , COUPON_NO2 = #{coupon_no2}	/* 쿠폰번호2 */
+            , ISU_DT = TO_DATE(#{isu_dt},'YYYYMMDD')			/* 발급일자 */
+            , USE_YN = #{use_yn}			/* 사용여부 */
+            , UPD_ID = #{upd_id}			/* 수정자 */
+            , UPD_DATE = SYSDATE		/* 수정일 */
+        WHERE COUPON_INH_NO = #{coupon_inh_no}
+    </update>
+
+
+    <delete id="DlwCouponInfoMap.deleteCouponInfoMst" parameterType="map" >
+        /* 쿠폰정보 삭제  */
+        DELETE FROM COUPON_INFO_MST
+        WHERE COUPON_INH_NO = #{coupon_inh_no}
+    </delete>
+
+
+    <select id="DlwCouponInfoMap.selectKeyCouponDtl" parameterType="map" resultType="String">
+        select nvl(max(coupon_dtl_no),0)+1 as coupon_dtl_no
+          from COUPON_INFO_DTL
+         where COUPON_INH_NO = #{coupon_inh_no}
+    </select>
+
+    <insert id="DlwCouponInfoMap.insertCouponInfoDtl" parameterType="map" >
+        /* 쿠폰정보 등록  */
+        INSERT INTO COUPON_INFO_DTL (
+             COUPON_INH_NO		/* 쿠폰고유번호 */
+            , COUPON_DTL_NO		/* 쿠폰고유상세번호 */
+            , ACCNT_NO		/* 회원번호 */
+            , PROV_DT		/* 지급일자 */
+            , RECOV_DT		/* 회수일자 */
+            , NOTE_CD		/* 사유 */
+            , USE_YN		/* 사용유무 */
+            , REG_ID		/* 등록자 */
+            , REG_DATE		/* 등록일 */
+            , UPD_ID		/* 수정자 */
+            , UPD_DATE		/* 수정일 */
+        ) VALUES (
+              #{coupon_inh_no}		/* 쿠폰고유번호 */
+            ,  #{coupon_dtl_no}		/* 쿠폰고유상세번호 */
+            ,  #{accnt_no}		/* 회원번호 */
+            ,  #{prov_dt}		/* 지급일자 */
+            ,  #{recov_dt}		/* 회수일자 */
+            ,  #{note_cd}		/* 사유 */
+            ,  #{use_yn}		/* 사용유무 */
+            ,  #{reg_id}		/* 등록자 */
+            ,  SYSDATE			/* 등록일 */
+            ,  #{upd_id}		/* 수정자 */
+            ,  SYSDATE			/* 수정일 */
+        )
+    </insert>
+
+
+    <update id="DlwCouponInfoMap.updateCouponInfoDtlUseYn" parameterType="map" >
+        /* 쿠폰정보 수정  */
+        UPDATE COUPON_INFO_DTL SET
+              USE_YN = #{use_yn}			/* 사용여부 */
+            , NOTE_CD = #{note_cd}		/* 사유코드 */
+            , RECOV_DT = TO_DATE(#{recov_dt},'YYYYMMDD')		/* 회수일자 */
+            , UPD_ID = #{upd_id}		/* 수정자 */
+            , UPD_DATE = SYSDATE		/* 수정일 */
+         WHERE COUPON_INH_NO = #{coupon_inh_no}
+           AND COUPON_DTL_NO = #{coupon_dtl_no}
+    </update>
+
+
+    <update id="DlwCouponInfoMap.updateCouponInfoMstUseYn" parameterType="map" >
+        /* 쿠폰정보 수정  */
+        UPDATE COUPON_INFO_MST SET
+              USE_YN = #{use_yn}		/* 사용여부 */
+            , UPD_ID = #{upd_id}		/* 수정자 */
+            , UPD_DATE = SYSDATE		/* 수정일 */
+         WHERE COUPON_INH_NO = #{coupon_inh_no}
+    </update>
+
+
+    <delete id="DlwCouponInfoMap.deleteCouponInfoDtl" parameterType="map" >
+        /* 쿠폰정보 DTL 삭제  */
+        DELETE FROM COUPON_INFO_DTL
+         WHERE COUPON_INH_NO = #{coupon_inh_no}
+           AND COUPON_DTL_NO = #{coupon_dtl_no}
+    </delete>
+
+
+
+</mapper>

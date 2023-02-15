@@ -1,0 +1,1741 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ChatSndgHstrMap">
+
+    <sql id="ChatSndgHstrMap.selectCondition_fragment">
+        <where>
+            <if test="cntr_cd != null and cntr_cd != ''">
+                CNTR_CD = #{cntr_cd}
+            </if>
+            <if test="cell != null and cell != ''">
+                AND CELL LIKE '%' || REPLACE(#{cell}, '-', '') || '%'
+            </if>
+            <if test="chat_sndg_div_cd != null and chat_sndg_div_cd != ''">
+                AND CHAT_SNDG_DIV_CD = #{chat_sndg_div_cd}
+            </if>
+            <if test="chat_msg_titl != null and chat_msg_titl != ''">
+                AND CHAT_MSG_TITL LIKE '%' || #{chat_msg_titl} || '%'
+            </if>
+            <if test="chat_msg_cntn != null and chat_msg_cntn != ''">
+                AND CHAT_MSG_CNTN LIKE '%' || #{chat_msg_cntn} || '%'
+            </if>
+            <if test="stt_dt != null and stt_dt != ''">
+            <![CDATA[
+                AND SNDG_DTTM >= REPLACE(#{stt_dt}, '-', '') || '000000'
+            ]]>
+            </if>
+            <if test="end_dt != null and end_dt != ''">
+            <![CDATA[
+                AND SNDG_DTTM <= REPLACE(#{end_dt}, '-', '') || '235959'
+            ]]>
+            </if>
+            <if test="dt_typ == 'today'">
+                AND CONS_DSPS_DTTM BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') || '000000' AND TO_CHAR(SYSDATE, 'YYYYMMDD') || '235959'
+            </if>
+            <choose>
+                <when test="sndg_chpr_id != null and sndg_chpr_id != ''">
+                AND SNDG_CHPR_ID = #{sndg_chpr_id}
+                </when>
+                <when test="team_cd != null and team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                             WHERE B.USER_ID = A.SNDG_CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = #{team_cd})
+                </when>
+                <when test="hgrn_team_cd != null and hgrn_team_cd != ''">
+                AND EXISTS (SELECT 'Y'
+                              FROM TB_USER B
+                                 , TB_CONS_TEAM C
+                             WHERE B.USER_ID = A.SNDG_CHPR_ID
+                               AND B.CNTR_CD = A.CNTR_CD
+                               AND B.TEAM_CD = C.TEAM_CD
+                               AND B.CNTR_CD = C.CNTR_CD
+                               AND C.HGRN_TEAM_CD = #{hgrn_team_cd})
+                </when>
+            </choose>
+            <if test="resr_yn != null and resr_yn != ''">
+                AND RESR_YN = #{resr_yn}
+            </if>
+            <if test="cntr_rprs_tlno != null and cntr_rprs_tlno != ''">
+                AND CNTR_RPRS_TLNO = REPLACE(#{cntr_rprs_tlno}, '-', '')
+            </if>
+            <if test="consno != null and consno != ''">
+                AND CONSNO = #{consno}
+            </if>
+            <if test="mem_no != null and mem_no != ''">
+                AND MEM_NO = #{mem_no}
+            </if>
+            <if test="mem_nm != null and mem_nm != ''">
+                AND MEM_NM LIKE '%' || #{mem_nm} || '%'
+            </if>
+            <if test="chat_sndg_stat_cd != null and chat_sndg_stat_cd != ''">
+                AND CHAT_SNDG_STAT_CD = #{chat_sndg_stat_cd}
+            </if>
+            <if test="chat_sndg_resl_cd != null and chat_sndg_resl_cd != ''">
+                <choose>
+                    <when test="chat_sndg_resl_cd == 'FAIL'">
+                AND CHAT_SNDG_RESL_CD IS NOT NULL
+                AND CHAT_SNDG_RESL_CD != '1000'
+                    </when>
+                    <otherwise>
+                AND CHAT_SNDG_RESL_CD = #{chat_sndg_resl_cd}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="chat_sndg_hstr_id != null and chat_sndg_hstr_id != ''">
+                AND CHAT_SNDG_HSTR_ID = #{chat_sndg_hstr_id}
+            </if>
+        </where>
+    </sql>
+
+    <select id="ChatSndgHstrMap.getChatSndgHstrCount" parameterType="map" resultType="int">
+        SELECT /* ChatSndgHstrMap.getChatSndgHstrCount */
+               COUNT(*)
+          FROM TB_CHAT_SNDG_HSTR A
+          <choose>
+             <when test = "chat_fg != null and chat_fg !='' and chat_fg.equalsIgnoreCase('Y')">
+                WHERE CNTR_CD = #{cntr_cd}
+                  AND (MEM_NO = #{mem_no} OR CELL = REPLACE(#{v_cell}, '-', ''))
+             </when>
+             <otherwise>
+                 <include refid="ChatSndgHstrMap.selectCondition_fragment"/>
+             </otherwise>
+          </choose>
+    </select>
+
+    <select id="ChatSndgHstrMap.getChatSndgHstrList" parameterType="map" resultType="resultMap">
+        SELECT /* ChatSndgHstrMap.getChatSndgHstrList */
+               C.*
+             , CASE WHEN CHAT_SNDG_DIV_CD = '0' THEN 'SMS'
+                    WHEN CHAT_SNDG_DIV_CD = '2' THEN 'MMS'
+                    WHEN CHAT_SNDG_DIV_CD = '3' THEN 'LMS'
+                    WHEN CHAT_SNDG_DIV_CD = '4' THEN '알림톡'
+                    ELSE ''
+                END CHAT_SNDG_DIV_NM
+                    /***********************************************
+                    2017-09-26 김준호 알림톡 관련 코드값 추가 및 수정
+                    ***********************************************/
+             , CASE
+                    WHEN  C.GUBUN= 'B' THEN NVL((SELECT CD_NM FROM TB_CD T WHERE CD_SET_CD = 'MSG001' AND CD= CHAT_SNDG_STAT_CD),'알림톡실패')
+                    ELSE CASE WHEN CHAT_SNDG_STAT_CD = '3' THEN '완료'
+                          WHEN CHAT_SNDG_STAT_CD = '2' THEN '결과대기'
+                          WHEN CHAT_SNDG_STAT_CD = '1' THEN '전송대기'
+                          WHEN CHAT_SNDG_STAT_CD = 'U' THEN '전송대기'
+                          ELSE ''
+                          END
+                END CHAT_SNDG_STAT_NM
+                   /*****************************************
+                    2017-09-26 김준호 알림톡 관련 코드값 추가 및 수정
+                    *****************************************/
+             , CASE
+                  WHEN C.GUBUN = 'B' THEN NVL((SELECT CD_NM FROM TB_CD T WHERE CD_SET_CD = 'MSG002' AND (CD= CHAT_SNDG_RESL_CD OR ADTL_CD = CHAT_SNDG_RESL_CD)),'알림톡실패')
+                  ELSE CASE WHEN CHAT_SNDG_RESL_CD = '1000' THEN '성공'
+                            WHEN CHAT_SNDG_RESL_CD IS NOT NULL THEN '실패'
+                            ELSE ''
+                            END
+                END CHAT_SNDG_RESL_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.TEAM_CD) AS TEAM_NM
+             , (SELECT D.TEAM_NM
+                  FROM TB_CONS_TEAM D
+                 WHERE D.TEAM_CD = C.HGRN_TEAM_CD) AS HGRN_TEAM_NM
+          FROM (SELECT ROWNUM AS PAGE_INDX
+                     , B.*
+                     , (SELECT C.TEAM_CD
+                          FROM TB_USER C
+                         WHERE C.USER_ID = B.SNDG_CHPR_ID
+                           AND C.CNTR_CD = B.CNTR_CD) AS TEAM_CD
+                     , (SELECT D.HGRN_TEAM_CD
+                          FROM TB_USER C
+                             , TB_CONS_TEAM D
+                         WHERE C.USER_ID = B.SNDG_CHPR_ID
+                           AND C.CNTR_CD = B.CNTR_CD
+                           AND C.TEAM_CD = D.TEAM_CD
+                           AND C.CNTR_CD = D.CNTR_CD) AS HGRN_TEAM_CD
+                  FROM (SELECT CNTR_CD, CHAT_SNDG_HSTR_ID, CELL, CHAT_SNDG_DIV_CD, CHAT_MSG_TITL
+                             , CHAT_MSG_CNTN, MSG_TRNM_SCS_YN, MSG_TRNM_FALR_RSN
+                             , TO_CHAR(SNDG_DTTM, 'YYYY-MM-DD HH24:MI') AS SNDG_DTTM
+                             , SNDG_CHPR_ID
+                             , RESR_YN, TO_CHAR(RESR_DTTM, 'YYYY-MM-DD HH24:MI') AS RESR_DTTM, CNTR_RPRS_TLNO, CONSNO, MEM_NO
+                             , MEM_NM, CMPG_ID, TRGT_LIST_ID, TRGT_CUST_ID
+                             , CHAT_SNDG_STAT_CD, CHAT_SNDG_RESL_CD
+                             , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM
+                             , (SELECT USER_NM
+                                  FROM TB_USER
+                                 WHERE USER_ID = A.SNDG_CHPR_ID
+                                   AND CNTR_CD = A.CNTR_CD) AS SNDG_CHPR_NM
+                             , A.GUBUN
+                          FROM (select TC.*, 'A' AS GUBUN from TB_CHAT_SNDG_HSTR TC
+                                union all
+                                select TN.*, 'B' AS GUBUN from TB_CHAT_SNDG_HSTR_NEW TN) A
+                          <choose>
+                             <when test = "chat_fg != null and chat_fg !='' and chat_fg.equalsIgnoreCase('Y')">
+                                WHERE CNTR_CD = #{cntr_cd}
+                                  AND (MEM_NO = #{mem_no} OR CELL = REPLACE(#{v_cell}, '-', ''))
+                             </when>
+                             <otherwise>
+                                 <include refid="ChatSndgHstrMap.selectCondition_fragment"/>
+                             </otherwise>
+                          </choose>
+                    <if test="orderBy != null and orderBy != ''">
+                        ORDER BY ${orderBy} ${orderDirection}
+                    </if>
+                       ) B
+               ) C
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+         WHERE PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <insert id="ChatSndgHstrMap.insertChatSndgHstr" parameterType="map">
+        <selectKey keyProperty="chat_sndg_hstr_id" resultType="String" order="BEFORE">
+            SELECT 'CSH' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* ChatSndgHstrMap.insertChatSndgHstr */
+          INTO TB_CHAT_SNDG_HSTR
+             (
+               CNTR_CD		            /* 센터 코드 */
+            ,  CHAT_SNDG_HSTR_ID		/* 문자 발송 이력 ID */
+            ,  CELL		                /* 휴대번호(수신) */
+            ,  CHAT_SNDG_DIV_CD		    /* 문자 발송 구분 코드 */
+            ,  CHAT_MSG_TITL		    /* 문자 메시지 제목 */
+            ,  CHAT_MSG_CNTN		    /* 문자 메시지 내용 */
+            ,  MSG_TRNM_SCS_YN		    /* 메시지 전송 성공 여부 */
+            <!-- ,  MSG_TRNM_FALR_RSN	    /* 메시지 전송 실패 사유 */ -->
+            ,  SNDG_DTTM		        /* 발송 일시 */
+            ,  SNDG_CHPR_ID		        /* 발송 담당자 ID */
+            ,  RESR_YN		            /* 예약 여부 */
+            ,  RESR_DTTM		        /* 예약 일시 */
+            ,  CNTR_RPRS_TLNO		    /* 센터 대표 전화번호 */
+            <!-- ,  CONSNO		            /* 상담번호 */ -->
+            ,  MEM_NO		            /* 대명고객 번호 */
+            ,  MEM_NM		            /* 대명고객 명 */
+
+            ,  SNDG_NO		            /* 발송 번호 */
+            ,  SNDG_SQNC		        /* 발송 순서 */
+            ,  CHAT_SNDG_STAT_CD		/* 문자 발송 상태 코드 */
+            <!--,  CMPG_ID		            /* 캠페인 ID */
+            ,  TRGT_LIST_ID		        /* 대상 목록 ID */
+            ,  TRGT_CUST_ID		        /* 대상 고객 ID */ -->
+            ,  RGSR_ID		            /* 등록자 ID */
+            ,  RGSN_DTTM		        /* 등록 일시 */
+            ,  AMND_ID		            /* 수정자 ID */
+            ,  AMNT_DTTM		        /* 수정 일시 */
+             )
+          VALUES
+             (
+               #{cntr_cd}	                                      /* 센터 코드 */
+            ,  #{chat_sndg_hstr_id}		                          /* 문자 발송 이력 ID */
+            ,  REPLACE(#{recipient_num}, '-', '')                 /* 휴대번호(수신) */
+            ,  #{service_type}		                              /* 문자 발송 구분 코드 (메시지 전송타입 0:SMS, 2:MMS, 3:LMS) */
+            ,  #{subject}		                                  /* 문자 메시지 제목 */
+            ,  #{content}                                         /* 문자 메시지 내용 */
+            ,  'Y'          		                              /* 메시지 전송 성공 여부 */
+            <!-- ,  MSG_TRNM_FALR_RSN	    /* 메시지 전송 실패 사유 */ -->
+            ,  SYSDATE		                                      /* 발송 일시 */
+            ,  #{rgsr_id}		                                  /* 발송 담당자 ID */
+            ,  #{reserve_yn}                                      /* 예약 여부 */
+            ,  to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS')  /* 예약 일시 */
+            ,  REPLACE(#{callback}, '-', '')  		              /* 센터 대표 전화번호(발신번호) */
+            <!-- ,  CONSNO		            /* 상담번호 */ -->
+            ,  #{mem_no}		            /* 대명고객 번호 */
+            ,  #{mem_nm}		            /* 대명고객 명 */
+            ,  #{sndg_no}		            /* 발송 번호 */
+            ,  NVL(#{sndg_sqnc}, 0)		    /* 발송 순서 */
+            ,  '1'		                    /* 문자 발송 상태 코드(전송대기) */
+            <!-- ,  CMPG_ID		            /* 캠페인 ID */
+            ,  TRGT_LIST_ID		        /* 대상 목록 ID */
+            ,  TRGT_CUST_ID		        /* 대상 고객 ID */ -->
+            ,  #{rgsr_id}		                                  /* 등록자 ID */
+            ,  SYSDATE		                                      /* 등록 일시 */
+            ,  #{rgsr_id}		                                  /* 수정자 ID */
+            ,  SYSDATE                                            /* 수정 일시 */
+             )
+    </insert>
+<!--
+    <insert id="ChatSndgHstrMap.insertChatSndgHstr" parameterType="map">
+        <selectKey keyProperty="chat_sndg_hstr_id" resultType="String" order="BEFORE">
+            SELECT 'CSH' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* ChatSndgHstrMap.insertChatSndgHstr */
+          INTO TB_CHAT_SNDG_HSTR
+             ( CHAT_SNDG_HSTR_ID, CLPH_NO, CHAT_SNDG_DIV_CD, CHAT_MSG_TITL, CHAT_MSG_CNTN
+             , MSG_TRNM_SCS_YN, MSG_TRNM_FALR_RSN, SNDG_DTTM, SNDG_CHPR_ID, RESR_YN
+             , RESR_DTTM, IMG_URL_ADDR, CNTR_RPRS_TLNO, MO_RECP_ID, CONSNO
+             , MEM_NO, MEM_NM, CMPG_ID, TRGT_LIST_ID, TRGT_CUST_ID
+             , CNTR_CD, RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+        VALUES
+              ( #{chat_sndg_hstr_id}, REPLACE(#{clph_no}, '-', ''), #{chat_sndg_div_cd}, #{chat_msg_titl}, #{chat_msg_cntn}
+              , #{msg_trnm_scs_yn}, #{msg_trnm_falr_rsn}
+              , <if test='resr_yn == "Y"'>TO_TIMESTAMP(#{resr_dttm}, 'YYYYMMDDHH24MI')</if>
+                <if test='resr_yn == "N"'>SYSTIMESTAMP</if>, #{sndg_chpr_id}, #{resr_yn}
+              , TO_TIMESTAMP(#{resr_dttm}, 'YYYYMMDDHH24MI'), #{img_url_addr}, REPLACE(#{cntr_rprs_tlno}, '-', ''), #{mo_recp_id}, #{consno}
+              , #{mem_no}, #{mem_nm}, #{cmpg_id}, #{trgt_list_id}, #{trgt_cust_id}
+              , #{cntr_cd}, #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+
+    </insert>
+ -->
+
+    <!-- 전송결과 수정 -->
+    <update id="ChatSndgHstrMap.updateChatSndgHstrResl" parameterType="map">
+        UPDATE /* ChatSndgHstrMap.updateChatSndgHstrResl */
+               TB_CHAT_SNDG_HSTR
+           SET CHAT_SNDG_STAT_CD = #{chat_sndg_stat_cd}
+             , CHAT_SNDG_RESL_CD = #{chat_sndg_resl_cd}
+         WHERE CHAT_SNDG_DIV_CD = #{chat_sndg_div_cd}
+           AND SNDG_NO = #{sndg_no}
+           AND SNDG_SQNC = #{sndg_sqnc}
+    </update>
+
+    <insert id="ChatSndgHstrMap.mergeChatSndgHstrExcel" parameterType="map">
+        <selectKey keyProperty="new_rec_cons_dtl_id" resultType="String" order="BEFORE">
+            SELECT 'CSH' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+        MERGE INTO /* ChatSndgHstrMap.mergeChatSndgHstrExcel */
+              TB_CHAT_SNDG_HSTR A
+        USING (SELECT #{chat_sndg_hstr_id} AS CHAT_SNDG_HSTR_ID
+                 FROM DUAL) B
+           ON (A.CHAT_SNDG_HSTR_ID = B.CHAT_SNDG_HSTR_ID)
+         WHEN MATCHED THEN
+              UPDATE SET CELL             = REPLACE(#{cell}, '-', '')
+                       , CHAT_SNDG_DIV_CD = #{chat_sndg_div_cd}
+                       , CHAT_MSG_TITL    = #{chat_msg_titl}
+                       , CHAT_MSG_CNTN    = #{chat_msg_cntn}
+                       , SNDG_CHPR_ID     = #{amnd_id}
+                       , CNTR_RPRS_TLNO   = REPLACE(#{cntr_rprs_tlno}, '-', '')
+                       , CONSNO           = #{consno}
+                       , MEM_NO           = #{mem_no}
+                       , MEM_NM           = #{mem_nm}
+                       , CMPG_ID          = #{cmpg_id}
+                       , TRGT_LIST_ID     = #{trgt_list_id}
+                       , TRGT_CUST_ID     = #{trgt_cust_id}
+                       , AMND_ID          = #{amnd_id}
+                       , AMNT_DTTM        = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+         WHEN NOT MATCHED THEN
+              INSERT (CNTR_CD, CHAT_SNDG_HSTR_ID, CELL, CHAT_SNDG_DIV_CD, CHAT_MSG_TITL
+                    , CHAT_MSG_CNTN, SNDG_DTTM, SNDG_CHPR_ID, RESR_YN, CNTR_RPRS_TLNO
+                    , CHAT_SNDG_STAT_CD, CHAT_SNDG_RESL_CD, CONSNO, MEM_NO, MEM_NM
+                    , CMPG_ID, TRGT_LIST_ID, TRGT_CUST_ID
+                    , RGSR_ID, RGSN_DTTM, AMND_ID, AMNT_DTTM)
+              VALUES (#{cntr_cd}, #{new_rec_cons_dtl_id}, REPLACE(#{cell}, '-', ''), #{chat_sndg_div_cd}, #{chat_msg_titl}
+                    , #{chat_msg_cntn}, #{sndg_dttm}, #{rgsr_id}, 'N', REPLACE(#{cntr_rprs_tlno}, '-', '')
+                    , '3', '1000', #{consno}, #{mem_no}, #{mem_nm}
+                    , #{cmpg_id}, #{trgt_list_id}, #{trgt_cust_id}
+                    , #{rgsr_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), #{amnd_id}, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'))
+    </insert>
+    
+    <!-- 시스원 업체용 SMS 문자메세지를 전송한다.(SMS) -->
+    <insert id="ChatSndgHstrMap.insertSysoneSmsSend" parameterType="map">
+         <selectKey keyProperty="f_seq" resultType="String" order="BEFORE">
+            SELECT EM_USER.SMS_SEQUENCE.NEXTVAL FROM DUAL
+        </selectKey>
+		INSERT INTO  /*ChatSndgHstrMap.insertSysoneSmsSend*/
+		EM_USER.TBLMESSAGE ( 
+			FSEQUENCE,  
+			FSERIAL,
+			FUSERID,
+			FSENDDATE,
+			FSENDSTAT,
+			FMSGTYPE,
+			FDESTINE,
+			FCALLBACK,
+			FTEXT			
+		)
+		VALUES(
+			#{f_seq}, 
+			'',
+			'대명스테이션',
+			<if test='reserve_yn == "Y"'>
+            	TO_DATE(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS'), 		/* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             	SYSDATE, 
+             </if>      
+			'0',
+			'0',
+			REPLACE(#{recipient_num}, '-', ''),
+			REPLACE(#{callback}, '-', ''),         /* 발신번호 */
+			#{content}  			
+		)
+    </insert> 
+    
+    <!-- 시스원 업체용 LMS 문자메세지를 전송한다.(LMS) -->
+    <insert id="ChatSndgHstrMap.insertSysoneLmsSend" parameterType="map">
+        <selectKey keyProperty="f_seq" resultType="String" order="BEFORE">
+            SELECT EM_USER.MMS_SEQUENCE.NEXTVAL FROM DUAL
+        </selectKey>
+		INSERT INTO  /*ChatSndgHstrMap.insertSysoneLmsSend*/
+		EM_USER.MMS_MSG ( 
+			MSGKEY,
+			SUBJECT,
+			PHONE,
+			CALLBACK,
+			STATUS,
+			REQDATE,
+			MSG
+		)
+		VALUES(
+			#{f_seq}, 
+			#{subject},                            		 /* 메시지제목 */
+			REPLACE(#{recipient_num}, '-', ''),    /* 수신번호 */
+			REPLACE(#{callback}, '-', ''),         	 /* 발신번호 */
+            '0',
+             <if test='reserve_yn == "Y"'>
+             	TO_DATE(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS'),
+             </if>
+             <if test='reserve_yn == "N"'>
+             	SYSDATE,                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             #{content}                           		 /* 전송메시지 */		
+		)
+    </insert>
+
+    <!-- SMS 문자메세지를 전송한다.(SMS) -->
+    <insert id="ChatSndgHstrMap.insertSendSms" parameterType="map">
+        <selectKey keyProperty="mt_pr" resultType="String" order="BEFORE">
+            SELECT EM_USER.SQ_EM_SMT_TRAN_01.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertSendSms */
+          INTO EM_USER.EM_SMT_TRAN
+              (MT_PR                                 /* sequence */
+             , DATE_CLIENT_REQ                       /* 클라이언트의 전송 요청 시간 */
+             , CONTENT                               /* 전송메시지 */
+             , CALLBACK                              /* 발신번호 */
+             , SERVICE_TYPE                          /* 메시지전송타입 */
+             <if test='broadcast_yn == "Y"'>
+             , BROADCAST_YN                          /* 동보발송유무 */
+             , MSG_STATUS                            /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             </if>
+             <if test='broadcast_yn == "N"'>
+             , RECIPIENT_NUM                         /* 수신번호 */
+             </if>
+              )
+        VALUES
+              (#{mt_pr}                              /* sequence */
+             <if test='reserve_yn == "Y"'>
+             , to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             , SYSDATE                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             , #{content}                            /* 전송메시지 */
+             , REPLACE(#{callback}, '-', '')         /* 발신번호 */
+             , #{service_type}                       /* 메시지전송타입 */
+             <if test='broadcast_yn == "Y"'>
+             , #{broadcast_yn}                       /* 동보발송유무 */
+             , '9'                                   /* 메시지상태 1-전송대기, 2-결과대기, 3-완료 */
+             </if>
+             <if test='broadcast_yn == "N"'>
+             , REPLACE(#{recipient_num}, '-', '')    /* 수신번호 */
+             </if>
+              )
+    </insert>
+
+    <!-- MMS 첨부파일 insert -->
+    <insert id="ChatSndgHstrMap.insertMmsFile" parameterType="map">
+        <selectKey keyProperty="attach_file_group_key" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(ATTACH_FILE_GROUP_KEY), 0)+1 FROM EM_USER.EM_MMT_FILE
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertMmsFile */
+          INTO EM_USER.EM_MMT_FILE
+              (
+               ATTACH_FILE_GROUP_KEY
+            ,  ATTACH_FILE_GROUP_SEQ
+            ,  ATTACH_FILE_SEQ
+            ,  ATTACH_FILE_SUBPATH
+            ,  ATTACH_FILE_NAME
+              )
+        VALUES
+              (
+               #{attach_file_group_key}
+            ,  '1'
+            ,  '1'
+            ,  ''
+            ,  #{attach_file_name}
+              )
+    </insert>
+
+    <!-- MMS 문자메세지를 전송한다.(MMS) -->
+    <insert id="ChatSndgHstrMap.insertSendMms" parameterType="map">
+        <selectKey keyProperty="mt_pr" resultType="String" order="BEFORE">
+            SELECT EM_USER.SQ_EM_MMT_TRAN_01.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertSendMms */
+          INTO EM_USER.EM_MMT_TRAN
+              (
+               MT_PR                                 /* sequence */
+             , DATE_CLIENT_REQ                       /* 클라이언트의 전송 요청 시간 */
+             , SUBJECT                               /* 메시지제목 */
+             , CONTENT                               /* 전송메시지 */
+             , CALLBACK                              /* 발신번호 */
+             , SERVICE_TYPE                          /* 메시지전송타입 */
+             , ATTACH_FILE_GROUP_KEY                 /* 첨부파일그룹키 */
+             <if test='broadcast_yn == "Y"'>
+             , BROADCAST_YN                          /* 동보발송유무 */
+             , MSG_STATUS                            /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             </if>
+             <if test='broadcast_yn == "N"'>
+             , RECIPIENT_NUM                         /* 수신번호 */
+             </if>
+              )
+        VALUES
+              (
+               #{mt_pr}                              /* sequence */
+             <if test='reserve_yn == "Y"'>
+             , to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             , SYSDATE                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             , #{subject}                            /* 메시지제목 */
+             , #{content}                            /* 전송메시지 */
+             , REPLACE(#{callback}, '-', '')         /* 발신번호 */
+             , #{service_type}                       /* 메시지전송타입 */
+             , #{attach_file_group_key}              /* 첨부파일그룹키 */
+             <if test='broadcast_yn == "Y"'>
+             , #{broadcast_yn}                       /* 동보발송유무 */
+             , '9'                                   /* 메시지상태 1-전송대기, 2-결과대기, 3-완료 */
+             </if>
+             <if test='broadcast_yn == "N"'>
+             , REPLACE(#{recipient_num}, '-', '')    /* 수신번호 */
+             </if>
+              )
+    </insert>
+
+    <!-- LMS 문자메세지를 전송한다.(LMS) -->
+    <insert id="ChatSndgHstrMap.insertSendLms" parameterType="map">
+        <selectKey keyProperty="mt_pr" resultType="String" order="BEFORE">
+            SELECT EM_USER.SQ_EM_MMT_TRAN_01.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertSendLms */
+          INTO EM_USER.EM_MMT_TRAN
+              (
+               MT_PR                                 /* sequence */
+             , DATE_CLIENT_REQ                       /* 클라이언트의 전송 요청 시간 */
+             , SUBJECT                               /* 메시지제목 */
+             , CONTENT                               /* 전송메시지 */
+             , CALLBACK                              /* 발신번호 */
+             , SERVICE_TYPE                          /* 메시지전송타입 */
+             <if test='broadcast_yn == "Y"'>
+             , BROADCAST_YN                          /* 동보발송유무 */
+             , MSG_STATUS                            /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             </if>
+             <if test='broadcast_yn == "N"'>
+             , RECIPIENT_NUM                         /* 수신번호 */
+             </if>
+              )
+        VALUES
+              (
+               #{mt_pr}                              /* sequence */
+             <if test='reserve_yn == "Y"'>
+             , to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             , SYSDATE                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             , #{subject}                            /* 메시지제목 */
+             , #{content}                            /* 전송메시지 */
+             , REPLACE(#{callback}, '-', '')         /* 발신번호 */
+             , #{service_type}                       /* 메시지전송타입 */
+             <if test='broadcast_yn == "Y"'>
+             , #{broadcast_yn}                       /* 동보발송유무 */
+             , '9'                                   /* 메시지상태 1-전송대기, 2-결과대기, 3-완료 */
+             </if>
+             <if test='broadcast_yn == "N"'>
+             , REPLACE(#{recipient_num}, '-', '')    /* 수신번호 */
+             </if>
+              )
+    </insert>
+
+    <!-- 동보 SMS Detail 저장 -->
+    <insert id="ChatSndgHstrMap.insertSmtClient" parameterType="map">
+        <selectKey keyProperty="mt_seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(MT_SEQ), 0)+1 FROM EM_USER.EM_SMT_CLIENT WHERE MT_PR = #{mt_pr}
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertSmtClient */
+          INTO EM_USER.EM_SMT_CLIENT
+              (
+               MT_PR                                 /* sequence */
+             , MT_SEQ                                /* sequence */
+             , MSG_STATUS                             /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             , RECIPIENT_NUM                         /* 수신번호 */
+              )
+        VALUES
+              (
+               #{mt_pr}                              /* sequence */
+             , #{mt_seq}                             /* sequence */
+             , '1'                                   /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             , #{clph_no}                            /* 수신번호 */
+              )
+    </insert>
+
+    <!-- 동보 MMS Detail 저장 -->
+    <insert id="ChatSndgHstrMap.insertMmtClient" parameterType="map">
+        <selectKey keyProperty="mt_seq" resultType="String" order="BEFORE">
+            SELECT NVL(MAX(MT_SEQ), 0)+1 FROM EM_USER.EM_MMT_CLIENT WHERE MT_PR = #{mt_pr}
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertMmtClient */
+          INTO EM_USER.EM_MMT_CLIENT
+              (
+               MT_PR                                 /* sequence */
+             , MT_SEQ                                /* sequence */
+             , MSG_STATUS                             /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             , RECIPIENT_NUM                         /* 수신번호 */
+              )
+        VALUES
+              (
+               #{mt_pr}                              /* sequence */
+             , #{mt_seq}                             /* sequence */
+             , '1'                                   /* 메시지상태  1-전송대기, 2-결과대기, 3-완료 */
+             , #{clph_no}                            /* 수신번호 */
+              )
+    </insert>
+
+    <!-- 동보발송시 MsgStatus 변경 -->
+    <update id="ChatSndgHstrMap.updateMsgStatus" parameterType="map">
+        UPDATE
+               <if test='service_type == "0"'>
+               EM_USER.EM_SMT_TRAN
+               </if>
+               <if test='service_type != "0"'>
+               EM_USER.EM_MMT_TRAN
+               </if>
+           set msg_status = '1'
+         where mt_pr = #{mt_pr}
+    </update>
+
+    <!-- 문자시스템 전송결과 조회 -->
+    <select id="ChatSndgHstrMap.getEmLogList" parameterType="map" resultType="resultMap">
+        SELECT TRIM(SERVICE_TYPE) AS CHAT_SNDG_DIV_CD, MT_PR AS SNDG_NO, MT_SEQ AS SNDG_SQNC, MSG_STATUS AS CHAT_SNDG_STAT_CD, MT_REPORT_CODE_IB AS CHAT_SNDG_RESL_CD
+          FROM EM_USER.EM_SMT_LOG_${srch_ym}
+         WHERE
+            <choose>
+                <when test="full_srch_yn != null and full_srch_yn.equalsIgnoreCase('Y')">
+                <![CDATA[
+               DATE_MT_REPORT >= SYSTIMESTAMP - 2
+                ]]>
+                </when>
+                <otherwise>
+                <![CDATA[
+               DATE_MT_REPORT >= SYSTIMESTAMP - 30 / 60 / 24
+                ]]>
+                </otherwise>
+            </choose>
+        UNION ALL
+        SELECT TRIM(SERVICE_TYPE) AS CHAT_SNDG_DIV_CD, MT_PR AS SNDG_NO, MT_SEQ AS SNDG_SQNC, MSG_STATUS AS CHAT_SNDG_STAT_CD, MT_REPORT_CODE_IB AS CHAT_SNDG_RESL_CD
+          FROM EM_USER.EM_MMT_LOG_${srch_ym}
+         WHERE
+            <choose>
+                <when test="full_srch_yn != null and full_srch_yn.equalsIgnoreCase('Y')">
+                <![CDATA[
+               DATE_MT_REPORT >= SYSTIMESTAMP - 2
+                ]]>
+                </when>
+                <otherwise>
+                <![CDATA[
+               DATE_MT_REPORT >= SYSTIMESTAMP - 30 / 60 / 24
+                ]]>
+                </otherwise>
+            </choose>
+         ORDER BY CHAT_SNDG_DIV_CD, SNDG_NO DESC, SNDG_SQNC
+    </select>
+
+    <!-- 문자시스템 전송결과 조회 -->
+    <select id="ChatSndgHstrMap.getInfobankSmsRejectList" parameterType="map" resultType="resultMap">
+        SELECT /* ChatSndgHstrMap.getInfobankSmsRejectList */
+               CID
+             , RSEQ
+             , RDATETIME
+             , TO_CHAR(RDATETIME, 'YYYYMMDD') REJECT_DT
+             , CALLNUM
+             , RBIT
+          FROM TB_INFOBANK_REJCALL
+         WHERE CALLNUM
+         <foreach collection="lstCellNo" item="item" separator="," close=")" open="IN (">
+               #{item}
+        </foreach>
+    </select>
+
+
+    <!-- cj올리브네트웍스  SMS 문자메세지를 전송한다.(SMS) -->
+    <insert id="ChatSndgHstrMap.insertnewSendSms" parameterType="map">
+        <selectKey keyProperty="mt_pr" resultType="String" order="BEFORE">
+            SELECT lf_kakao.sms_msg_seq.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertnewSendSms */
+          INTO lf_kakao.SMS_MSG
+              (MSGKEY                                 /* sequence */
+             , REQDATE                       /* 클라이언트의 전송 요청 시간 */
+             , STATUS                               /* 발송상태 */
+             , TYPE                              /* 문자전송상태 */
+             , PHONE                          /* 수신번호 */
+             , CALLBACK                         /* 발신번호 */
+             , MSG 								/* 전송메시지 */
+              )
+        VALUES
+              (#{mt_pr}                              /* sequence */
+             <if test='reserve_yn == "Y"'>
+             , to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             , SYSDATE                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             ,#{status}                              /* 발송상태  1 발송대기 2 전송완료 3 결과수신완료 */
+             ,'0'									/* 문자전송 형태  0 : 일반메세지 1: 콜백 URL메세지 2:동보 일반메세지 3: 동보콜백 URL메시지 */
+             , REPLACE(#{recipient_num}, '-', '')    /* 수신번호 */
+             , REPLACE(#{callback}, '-', '')         /* 발신번호 */
+             , #{content}
+              )
+    </insert>
+
+
+    <!-- cj올리브네트웍스 LMS 문자메세지를 전송한다.(LMS) -->
+    <insert id="ChatSndgHstrMap.insertnewSendLms" parameterType="map">
+        <selectKey keyProperty="mt_pr" resultType="String" order="BEFORE">
+            SELECT lf_kakao.mms_msg_seq.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertnewSendLms */
+          INTO lf_kakao.MMS_MSG
+              (
+               MSGKEY                                 /* sequence */
+             , REQDATE                       /* 클라이언트의 전송 요청 시간 */
+             , SUBJECT                               /* 메시지제목 */
+             , MSG                               /* 전송메시지 */
+             , CALLBACK                              /* 발신번호 */
+             , STATUS                            /* 발송상태  1 발송대기 2 전송완료 3 결과수신완료 */
+             ,TYPE							/* 전송 형태   0  */
+             , PHONE                         /* 수신번호 */
+             , FILE_CNT
+              )
+        VALUES
+              (
+               #{mt_pr}                              /* sequence */
+             <if test='reserve_yn == "Y"'>
+             , to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             , SYSDATE                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             , #{subject}                            /* 메시지제목 */
+             , #{content}                            /* 전송메시지 */
+             , REPLACE(#{callback}, '-', '')         /* 발신번호 */
+             ,#{status}                                 /* 발송상태  1 발송대기 2 전송완료 3 결과수신완료 */
+             , '0'
+             , REPLACE(#{recipient_num}, '-', '')    /* 수신번호 */
+             ,'1'
+              )
+    </insert>
+
+
+     <insert id="ChatSndgHstrMap.insertChatnewSndgHstr" parameterType="map">
+        <selectKey keyProperty="chat_sndg_hstr_id" resultType="String" order="BEFORE">
+            SELECT 'CSH' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') FROM DUAL
+        </selectKey>
+
+        INSERT /* ChatSndgHstrMap.insertChatnewSndgHstr */
+          INTO TB_CHAT_SNDG_HSTR_NEW
+             (
+               CNTR_CD		            /* 센터 코드 */
+            ,  CHAT_SNDG_HSTR_ID		/* 문자 발송 이력 ID */
+            ,  CELL		                /* 휴대번호(수신) */
+            ,  CHAT_SNDG_DIV_CD		    /* 문자 발송 구분 코드 */
+            ,  CHAT_MSG_TITL		    /* 문자 메시지 제목 */
+            ,  CHAT_MSG_CNTN		    /* 문자 메시지 내용 */
+            ,  MSG_TRNM_SCS_YN		    /* 메시지 전송 성공 여부 */
+            <!-- ,  MSG_TRNM_FALR_RSN	    /* 메시지 전송 실패 사유 */ -->
+            ,  SNDG_DTTM		        /* 발송 일시 */
+            ,  SNDG_CHPR_ID		        /* 발송 담당자 ID */
+            ,  RESR_YN		            /* 예약 여부 */
+            ,  RESR_DTTM		        /* 예약 일시 */
+            ,  CNTR_RPRS_TLNO		    /* 센터 대표 전화번호 */
+            <!-- ,  CONSNO		            /* 상담번호 */ -->
+            ,  MEM_NO		            /* 대명고객 번호 */
+            ,  MEM_NM		            /* 대명고객 명 */
+
+            ,  SNDG_NO		            /* 발송 번호 */
+            ,  SNDG_SQNC		        /* 발송 순서 */
+            ,  CHAT_SNDG_STAT_CD		/* 문자 발송 상태 코드 */
+            <!--,  CMPG_ID		            /* 캠페인 ID */
+            ,  TRGT_LIST_ID		        /* 대상 목록 ID */
+            ,  TRGT_CUST_ID		        /* 대상 고객 ID */ -->
+            ,  RGSR_ID		            /* 등록자 ID */
+            ,  RGSN_DTTM		        /* 등록 일시 */
+            ,  AMND_ID		            /* 수정자 ID */
+            ,  AMNT_DTTM		        /* 수정 일시 */
+             )
+          VALUES
+             (
+               #{cntr_cd}	                                      /* 센터 코드 */
+            ,  #{chat_sndg_hstr_id}		                          /* 문자 발송 이력 ID */
+            ,  REPLACE(#{recipient_num}, '-', '')                 /* 휴대번호(수신) */
+             <if test='chat_msg_typ_cd == "KAKAO"'>
+            ,  '4'	                              /* 문자 발송 구분 코드 (메시지 전송타입 0:SMS, 2:MMS, 3:LMS  4:알림톡) */
+            </if>
+             <if test='chat_msg_typ_cd != "KAKAO"'>
+            ,  #{service_type}		                              /* 문자 발송 구분 코드 (메시지 전송타입 0:SMS, 2:MMS, 3:LMS 4:알림톡) */
+            </if>
+            ,  #{subject}		                                  /* 문자 메시지 제목 */
+            ,  #{content}                                         /* 문자 메시지 내용 */
+            ,  'Y'          		                              /* 메시지 전송 성공 여부 */
+            <!-- ,  MSG_TRNM_FALR_RSN	    /* 메시지 전송 실패 사유 */ -->
+            ,  SYSDATE		                                      /* 발송 일시 */
+            ,  #{rgsr_id}		                                  /* 발송 담당자 ID */
+            ,  #{reserve_yn}                                      /* 예약 여부 */
+            ,  to_date(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS')  /* 예약 일시 */
+            ,  REPLACE(#{callback}, '-', '')  		              /* 센터 대표 전화번호(발신번호) */
+            <!-- ,  CONSNO		            /* 상담번호 */ -->
+            ,  #{mem_no}		            /* 대명고객 번호 */
+            ,  #{mem_nm}		            /* 대명고객 명 */
+            ,  #{sndg_no}		            /* 발송 번호 */
+            ,  NVL(#{sndg_sqnc}, 0)		    /* 발송 순서 */
+            ,  '1'		                    /* 문자 발송 상태 코드(전송대기) */
+            <!-- ,  CMPG_ID		            /* 캠페인 ID */
+            ,  TRGT_LIST_ID		        /* 대상 목록 ID */
+            ,  TRGT_CUST_ID		        /* 대상 고객 ID */ -->
+            ,  #{rgsr_id}		                                  /* 등록자 ID */
+            ,  SYSDATE		                                      /* 등록 일시 */
+            ,  #{rgsr_id}		                                  /* 수정자 ID */
+            ,  SYSDATE                                            /* 수정 일시 */
+             )
+    </insert>
+
+    <!-- 일괄발송시 Status 변경 -->
+    <update id="ChatSndgHstrMap.updatenewMsgStatus" parameterType="map">
+        <selectKey keyProperty="all_id" resultType="String" order="BEFORE">
+            SELECT  to_char(nvl(max(to_number(etc1)),0) + 1) FROM
+               <if test='service_type == "0"'>
+                   <if test='chat_msg_typ_cd == "KAKAO"'>
+                       lf_kakao.KKO_MSG
+                      </if>
+                      <if test='chat_msg_typ_cd != "KAKAO"'>
+                       lf_kakao.SMS_MSG
+                      </if>
+               </if>
+               <if test='service_type != "0"'>
+                       <if test='chat_msg_typ_cd == "KAKAO"'>
+                         lf_kakao.KKO_MSG
+                       </if>
+                       <if test='chat_msg_typ_cd != "KAKAO"'>
+                         lf_kakao.MMS_MSG
+                       </if>
+               </if>
+        </selectKey>
+
+        UPDATE
+               <if test='service_type == "0"'>
+                   <if test='chat_msg_typ_cd == "KAKAO"'>
+                       lf_kakao.KKO_MSG
+                      </if>
+                      <if test='chat_msg_typ_cd != "KAKAO"'>
+                       lf_kakao.SMS_MSG
+                      </if>
+               </if>
+               <if test='service_type != "0"'>
+                    <if test='chat_msg_typ_cd == "KAKAO"'>
+                         lf_kakao.KKO_MSG
+                       </if>
+                       <if test='chat_msg_typ_cd != "KAKAO"'>
+                         lf_kakao.MMS_MSG
+                       </if>
+               </if>
+           set status = '1'
+               ,etc1  = #{all_id}
+         where status = '9'
+    </update>
+
+
+
+    <!-- cj올리브네트웍스 KAKAO 알림톡 전송한다. -->
+    <insert id="ChatSndgHstrMap.insertnewSendkakao" parameterType="map">
+        <selectKey keyProperty="mt_pr" resultType="String" order="BEFORE">
+            SELECT LF_KAKAO.KKO_MSG_SEQ.NEXTVAL FROM DUAL
+        </selectKey>
+        INSERT /* ChatSndgHstrMap.insertnewSendkakao */
+          INTO LF_KAKAO.KKO_MSG
+              (MSGKEY                                 /* sequence */
+             , REQDATE                       /* 클라이언트의 전송 요청 시간 */
+             , STATUS                               /* 발송상태 */
+             , PHONE                          /* 수신번호 */
+             , CALLBACK                         /* 발신번호 */
+             , PROFILE_KEY						/* PROFILE_KEY */
+             , MSG 								/* 전송메시지 */
+             , TEMPLATE_CODE                    /* 템플렛 코드 */
+             ,FAILED_TYPE                       /* 카카오알림톡 전송실패시  전송할 메시지 타입  SMS ,LMS */
+             <if test=' kakao_gubun != null and kakao_gubun !="" and   kakao_gubun == "LMS"'>
+             ,FAILED_SUBJECT                    /* 카카오알림톡 전송실패시  전송할 제목 (SMS 미사용) */
+             </if>
+
+             ,FAILED_MSG						/* 카카오알림톡 전송 실패시 전송할 내용 */
+             <if test=' button_gubun != null and button_gubun !="" and   button_gubun == "C"'>
+               ,URL
+               ,URL_BUTTON_TXT
+             </if>
+              )
+        VALUES
+              (#{mt_pr}                              /* sequence */
+             <if test='reserve_yn == "Y"'>
+             , TO_DATE(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 클라이언트의 전송 요청 시간 */
+             </if>
+             <if test='reserve_yn == "N"'>
+             , SYSDATE                               /* 클라이언트의 전송 요청 시간 */
+             </if>
+             ,#{status}                              /* 발송상태  1 발송대기 2 전송완료 3 결과수신완료 */
+             , REPLACE(#{recipient_num}, '-', '')    /* 수신번호 */
+             , REPLACE(#{callback}, '-', '')         /* 발신번호 */
+             , '0d8f9cdc9f98ccf406e32d20cb79ae85356cbde0'                         /* PROFILE_KEY   */
+             , #{content}
+             , #{tmp_cd}                            /* 템플렛 코드 */
+             , #{kakao_gubun}                   /* 카카오알림톡 전송실패시  전송할 메시지 타입  SMS ,LMS */
+             <if test=' kakao_gubun != null and kakao_gubun !="" and   kakao_gubun == "LMS"'>
+               , #{subject}						/* 카카오알림톡 전송실패시  전송할 제목 (SMS 미사용) */
+             </if>
+             , #{content}  						/* 카카오알림톡 전송 실패시 전송할 내용 */
+             <if test=' button_gubun != null and button_gubun !="" and   button_gubun == "C"'>
+               ,#{button_url}
+               ,#{button_nm}
+             </if>
+              )
+    </insert>
+
+
+       <!-- cj  문자시스템 전송결과 조회 -->
+    <select id="ChatSndgHstrMap.newgetEmLogList" parameterType="map" resultType="resultMap">
+        select MSGKEY as SNDG_NO,REQDATE,RSLT,MSG_RSLT, '4' as CHAT_SNDG_DIV_CD        <!-- 알림톡 로그 -->
+        FROM lf_kakao.KKO_MSG_LOG_${srch_ym}
+           where 1 = 1
+           <choose>
+                        <when test="full_srch_yn != null and full_srch_yn.equalsIgnoreCase('Y')">
+                        <![CDATA[
+                        and  REPORTDATE >= SYSTIMESTAMP - 2
+                        ]]>
+                        </when>
+                        <otherwise>
+                        <![CDATA[
+                       and REPORTDATE >= SYSTIMESTAMP - 30 / 60 / 24
+                        ]]>
+                        </otherwise>
+                    </choose>
+        UNION ALL
+        select MSGKEY as SNDG_NO,REQDATE,RSLT, '','0' as CHAT_SNDG_DIV_CD     <!-- SMS문자 -->
+        FROM lf_kakao.SMS_MSG_LOG_${srch_ym}
+         where 1 = 1
+         <choose>
+                        <when test="full_srch_yn != null and full_srch_yn.equalsIgnoreCase('Y')">
+                        <![CDATA[
+                       and   REPORTDATE >= SYSTIMESTAMP - 2
+                        ]]>
+                        </when>
+                        <otherwise>
+                        <![CDATA[
+                      and  REPORTDATE >= SYSTIMESTAMP - 30 / 60 / 24
+                        ]]>
+                        </otherwise>
+                    </choose>
+        UNION ALL
+        select MSGKEY as SNDG_NO ,REQDATE,RSLT, '','3' as CHAT_SNDG_DIV_CD      <!-- MMS문자 -->
+        FROM lf_kakao.MMS_MSG_LOG_${srch_ym}
+        where 1 =1
+         <choose>
+                        <when test="full_srch_yn != null and full_srch_yn.equalsIgnoreCase('Y')">
+                        <![CDATA[
+                       and   REPORTDATE >= SYSTIMESTAMP - 2
+                        ]]>
+                        </when>
+                        <otherwise>
+                        <![CDATA[
+                    and   REPORTDATE >= SYSTIMESTAMP - 30 / 60 / 24
+                        ]]>
+                        </otherwise>
+                    </choose>
+
+        ORDER BY CHAT_SNDG_DIV_CD, SNDG_NO DESC
+    </select>
+
+
+        <!-- CJ 결과  전송결과 수정 -->
+    <update id="ChatSndgHstrMap.updatenewChatSndgHstrResl" parameterType="map">
+        UPDATE /* ChatSndgHstrMap.updatenewChatSndgHstrResl */
+               TB_CHAT_SNDG_HSTR_NEW
+           SET CHAT_SNDG_STAT_CD = #{rslt} -- 결과값
+              <if test='chat_sndg_div_cd == "4"'>
+             , CHAT_SNDG_RESL_CD = #{msg_Rslt} -- 알림톡 실패시 수신 값
+             </if>
+             <if test='chat_sndg_div_cd != "4"'>
+             , CHAT_SNDG_RESL_CD = #{rslt} -- 결과값
+             </if>
+
+         WHERE CHAT_SNDG_DIV_CD = #{chat_sndg_div_cd}
+           AND SNDG_NO = #{sndg_no}
+    </update>
+
+    <select id="ChatSndgHstrMap.getSmsVrtlSendList" parameterType="map" resultType="resultMap">
+        SELECT A.*
+          FROM ( SELECT '' AS CHK
+                       ,ROWNUM AS PAGE_INDX
+                       ,TBL.MEM_NO
+                       ,TBL.ACCNT_NO
+                       ,REPLACE(TBL.CELL, '-', '') AS CELL
+                       ,TBL.MEM_NM
+                       ,DECODE(TBL.SEX,'0001','남','여') AS SEX
+                       ,NVL(TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(SUBSTR(TBL.BRTH_MON_DAY, 1, 4), 'YYYY'))/12), 0) AS AGE
+                       ,TBL.HOME_ADDR
+                       ,TBL.MONTH_COUNT
+                       ,TBL.TRUE_CNT
+                       ,(TBL.MONTH_COUNT - TBL.TRUE_CNT) AS PASS_CNT
+                       ,TBL.PROD_CD
+                       ,TBL.PROD_NM
+                       ,TBL.JOIN_DT
+                       ,TBL.PAY_DAY
+                       ,TBL.MARKT_AGR_YN
+                       ,TBL.SDP_YN
+                       ,TBL.CI_YN
+                       ,MST.VRTL_SEND_STATE
+                       ,MST.REAL_SEND_STATE
+                       ,MST.RGSR_ID
+                   FROM ( SELECT MPA.ACCNT_NO
+                                ,MB.MEM_NO
+                                ,MB.MEM_NM
+                                ,MB.BRTH_MON_DAY
+                                ,PD.PROD_CD
+                                ,PD.PROD_NM
+                                ,MB.SEX
+                                ,MB.HOME_ADDR
+                                ,MB.CELL
+                                ,MB.MARKT_AGR_YN
+                                ,MPA.JOIN_DT
+                                ,(TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE, 'YYYYMMDD'),(SUBSTR(MPA.JOIN_DT,0,6) || '01')))) AS MONTH_COUNT
+                                ,(SELECT MAX(NO) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT
+                                ,(SELECT MAX(PAY_DAY) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_DAY
+                                ,(SELECT STAT FROM LF_DMUSER.HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS STAT
+                                ,DECODE(PD.SECTION_THR, '0010', 'Y', 'N') AS SDP_YN
+                                ,DECODE(LENGTH(MB.CI_VAL), 88, 'Y', 'N') AS CI_YN
+                            FROM LF_DMUSER.MEM_PROD_ACCNT_DAMO MPA
+                            INNER JOIN LF_DMUSER.MEMBER_DAMO MB
+                                    ON MPA.MEM_NO = MB.MEM_NO
+                                   AND MPA.DEL_FG = 'N'
+                            INNER JOIN LF_DMUSER.PRODUCT PD
+                                    ON MPA.PROD_CD = PD.PROD_CD
+                           WHERE MPA.DEL_FG = 'N'
+                             AND MPA.KSTBIT = '02'
+                             AND SUBSTR(BRTH_MON_DAY,0,4) <![CDATA[<>]]> '1900'
+                             AND LENGTH(TRIM(MB.CELL)) <![CDATA[>]]> 0
+                           <if test="join_dt != null and join_dt != ''">
+                             AND JOIN_DT <![CDATA[<]]> #{join_dt}
+                           </if>
+                           <if test="mem_no != null and mem_no != ''">
+                             AND MB.MEM_NO = #{mem_no}
+                           </if>
+                           <if test="accnt_no != null and accnt_no != ''">
+                             AND MPA.ACCNT_NO = #{accnt_no}
+                           </if>
+                           <if test="cell != null and cell != ''">
+                             AND MB.CELL = #{cell}
+                           </if>
+                           <if test="mem_nm != null and mem_nm != ''">
+                             AND MB.MEM_NM = #{mem_nm}
+                           </if>
+                           <if test="sdp_yn != null and sdp_yn != '' and sdp_yn.equalsIgnoreCase('Y')">
+                             AND PD.SECTION_THR = '0010'
+                           </if>
+                           <if test="sdp_yn != null and sdp_yn != '' and sdp_yn.equalsIgnoreCase('N')">
+                             AND PD.SECTION_THR != '0010'
+                           </if>
+                           <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                             AND LENGTH(MB.CI_VAL) = '88'
+                           </if>
+                           <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                             AND LENGTH(MB.CI_VAL) != '88'
+                           </if>
+                           <if test="sex != null and sex != ''">
+                             AND MB.SEX = #{sex}
+                           </if>
+                        ) TBL
+                   INNER JOIN ( SELECT MEM_NO
+                                      ,COUNT(ACCNT_NO) AS CNT
+                                  FROM LF_DMUSER.MEM_PROD_ACCNT A
+                                  INNER JOIN LF_DMUSER.PRODUCT B
+                                          ON A.PROD_CD = B.PROD_CD
+                                 WHERE A.DEL_FG = 'N'
+                                GROUP BY MEM_NO
+                              ) TBL2
+                           ON TBL.MEM_NO = TBL2.MEM_NO
+                          AND TBL2.CNT = 1
+                   LEFT OUTER JOIN LF_DMUSER.TB_MS_SEND_TEMP MST
+                           ON TBL.MEM_NO = MST.MEM_NO
+                          AND TBL.ACCNT_NO = MST.ACCNT_NO
+                  WHERE TBL.TRUE_CNT > 0
+                    AND (TBL.MONTH_COUNT - TBL.TRUE_CNT) > 1
+                    AND TBL.STAT IN ('01','11','011')
+                    AND MST.VRTL_SEND_STATE IS NULL
+               ) A
+         WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+        <![CDATA[
+           AND PAGE_INDX >= #{startLine}
+           AND PAGE_INDX < #{endLine}
+        ]]>
+        </if>
+    </select>
+
+    <select id="ChatSndgHstrMap.getSmsVrtlSendListTotalCnt" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+          FROM ( SELECT '' AS CHK
+                       ,ROWNUM AS PAGE_INDX
+                       ,TBL.MEM_NO
+                       ,TBL.ACCNT_NO
+                       ,REPLACE(TBL.CELL, '-', '') AS CELL
+                       ,TBL.MEM_NM
+                       ,DECODE(TBL.SEX,'0001','남','여') AS SEX
+                       ,NVL(TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(SUBSTR(TBL.BRTH_MON_DAY, 1, 4), 'YYYY'))/12), 0) AS AGE
+                       ,TBL.HOME_ADDR
+                       ,TBL.MONTH_COUNT
+                       ,TBL.TRUE_CNT
+                       ,(TBL.MONTH_COUNT - TBL.TRUE_CNT) AS PASS_CNT
+                       ,TBL.PROD_CD
+                       ,TBL.PROD_NM
+                       ,TBL.JOIN_DT
+                       ,TBL.PAY_DAY
+                       ,TBL.MARKT_AGR_YN
+                       ,TBL.SDP_YN
+                       ,TBL.CI_YN
+                       ,MST.VRTL_SEND_STATE
+                       ,MST.REAL_SEND_STATE
+                       ,MST.RGSR_ID
+                   FROM ( SELECT MPA.ACCNT_NO
+                                ,MB.MEM_NO
+                                ,MB.MEM_NM
+                                ,MB.BRTH_MON_DAY
+                                ,PD.PROD_CD
+                                ,PD.PROD_NM
+                                ,MB.SEX
+                                ,MB.HOME_ADDR
+                                ,MB.CELL
+                                ,MB.MARKT_AGR_YN
+                                ,MPA.JOIN_DT
+                                ,(TRUNC(MONTHS_BETWEEN(TO_CHAR(SYSDATE, 'YYYYMMDD'),(SUBSTR(MPA.JOIN_DT,0,6) || '01')))) AS MONTH_COUNT
+                                ,(SELECT MAX(NO) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS TRUE_CNT
+                                ,(SELECT MAX(PAY_DAY) FROM LF_DMUSER.PAY_MNG WHERE ACCNT_NO = MPA.ACCNT_NO AND DEL_FG = 'N') AS PAY_DAY
+                                ,(SELECT STAT FROM LF_DMUSER.HP_CALL WHERE ACCNT_NO = MPA.ACCNT_NO) AS STAT
+                                ,DECODE(PD.SECTION_THR, '0010', 'Y', 'N') AS SDP_YN
+                                ,DECODE(LENGTH(MB.CI_VAL), 88, 'Y', 'N') AS CI_YN
+                            FROM LF_DMUSER.MEM_PROD_ACCNT_DAMO MPA
+                            INNER JOIN LF_DMUSER.MEMBER_DAMO MB
+                                    ON MPA.MEM_NO = MB.MEM_NO
+                                   AND MPA.DEL_FG = 'N'
+                            INNER JOIN LF_DMUSER.PRODUCT PD
+                                    ON MPA.PROD_CD = PD.PROD_CD
+                           WHERE MPA.DEL_FG = 'N'
+                             AND MPA.KSTBIT = '02'
+                             AND SUBSTR(BRTH_MON_DAY,0,4) <![CDATA[<>]]> '1900'
+                             AND LENGTH(TRIM(MB.CELL)) <![CDATA[>]]> 0
+                           <if test="join_dt != null and join_dt != ''">
+                             AND JOIN_DT <![CDATA[<]]> #{join_dt}
+                           </if>
+                           <if test="mem_no != null and mem_no != ''">
+                             AND MB.MEM_NO = #{mem_no}
+                           </if>
+                           <if test="accnt_no != null and accnt_no != ''">
+                             AND MPA.ACCNT_NO = #{accnt_no}
+                           </if>
+                           <if test="cell != null and cell != ''">
+                             AND MB.CELL = #{cell}
+                           </if>
+                           <if test="mem_nm != null and mem_nm != ''">
+                             AND MB.MEM_NM = #{mem_nm}
+                           </if>
+                           <if test="sdp_yn != null and sdp_yn != '' and sdp_yn.equalsIgnoreCase('Y')">
+                             AND PD.SECTION_THR = '0010'
+                           </if>
+                           <if test="sdp_yn != null and sdp_yn != '' and sdp_yn.equalsIgnoreCase('N')">
+                             AND PD.SECTION_THR != '0010'
+                           </if>
+                           <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('Y')">
+                             AND LENGTH(MB.CI_VAL) = '88'
+                           </if>
+                           <if test="ci_yn != null and ci_yn != '' and ci_yn.equalsIgnoreCase('N')">
+                             AND LENGTH(MB.CI_VAL) != '88'
+                           </if>
+                           <if test="sex != null and sex != ''">
+                             AND MB.SEX = #{sex}
+                           </if>
+                        ) TBL
+                   INNER JOIN ( SELECT MEM_NO
+                                      ,COUNT(ACCNT_NO) AS CNT
+                                  FROM LF_DMUSER.MEM_PROD_ACCNT A
+                                  INNER JOIN LF_DMUSER.PRODUCT B
+                                          ON A.PROD_CD = B.PROD_CD
+                                 WHERE A.DEL_FG = 'N'
+                                GROUP BY MEM_NO
+                              ) TBL2
+                           ON TBL.MEM_NO = TBL2.MEM_NO
+                          AND TBL2.CNT = 1
+                   LEFT OUTER JOIN LF_DMUSER.TB_MS_SEND_TEMP MST
+                           ON TBL.MEM_NO = MST.MEM_NO
+                          AND TBL.ACCNT_NO = MST.ACCNT_NO
+                  WHERE TBL.TRUE_CNT > 0
+                    AND (TBL.MONTH_COUNT - TBL.TRUE_CNT) > 1
+                    AND TBL.STAT IN ('01','11','011')
+                    AND MST.VRTL_SEND_STATE IS NULL
+               ) A
+         WHERE 1=1
+    </select>
+
+    <insert id="ChatSndgHstrMap.insertVrtlMsSend" parameterType="map">
+       INSERT INTO LF_DMUSER.TB_SMS_BUNDLE_SEND (CELL, SEND_REASON, SEND_MSG, ACCNT_NO, MEM_NO, REG_DM, REG_MAN, DEL_FG)
+            VALUES (#{cell}, '', '', #{accnt_no}, #{mem_no}, SYSDATE, #{rgsr_id}, 'N')
+    </insert>
+
+    <select id="ChatSndgHstrMap.getSmsRealSendList" parameterType="map" resultType="resultMap">
+        SELECT *
+		  FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX
+			           ,SUBSTR(CELL,0,3) || '-****-' || SUBSTR(CELL,-4) AS CELL
+			           ,SEND_REASON
+			           ,SEND_MSG
+			           ,ACCNT_NO
+			           ,MEM_NO
+			           ,REG_DM
+			           ,REG_MAN AS RGSR_ID
+			           ,DEL_FG
+			       FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+			      WHERE 1=1
+			        AND DEL_FG = 'N'
+			        AND REG_MAN = #{rgsr_id}
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			          AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			        </if>
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			          AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			        </if>
+					<if test="mem_no != null and mem_no != ''">
+			          AND MEM_NO = #{mem_no}
+			        </if>
+			        <if test="accnt_no != null and accnt_no != ''">
+			          AND ACCNT_NO = #{accnt_no}
+			        </if>
+			        <if test="cell != null and cell != ''">
+			          AND CELL = #{cell}
+			        </if>
+			        <if test="send_reason != null and send_reason != ''">
+			          AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			        </if>
+		      ) MAIN_LIST
+		 WHERE 1=1
+        <if test="startLine != null and startLine != '' and endLine != null and endLine != ''">
+	        <![CDATA[
+	           AND PAGE_INDX >= #{startLine}
+	           AND PAGE_INDX < #{endLine}
+	        ]]>
+        </if>
+    </select>
+
+    <select id="ChatSndgHstrMap.getSmsRealSendListTotalCnt" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+		  FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX
+			           ,SUBSTR(CELL,0,3) || '-****-' || SUBSTR(CELL,-4) AS CELL
+			           ,SEND_REASON
+			           ,SEND_MSG
+			           ,ACCNT_NO
+			           ,MEM_NO
+			           ,REG_DM
+			           ,REG_MAN AS RGSR_ID
+			           ,DEL_FG
+			       FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+			      WHERE 1=1
+			        AND DEL_FG = 'N'
+			        AND REG_MAN = #{rgsr_id}
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			          AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			        </if>
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			          AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			        </if>
+					<if test="mem_no != null and mem_no != '' ">
+			          AND MEM_NO = #{mem_no}
+			        </if>
+			        <if test="accnt_no != null and accnt_no != ''">
+			          AND ACCNT_NO = #{accnt_no}
+			        </if>
+			        <if test="cell != null and cell != ''">
+			          AND CELL = #{cell}
+			        </if>
+			        <if test="send_reason != null and send_reason != ''">
+			          AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			        </if>
+		      ) MAIN_LIST
+		 WHERE 1=1
+    </select>
+
+    <insert id="ChatSndgHstrMap.insertRealMsSmsSend" parameterType="map">
+        INSERT INTO LF_KAKAO.SMS_MSG (MSGKEY, REQDATE, STATUS, TYPE, PHONE, CALLBACK, MSG)
+        SELECT LF_KAKAO.SMS_MSG_SEQ.NEXTVAL AS MSGKEY            /* SEND KEY */
+        	  <if test="reserve_yn != null and reserve_yn != '' and reserve_yn.equalsIgnoreCase('Y')">
+              ,TO_DATE(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS') /* 예약발송이면 */
+              </if>
+              <if test="reserve_yn != null and reserve_yn != '' and reserve_yn.equalsIgnoreCase('N')">
+              ,SYSDATE /* 즉시발송 */
+              </if>
+              ,'1'                                               /* 전송상태값(1:발송대기, 2:전송완료, 3:결과수신완료) */
+              ,'0'                                               /* TYPE(문자전송 형태  0:일반메세지, 1:콜백URL메세지, 2:동보일반메세지, 3:동보콜백URL메시지) */
+              ,TBL.CELL                                          /* 고객전화번호 */
+              ,#{callback}                                       /* 회신전화번호 */
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              ,TBL.SEND_MSG                                      /* 엑셀일경우는 */
+              </if>
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('textmsg')">
+              ,#{content}                                        /* 텍스트메시지일경우 */
+              </if>
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX /* PAGE INDEX */
+                       ,CELL        AS CELL        /* 전화번호   */
+                       ,SEND_REASON AS SEND_REASON /* 전송사유   */
+                       ,SEND_MSG    AS SEND_MSG    /* 전송메세지 */
+                       ,ACCNT_NO    AS ACCNT_NO    /* 회원번호   */
+                       ,MEM_NO      AS MEM_NO      /* 고유번호   */
+                       ,REG_DM      AS REG_DM      /* 등록일자   */
+                       ,REG_MAN     AS RGSR_ID     /* 등록자ID   */
+                       ,DEL_FG      AS DEL_FG      /* 삭제여부   */
+                   FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+                  WHERE 1=1
+                    AND DEL_FG = 'N'
+                    AND LENGTH(TRIM(CELL)) <![CDATA[>]]> 0
+                    <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              		  AND SEND_MSG IS NOT NULL
+              	    </if>
+              	    <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			          AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			        </if>
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			          AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			        </if>
+                    <if test="cell != null and cell != ''">
+                      AND CELL = #{cell}
+                    </if>
+                    <if test="mem_no != null and mem_no != ''">
+                      AND MEM_NO = #{mem_no}
+                    </if>
+                    <if test="accnt_no != null and accnt_no != ''">
+                      AND ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="send_reason != null and send_reason != ''">
+			          AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			        </if>
+               ) TBL
+         WHERE 1=1 
+         <if test="page_indx_start != null and page_indx_start != '' and page_indx_end != null and page_indx_end != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{page_indx_start}
+           AND PAGE_INDX < #{page_indx_end}
+         ]]>
+         </if>
+    </insert>
+
+    <insert id="ChatSndgHstrMap.insertRealMsLmsSend" parameterType="map">
+        INSERT INTO LF_KAKAO.MMS_MSG(MSGKEY, REQDATE, SUBJECT, MSG, CALLBACK, STATUS, TYPE, PHONE, FILE_CNT)
+        SELECT LF_KAKAO.MMS_MSG_SEQ.NEXTVAL AS MSGKEY
+              <if test="reserve_yn != null and reserve_yn != '' and reserve_yn.equalsIgnoreCase('Y')">
+              ,TO_DATE(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS')
+              </if>
+              <if test="reserve_yn != null and reserve_yn != '' and reserve_yn.equalsIgnoreCase('N')">
+              ,SYSDATE
+              </if>
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              ,SUBSTR(TBL.SEND_MSG, 0, 10)
+              ,TBL.SEND_MSG
+              </if>
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('textmsg')">
+              ,#{subject}
+              ,#{content}
+              </if>
+              ,#{callback}
+              ,'1'                -- 전송상태값(1:발송대기, 2:전송완료, 3:결과수신완료)
+              ,'0'                -- TYPE(문자전송 형태  0:일반메세지, 1:콜백URL메세지, 2:동보일반메세지, 3:동보콜백URL메시지)
+              ,TBL.CELL             -- 고객전화번호
+              ,'1'                -- 파일개수 디폴트는 1
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX /* PAGE INDEX */
+                       ,CELL        AS CELL        /* 전화번호   */
+                       ,SEND_REASON AS SEND_REASON /* 전송사유   */
+                       ,SEND_MSG    AS SEND_MSG    /* 전송메세지 */
+                       ,ACCNT_NO    AS ACCNT_NO    /* 회원번호   */
+                       ,MEM_NO      AS MEM_NO      /* 고유번호   */
+                       ,REG_DM      AS REG_DM      /* 등록일자   */
+                       ,REG_MAN     AS RGSR_ID     /* 등록자ID   */
+                       ,DEL_FG      AS DEL_FG      /* 삭제여부   */
+                   FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+                  WHERE 1=1
+                    AND DEL_FG = 'N'
+                    AND LENGTH(TRIM(CELL)) <![CDATA[>]]> 0
+                    <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              		  AND SEND_MSG IS NOT NULL
+              	    </if>
+              	    <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			          AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			        </if>
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			          AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			        </if>
+                    <if test="cell != null and cell != ''">
+                      AND CELL = #{cell}
+                    </if>
+                    <if test="mem_no != null and mem_no != ''">
+                      AND MEM_NO = #{mem_no}
+                    </if>
+                    <if test="accnt_no != null and accnt_no != ''">
+                      AND ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="send_reason != null and send_reason != ''">
+			          AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			        </if>
+               ) TBL
+         WHERE 1=1 
+         <if test="page_indx_start != null and page_indx_start != '' and page_indx_end != null and page_indx_end != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{page_indx_start}
+           AND PAGE_INDX < #{page_indx_end}
+         ]]>
+         </if>
+    </insert>
+    
+    <insert id="ChatSndgHstrMap.insertRealMsKaKaoSend" parameterType="map">
+        INSERT INTO LF_KAKAO.KKO_MSG(MSGKEY, REQDATE, STATUS, PHONE, CALLBACK, PROFILE_KEY, MSG, TEMPLATE_CODE, FAILED_TYPE, FAILED_SUBJECT, FAILED_MSG)
+        SELECT LF_KAKAO.KKO_MSG_SEQ.NEXTVAL AS MSGKEY
+              <if test="reserve_yn != null and reserve_yn != '' and reserve_yn.equalsIgnoreCase('Y')">
+              ,TO_DATE(#{reserve_date}, 'YYYY-MM-DD HH24:MI:SS')
+              </if>
+              <if test="reserve_yn != null and reserve_yn != '' and reserve_yn.equalsIgnoreCase('N')">
+              ,SYSDATE
+              </if>
+              ,'1'                                               /* 전송상태값(1:발송대기, 2:전송완료, 3:결과수신완료) */
+              ,TBL.CELL
+              ,#{callback}
+              ,'0d8f9cdc9f98ccf406e32d20cb79ae85356cbde0'
+              ,REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( #{content}
+                   ,'{회원명}', (SELECT MEM_NM FROM LF_DMUSER.MEMBER MB WHERE 1=1 AND MB.MEM_NO = TBL.MEM_NO AND DEL_FG = 'N'))                              
+                   ,'{월}', EXTRACT(MONTH FROM SYSDATE))
+                   ,'{일}', EXTRACT(DAY FROM SYSDATE))
+                   ,'{회원번호}', TBL.ACCNT_NO)
+                   ,'{상담사명}', '')
+                   ,'{납입회차}', '')
+                   ,'{연체회차}', '')
+                   ,'{회원연락처}', TBL.CELL)
+                   ,'#', '') AS MSG
+    		  ,#{tmp_cd}
+    		  ,'LMS'
+              ,SUBSTR(#{content}, 0, 10)
+              ,REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( #{content}
+                   ,'{회원명}', (SELECT MEM_NM FROM LF_DMUSER.MEMBER MB WHERE 1=1 AND MB.MEM_NO = TBL.MEM_NO AND DEL_FG = 'N'))                              
+                   ,'{월}', EXTRACT(MONTH FROM SYSDATE))
+                   ,'{일}', EXTRACT(DAY FROM SYSDATE))
+                   ,'{회원번호}', TBL.ACCNT_NO)
+                   ,'{상담사명}', '')
+                   ,'{납입회차}', '')
+                   ,'{연체회차}', '')
+                   ,'{회원연락처}', TBL.CELL) 
+                   ,'#', '') AS FAILED_MSG
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX /* PAGE INDEX */
+                       ,CELL        AS CELL        /* 전화번호   */
+                       ,SEND_REASON AS SEND_REASON /* 전송사유   */
+                       ,SEND_MSG    AS SEND_MSG    /* 전송메세지 */
+                       ,ACCNT_NO    AS ACCNT_NO    /* 회원번호   */
+                       ,MEM_NO      AS MEM_NO      /* 고유번호   */
+                       ,REG_DM      AS REG_DM      /* 등록일자   */
+                       ,REG_MAN     AS RGSR_ID     /* 등록자ID   */
+                       ,DEL_FG      AS DEL_FG      /* 삭제여부   */
+                   FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+                  WHERE 1=1
+                    AND DEL_FG = 'N'
+                    AND LENGTH(TRIM(CELL)) <![CDATA[>]]> 0
+                    <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              		  AND SEND_MSG IS NOT NULL
+              	    </if>
+              	    <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			          AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			        </if>
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			          AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			        </if>
+                    <if test="cell != null and cell != ''">
+                      AND CELL = #{cell}
+                    </if>
+                    <if test="mem_no != null and mem_no != ''">
+                      AND MEM_NO = #{mem_no}
+                    </if>
+                    <if test="accnt_no != null and accnt_no != ''">
+                      AND ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="send_reason != null and send_reason != ''">
+			          AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			        </if>
+               ) TBL
+         WHERE 1=1 
+         <if test="page_indx_start != null and page_indx_start != '' and page_indx_end != null and page_indx_end != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{page_indx_start}
+           AND PAGE_INDX < #{page_indx_end}
+         ]]>
+         </if>
+    </insert>
+
+    <insert id="ChatSndgHstrMap.insertChatMultiSndgHstr" parameterType="map">
+        INSERT INTO TB_CHAT_SNDG_HSTR_NEW ( CNTR_CD		            /* 센터 코드 */
+                                           ,CHAT_SNDG_HSTR_ID		/* 문자 발송 이력 ID */
+                                           ,CELL		            /* 휴대번호(수신) */
+                                           ,CHAT_SNDG_DIV_CD		/* 문자 발송 구분 코드 */
+                                           ,CHAT_MSG_TITL		    /* 문자 메시지 제목 */
+                                           ,CHAT_MSG_CNTN		    /* 문자 메시지 내용 */
+                                           ,MSG_TRNM_SCS_YN		    /* 메시지 전송 성공 여부 */
+                                           ,SNDG_DTTM		        /* 발송 일시 */
+                                           ,SNDG_CHPR_ID		    /* 발송 담당자 ID */
+                                           ,RESR_YN		            /* 예약 여부 */
+                                           ,RESR_DTTM		        /* 예약 일시 */
+                                           ,CNTR_RPRS_TLNO		    /* 센터 대표 전화번호 */
+                                           ,MEM_NO		            /* 대명고객 번호 */
+                                           ,MEM_NM		            /* 대명고객 명 */
+                                           ,SNDG_NO		            /* 발송 번호 */
+                                           ,SNDG_SQNC		        /* 발송 순서 */
+                                           ,CHAT_SNDG_STAT_CD		/* 문자 발송 상태 코드 */
+                                           ,RGSR_ID		            /* 등록자 ID */
+                                           ,RGSN_DTTM		        /* 등록 일시 */
+                                           ,AMND_ID		            /* 수정자 ID */
+                                           ,AMNT_DTTM		        /* 수정 일시 */
+                                          )
+
+        SELECT 'CCA'                                                                             /* 센터 코드 */
+              ,'CSH' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') || LPAD(SEQ_COMMON.NEXTVAL, 7, '0') /* 문자 발송 이력 ID */
+              ,TBL.CELL                                                                          /* 휴대번호(수신) */
+              ,#{service_type}		                                                             /* 문자 발송 구분 코드 */
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              ,SUBSTR(TBL.SEND_MSG, 0, 10)
+              ,TBL.SEND_MSG
+              </if>
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('textmsg')">
+              ,#{subject}
+              ,#{content}
+              </if>
+              <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('kakaomsg')">
+              ,SUBSTR(#{content}, 0, 10)
+              ,REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( #{content}
+                   ,'{회원명}', (SELECT MEM_NM FROM LF_DMUSER.MEMBER MB WHERE 1=1 AND MB.MEM_NO = TBL.MEM_NO AND DEL_FG = 'N'))                              
+                   ,'{월}', EXTRACT(MONTH FROM SYSDATE))
+                   ,'{일}', EXTRACT(DAY FROM SYSDATE))
+                   ,'{회원번호}', TBL.ACCNT_NO)
+                   ,'{상담사명}', '')
+                   ,'{납입회차}', '')
+                   ,'{연체회차}', '')
+                   ,'{회원연락처}', TBL.CELL)
+                   ,'#', '')
+              </if>
+              ,'Y'		    																	 /* 메시지 전송 성공 여부 */
+              ,SYSDATE		        															 /* 발송 일시 */
+              ,TBL.RGSR_ID		   																 /* 발송 담당자 ID */
+              ,#{reserve_yn}		            												 /* 예약 여부 */
+              ,#{reserve_date}		        													 /* 예약 일시 */
+              ,REPLACE(#{callback}, '-', '')		    										 /* 센터 대표 전화번호 */
+              ,TBL.MEM_NO		            													 /* 대명고객 번호 */
+              ,''		            												             /* 대명고객 명 */
+              ,(SELECT NVL(MAX(SNDG_NO) , 0) + 1 FROM PS_WILLVI.TB_CHAT_SNDG_HSTR_NEW WHERE 1=1) /* 발송 번호 */
+              ,'0'		        																 /* 발송 순서 */
+              ,'1'		                														 /* 문자 발송 상태 코드 */
+              ,TBL.RGSR_ID		        														 /* 등록자 ID */
+              ,SYSDATE		        															 /* 등록 일시 */
+              ,TBL.RGSR_ID		            													 /* 수정자 ID */
+              ,SYSDATE		        															 /* 수정 일시 */
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX /* PAGE INDEX */
+                       ,CELL        AS CELL        /* 전화번호   */
+                       ,SEND_REASON AS SEND_REASON /* 전송사유   */
+                       ,SEND_MSG    AS SEND_MSG    /* 전송메세지 */
+                       ,ACCNT_NO    AS ACCNT_NO    /* 회원번호   */
+                       ,MEM_NO      AS MEM_NO      /* 고유번호   */
+                       ,REG_DM      AS REG_DM      /* 등록일자   */
+                       ,REG_MAN     AS RGSR_ID     /* 등록자ID   */
+                       ,DEL_FG      AS DEL_FG      /* 삭제여부   */
+                   FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+                  WHERE 1=1
+                    AND DEL_FG = 'N'
+                    AND LENGTH(TRIM(CELL)) <![CDATA[>]]> 0
+                    <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              		  AND SEND_MSG IS NOT NULL
+              	    </if>
+              	    <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			          AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			        </if>
+			        <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			          AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			        </if>
+                    <if test="cell != null and cell != ''">
+                      AND CELL = #{cell}
+                    </if>
+                    <if test="mem_no != null and mem_no != ''">
+                      AND MEM_NO = #{mem_no}
+                    </if>
+                    <if test="accnt_no != null and accnt_no != ''">
+                      AND ACCNT_NO = #{accnt_no}
+                    </if>
+                    <if test="send_reason != null and send_reason != ''">
+			          AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			        </if>
+               ) TBL
+         WHERE 1=1 
+         <if test="page_indx_start != null and page_indx_start != '' and page_indx_end != null and page_indx_end != ''">
+         <![CDATA[
+           AND PAGE_INDX >= #{page_indx_start}
+           AND PAGE_INDX < #{page_indx_end}
+         ]]>
+         </if>
+    </insert>
+
+    <insert id="ChatSndgHstrMap.updateChatMultiSndg" parameterType="map">
+        UPDATE LF_DMUSER.TB_SMS_BUNDLE_SEND
+           SET DEL_FG = 'Y'
+            <if test="content != null and content != ''">
+              ,SEND_MSG = #{content}
+            </if>
+         WHERE 1=1
+           AND (ROWID, MEM_NO, ACCNT_NO, CELL) IN (
+
+        SELECT ROWID 
+        	  ,TBL.MEM_NO
+              ,TBL.ACCNT_NO
+              ,TBL.CELL
+          FROM ( SELECT ROW_NUMBER() OVER(ORDER BY CELL ASC) AS PAGE_INDX /* PAGE INDEX */
+                       ,CELL        AS CELL        /* 전화번호   */
+                       ,SEND_REASON AS SEND_REASON /* 전송사유   */
+                       ,SEND_MSG    AS SEND_MSG    /* 전송메세지 */
+                       ,ACCNT_NO    AS ACCNT_NO    /* 회원번호   */
+                       ,MEM_NO      AS MEM_NO      /* 고유번호   */
+                       ,REG_DM      AS REG_DM      /* 등록일자   */
+                       ,REG_MAN     AS RGSR_ID     /* 등록자ID   */
+                       ,DEL_FG      AS DEL_FG      /* 삭제여부   */
+                   FROM LF_DMUSER.TB_SMS_BUNDLE_SEND
+                  WHERE 1=1
+                    AND DEL_FG = 'N'
+                    AND LENGTH(TRIM(CELL)) <![CDATA[>]]> 0
+			  	  <if test="msg_type != null and msg_type != '' and msg_type.equalsIgnoreCase('excelmsg')">
+              		AND SEND_MSG IS NOT NULL
+              	  </if>
+              	  <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('SMS')">
+			        AND (LENGTHB(SEND_MSG) <![CDATA[<=]]> 140 OR SEND_MSG IS NULL)
+			      </if>
+			      <if test="msg_gb != null and msg_gb != '' and msg_gb.equalsIgnoreCase('LMS')">
+			        AND LENGTHB(SEND_MSG) <![CDATA[>]]> 140
+			      </if>
+                  <if test="cell != null and cell != ''">
+                    AND CELL = #{cell}
+                  </if>
+                  <if test="mem_no != null and mem_no != ''">
+                    AND MEM_NO = #{mem_no}
+                  </if>
+                  <if test="accnt_no != null and accnt_no != ''">
+                    AND ACCNT_NO = #{accnt_no}
+                  </if>
+                  <if test="send_reason != null and send_reason != ''">
+			        AND SEND_REASON LIKE '%' || #{send_reason} || '%'
+			      </if>
+			   ) TBL
+         WHERE 1=1
+        <if test="page_indx_start != null and page_indx_start != '' and page_indx_end != null and page_indx_end != ''">
+        <![CDATA[
+           AND PAGE_INDX >= #{page_indx_start}
+           AND PAGE_INDX < #{page_indx_end}
+        ]]>
+        </if>
+        )
+    </insert>
+
+    <!-- SMS일괄 업로드  -->
+    <insert id="ChatSndgHstrMap.insertSms" parameterType="map">
+        INSERT /* ChatSndgHstrMap.insertSms */
+          INTO LF_DMUSER.TB_SMS_BUNDLE_SEND
+              (
+	               CELL
+	             , SEND_REASON
+	             , SEND_MSG
+	             , ACCNT_NO
+	             , MEM_NO
+	             , REG_DM
+	             , REG_MAN
+	             , DEL_FG
+              )
+        VALUES
+              (
+	               #{cell}
+	             , #{send_reason}
+	             , #{msg}
+	             , #{accnt_no}
+	             , #{mem_no}
+	             , sysdate
+	             , #{rgsr_id}
+	             , 'N'
+              )
+    </insert>
+
+    <!-- ================================================================
+     * 날짜 : 20190307
+     * 이름 : 송준빈
+     * 추가내용 : 배치문자전송일등록 조회
+     * 대상 테이블 : LF_DMUSER.TB_MSG_EXT_SCHED
+     * ================================================================
+     * -->
+    <select id="ChatSndgHstrMap.getMsgExtSched" parameterType="map" resultType="resultMap">
+		SELECT /* ChatSndgHstrMap.getMsgExtSched */
+               *
+          FROM LF_DMUSER.TB_MSG_EXT_SCHED
+         WHERE 1=1
+           <if test="ext_month != null and ext_month != ''">
+           AND SUBSTR(EXT_DT, 1, 6) = #{ext_month}
+           </if>
+           <if test="ext_chk != null and ext_chk != ''">
+           AND EXT_CHK = #{ext_chk}
+           </if>
+         ORDER BY EXT_DT DESC
+
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190307
+     * 이름 : 송준빈
+     * 추가내용 : 배치문자전송일등록 등록유효성체크
+     * 대상 테이블 : LF_DMUSER.TB_MSG_EXT_SCHED
+     * ================================================================
+     * -->
+    <select id="ChatSndgHstrMap.chkMsgExtSched" parameterType="map" resultType="int">
+        SELECT /* ChatSndgHstrMap.chkMsgExtSched */
+               COUNT(*)
+          FROM LF_DMUSER.TB_MSG_EXT_SCHED
+         WHERE 1=1
+           AND EXT_DT = #{ext_dt}
+    </select>
+    
+    <!-- ================================================================
+     * 날짜 : 20190307
+     * 이름 : 송준빈
+     * 추가내용 : 배치문자전송일등록 등록
+     * 대상 테이블 : LF_DMUSER.TB_MSG_EXT_SCHED
+     * ================================================================
+     * -->
+    <insert id="ChatSndgHstrMap.insertMsgExtSched" parameterType="map">
+        INSERT INTO /* ChatSndgHstrMap.insertMsgExtSched */
+                    LF_DMUSER.TB_MSG_EXT_SCHED (EXT_DT, EXT_CHK, REG_MAN, REG_DM)
+             VALUES (#{ext_dt}, #{ext_chk}, #{reg_man}, SYSDATE)
+    </insert>
+    
+   <!-- ================================================================
+     * 날짜 : 20190307
+     * 이름 : 송준빈
+     * 추가내용 : 배치문자전송일등록 삭제
+     * 대상 테이블 : LF_DMUSER.TB_MSG_EXT_SCHED
+     * ================================================================
+     * -->
+    <delete id="ChatSndgHstrMap.deleteMsgExtSched" parameterType="map">
+        DELETE /* DlwDeductionMap.deleteMsgExtSched */
+          FROM LF_DMUSER.TB_MSG_EXT_SCHED
+         WHERE 1=1
+           AND EXT_DT = #{ext_dt}
+    </delete>
+</mapper>

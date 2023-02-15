@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwOcbListMap">
+    <!-- OCB 조직도 -->
+    <select id="DlwOcbListMap.getOcbTreeList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOcbListMap.getOcbTreeList */
+                    DEPT_NM AS NAME
+                  , DEPT_CD
+                  , HIGH_DEPT_CD
+                  , lvl
+                  , LEVEL
+                  , NVL(FN_DEPARTMENT_CHK(#{authgrpcd},DEPT_CD),'0') CHK
+                  , NVL(LOC_CD,' ') LOC_CD
+                  , NVL(DEPT_KIND,' ') DEPT_KIND
+                  , NVL(OCP_CLUSTER,' ') OCP_CLUSTER
+                  , NVL(FN_COM_NM('69',LOC_CD),' ') LOC_NM
+                  , NVL(FN_COM_NM('95',DEPT_KIND),' ') DEPT_KIND_NM
+                  , NVL(FN_COM_NM('96',OCP_CLUSTER),' ') OCP_CLUSTER_NM
+                  , ORDR_TURN
+        FROM DEPARTMENT
+        WHERE USE_YN = 'Y'
+        START WITH DEPT_CD = '0101'
+        CONNECT BY PRIOR DEPT_CD = HIGH_DEPT_CD
+        ORDER SIBLINGS BY DEPT_NM
+    </select>
+
+    <!-- 조직 소속 사원 조회 -->
+    <select id="DlwOcbListMap.getGrpEmpList" parameterType="map" resultType="resultMap">
+        SELECT /* DlwOcbListMap.getGrpEmpList */
+              A.EMPLE_NO,
+              A.EMPLE_NM,
+              A.ENT_DAY,
+              A.RESIN_DAY,
+              A.POSN_CD,
+              FN_COM_NM('06',A.POSN_CD) POSN_NM,
+              A.GRP_EMPLE_NO,
+              A.CELL
+        FROM EMPLOYEE A
+        WHERE A.DEPT_CD = #{dept_cd}
+    </select>
+
+    <!-- 조직도 입력  -->
+    <update id="DlwOcbListMap.insertGrpDept" parameterType="map">
+        INSERT /* DlwOcbListMap.insertGrpDept */
+          INTO DEPARTMENT
+          (
+                 DEPT_CD
+                ,DEPT_NM
+                ,LVL
+                ,HIGH_DEPT_CD
+                ,REG_DM
+                ,REG_MAN
+                ,UPD_DM
+                ,UPD_MAN
+                ,USE_YN
+          )
+          SELECT (SELECT TO_CHAR(MAX(TO_NUMBER(DEPT_CD)) + 1) FROM DEPARTMENT)
+               , 'New department'
+               , #{lvl}
+               , #{high_ed_cd}
+               , SYSDATE
+               , #{reg_man}
+               , SYSDATE
+               , #{upd_man}
+               , 'Y'
+            FROM DUAL
+    </update>
+
+    <!-- 조직도 수정  -->
+    <update id="DlwOcbListMap.updateGrpDept" parameterType="map">
+
+        UPDATE /* DlwOcbListMap.updateGrpDept */
+            DEPARTMENT
+        SET DEPT_NM     = #{name}
+            <if test="ordr_turn != null and ordr_turn != '' ">
+           ,ORDR_TURN   = #{ordr_turn}
+           </if>
+           <if test="loc_cd != null and loc_cd != '' ">
+           ,LOC_CD      = #{loc_cd}
+           </if>
+           <if test="dept_kind != null and dept_kind != '' ">
+           ,DEPT_KIND   = #{dept_kind}
+           </if>
+           <if test="ocp_cluster != null and ocp_cluster != '' ">
+           ,OCP_CLUSTER = #{ocp_cluster}
+           </if>
+           ,UPD_DM      = SYSDATE
+           ,UPD_MAN     = #{upd_man}
+        WHERE DEPT_CD = #{dept_cd}
+
+    </update>
+
+    <!-- 조직도 삭제  -->
+    <update id="DlwOcbListMap.deleteGrpDept" parameterType="map">
+
+        UPDATE /* DlwOcbListMap.deleteGrpDept */
+            DEPARTMENT
+        SET USE_YN  = 'N',
+            UPD_DM  = SYSDATE,
+            UPD_MAN = #{upd_man}
+        WHERE DEPT_CD = #{dept_cd}
+
+    </update>
+
+
+    <!-- OCB 연회비 산출 이력 조회 -->
+    <select id="DlwOcbListMap.getOcbAnnHist" parameterType="map" resultType="resultMap">
+
+        SELECT /* DlwOcbListMap.getOcbAnnHist */
+               ROW_NUMBER () OVER (ORDER BY  OAF.ACCNT_NO) SEQ,
+               OAF.ACCNT_NO,
+               MB.MEM_NM,
+               MPA.JOIN_DT,
+               PD.PROD_NM,
+               OAF.ANNUAL_FEE,
+               MB.CELL,
+               TO_CHAR(OAF.REG_DM, 'YYYY-MM-DD') REG_DM,
+               FN_DAY_ACCSTAT(OAF.ACCNT_NO, '') STAT,
+               FN_PAY_MNG(OAF.ACCNT_NO) SCNT,
+               FN_PAY_CDAY(OAF.ACCNT_NO) LDAY
+        FROM OCB_ANNUAL_FEE OAF
+          LEFT OUTER JOIN MEM_PROD_ACCNT MPA ON OAF.ACCNT_NO = MPA.ACCNT_NO
+          LEFT OUTER JOIN MEMBER MB ON MPA.MEM_NO = MB.MEM_NO
+          LEFT OUTER JOIN PRODUCT PD ON MPA.PROD_CD = PD.PROD_CD
+        WHERE 1 = 1
+          <if test="stt_dt != null and stt_dt != '' ">
+              AND TO_CHAR(OAF.REG_DM, 'YYYYMMDD') <![CDATA[>=]]> #{stt_dt}
+          </if>
+          <if test="stt_dt != null and stt_dt != '' ">
+              AND TO_CHAR(OAF.REG_DM, 'YYYYMMDD') <![CDATA[<=]]> #{end_dt}
+          </if>
+          <if test="accnt_no != null and accnt_no != '' ">
+              AND OAF.ACCNT_NO = #{accnt_no}
+          </if>
+    </select>
+
+
+
+      <insert id="DlwOcbListMap.insertocbyearsave" parameterType="map" >
+        /* DlwOcbListMap.insertocbyearsave  */
+        INSERT INTO OCB_ANNUAL_FEE (
+                  accnt_no
+                , del_fg
+                , reg_dm
+                , reg_man
+                , annual_fee)
+              VALUES (
+                 #{accnt_no}
+                , 'N'
+                , SYSDATE
+                , #{reg_man}
+                , #{ocb_annual_fee})
+    </insert>
+
+
+     <!-- OCB 연회비 산출-->
+        <select id="DlwOcbListMap.getOcbAnnCac" parameterType="map" resultType="resultMap">
+
+          SELECT   /* DlwOcbListMap.getOcbAnnCac */
+                       ROW_NUMBER () OVER (ORDER BY  OAF.ACCNT_NO) SEQ
+                        ,  ac.accnt_no
+                        , ac.join_dt  join_dt
+                        , mem.mem_no
+                        , mem.mem_nm
+                        ,  mem.idn_no idn_no
+                        , mem.cell
+                        , pu.prod_nm
+                        , pu.membership card_code
+                        , occm.OCB_ANNUAL_FEE ocb_annual_fee
+                        , r.RESN_CL
+                        , p.NO
+                        ,pu.EXPR_NO
+                        ,oaf.ANNUAL_FEE
+                        ,oh.USE_YN
+                        ,ac.ocb_gubn
+                        ,oh.ocb_cd
+                        ,mem.ci_val
+                        ,ac.new_chan_gunsu  TCNT
+                        ,( TRUNC(months_between(sysdate,to_date(substr(ac.join_dt,1,6)||'01', 'yyyymmdd'))) + 1) joinNo
+                        ,p.no  scnt
+                        ,ac.new_chan_gunsu+p.no DCNT
+                        ,p.pay_day sday
+                        ,fn_event(ac.accnt_no) STAT
+                        , mem.brth_Mon_Day  brth_Mon_Day
+            FROM MEM_PROD_ACCNT ac
+                 INNER JOIN MEMBER mem ON mem.mem_no = ac.mem_no
+                 INNER JOIN PRODUCT pu ON pu.prod_cd = ac.prod_cd AND pu.del_fg='N'
+                 INNER JOIN EMPLOYEE e on e.emple_no = ac.emple_no
+                 left outer join (
+                  select SEQ
+                       , CARD_CODE
+                       , APP_DT
+                       , nvl((SELECT  to_char(to_Date( min(APP_DT))-1,'yyyymmdd')  APP_DT
+                                   FROM OCB_CARD_CODE_MNG
+                                  WHERE CARD_CODE = TMP.CARD_CODE
+                                    AND DEL_FG = 'N'
+                                    AND APP_DT > TMP.APP_DT
+                                 ), '99991231') NEXT_APP_DT
+                       , OCB_POINT
+                       , OCB_FEE
+                       , OCB_ANNUAL_FEE
+                    from OCB_CARD_CODE_MNG TMP
+                   where del_fg = 'N'
+                 ) occm on pu.MEMBERSHIP = occm.CARD_CODE
+
+            LEFT OUTER JOIN RESCISSION r on r.ACCNT_NO = ac.ACCNT_NO and r.del_fg = 'N'
+            LEFT OUTER JOIN event ev on ev.ACCNT_NO = ac.ACCNT_NO and r.del_fg = 'N'
+            LEFT OUTER JOIN OCB_ANNUAL_FEE oaf ON ac.accnt_no = oaf.accnt_no and oaf.del_fg = 'N'
+            LEFT OUTER JOIN OCB_HIST oh ON ac.ACCNT_NO = oh.ACCNT_NO and oh.USE_YN = 'Y' and oh.stat = '01'
+            INNER JOIN
+                (SELECT accnt_no
+                      , no
+                      , pay_day
+                   FROM (
+                         SELECT RANK() OVER (PARTITION BY accnt_no ORDER BY no desc) AS RANK
+                              , accnt_no
+                              , no
+                              , pay_day
+                          FROM PAY_MNG
+                         WHERE del_fg ='N'
+                           and pay_day   <![CDATA[<]]> #{stt_dt} || '01'
+                        )  tbl
+                   WHERE Rank = 1
+                )  p ON p.accnt_no = ac.accnt_no
+             WHERE 1=1
+               AND pu.PROD_CD != '54'
+               AND  ac.JOIN_DT BETWEEN  occm.APP_DT and  occm.NEXT_APP_DT
+
+               and (ac.ocb_gubn = '00' or oh.ACCNT_NO is not null)
+
+                    and length(nvl(mem.idn_no,' ')) != 10
+                 and  ac.join_dt  <![CDATA[<]]>#{stt_dt} || '01'
+               and nvl(r.resn_cl,'00') != '02'
+               and oaf.accnt_no is null
+               and (pu.MEMBERSHIP is not null and pu.MEMBERSHIP >' ')
+               and p.no >= case
+                              when pu.expr_no = 12 then 1
+                              when pu.expr_no = 1 then 1
+                              else 3
+                           end
+               and nvl(occm.OCB_ANNUAL_FEE, 0) > 0
+               <if test="accnt_no != null and accnt_no != '' ">
+                      AND AC.ACCNT_NO = #{accnt_no}
+                  </if>
+
+
+              order by ROW_NUMBER () OVER (ORDER BY  OAF.ACCNT_NO)
+    </select>
+</mapper>

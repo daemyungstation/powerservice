@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DlwMemMap">
+
+    <!-- NICE Safe-Key 발급권유 SMS 발송후 Safe-Key 발급결과 업데이트 : 
+    	   1. 나이스에서 결과를 넘겨받은 경우
+    	   2. 애큐온인증 화면에서 회원세이프키를 갱신한 경우(세이프키를 등록/삭제) 
+    -->
+    <update id="DlwMemMap.updateNiceSafekey" parameterType="map">
+		BEGIN
+        
+        UPDATE /* DlwMemMap.updateNiceSafekey */
+               MEMBER
+           SET SAFEKEY			= CASE WHEN length(nvl(#{safekey}, '')) > 0 THEN 
+										#{safekey}
+									ELSE 
+										NULL
+									END 									/* SAFEKEY */
+             , SAFEKEY_SRCH_DT	= CASE WHEN length(nvl(#{safekey_srch_dt}, '')) > 0 THEN 
+										#{safekey_srch_dt}
+									ELSE 
+										NULL
+									END 									/* 세이프키조회일자 */
+             , ACUON_FITNESS_YN	= CASE WHEN length(nvl(#{acuon_fitness_yn}, '')) > 0 THEN 
+										#{acuon_fitness_yn}
+									ELSE 
+										NULL
+									END 									/* 애큐온신용등급적합여부 */
+        <if test="ci_val != null and ci_val != ''">
+             , CI_VAL			= #{ci_val}  								/* CI */
+        </if>
+             , UPD_MAN			= #{rgsr_id}  								/* 최종수정자ID */
+             , UPD_DM 			= SYSDATE									/* 최종수정일시분초 */
+		 WHERE MEM_NO = #{mem_no};
+		 
+		 <if test="credit_point != null and credit_point != ''">
+	         INSERT INTO TB_MEMBER_CREDIT_LIST
+	         ( MEM_NO, CREDIT_POINT, REG_DM, REG_MAN )
+	         VALUES
+	         (
+	           #{mem_no}, LPAD(#{credit_point},4,'0'), sysdate, #{rgsr_id}
+	         );
+         </if>
+		 
+		 END;
+    </update>
+    
+    <!-- 테스트 -->    
+    <insert id="DlwMemMap.insertJcyTest1" parameterType="map">
+		INSERT 
+		  INTO JCY_TEST_1
+		(
+		       SEQ         	
+		     , SYS_REG_DTHMS
+		)
+		VALUES
+		<foreach item="item" index="index" collection="list" open="(" separator="),(" close=")">
+		      #{item.seq}
+		     , SYSDATE
+		</foreach>
+    </insert>
+
+</mapper>
